@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0E1726;
+  --paper: #EEF1F6;
+  --card: #FFFFFF;
+  --card-border: #E2E6EE;
+  --signal: #F6A609;
+  --ok: #16A34A;
+  --muted: #6B7A99;
+  --danger: #DC2626;
+}
+
+@theme {
+  --color-ink: #0E1726;
+  --color-paper: #EEF1F6;
+  --color-card: #FFFFFF;
+  --color-card-border: #E2E6EE;
+  --color-signal: #F6A609;
+  --color-ok: #16A34A;
+  --color-muted: #6B7A99;
+  --color-danger: #DC2626;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes amber-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.amber-pulse {
+  animation: amber-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amber-pulse { animation: none; }
+  .animate-spin { animation: none; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
