@@ -24,6 +24,8 @@ export default function StockClient({ areas, productTypes, recentChecks, userId 
   const [note, setNote] = useState('')
   const [stores, setStores] = useState<{ id: string; label: string; retailer_name: string }[]>([])
   const [loadingStores, setLoadingStores] = useState(false)
+  // Snapshot "now" once at mount (lazy init) so recency math stays pure across re-renders.
+  const [now] = useState(() => Date.now())
 
   const areaOptions = areas.map(a => ({ value: a, label: a }))
   const storeOptions = stores.map(s => ({ value: s.id, label: `${s.retailer_name} — ${s.label}` }))
@@ -138,7 +140,7 @@ export default function StockClient({ areas, productTypes, recentChecks, userId 
         ) : (
           <ul className="space-y-2">
             {recentChecks.map((check: any) => {
-              const isRecent = Date.now() - new Date(check.created_at).getTime() < 60 * 60 * 1000
+              const isRecent = now - new Date(check.created_at).getTime() < 60 * 60 * 1000
               return (
                 <li
                   key={check.id}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect from '@/components/SearchableSelect'
 import { Toast, useToast } from '@/components/Toast'
@@ -339,7 +339,7 @@ export default function InterestClient({ sets, myInterests: initialInterests, ov
                     </tr>
                   </thead>
                   <tbody>
-                    {visible.map((row, i) => {
+                    {visible.map((row) => {
                       const isHot = row.interested_count === maxCount && maxCount > 1
                       return (
                         <tr

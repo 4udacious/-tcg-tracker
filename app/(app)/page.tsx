@@ -16,7 +16,9 @@ export default async function HomePage() {
     .limit(5)
 
   // Recent stock checks (last 24h)
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  // eslint-disable-next-line react-hooks/purity -- server component renders once per request; one request-time clock read is intentional
+  const now = Date.now()
+  const since = new Date(now - 24 * 60 * 60 * 1000).toISOString()
   const { data: recentStock } = await supabase
     .from('stock_checks')
     .select('id, created_at, note, store_locations(label, area), product_types(name), profiles(username)')
@@ -78,7 +80,7 @@ export default async function HomePage() {
         {recentStock && recentStock.length > 0 ? (
           <ul className="space-y-2">
             {recentStock.map((check: any) => {
-              const isRecent = Date.now() - new Date(check.created_at).getTime() < 60 * 60 * 1000
+              const isRecent = now - new Date(check.created_at).getTime() < 60 * 60 * 1000
               return (
                 <li
                   key={check.id}
