@@ -23,14 +23,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex flex-col min-h-screen pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-[var(--ink)] text-white px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-[var(--ink)] text-white px-4 py-3 flex items-center justify-between gap-3">
         <span
-          className="text-base font-bold tracking-tight"
+          className="text-sm font-bold tracking-tight truncate"
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          TCG Tracker
+          WA Pokemon Collectors Tracker
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {profile?.avatar_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img

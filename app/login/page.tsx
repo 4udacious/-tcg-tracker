@@ -19,10 +19,10 @@ export default function LoginPage() {
         {/* Logo / wordmark */}
         <div className="mb-10 text-center">
           <h1
-            className="text-3xl font-bold tracking-tight text-[var(--ink)]"
+            className="text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            TCG Tracker
+            WA Pokemon Collectors Tracker
           </h1>
           <p className="mt-2 text-sm text-[var(--muted)]" style={{ fontFamily: 'var(--font-mono)' }}>
             community restock intel

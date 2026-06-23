@@ -22,7 +22,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'TCG Tracker',
+  title: 'WA Pokemon Collectors Tracker',
   description: 'Pokémon TCG restock community tracker',
 }
 
