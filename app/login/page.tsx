@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -18,6 +19,14 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo / wordmark */}
         <div className="mb-10 text-center">
+          <Image
+            src="/logo.png"
+            alt="WA Pokemon Collectors Tracker logo"
+            width={128}
+            height={128}
+            priority
+            className="mx-auto mb-4 w-28 h-28 rounded-full"
+          />
           <h1
             className="text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
             style={{ fontFamily: 'var(--font-display)' }}
