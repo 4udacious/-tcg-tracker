@@ -12,6 +12,14 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+
+# claude code tooling (machine-local installs)
+/.agents
+/.claude/settings.local.json
+/.claude/skills
+/skills-lock.json
 
 # next.js
 /.next/

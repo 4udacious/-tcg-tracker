@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Toast, useToast } from '@/components/Toast'
 import { useRouter } from 'next/navigation'
 
-export default function MachinesClient({ machines, stores }: any) {
+export default function MachinesClient({ machines }: any) {
   const router = useRouter()
   const { toast, show, dismiss } = useToast()
   const [isPending, startTransition] = useTransition()

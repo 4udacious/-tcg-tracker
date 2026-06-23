@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+        env:
+          # Build reads no real secrets (supabase clients resolve env at request
+          # time), but provide placeholders so nothing trips on a missing var.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    # SOFT for now: the app carries pre-existing no-explicit-any debt that is
+    # blocked on regenerating lib/supabase/types.ts (supabase gen types). Kept
+    # separate from `verify` so a lint failure never masks the real gates.
+    # Flip continue-on-error to false once the types regen lands.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  e2e:
+    name: Playwright (auth-gate smoke)
+    runs-on: ubuntu-latest
+    # Non-blocking for now: drives a dev server against a dummy Supabase
+    # endpoint. Flip to required once a seeded test project is wired up.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+        env:
+          # Dummy values: auth.getUser() finds no session → middleware redirects
+          # to /login, which is exactly what the smoke asserts.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
