@@ -14,20 +14,21 @@ export default async function TimersPage() {
 
   const distinctAreas = [...new Set((machineRows ?? []).map((r: any) => r.area))].sort()
 
-  // Today's timer reports
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
+  // Timer reports from the last 24h (rolling window, not a calendar day — a
+  // server-timezone midnight boundary made WA entries vanish ~8am local).
+  // eslint-disable-next-line react-hooks/purity -- server component renders once per request
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-  const { data: todayReports } = await supabase
+  const { data: recentReports } = await supabase
     .from('timer_reports')
     .select('id, minutes, success, reported_at, machines(id, machine_code, venue, nickname, area, address), profiles(username)')
-    .gte('reported_at', todayStart.toISOString())
+    .gte('reported_at', since)
     .order('reported_at', { ascending: false })
 
   return (
     <TimersClient
       areas={distinctAreas}
-      todayReports={todayReports ?? []}
+      recentReports={recentReports ?? []}
       userId={user.id}
     />
   )

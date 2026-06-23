@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import SearchableSelect from '@/components/SearchableSelect'
 import { Toast, useToast } from '@/components/Toast'
 import { useRouter } from 'next/navigation'
+import { wrapMinute, filterReportsByArea } from './utils'
 
 interface TimerReport {
   id: string
@@ -17,11 +18,11 @@ interface TimerReport {
 
 interface Props {
   areas: string[]
-  todayReports: TimerReport[]
+  recentReports: TimerReport[]
   userId: string
 }
 
-export default function TimersClient({ areas, todayReports, userId }: Props) {
+export default function TimersClient({ areas, recentReports, userId }: Props) {
   const router = useRouter()
   const { toast, show, dismiss } = useToast()
   const [isPending, startTransition] = useTransition()
@@ -78,8 +79,10 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
     startTransition(() => router.refresh())
   }
 
-  // Group today's reports by machine
-  const byMachine = todayReports.reduce<Record<string, { machine: TimerReport['machines']; reports: TimerReport[] }>>((acc, r) => {
+  // Scope the recent list to the selected area (the log form's area selector),
+  // then group by machine. Empty area = all areas.
+  const visibleReports = filterReportsByArea(recentReports, selectedArea)
+  const byMachine = visibleReports.reduce<Record<string, { machine: TimerReport['machines']; reports: TimerReport[] }>>((acc, r) => {
     const key = r.machines?.id ?? 'unknown'
     if (!acc[key]) acc[key] = { machine: r.machines, reports: [] }
     acc[key].reports.push(r)
@@ -122,7 +125,7 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
             <div className="flex items-center justify-center gap-2">
               <button
                 type="button"
-                onClick={() => setMinutes(m => (m - 10 + 60) % 60)}
+                onClick={() => setMinutes(m => wrapMinute(m, -10))}
                 className="w-9 h-9 rounded-full border border-[var(--card-border)] text-xs font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
                 aria-label="Decrease minute by 10"
               >
@@ -130,7 +133,7 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => setMinutes(m => (m - 1 + 60) % 60)}
+                onClick={() => setMinutes(m => wrapMinute(m, -1))}
                 className="w-10 h-10 rounded-full border border-[var(--card-border)] text-lg font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
                 aria-label="Decrease minute"
               >
@@ -145,7 +148,7 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => setMinutes(m => (m + 1) % 60)}
+                onClick={() => setMinutes(m => wrapMinute(m, 1))}
                 className="w-10 h-10 rounded-full border border-[var(--card-border)] text-lg font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
                 aria-label="Increase minute"
               >
@@ -153,7 +156,7 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => setMinutes(m => (m + 10) % 60)}
+                onClick={() => setMinutes(m => wrapMinute(m, 10))}
                 className="w-9 h-9 rounded-full border border-[var(--card-border)] text-xs font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
                 aria-label="Increase minute by 10"
               >
@@ -203,15 +206,22 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
         </button>
       </form>
 
-      {/* Today's data */}
+      {/* Recent data (last 24h) */}
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--muted)] mb-3" style={{ fontFamily: 'var(--font-mono)' }}>
-          Today&apos;s Timers
-        </h2>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--muted)]" style={{ fontFamily: 'var(--font-mono)' }}>
+            Recent Timers{selectedArea ? ` · ${selectedArea}` : ''}
+          </h2>
+          <span className="text-xs text-[var(--muted)]" style={{ fontFamily: 'var(--font-mono)' }}>
+            Last 24h
+          </span>
+        </div>
 
         {machineIds.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-sm text-[var(--muted)]">No active timers.</p>
+            <p className="text-sm text-[var(--muted)]">
+              {selectedArea ? `No timers in ${selectedArea} in the last 24h.` : 'No active timers.'}
+            </p>
             <p className="text-xs text-[var(--muted)] mt-1">Log one when you spot a machine.</p>
           </div>
         ) : (
