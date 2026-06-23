@@ -29,7 +29,7 @@ export default async function HomePage() {
   todayStart.setHours(0, 0, 0, 0)
   const { data: recentHits } = await supabase
     .from('timer_reports')
-    .select('id, minutes, success, reported_at, machines(machine_code, venue, nickname), profiles(username)')
+    .select('id, minutes, success, reported_at, machines(machine_code, venue, nickname, address), profiles(username)')
     .gte('reported_at', todayStart.toISOString())
     .eq('success', true)
     .order('reported_at', { ascending: false })
@@ -127,6 +127,13 @@ export default async function HomePage() {
                   </p>
                 </div>
                 <p className="text-xs text-[var(--muted)] mt-0.5 ml-5" style={{ fontFamily: 'var(--font-mono)' }}>
+                  {(hit.machines as any)?.venue}
+                  {(hit.machines as any)?.nickname && ` (${(hit.machines as any).nickname})`}
+                </p>
+                <p className="text-[10px] text-[var(--muted)]/70 mt-0.5 ml-5" style={{ fontFamily: 'var(--font-mono)' }}>
+                  {(hit.machines as any)?.address}
+                </p>
+                <p className="text-xs text-[var(--muted)] mt-1 ml-5" style={{ fontFamily: 'var(--font-mono)' }}>
                   {(hit.profiles as any)?.username} · {timeAgo(hit.reported_at)}
                 </p>
               </li>
