@@ -25,14 +25,17 @@ interface OverviewRow {
   interested_users: string[]
 }
 
+interface MemberRow { id: string; username: string | null; display_name: string | null }
+
 interface Props {
   sets: SetRow[]
   myInterests: InterestRow[]
   overview: OverviewRow[]
+  members: MemberRow[]
   userId: string
 }
 
-export default function InterestClient({ sets, myInterests: initialInterests, overview, userId }: Props) {
+export default function InterestClient({ sets, myInterests: initialInterests, overview, members, userId }: Props) {
   const router = useRouter()
   const { toast, show, dismiss } = useToast()
   const [isPending, startTransition] = useTransition()
@@ -44,9 +47,30 @@ export default function InterestClient({ sets, myInterests: initialInterests, ov
   const [products, setProducts] = useState<{ id: string; name: string }[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
 
+  // Browse-another-member state
+  const [selectedMember, setSelectedMember] = useState('')
+  const [memberInterests, setMemberInterests] = useState<InterestRow[]>([])
+  const [loadingMemberInterests, setLoadingMemberInterests] = useState(false)
+
   // UI state
   const [showAllBySet, setShowAllBySet] = useState(false)
-  const [activeTab, setActiveTab] = useState<'add' | 'mine' | 'board'>('board')
+  const [activeTab, setActiveTab] = useState<'add' | 'mine' | 'board' | 'browse'>('board')
+
+  const memberOptions = members.map(m => ({ value: m.id, label: m.display_name ?? m.username ?? 'Unknown' }))
+
+  async function handleMemberChange(memberId: string) {
+    setSelectedMember(memberId)
+    if (!memberId) { setMemberInterests([]); return }
+    setLoadingMemberInterests(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('product_interest')
+      .select('id, note, created_at, product_id, products(id, name, set_id, sets(id, name, set_type))')
+      .eq('user_id', memberId)
+      .order('created_at', { ascending: false })
+    setMemberInterests((data ?? []) as unknown as InterestRow[])
+    setLoadingMemberInterests(false)
+  }
 
   const setOptions = sets.map(s => ({ value: s.id, label: s.name }))
   const productOptions = products.map(p => ({ value: p.id, label: p.name }))
@@ -116,18 +140,18 @@ export default function InterestClient({ sets, myInterests: initialInterests, ov
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={dismiss} />}
 
       {/* Tab bar */}
-      <div className="flex gap-1 mb-5 bg-[var(--card)] border border-[var(--card-border)] rounded-xl p-1">
-        {(['board', 'add', 'mine'] as const).map(tab => (
+      <div className="flex gap-1 mb-5 bg-[var(--card)] border border-[var(--card-border)] rounded-xl p-1 overflow-x-auto">
+        {(['board', 'add', 'mine', 'browse'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 px-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               activeTab === tab
                 ? 'bg-[var(--ink)] text-white'
                 : 'text-[var(--muted)] hover:text-[var(--ink)]'
             }`}
           >
-            {tab === 'board' ? 'Interest Board' : tab === 'add' ? 'Track This' : 'My List'}
+            {tab === 'board' ? 'Interest Board' : tab === 'add' ? 'Track This' : tab === 'mine' ? 'My List' : 'Browse'}
           </button>
         ))}
       </div>
@@ -217,6 +241,47 @@ export default function InterestClient({ sets, myInterests: initialInterests, ov
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      )}
+
+      {/* Browse another member's list */}
+      {activeTab === 'browse' && (
+        <div className="space-y-4">
+          <SearchableSelect
+            options={memberOptions}
+            value={selectedMember}
+            onChange={handleMemberChange}
+            placeholder="Choose a member…"
+            label="Member"
+          />
+
+          {!selectedMember ? (
+            <p className="text-sm text-[var(--muted)] text-center py-12">Pick a member to see their list.</p>
+          ) : loadingMemberInterests ? (
+            <p className="text-sm text-[var(--muted)] text-center py-12">Loading…</p>
+          ) : memberInterests.length === 0 ? (
+            <p className="text-sm text-[var(--muted)] text-center py-12">Nothing tracked yet.</p>
+          ) : (
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--muted)] mb-3" style={{ fontFamily: 'var(--font-mono)' }}>
+                {memberOptions.find(m => m.value === selectedMember)?.label}&apos;s List — <span className="text-[var(--ink)]">{memberInterests.length}</span> items
+              </h2>
+              <ul className="space-y-2">
+                {memberInterests.map((item: InterestRow) => (
+                  <li
+                    key={item.id}
+                    className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl px-4 py-3"
+                  >
+                    <p className="text-sm font-medium text-[var(--ink)] truncate">{item.products?.name}</p>
+                    <p className="text-xs text-[var(--muted)] mt-0.5" style={{ fontFamily: 'var(--font-mono)' }}>
+                      {item.products?.sets?.name}
+                      {item.note && <span className="ml-2 text-[var(--ink)]/60">· {item.note}</span>}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}

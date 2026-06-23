@@ -119,11 +119,19 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
             <label className="block text-xs font-medium text-[var(--muted)] mb-1.5 uppercase tracking-wide" style={{ fontFamily: 'var(--font-mono)' }}>
               Minute mark
             </label>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center gap-2">
               <button
                 type="button"
-                onClick={() => setMinutes(m => Math.max(0, m - 1))}
-                className="w-10 h-10 rounded-full border border-[var(--card-border)] text-lg font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center"
+                onClick={() => setMinutes(m => (m - 10 + 60) % 60)}
+                className="w-9 h-9 rounded-full border border-[var(--card-border)] text-xs font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
+                aria-label="Decrease minute by 10"
+              >
+                −10
+              </button>
+              <button
+                type="button"
+                onClick={() => setMinutes(m => (m - 1 + 60) % 60)}
+                className="w-10 h-10 rounded-full border border-[var(--card-border)] text-lg font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
                 aria-label="Decrease minute"
               >
                 −
@@ -137,11 +145,19 @@ export default function TimersClient({ areas, todayReports, userId }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => setMinutes(m => Math.min(59, m + 1))}
-                className="w-10 h-10 rounded-full border border-[var(--card-border)] text-lg font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center"
+                onClick={() => setMinutes(m => (m + 1) % 60)}
+                className="w-10 h-10 rounded-full border border-[var(--card-border)] text-lg font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
                 aria-label="Increase minute"
               >
                 +
+              </button>
+              <button
+                type="button"
+                onClick={() => setMinutes(m => (m + 10) % 60)}
+                className="w-9 h-9 rounded-full border border-[var(--card-border)] text-xs font-bold text-[var(--ink)] hover:border-[var(--signal)] transition-colors flex items-center justify-center shrink-0"
+                aria-label="Increase minute by 10"
+              >
+                +10
               </button>
             </div>
           </div>

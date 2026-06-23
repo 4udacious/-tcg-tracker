@@ -6,7 +6,7 @@ export default async function InterestPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: sets }, { data: myInterests }, { data: overview }] = await Promise.all([
+  const [{ data: sets }, { data: myInterests }, { data: overview }, { data: members }] = await Promise.all([
     supabase
       .from('sets')
       .select('id, name, set_type, sort_order')
@@ -23,6 +23,11 @@ export default async function InterestPage() {
       .select('*')
       .order('set_sort')
       .order('product_name'),
+    supabase
+      .from('profiles')
+      .select('id, username, display_name')
+      .in('role', ['member', 'mod', 'admin'])
+      .order('username'),
   ])
 
   return (
@@ -30,6 +35,7 @@ export default async function InterestPage() {
       sets={sets ?? []}
       myInterests={myInterests ?? []}
       overview={overview ?? []}
+      members={(members ?? []).filter((m: any) => m.id !== user.id)}
       userId={user.id}
     />
   )
