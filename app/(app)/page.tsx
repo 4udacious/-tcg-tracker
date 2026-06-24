@@ -26,13 +26,12 @@ export default async function HomePage() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Recent timer hits (today)
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
+  // Recent timer hits (last 24h — reuses `since` above; a calendar-day window
+  // hid WA entries at the server-timezone midnight boundary)
   const { data: recentHits } = await supabase
     .from('timer_reports')
     .select('id, minutes, success, reported_at, machines(machine_code, venue, nickname, address), profiles(username)')
-    .gte('reported_at', todayStart.toISOString())
+    .gte('reported_at', since)
     .eq('success', true)
     .order('reported_at', { ascending: false })
     .limit(5)
@@ -112,7 +111,7 @@ export default async function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--muted)]" style={{ fontFamily: 'var(--font-mono)' }}>
-            Timer Hits Today
+            Recent Timer Hits
           </h2>
           <Link href="/timers" className="text-xs text-[var(--signal)] font-medium hover:underline">
             Log timer →
