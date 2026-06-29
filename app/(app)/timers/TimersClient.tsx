@@ -29,6 +29,7 @@ interface FavoriteRow {
 interface TodayReport {
   id: string
   machine_id: string
+  user_id: string
   minutes: number
   success: boolean
   reported_at: string
@@ -38,6 +39,7 @@ interface TodayReport {
 interface TodayCondition {
   id: string
   machine_id: string
+  user_id: string
   note: string | null
   created_at: string
   condition_types: { name: string } | { name: string }[] | null
@@ -171,14 +173,38 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     startTransition(() => router.refresh())
   }
 
+  async function handleDeleteReport(id: string) {
+    if (!window.confirm('Delete this timer report?')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('timer_reports').delete().eq('id', id)
+    if (error) {
+      showToast('Failed to delete.', false)
+      return
+    }
+    showToast('Timer deleted.', true)
+    startTransition(() => router.refresh())
+  }
+
+  async function handleDeleteCondition(id: string) {
+    if (!window.confirm('Delete this status update?')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('machine_conditions').delete().eq('id', id)
+    if (error) {
+      showToast('Failed to delete.', false)
+      return
+    }
+    showToast('Status update deleted.', true)
+    startTransition(() => router.refresh())
+  }
+
   // Group today's activity by machine
   const todayByMachine = useMemo(() => {
     const map = new Map<
       string,
       {
         machine: Machine | undefined
-        reports: { minute: number; success: boolean; reporter: string; ago: string; reportedAt: number }[]
-        conditions: { name: string; ago: string }[]
+        reports: { id: string; minute: number; success: boolean; reporter: string; ago: string; reportedAt: number; isOwn: boolean }[]
+        conditions: { id: string; name: string; ago: string; isOwn: boolean }[]
       }
     >()
 
@@ -188,11 +214,13 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       }
       const profile = one(r.profiles)
       map.get(r.machine_id)!.reports.push({
+        id: r.id,
         minute: r.minutes,
         success: r.success,
         reporter: profile?.display_name ?? profile?.username ?? '?',
         ago: timeAgo(new Date(r.reported_at)),
         reportedAt: new Date(r.reported_at).getTime(),
+        isOwn: r.user_id === userId,
       })
     }
 
@@ -202,8 +230,10 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       }
       const ct = one(c.condition_types)
       map.get(c.machine_id)!.conditions.push({
+        id: c.id,
         name: ct?.name ?? 'Condition',
         ago: timeAgo(new Date(c.created_at)),
+        isOwn: c.user_id === userId,
       })
     }
 
@@ -378,17 +408,38 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                     </div>
                     {conditions.length > 0 && (
                       <div className="flex gap-1.5 flex-wrap">
-                        {conditions.map((c, i) => (
-                          <span key={i} className="font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5">
+                        {conditions.map((c) => (
+                          <span
+                            key={c.id}
+                            className="inline-flex items-center gap-1 font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5"
+                          >
                             {c.name} · {c.ago}
+                            {c.isOwn && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCondition(c.id)}
+                                aria-label="Delete status update"
+                                className="text-signal/60 hover:text-signal"
+                              >
+                                ×
+                              </button>
+                            )}
                           </span>
                         ))}
                       </div>
                     )}
                     {reports.length > 0 && (
                       <ul className="space-y-1.5">
-                        {reports.map((r, i) => (
-                          <TimerCard key={i} minute={r.minute} success={r.success} reporter={r.reporter} ago={r.ago} />
+                        {reports.map((r) => (
+                          <TimerCard
+                            key={r.id}
+                            minute={r.minute}
+                            success={r.success}
+                            reporter={r.reporter}
+                            ago={r.ago}
+                            isOwn={r.isOwn}
+                            onDelete={() => handleDeleteReport(r.id)}
+                          />
                         ))}
                       </ul>
                     )}

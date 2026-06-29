@@ -35,8 +35,9 @@ export default async function HomePage() {
       favoriteIds.length > 0
         ? supabase
             .from('timer_reports')
-            .select('id, minutes, success, reported_at, machines(machine_code, venue, nickname), profiles(username, display_name)')
+            .select('id, minutes, success, reported_at, machines(machine_code, venue, nickname, address), profiles(username, display_name)')
             .in('machine_id', favoriteIds)
+            .eq('success', true)
             .gte('reported_at', since.toISOString())
             .order('reported_at', { ascending: false })
             .limit(15)
@@ -44,11 +45,11 @@ export default async function HomePage() {
       favoriteIds.length > 0
         ? supabase
             .from('machine_conditions')
-            .select('id, note, created_at, machines(machine_code, venue, nickname), condition_types(name), profiles(username, display_name)')
+            .select('id, machine_id, note, created_at, machines(machine_code, venue, nickname, address), condition_types(name), profiles(username, display_name)')
             .in('machine_id', favoriteIds)
             .gte('created_at', since.toISOString())
             .order('created_at', { ascending: false })
-            .limit(15)
+            .limit(50)
         : Promise.resolve({ data: [] }),
       supabase
         .from('product_interest')
@@ -63,10 +64,20 @@ export default async function HomePage() {
         .limit(8),
     ])
 
-  // Merge favorite timers + conditions into one feed, sorted by time
+  // Merge favorite timers (successful only) + the latest status tag per
+  // machine into one feed, sorted by time.
   type FeedItem =
-    | { kind: 'timer'; at: string; minutes: number; success: boolean; machineLabel: string; reporter: string }
-    | { kind: 'condition'; at: string; conditionName: string; note: string | null; machineLabel: string; reporter: string }
+    | { kind: 'timer'; at: string; minutes: number; success: boolean; machineLabel: string; machineAddress: string | null; reporter: string }
+    | { kind: 'condition'; at: string; conditionName: string; note: string | null; machineLabel: string; machineAddress: string | null; reporter: string }
+
+  // Conditions are already ordered most-recent-first, so the first time we
+  // see a machine_id is its latest status tag.
+  const latestConditionByMachine = new Map<string, NonNullable<typeof favConditions>[number]>()
+  for (const c of favConditions ?? []) {
+    if (!latestConditionByMachine.has(c.machine_id)) {
+      latestConditionByMachine.set(c.machine_id, c)
+    }
+  }
 
   const feed: FeedItem[] = [
     ...(favTimers ?? []).map((t) => {
@@ -78,10 +89,11 @@ export default async function HomePage() {
         minutes: t.minutes,
         success: t.success,
         machineLabel: machine ? `${machine.machine_code} — ${machine.nickname ?? machine.venue}` : '',
+        machineAddress: machine?.address ?? null,
         reporter: profile?.display_name ?? profile?.username ?? '?',
       }
     }),
-    ...(favConditions ?? []).map((c) => {
+    ...[...latestConditionByMachine.values()].map((c) => {
       const machine = one(c.machines)
       const condition = one(c.condition_types)
       const profile = one(c.profiles)
@@ -91,6 +103,7 @@ export default async function HomePage() {
         conditionName: condition?.name ?? 'Condition',
         note: c.note,
         machineLabel: machine ? `${machine.machine_code} — ${machine.nickname ?? machine.venue}` : '',
+        machineAddress: machine?.address ?? null,
         reporter: profile?.display_name ?? profile?.username ?? '?',
       }
     }),
@@ -115,15 +128,14 @@ export default async function HomePage() {
               <li key={i} className="bg-card border border-card-border rounded-xl px-4 py-3 flex items-start justify-between gap-2">
                 {item.kind === 'timer' ? (
                   <div className="flex items-center gap-3 min-w-0">
-                    <span
-                      className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
-                        item.success ? 'bg-ok/10 text-ok' : 'bg-card-border text-muted'
-                      }`}
-                    >
-                      {item.success ? '✓' : '✗'}
+                    <span className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs bg-ok/10 text-ok">
+                      ✓
                     </span>
                     <div className="min-w-0">
                       <p className="font-medium text-sm truncate">{item.machineLabel}</p>
+                      {item.machineAddress && (
+                        <p className="font-mono text-xs text-muted truncate">{item.machineAddress}</p>
+                      )}
                       <p className="font-mono text-xs text-muted">
                         :{String(item.minutes).padStart(2, '0')} · {item.reporter}
                       </p>
@@ -133,6 +145,9 @@ export default async function HomePage() {
                   <div className="min-w-0">
                     <p className="font-medium text-sm text-signal truncate">{item.conditionName}</p>
                     <p className="text-xs text-muted truncate">{item.machineLabel}</p>
+                    {item.machineAddress && (
+                      <p className="font-mono text-xs text-muted truncate">{item.machineAddress}</p>
+                    )}
                     {item.note && <p className="text-xs text-muted italic">{item.note}</p>}
                   </div>
                 )}

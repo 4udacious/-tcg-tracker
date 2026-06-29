@@ -27,12 +27,12 @@ export default async function TimersPage() {
     supabase.from('condition_types').select('id, name').order('sort_order'),
     supabase
       .from('timer_reports')
-      .select('id, machine_id, minutes, success, reported_at, profiles(username, display_name)')
+      .select('id, machine_id, user_id, minutes, success, reported_at, profiles(username, display_name)')
       .gte('reported_at', startOfToday.toISOString())
       .order('reported_at', { ascending: false }),
     supabase
       .from('machine_conditions')
-      .select('id, machine_id, note, created_at, condition_types(name), profiles(username, display_name)')
+      .select('id, machine_id, user_id, note, created_at, condition_types(name), profiles(username, display_name)')
       .gte('created_at', startOfToday.toISOString())
       .order('created_at', { ascending: false }),
   ])
