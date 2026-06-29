@@ -89,7 +89,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     () =>
       machines.map((m) => ({
         id: m.id,
-        primary: `${m.machine_code} — ${m.venue}${m.nickname ? ` (${m.nickname})` : ''}`,
+        primary: `${m.machine_code} — ${m.venue}${m.nickname ? ` (${m.nickname})` : ''}, ${m.city}`,
         secondary: m.address ?? undefined,
         region: m.region,
         city: m.city,
