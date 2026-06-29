@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0E1726;
+  --paper: #EEF1F6;
+  --card: #FFFFFF;
+  --card-border: #E2E6EE;
+  --signal: #F6A609;
+  --ok: #16A34A;
+  --muted: #6B7280;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-signal: var(--signal);
+  --color-ok: var(--ok);
+  --color-muted: var(--muted);
+  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* Holo gradient — active timer rings only */
+.holo-gradient {
+  background: conic-gradient(
+    from 0deg,
+    #06b6d4,
+    #818cf8,
+    #e879f9,
+    #f472b6,
+    #06b6d4
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-ring-animated {
+    animation: none !important;
+  }
+}
