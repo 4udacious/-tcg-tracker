@@ -19,22 +19,22 @@ export default async function InterestPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('product_interest')
-      .select('product_id, profiles(username, display_name), products(name, sets(name))')
-      .order('product_id'),
+      .select('user_id, note, profiles(username, display_name), products(name, sets(name))')
+      .order('user_id'),
     supabase.from('v_interest_overview').select('*'),
   ])
 
-  // Group allInterests by product_id
+  // Group allInterests by user_id for the "By Person" tab
   type InterestRow = {
-    product_id: string
+    user_id: string
+    note: string | null
     profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
     products: { name: string; sets: { name: string } | { name: string }[] | null } | { name: string; sets: { name: string } | { name: string }[] | null }[] | null
   }
 
-  const grouped = (allInterests as InterestRow[] | null ?? []).reduce<
-    Record<string, { productName: string; setName: string; users: string[]; count: number }>
-  >((acc, row) => {
-    const pid = row.product_id
+  const peopleMap = new Map<string, { label: string; items: { productName: string; setName: string; note: string | null }[] }>()
+
+  for (const row of (allInterests as InterestRow[] | null) ?? []) {
     const product = Array.isArray(row.products) ? row.products[0] : row.products
     const set = product
       ? Array.isArray((product as { sets: unknown }).sets)
@@ -42,23 +42,24 @@ export default async function InterestPage() {
         : (product as { sets: { name: string } | null }).sets
       : null
     const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
-    const username = profile?.display_name ?? profile?.username ?? '?'
-    if (!acc[pid]) {
-      acc[pid] = {
-        productName: (product as { name: string } | null)?.name ?? '',
-        setName: (set as { name: string } | null)?.name ?? '',
-        users: [],
-        count: 0,
-      }
+    const label = profile?.display_name ?? profile?.username ?? 'Unknown'
+    if (!peopleMap.has(row.user_id)) {
+      peopleMap.set(row.user_id, { label, items: [] })
     }
-    acc[pid].users.push(username)
-    acc[pid].count += 1
-    return acc
-  }, {})
+    peopleMap.get(row.user_id)!.items.push({
+      productName: (product as { name: string } | null)?.name ?? '',
+      setName: (set as { name: string } | null)?.name ?? '',
+      note: row.note,
+    })
+  }
 
-  const othersWant = Object.entries(grouped)
-    .map(([pid, v]) => ({ productId: pid, ...v }))
-    .sort((a, b) => b.count - a.count)
+  const peopleList = [...peopleMap.entries()]
+    .map(([id, v]) => ({ id, label: v.label }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  const interestsByPerson = Object.fromEntries(
+    [...peopleMap.entries()].map(([id, v]) => [id, v.items])
+  )
 
   // v_interest_overview: one row per product. Column names per brief are
   // set_name, set_type, interested_count, interested_users — product identity
@@ -107,7 +108,8 @@ export default async function InterestPage() {
     <InterestTracker
       sets={sets ?? []}
       myInterests={myInterests ?? []}
-      othersWant={othersWant}
+      peopleList={peopleList}
+      interestsByPerson={interestsByPerson}
       interestBoard={interestBoard}
       userId={user!.id}
     />
