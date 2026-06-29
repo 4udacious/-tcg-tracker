@@ -136,8 +136,13 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
         <div className="space-y-4">
           {byMachine.map(({ machineId, machine, totalHits, totalMisses, minuteRows }) => (
             <div key={machineId} className="bg-card border border-card-border rounded-2xl overflow-hidden">
-              <div className="px-4 py-2.5 bg-ink flex items-center justify-between">
-                <span className="font-medium text-sm text-white truncate">{machine?.primary ?? machineId}</span>
+              <div className="px-4 py-2.5 bg-ink flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm text-white truncate">{machine?.primary ?? machineId}</p>
+                  {machine?.secondary && (
+                    <p className="font-mono text-[10px] text-white/50 truncate">{machine.secondary}</p>
+                  )}
+                </div>
                 <span className="font-mono text-xs text-white/60 shrink-0">
                   <span className="text-ok">{totalHits}✓</span> / <span className="text-white/40">{totalMisses}✗</span>
                 </span>

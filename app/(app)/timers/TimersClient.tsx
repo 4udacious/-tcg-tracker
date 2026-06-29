@@ -23,7 +23,7 @@ interface Machine {
 
 interface FavoriteRow {
   machine_id: string
-  machines: { id: string; machine_code: string; venue: string; nickname: string | null } | { id: string; machine_code: string; venue: string; nickname: string | null }[] | null
+  machines: { id: string; machine_code: string; venue: string; nickname: string | null; address: string | null } | { id: string; machine_code: string; venue: string; nickname: string | null; address: string | null }[] | null
 }
 
 interface TodayReport {
