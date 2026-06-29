@@ -75,7 +75,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
   const [tab, setTab] = useState<'log' | 'analytics'>('log')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
-  const [minutes, setMinutes] = useState(15)
+  const [minutes, setMinutes] = useState(() => new Date().getMinutes())
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [conditionNote, setConditionNote] = useState('')
@@ -113,7 +113,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
   function resetForm() {
     setSelectedMachineId(null)
-    setMinutes(15)
+    setMinutes(new Date().getMinutes())
     setOutcome(null)
     setSelectedConditions([])
     setConditionNote('')

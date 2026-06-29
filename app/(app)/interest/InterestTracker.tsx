@@ -59,6 +59,16 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
 
   const [tab, setTab] = useState<Tab>('track')
   const [showAllProducts, setShowAllProducts] = useState(false)
+  const [expandedWho, setExpandedWho] = useState<globalThis.Set<string>>(new globalThis.Set())
+
+  function toggleWho(productName: string) {
+    setExpandedWho((prev: globalThis.Set<string>) => {
+      const next = new globalThis.Set(prev)
+      if (next.has(productName)) next.delete(productName)
+      else next.add(productName)
+      return next
+    })
+  }
 
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
   const [products, setProducts] = useState<SelectOption[]>([])
@@ -316,7 +326,11 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
                           <td className="px-4 py-2.5">
                             <p className="font-medium truncate max-w-[180px]">{row.productName}</p>
                             {row.users.length > 0 && (
-                              <p className="text-xs text-muted truncate max-w-[220px]">{row.users.join(', ')}</p>
+                              <WhoCell
+                                users={row.users}
+                                expanded={expandedWho.has(row.productName)}
+                                onToggle={() => toggleWho(row.productName)}
+                              />
                             )}
                           </td>
                           <td className="px-4 py-2.5 text-right">
@@ -335,5 +349,46 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
         </section>
       )}
     </div>
+  )
+}
+
+const WHO_PREVIEW_COUNT = 2
+
+function WhoCell({ users, expanded, onToggle }: { users: string[]; expanded: boolean; onToggle: () => void }) {
+  const hasMore = users.length > WHO_PREVIEW_COUNT
+
+  if (!hasMore) {
+    return <p className="text-xs text-muted truncate max-w-[220px]">{users.join(', ')}</p>
+  }
+
+  if (expanded) {
+    return (
+      <p className="text-xs text-muted">
+        {users.join(', ')}{' '}
+        <button
+          type="button"
+          onClick={onToggle}
+          className="font-semibold text-signal"
+          aria-label="Show fewer names"
+        >
+          −
+        </button>
+      </p>
+    )
+  }
+
+  const remaining = users.length - WHO_PREVIEW_COUNT
+  return (
+    <p className="text-xs text-muted truncate max-w-[220px]">
+      {users.slice(0, WHO_PREVIEW_COUNT).join(', ')}{' '}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="font-semibold text-signal"
+        aria-label={`Show ${remaining} more`}
+      >
+        +{remaining}
+      </button>
+    </p>
   )
 }
