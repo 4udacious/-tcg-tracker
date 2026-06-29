@@ -73,9 +73,18 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
   const [products, setProducts] = useState<SelectOption[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
+  const [productFilter, setProductFilter] = useState('')
   const [note, setNote] = useState('')
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+
+  function toggleProduct(id: string) {
+    setSelectedProductIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const filteredProducts = productFilter.trim()
+    ? products.filter((p) => p.label.toLowerCase().includes(productFilter.toLowerCase()))
+    : products
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [selectedBoardSetName, setSelectedBoardSetName] = useState<string | null>(null)
@@ -89,7 +98,8 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
 
   async function handleSetChange(setId: string | null) {
     setSelectedSetId(setId)
-    setSelectedProductId(null)
+    setSelectedProductIds([])
+    setProductFilter('')
     setProducts([])
     if (!setId) return
     setLoadingProducts(true)
@@ -111,22 +121,34 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
   }
 
   async function handleTrack() {
-    if (!selectedProductId) return
+    if (selectedProductIds.length === 0) return
     const supabase = createClient()
-    const { error } = await supabase
+    const singleNote = selectedProductIds.length === 1 ? note.trim() || null : null
+    const rows = selectedProductIds.map((productId) => ({
+      user_id: userId,
+      product_id: productId,
+      note: singleNote,
+    }))
+    const { data, error } = await supabase
       .from('product_interest')
-      .insert({ user_id: userId, product_id: selectedProductId, note: note || null })
+      .upsert(rows, { onConflict: 'user_id,product_id', ignoreDuplicates: true })
+      .select('id')
     if (error) {
-      if (error.code === '23505') {
-        showToast('Already tracking.', false)
-      } else {
-        showToast('Something went wrong.', false)
-      }
+      showToast('Something went wrong.', false)
       return
     }
-    showToast('Tracked!', true)
+    const addedCount = data?.length ?? 0
+    const skipped = rows.length - addedCount
+    if (addedCount === 0) {
+      showToast(rows.length === 1 ? 'Already tracking.' : 'Already tracking all of those.', false)
+    } else if (skipped > 0) {
+      showToast(`Tracked ${addedCount}, already tracking ${skipped}.`, true)
+    } else {
+      showToast(addedCount === 1 ? 'Tracked!' : `Tracked ${addedCount} items!`, true)
+    }
     setSelectedSetId(null)
-    setSelectedProductId(null)
+    setSelectedProductIds([])
+    setProductFilter('')
     setProducts([])
     setNote('')
     startTransition(() => router.refresh())
@@ -185,31 +207,66 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
               onChange={handleSetChange}
               placeholder="Pick a set…"
             />
-            <SearchableSelect
-              label="Product"
-              options={products}
-              value={selectedProductId}
-              onChange={setSelectedProductId}
-              placeholder={loadingProducts ? 'Loading…' : selectedSetId ? 'Pick a product…' : 'Pick a set first'}
-              disabled={!selectedSetId || loadingProducts}
-            />
             <div className="space-y-1">
-              <label className="text-sm font-medium text-ink">Note (optional)</label>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="e.g. Costco price"
-                maxLength={200}
-                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
-              />
+              <label className="text-sm font-medium text-ink">
+                Product{selectedProductIds.length > 0 ? ` (${selectedProductIds.length} selected)` : ''}
+              </label>
+              {!selectedSetId ? (
+                <p className="text-sm text-muted bg-paper border border-card-border rounded-xl px-3 py-2.5">Pick a set first</p>
+              ) : loadingProducts ? (
+                <p className="text-sm text-muted bg-paper border border-card-border rounded-xl px-3 py-2.5">Loading…</p>
+              ) : (
+                <div className="border border-card-border rounded-xl overflow-hidden">
+                  <input
+                    type="text"
+                    value={productFilter}
+                    onChange={(e) => setProductFilter(e.target.value)}
+                    placeholder="Type to filter…"
+                    className="w-full text-sm bg-paper px-3 py-2 outline-none placeholder:text-muted border-b border-card-border"
+                  />
+                  <ul className="max-h-52 overflow-y-auto divide-y divide-card-border">
+                    {filteredProducts.length === 0 ? (
+                      <li className="px-3 py-2 text-sm text-muted">No products</li>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <li key={p.id}>
+                          <label className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-paper transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedProductIds.includes(p.id)}
+                              onChange={() => toggleProduct(p.id)}
+                              className="accent-signal w-4 h-4 rounded shrink-0"
+                            />
+                            <span className="text-ink">{p.label}</span>
+                          </label>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              )}
             </div>
+            {selectedProductIds.length === 1 ? (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-ink">Note (optional)</label>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="e.g. Costco price"
+                  maxLength={200}
+                  className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
+                />
+              </div>
+            ) : selectedProductIds.length > 1 ? (
+              <p className="text-xs text-muted italic">Notes can only be added when tracking a single item.</p>
+            ) : null}
             <button
               onClick={handleTrack}
-              disabled={!selectedProductId || isPending}
+              disabled={selectedProductIds.length === 0 || isPending}
               className="w-full bg-signal hover:bg-signal/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
             >
-              Track this
+              {selectedProductIds.length > 1 ? `Track ${selectedProductIds.length} items` : 'Track this'}
             </button>
           </section>
 
