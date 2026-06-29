@@ -324,7 +324,9 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
                           }`}
                         >
                           <td className="px-4 py-2.5">
-                            <p className="font-medium truncate max-w-[180px]">{row.productName}</p>
+                            <p className={`font-medium leading-snug break-words ${row.productName.length > 26 ? 'text-xs' : 'text-sm'}`}>
+                              {row.productName}
+                            </p>
                             {row.users.length > 0 && (
                               <WhoCell
                                 users={row.users}
