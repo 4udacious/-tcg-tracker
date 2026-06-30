@@ -402,9 +402,14 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                 {todayByMachine.map(({ machineId, machine, reports, conditions }) => (
                   <div key={machineId} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="font-semibold text-sm">
-                        <span className="font-mono text-muted">{machine?.machine_code}</span> — {machine?.nickname ?? machine?.venue}
-                      </p>
+                      <div>
+                        <p className="font-semibold text-sm">
+                          <span className="font-mono text-muted">{machine?.machine_code}</span> — {machine?.nickname ?? machine?.venue}
+                        </p>
+                        {machine?.address && (
+                          <p className="text-xs text-muted">{machine.address}</p>
+                        )}
+                      </div>
                     </div>
                     {conditions.length > 0 && (
                       <div className="flex gap-1.5 flex-wrap">
