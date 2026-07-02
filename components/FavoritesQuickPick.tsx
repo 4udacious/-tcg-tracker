@@ -6,6 +6,7 @@ export interface FavoriteMachine {
   venue: string
   nickname: string | null
   address: string | null
+  city: string
 }
 
 interface Props {

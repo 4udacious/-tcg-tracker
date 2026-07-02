@@ -23,7 +23,7 @@ interface Machine {
 
 interface FavoriteRow {
   machine_id: string
-  machines: { id: string; machine_code: string; venue: string; nickname: string | null; address: string | null } | { id: string; machine_code: string; venue: string; nickname: string | null; address: string | null }[] | null
+  machines: { id: string; machine_code: string; venue: string; nickname: string | null; address: string | null; city: string } | { id: string; machine_code: string; venue: string; nickname: string | null; address: string | null; city: string }[] | null
 }
 
 interface TodayReport {
@@ -73,7 +73,8 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const router = useRouter()
   const [, startTransition] = useTransition()
 
-  const [tab, setTab] = useState<'log' | 'analytics'>('log')
+  const [tab, setTab] = useState<'log' | 'activity' | 'analytics'>('log')
+  const [logTab, setLogTab] = useState<'favorites' | 'search'>('favorites')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
   const [minutes, setMinutes] = useState(15)
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
@@ -82,6 +83,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
     new Set(favorites.map((f) => f.machine_id))
   )
+  const [collapsedCities, setCollapsedCities] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -105,6 +107,17 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         .filter((m): m is FavoriteMachine => m !== null),
     [favorites]
   )
+
+  // Group favorites by city for the dropdown
+  const favoritesByCity = useMemo(() => {
+    const map = new Map<string, FavoriteMachine[]>()
+    for (const m of favoriteMachines) {
+      const city = m.city ?? 'Other'
+      if (!map.has(city)) map.set(city, [])
+      map.get(city)!.push(m)
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [favoriteMachines])
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok })
@@ -177,10 +190,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     if (!window.confirm('Delete this timer report?')) return
     const supabase = createClient()
     const { error } = await supabase.from('timer_reports').delete().eq('id', id)
-    if (error) {
-      showToast('Failed to delete.', false)
-      return
-    }
+    if (error) { showToast('Failed to delete.', false); return }
     showToast('Timer deleted.', true)
     startTransition(() => router.refresh())
   }
@@ -189,15 +199,11 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     if (!window.confirm('Delete this status update?')) return
     const supabase = createClient()
     const { error } = await supabase.from('machine_conditions').delete().eq('id', id)
-    if (error) {
-      showToast('Failed to delete.', false)
-      return
-    }
+    if (error) { showToast('Failed to delete.', false); return }
     showToast('Status update deleted.', true)
     startTransition(() => router.refresh())
   }
 
-  // Group today's activity by machine
   const todayByMachine = useMemo(() => {
     const map = new Map<
       string,
@@ -209,14 +215,11 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     >()
 
     for (const r of todayReports) {
-      if (!map.has(r.machine_id)) {
+      if (!map.has(r.machine_id))
         map.set(r.machine_id, { machine: machines.find((m) => m.id === r.machine_id), reports: [], conditions: [] })
-      }
       const profile = one(r.profiles)
       map.get(r.machine_id)!.reports.push({
-        id: r.id,
-        minute: r.minutes,
-        success: r.success,
+        id: r.id, minute: r.minutes, success: r.success,
         reporter: profile?.display_name ?? profile?.username ?? '?',
         ago: timeAgo(new Date(r.reported_at)),
         reportedAt: new Date(r.reported_at).getTime(),
@@ -225,13 +228,11 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     }
 
     for (const c of todayConditions) {
-      if (!map.has(c.machine_id)) {
+      if (!map.has(c.machine_id))
         map.set(c.machine_id, { machine: machines.find((m) => m.id === c.machine_id), reports: [], conditions: [] })
-      }
       const ct = one(c.condition_types)
       map.get(c.machine_id)!.conditions.push({
-        id: c.id,
-        name: ct?.name ?? 'Condition',
+        id: c.id, name: ct?.name ?? 'Condition',
         ago: timeAgo(new Date(c.created_at)),
         isOwn: c.user_id === userId,
       })
@@ -246,6 +247,33 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       })
   }, [todayReports, todayConditions, machines])
 
+  // Group activity by city for collapsible sections
+  const activityByCity = useMemo(() => {
+    const map = new Map<string, typeof todayByMachine>()
+    for (const entry of todayByMachine) {
+      const city = entry.machine?.city ?? 'Unknown'
+      if (!map.has(city)) map.set(city, [])
+      map.get(city)!.push(entry)
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [todayByMachine])
+
+  function toggleCity(city: string) {
+    setCollapsedCities((prev) => {
+      const next = new Set(prev)
+      if (next.has(city)) next.delete(city)
+      else next.add(city)
+      return next
+    })
+  }
+
+  const selectedMachineName = useMemo(() => {
+    if (!selectedMachineId) return null
+    const m = machines.find((m) => m.id === selectedMachineId)
+    if (!m) return null
+    return `${m.machine_code} — ${m.nickname ?? m.venue}`
+  }, [selectedMachineId, machines])
+
   return (
     <div className="space-y-6">
       {toast && (
@@ -254,31 +282,73 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         </div>
       )}
 
+      {/* Main tabs */}
       <div className="flex gap-1">
-        {(['log', 'analytics'] as const).map((t) => (
+        {(['log', 'activity', 'analytics'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
               tab === t ? 'bg-ink text-white' : 'bg-card border border-card-border text-ink hover:border-ink/20'
             }`}
           >
-            {t === 'log' ? 'Log' : 'Analytics'}
+            {t}
           </button>
         ))}
       </div>
 
-      {tab === 'log' ? (
-        <>
-          <section className="bg-card border border-card-border rounded-2xl p-4 space-y-4">
-            <h2 className="font-display font-semibold text-base">Log timer</h2>
+      {tab === 'log' && (
+        <section className="bg-card border border-card-border rounded-2xl p-4 space-y-4">
+          <h2 className="font-display font-semibold text-base">Log timer</h2>
 
-            <FavoritesQuickPick
-              favorites={favoriteMachines}
-              selectedId={selectedMachineId}
-              onSelect={setSelectedMachineId}
-            />
+          {/* Inner machine-picker tabs */}
+          <div className="flex gap-1 bg-paper rounded-xl p-1">
+            <button
+              onClick={() => { setLogTab('favorites'); setSelectedMachineId(null) }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                logTab === 'favorites' ? 'bg-ink text-white' : 'text-ink'
+              }`}
+            >
+              Favorites
+            </button>
+            <button
+              onClick={() => { setLogTab('search'); setSelectedMachineId(null) }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                logTab === 'search' ? 'bg-ink text-white' : 'text-ink'
+              }`}
+            >
+              Search
+            </button>
+          </div>
 
+          {logTab === 'favorites' ? (
+            favoriteMachines.length === 0 ? (
+              <p className="text-sm text-muted">No favorites yet. Switch to Search and star a machine first.</p>
+            ) : (
+              <div className="space-y-2">
+                <select
+                  value={selectedMachineId ?? ''}
+                  onChange={(e) => setSelectedMachineId(e.target.value || null)}
+                  className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 text-ink"
+                >
+                  <option value="">Select a favorite…</option>
+                  {favoritesByCity.map(([city, cityMachines]) => (
+                    <optgroup key={city} label={city}>
+                      {cityMachines.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.machine_code} — {m.nickname ?? m.venue}
+                          {m.address ? ` · ${m.address}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {selectedMachineName && (
+                  <p className="text-xs text-signal font-medium">{selectedMachineName}</p>
+                )}
+              </div>
+            )
+          ) : (
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <LocationSearch
@@ -305,151 +375,181 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                 />
               )}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-ink">Minute of attempt</label>
-                <span className="font-mono text-sm font-semibold text-signal">:{String(minutes).padStart(2, '0')}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMinutes(Math.max(0, minutes - 1))}
-                  className="w-9 h-9 rounded-full bg-paper border border-card-border flex items-center justify-center text-ink hover:bg-card-border transition-colors font-medium"
-                >
-                  −
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={59}
-                  step={1}
-                  value={minutes}
-                  onChange={(e) => setMinutes(Number(e.target.value))}
-                  className="flex-1 accent-signal"
-                />
-                <button
-                  type="button"
-                  onClick={() => setMinutes(Math.min(59, minutes + 1))}
-                  className="w-9 h-9 rounded-full bg-paper border border-card-border flex items-center justify-center text-ink hover:bg-card-border transition-colors font-medium"
-                >
-                  +
-                </button>
-              </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-ink">Minute of attempt</label>
+              <span className="font-mono text-sm font-semibold text-signal">:{String(minutes).padStart(2, '0')}</span>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-ink">Outcome</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOutcome('hit')}
-                  className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
-                    outcome === 'hit' ? 'bg-ok text-white border-ok' : 'bg-paper border-card-border text-ink hover:border-ok/40'
-                  }`}
-                >
-                  Got it
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOutcome('miss')}
-                  className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
-                    outcome === 'miss' ? 'bg-ink text-white border-ink' : 'bg-paper border-card-border text-ink hover:border-ink/40'
-                  }`}
-                >
-                  No luck
-                </button>
-              </div>
-            </div>
-
-            <ConditionFlags conditionTypes={conditionTypes} selected={selectedConditions} onChange={setSelectedConditions} />
-
-            {selectedConditions.length > 0 && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMinutes(Math.max(0, minutes - 1))}
+                className="w-9 h-9 rounded-full bg-paper border border-card-border flex items-center justify-center text-ink hover:bg-card-border transition-colors font-medium"
+              >
+                −
+              </button>
               <input
-                type="text"
-                value={conditionNote}
-                onChange={(e) => setConditionNote(e.target.value)}
-                placeholder="Note (optional)"
-                maxLength={200}
-                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
+                type="range" min={0} max={59} step={1} value={minutes}
+                onChange={(e) => setMinutes(Number(e.target.value))}
+                className="flex-1 accent-signal"
               />
-            )}
+              <button
+                type="button"
+                onClick={() => setMinutes(Math.min(59, minutes + 1))}
+                className="w-9 h-9 rounded-full bg-paper border border-card-border flex items-center justify-center text-ink hover:bg-card-border transition-colors font-medium"
+              >
+                +
+              </button>
+            </div>
+          </div>
 
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-ink">Outcome</label>
             <div className="flex gap-2">
               <button
-                onClick={handleLogTimer}
-                disabled={!selectedMachineId || outcome === null || isSubmitting}
-                className="flex-1 bg-signal hover:bg-signal/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+                type="button"
+                onClick={() => setOutcome('hit')}
+                className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
+                  outcome === 'hit' ? 'bg-ok text-white border-ok' : 'bg-paper border-card-border text-ink hover:border-ok/40'
+                }`}
               >
-                Log timer
+                Got it
               </button>
               <button
-                onClick={handleReportCondition}
-                disabled={!selectedMachineId || selectedConditions.length === 0 || isSubmitting}
-                className="flex-1 bg-card border border-card-border hover:border-ink/30 disabled:opacity-50 disabled:cursor-not-allowed text-ink font-semibold rounded-xl py-2.5 text-sm transition-colors"
+                type="button"
+                onClick={() => setOutcome('miss')}
+                className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
+                  outcome === 'miss' ? 'bg-ink text-white border-ink' : 'bg-paper border-card-border text-ink hover:border-ink/40'
+                }`}
               >
-                Report condition
+                No luck
               </button>
             </div>
-          </section>
+          </div>
 
-          <section className="space-y-3">
-            <h2 className="font-display font-semibold text-base">Today&apos;s Timers</h2>
-            {todayByMachine.length === 0 ? (
-              <p className="text-sm text-muted">No active timers. Log one when you spot a machine.</p>
-            ) : (
-              <div className="space-y-4">
-                {todayByMachine.map(({ machineId, machine, reports, conditions }) => (
-                  <div key={machineId} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-sm">
-                        <span className="font-mono text-muted">{machine?.machine_code}</span> — {machine?.nickname ?? machine?.venue}
-                      </p>
-                    </div>
-                    {conditions.length > 0 && (
-                      <div className="flex gap-1.5 flex-wrap">
-                        {conditions.map((c) => (
-                          <span
-                            key={c.id}
-                            className="inline-flex items-center gap-1 font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5"
-                          >
-                            {c.name} · {c.ago}
-                            {c.isOwn && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteCondition(c.id)}
-                                aria-label="Delete status update"
-                                className="text-signal/60 hover:text-signal"
-                              >
-                                ×
-                              </button>
+          <ConditionFlags conditionTypes={conditionTypes} selected={selectedConditions} onChange={setSelectedConditions} />
+
+          {selectedConditions.length > 0 && (
+            <input
+              type="text"
+              value={conditionNote}
+              onChange={(e) => setConditionNote(e.target.value)}
+              placeholder="Note (optional)"
+              maxLength={200}
+              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
+            />
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleLogTimer}
+              disabled={!selectedMachineId || outcome === null || isSubmitting}
+              className="flex-1 bg-signal hover:bg-signal/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+            >
+              Log timer
+            </button>
+            <button
+              onClick={handleReportCondition}
+              disabled={!selectedMachineId || selectedConditions.length === 0 || isSubmitting}
+              className="flex-1 bg-card border border-card-border hover:border-ink/30 disabled:opacity-50 disabled:cursor-not-allowed text-ink font-semibold rounded-xl py-2.5 text-sm transition-colors"
+            >
+              Report condition
+            </button>
+          </div>
+        </section>
+      )}
+
+      {tab === 'activity' && (
+        <section className="space-y-3">
+          <h2 className="font-display font-semibold text-base">Today&apos;s Activity</h2>
+          {activityByCity.length === 0 ? (
+            <p className="text-sm text-muted">No activity logged today.</p>
+          ) : (
+            <div className="space-y-3">
+              {activityByCity.map(([city, entries]) => {
+                const collapsed = collapsedCities.has(city)
+                return (
+                  <div key={city} className="bg-card border border-card-border rounded-2xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleCity(city)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left"
+                    >
+                      <span className="font-semibold text-sm">{city}</span>
+                      <span className="flex items-center gap-2 text-xs text-muted">
+                        <span>{entries.length} machine{entries.length !== 1 ? 's' : ''}</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </button>
+
+                    {!collapsed && (
+                      <div className="border-t border-card-border divide-y divide-card-border">
+                        {entries.map(({ machineId, machine, reports, conditions }) => (
+                          <div key={machineId} className="px-4 py-3 space-y-2">
+                            <p className="font-semibold text-sm">
+                              <span className="font-mono text-muted">{machine?.machine_code}</span>
+                              {' — '}{machine?.nickname ?? machine?.venue}
+                            </p>
+                            {machine?.address && (
+                              <p className="font-mono text-[10px] text-muted -mt-1">{machine.address}</p>
                             )}
-                          </span>
+                            {conditions.length > 0 && (
+                              <div className="flex gap-1.5 flex-wrap">
+                                {conditions.map((c) => (
+                                  <span
+                                    key={c.id}
+                                    className="inline-flex items-center gap-1 font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5"
+                                  >
+                                    {c.name} · {c.ago}
+                                    {c.isOwn && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteCondition(c.id)}
+                                        aria-label="Delete status update"
+                                        className="text-signal/60 hover:text-signal"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {reports.length > 0 && (
+                              <ul className="space-y-1.5">
+                                {reports.map((r) => (
+                                  <TimerCard
+                                    key={r.id}
+                                    minute={r.minute}
+                                    success={r.success}
+                                    reporter={r.reporter}
+                                    ago={r.ago}
+                                    isOwn={r.isOwn}
+                                    onDelete={() => handleDeleteReport(r.id)}
+                                  />
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
-                    {reports.length > 0 && (
-                      <ul className="space-y-1.5">
-                        {reports.map((r) => (
-                          <TimerCard
-                            key={r.id}
-                            minute={r.minute}
-                            success={r.success}
-                            reporter={r.reporter}
-                            ago={r.ago}
-                            isOwn={r.isOwn}
-                            onDelete={() => handleDeleteReport(r.id)}
-                          />
-                        ))}
-                      </ul>
-                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      ) : (
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'analytics' && (
         <TimerAnalytics machineItems={machineItems} favoriteMachines={favoriteMachines} />
       )}
     </div>

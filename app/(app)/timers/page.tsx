@@ -22,7 +22,7 @@ export default async function TimersPage() {
       .eq('is_active', true),
     supabase
       .from('machine_favorites')
-      .select('machine_id, machines(id, machine_code, venue, nickname, address)')
+      .select('machine_id, machines(id, machine_code, venue, nickname, address, city)')
       .eq('user_id', userId),
     supabase.from('condition_types').select('id, name').order('sort_order'),
     supabase
