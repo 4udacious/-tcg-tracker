@@ -83,6 +83,15 @@ export default function MachinesClient({ machines }: Props) {
     startTransition(() => router.refresh())
   }
 
+  async function deleteMachine(id: string, label: string) {
+    if (!window.confirm(`Permanently delete "${label}"? This cannot be undone.`)) return
+    const supabase = createClient()
+    const { error } = await supabase.from('machines').delete().eq('id', id)
+    if (error) { showToast('Failed to delete machine.'); return }
+    showToast('Machine deleted.')
+    startTransition(() => router.refresh())
+  }
+
   return (
     <div className="space-y-4">
       {toast && (
@@ -126,12 +135,20 @@ export default function MachinesClient({ machines }: Props) {
               </p>
               <p className="font-mono text-xs text-muted truncate">{m.region} · {m.city}{m.address ? ` · ${m.address}` : ''}</p>
             </div>
-            <button
-              onClick={() => toggleMachine(m.id, m.is_active)}
-              className={`shrink-0 text-xs font-medium px-3 py-1 rounded-lg border transition-colors ${m.is_active ? 'text-ok border-ok/30 hover:bg-ok/10' : 'text-muted border-card-border hover:text-ink'}`}
-            >
-              {m.is_active ? 'Active' : 'Inactive'}
-            </button>
+            <div className="shrink-0 flex items-center gap-2">
+              <button
+                onClick={() => toggleMachine(m.id, m.is_active)}
+                className={`text-xs font-medium px-3 py-1 rounded-lg border transition-colors ${m.is_active ? 'text-ok border-ok/30 hover:bg-ok/10' : 'text-muted border-card-border hover:text-ink'}`}
+              >
+                {m.is_active ? 'Active' : 'Inactive'}
+              </button>
+              <button
+                onClick={() => deleteMachine(m.id, `${m.machine_code} — ${m.venue}`)}
+                className="text-xs font-medium text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-3 py-1 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
         {filtered.length === 0 && <p className="text-sm text-muted">No matches.</p>}

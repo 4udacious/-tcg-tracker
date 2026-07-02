@@ -33,6 +33,11 @@ export default function CatalogClient({
   const [productName, setProductName] = useState('')
   const [productSetId, setProductSetId] = useState<string | null>(null)
 
+  // Product edit state
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
+  const [editProductName, setEditProductName] = useState('')
+  const [savingProduct, setSavingProduct] = useState(false)
+
   // Retailer form state
   const [retailerName, setRetailerName] = useState('')
 
@@ -74,6 +79,32 @@ export default function CatalogClient({
     if (error) { showToast('Failed to add product.'); return }
     showToast('Product added.')
     setProductName('')
+    startTransition(() => router.refresh())
+  }
+
+  function startEditProduct(p: Product) {
+    setEditingProductId(p.id)
+    setEditProductName(p.name)
+  }
+
+  function cancelEditProduct() {
+    setEditingProductId(null)
+    setEditProductName('')
+  }
+
+  async function saveProductName() {
+    if (!editingProductId || !editProductName.trim()) return
+    setSavingProduct(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('products')
+      .update({ name: editProductName.trim() })
+      .eq('id', editingProductId)
+    setSavingProduct(false)
+    if (error) { showToast('Failed to rename product.'); return }
+    showToast('Product renamed.')
+    setEditingProductId(null)
+    setEditProductName('')
     startTransition(() => router.refresh())
   }
 
@@ -177,10 +208,52 @@ export default function CatalogClient({
           <ul className="space-y-2">
             {products.map((p) => {
               const set = sets.find((s) => s.id === p.set_id)
+              const isEditing = editingProductId === p.id
               return (
                 <li key={p.id} className="bg-card border border-card-border rounded-xl px-4 py-3">
-                  <p className="text-sm font-medium">{p.name}</p>
-                  <p className="font-mono text-xs text-muted">{set?.name ?? p.set_id}</p>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        value={editProductName}
+                        onChange={(e) => setEditProductName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveProductName()
+                          if (e.key === 'Escape') cancelEditProduct()
+                        }}
+                        autoFocus
+                        className="input-field"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveProductName}
+                          disabled={!editProductName.trim() || savingProduct}
+                          className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEditProduct}
+                          disabled={savingProduct}
+                          className="flex-1 text-sm font-medium text-muted border border-card-border rounded-xl py-2.5 hover:text-ink transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p className="font-mono text-xs text-muted">{set?.name ?? p.set_id}</p>
+                      </div>
+                      <button
+                        onClick={() => startEditProduct(p)}
+                        className="shrink-0 text-xs font-medium text-muted hover:text-ink underline underline-offset-2 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </li>
               )
             })}
