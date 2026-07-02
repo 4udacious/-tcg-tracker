@@ -520,7 +520,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
       {tab === 'activity' && (
         <section className="space-y-3">
-          <h2 className="font-display font-semibold text-base">Today&apos;s Activity</h2>
+          <h2 className="font-display font-semibold text-base">Activity <span className="font-normal text-xs text-muted font-sans">(last 24h)</span></h2>
           {activityByCity.length === 0 ? (
             <p className="text-sm text-muted">No activity logged today.</p>
           ) : (

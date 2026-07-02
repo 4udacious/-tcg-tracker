@@ -6,8 +6,7 @@ export default async function TimersPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user!.id
 
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
+  const startOfToday = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const [
     { data: machines },
