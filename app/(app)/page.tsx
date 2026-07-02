@@ -147,7 +147,7 @@ export default async function HomePage() {
       {/* Favorites feed */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-display font-semibold text-base">Your Favorites</h2>
+          <h2 className="font-display font-semibold text-base">Favorites &amp; Nearby</h2>
           {feed.length > 0 && (
             <span className="text-xs text-muted">Last 48h</span>
           )}
@@ -162,8 +162,10 @@ export default async function HomePage() {
         ) : feed.length === 0 ? (
           <p className="text-sm text-muted">No recent activity on your favorited machines or nearby.</p>
         ) : (
-          <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
-            <ul className="divide-y divide-card-border max-h-72 overflow-y-auto">
+          <div className="bg-card border border-card-border rounded-2xl overflow-hidden relative">
+            {/* Fade hint at bottom when content overflows */}
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-card to-transparent z-10 rounded-b-2xl" />
+            <ul className="divide-y divide-card-border max-h-72 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:theme(colors.card-border)_transparent]">
               {feed.map((item, i) => (
                 <li key={i} className="px-4 py-3 flex items-start justify-between gap-2">
                   {item.kind === 'timer' ? (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LocationSearch, { type LocationItem } from '@/components/LocationSearch'
@@ -84,6 +84,18 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     new Set(favorites.map((f) => f.machine_id))
   )
   const [collapsedCities, setCollapsedCities] = useState<Set<string>>(new Set())
+  const [favDropdownOpen, setFavDropdownOpen] = useState(false)
+  const favDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (favDropdownRef.current && !favDropdownRef.current.contains(e.target as Node)) {
+        setFavDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -325,26 +337,71 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
             favoriteMachines.length === 0 ? (
               <p className="text-sm text-muted">No favorites yet. Switch to Search and star a machine first.</p>
             ) : (
-              <div className="space-y-2">
-                <select
-                  value={selectedMachineId ?? ''}
-                  onChange={(e) => setSelectedMachineId(e.target.value || null)}
-                  className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 text-ink"
+              <div className="relative" ref={favDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setFavDropdownOpen((v) => !v)}
+                  className={`w-full flex items-center justify-between gap-2 bg-card border rounded-xl px-3 py-2.5 text-sm text-left transition-colors ${
+                    favDropdownOpen ? 'border-signal ring-2 ring-signal/20' : 'border-card-border hover:border-ink/30'
+                  }`}
                 >
-                  <option value="">Select a favorite…</option>
-                  {favoritesByCity.map(([city, cityMachines]) => (
-                    <optgroup key={city} label={city}>
-                      {cityMachines.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.machine_code} — {m.nickname ?? m.venue}
-                          {m.address ? ` · ${m.address}` : ''}
-                        </option>
+                  <span className={selectedMachineId ? 'text-ink' : 'text-muted'}>
+                    {selectedMachineId
+                      ? (() => {
+                          const m = favoriteMachines.find((m) => m.id === selectedMachineId)
+                          return m ? `${m.machine_code} — ${m.nickname ?? m.venue}` : 'Select a favorite…'
+                        })()
+                      : 'Select a favorite…'}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {selectedMachineId && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setSelectedMachineId(null) }}
+                        onKeyDown={(e) => e.key === 'Enter' && setSelectedMachineId(null)}
+                        className="w-4 h-4 rounded-full flex items-center justify-center text-muted hover:text-ink hover:bg-paper transition-colors"
+                        aria-label="Clear selection"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </span>
+                    )}
+                    <svg className={`w-4 h-4 text-muted transition-transform ${favDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </div>
+                </button>
+
+                {favDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-card border border-card-border rounded-xl shadow-lg overflow-hidden">
+                    <div className="max-h-72 overflow-y-auto">
+                      {favoritesByCity.map(([city, cityMachines]) => (
+                        <div key={city}>
+                          <div className="sticky top-0 bg-paper px-3 py-1 border-b border-card-border">
+                            <p className="text-xs font-semibold text-ink">{city}</p>
+                          </div>
+                          <ul>
+                            {cityMachines.map((m) => (
+                              <li
+                                key={m.id}
+                                onClick={() => { setSelectedMachineId(m.id); setFavDropdownOpen(false) }}
+                                className={`px-3 py-2 cursor-pointer transition-colors ${
+                                  m.id === selectedMachineId ? 'bg-signal/10' : 'hover:bg-paper'
+                                }`}
+                              >
+                                <p className={`text-sm ${m.id === selectedMachineId ? 'text-signal font-medium' : 'text-ink'}`}>
+                                  {m.machine_code} — {m.nickname ?? m.venue}
+                                </p>
+                                {m.address && <p className="font-mono text-xs text-muted">{m.address}</p>}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </optgroup>
-                  ))}
-                </select>
-                {selectedMachineName && (
-                  <p className="text-xs text-signal font-medium">{selectedMachineName}</p>
+                    </div>
+                  </div>
                 )}
               </div>
             )
@@ -490,7 +547,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                     </button>
 
                     {!collapsed && (
-                      <div className="border-t border-card-border divide-y divide-card-border">
+                      <div className="border-t border-card-border divide-y divide-card-border max-h-80 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:theme(colors.card-border)_transparent]">
                         {entries.map(({ machineId, machine, reports, conditions }) => (
                           <div key={machineId} className="px-4 py-3 space-y-2">
                             <p className="font-semibold text-sm">
