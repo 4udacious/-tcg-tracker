@@ -7,7 +7,7 @@ export default async function RolesPage() {
   const { data: members } = await supabase
     .from('profiles')
     .select('id, username, display_name, role')
-    .in('role', ['member', 'mod', 'admin'])
+    .in('role', ['contributor', 'member', 'mod', 'admin'])
     .order('username')
 
   return <RolesClient members={members ?? []} />

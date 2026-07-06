@@ -19,6 +19,21 @@ interface Props {
 
 const WINDOWS = [3, 5, 7] as const
 
+// yyyy-mm-dd in the browser's local timezone. Used as a stable Map key AND as the
+// input to dateLabel — matching keys is a plain string compare.
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// "Today" / "Yesterday" for the two most recent days, else "Mon Jun 22"-style short form.
+function dateLabel(key: string, today: string, yesterday: string): string {
+  if (key === today) return 'Today'
+  if (key === yesterday) return 'Yesterday'
+  // Parse as local midnight so toLocaleDateString reflects the same day the key means.
+  const d = new Date(key + 'T00:00:00')
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export default function TimerAnalytics({ machineItems, favoriteMachines }: Props) {
   const [scope, setScope] = useState<'favorites' | 'single'>('favorites')
   const [singleMachineId, setSingleMachineId] = useState<string | null>(null)
@@ -59,6 +74,15 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
   }, [machineIds, windowDays])
 
   const byMachine = useMemo(() => {
+    // yyyy-mm-dd in the browser's local timezone — sortable and unambiguous.
+    // Compute today/yesterday once per memo run so all rows share the same
+    // "today" reference (no drift if the memo re-runs across midnight).
+    const now = new Date()
+    const today = dateKey(now)
+    const y = new Date(now)
+    y.setDate(y.getDate() - 1)
+    const yesterday = dateKey(y)
+
     const map = new Map<string, Report[]>()
     for (const r of reports) {
       if (!map.has(r.machine_id)) map.set(r.machine_id, [])
@@ -66,15 +90,19 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
     }
     return [...map.entries()].map(([machineId, list]) => {
       const machine = machineItems.find((m) => m.id === machineId)
-      const tally = new Map<number, { hits: number; misses: number }>()
+      const tally = new Map<string, { hits: number; misses: number }>()
       for (const r of list) {
-        if (!tally.has(r.minutes)) tally.set(r.minutes, { hits: 0, misses: 0 })
-        const t = tally.get(r.minutes)!
+        const key = dateKey(new Date(r.reported_at))
+        if (!tally.has(key)) tally.set(key, { hits: 0, misses: 0 })
+        const t = tally.get(key)!
         if (r.success) t.hits++
         else t.misses++
       }
-      const minuteRows = [...tally.entries()].sort((a, b) => a[0] - b[0])
-      return { machineId, machine, totalHits: list.filter((r) => r.success).length, totalMisses: list.filter((r) => !r.success).length, minuteRows }
+      // Sort descending (newest first) — matches how users think about history.
+      const dateRows = [...tally.entries()]
+        .sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0))
+        .map(([key, t]) => ({ key, label: dateLabel(key, today, yesterday), ...t }))
+      return { machineId, machine, totalHits: list.filter((r) => r.success).length, totalMisses: list.filter((r) => !r.success).length, dateRows }
     })
   }, [reports, machineItems])
 
@@ -134,7 +162,7 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
         <p className="text-sm text-muted">No attempts logged in this window.</p>
       ) : (
         <div className="space-y-4">
-          {byMachine.map(({ machineId, machine, totalHits, totalMisses, minuteRows }) => (
+          {byMachine.map(({ machineId, machine, totalHits, totalMisses, dateRows }) => (
             <div key={machineId} className="bg-card border border-card-border rounded-2xl overflow-hidden">
               <div className="px-4 py-2.5 bg-ink flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -150,17 +178,17 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-muted">
-                    <th className="px-4 py-2 font-medium">Minute</th>
+                    <th className="px-4 py-2 font-medium">Date</th>
                     <th className="px-4 py-2 font-medium text-right">Hits</th>
                     <th className="px-4 py-2 font-medium text-right">Misses</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {minuteRows.map(([minute, t]) => (
-                    <tr key={minute} className="border-t border-card-border">
-                      <td className="px-4 py-2 font-mono">:{String(minute).padStart(2, '0')}</td>
-                      <td className="px-4 py-2 text-right font-mono text-ok">{t.hits || ''}</td>
-                      <td className="px-4 py-2 text-right font-mono text-muted">{t.misses || ''}</td>
+                  {dateRows.map((row) => (
+                    <tr key={row.key} className="border-t border-card-border">
+                      <td className="px-4 py-2 font-mono">{row.label}</td>
+                      <td className="px-4 py-2 text-right font-mono text-ok">{row.hits || ''}</td>
+                      <td className="px-4 py-2 text-right font-mono text-muted">{row.misses || ''}</td>
                     </tr>
                   ))}
                 </tbody>
