@@ -212,7 +212,9 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   async function handleDeleteReport(id: string) {
     if (!window.confirm('Delete this timer report?')) return
     const supabase = createClient()
-    const { error } = await supabase.from('timer_reports').delete().eq('id', id)
+    // Belt-and-braces: even if RLS DELETE USING doesn't scope to auth.uid(), this
+    // client-side user_id filter means the mutation refuses to touch other users' rows.
+    const { error } = await supabase.from('timer_reports').delete().eq('id', id).eq('user_id', userId)
     if (error) { showToast('Failed to delete.', false); return }
     showToast('Timer deleted.', true)
     startTransition(() => router.refresh())
@@ -221,7 +223,8 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   async function handleDeleteCondition(id: string) {
     if (!window.confirm('Delete this status update?')) return
     const supabase = createClient()
-    const { error } = await supabase.from('machine_conditions').delete().eq('id', id)
+    // Belt-and-braces (see handleDeleteReport).
+    const { error } = await supabase.from('machine_conditions').delete().eq('id', id).eq('user_id', userId)
     if (error) { showToast('Failed to delete.', false); return }
     showToast('Status update deleted.', true)
     startTransition(() => router.refresh())
