@@ -53,6 +53,7 @@ interface Props {
   todayReports: TodayReport[]
   todayConditions: TodayCondition[]
   userId: string
+  role: string
 }
 
 function timeAgo(date: Date): string {
@@ -69,11 +70,21 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v
 }
 
-export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId }: Props) {
+export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId, role }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
 
+  // Contributors get everything a member does except the Analytics tab.
+  const canSeeAnalytics = role !== 'contributor'
+  const visibleTabs = canSeeAnalytics ? (['log', 'activity', 'analytics'] as const) : (['log', 'activity'] as const)
+
   const [tab, setTab] = useState<'log' | 'activity' | 'analytics'>('log')
+
+  // Defensive: if role changes at runtime (e.g. an admin demotes them mid-session)
+  // and the current tab becomes disallowed, snap back to 'log' so the UI is coherent.
+  useEffect(() => {
+    if (!canSeeAnalytics && tab === 'analytics') setTab('log')
+  }, [canSeeAnalytics, tab])
   const [logTab, setLogTab] = useState<'favorites' | 'search'>('favorites')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
   const [minutes, setMinutes] = useState(() => new Date().getMinutes())
@@ -296,7 +307,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
       {/* Main tabs */}
       <div className="flex gap-1">
-        {(['log', 'activity', 'analytics'] as const).map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -606,7 +617,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         </section>
       )}
 
-      {tab === 'analytics' && (
+      {tab === 'analytics' && canSeeAnalytics && (
         <TimerAnalytics machineItems={machineItems} favoriteMachines={favoriteMachines} />
       )}
     </div>

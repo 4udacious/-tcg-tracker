@@ -15,8 +15,10 @@ interface Props {
   members: Member[]
 }
 
-const ROLES = ['member', 'mod', 'admin']
+const ROLES = ['contributor', 'member', 'mod', 'admin']
 const ROLE_COLORS: Record<string, string> = {
+  // Contributors are members-minus-analytics; visually same weight as member.
+  contributor: 'text-muted border-card-border',
   member: 'text-muted border-card-border',
   mod: 'text-[#818cf8] border-[#818cf8]/30',
   admin: 'text-signal border-signal/30',
