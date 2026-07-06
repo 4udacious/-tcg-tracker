@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import LocationSearch, { type LocationItem } from '@/components/LocationSearch'
 import type { FavoriteMachine } from '@/components/FavoritesQuickPick'
@@ -40,6 +40,20 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
   const [windowDays, setWindowDays] = useState<3 | 5 | 7>(5)
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Track COLLAPSED (machineId + dateKey) pairs. Empty set = every date open by
+  // default; users close what they don't want to see. Each machine's dates toggle
+  // independently — not a strict single-open accordion.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  function toggleCollapsed(machineId: string, dateKey: string) {
+    const k = `${machineId}:${dateKey}`
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(k)) next.delete(k)
+      else next.add(k)
+      return next
+    })
+  }
 
   const machineIds = useMemo(() => {
     if (scope === 'single') return singleMachineId ? [singleMachineId] : []
@@ -90,18 +104,33 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
     }
     return [...map.entries()].map(([machineId, list]) => {
       const machine = machineItems.find((m) => m.id === machineId)
-      const tally = new Map<string, { hits: number; misses: number }>()
+      // Two-level tally: date -> minute -> {hits, misses}. Rolled into a per-date total
+      // for the collapsed view and an ascending minute list for the expanded drill-down.
+      const tally = new Map<string, { hits: number; misses: number; byMinute: Map<number, { hits: number; misses: number }> }>()
       for (const r of list) {
         const key = dateKey(new Date(r.reported_at))
-        if (!tally.has(key)) tally.set(key, { hits: 0, misses: 0 })
+        if (!tally.has(key)) tally.set(key, { hits: 0, misses: 0, byMinute: new Map() })
         const t = tally.get(key)!
         if (r.success) t.hits++
         else t.misses++
+        if (!t.byMinute.has(r.minutes)) t.byMinute.set(r.minutes, { hits: 0, misses: 0 })
+        const m = t.byMinute.get(r.minutes)!
+        if (r.success) m.hits++
+        else m.misses++
       }
-      // Sort descending (newest first) — matches how users think about history.
+      // Dates: newest first (matches how users think about history).
+      // Minutes within a date: ascending :00 → :59 (matches the clock).
       const dateRows = [...tally.entries()]
         .sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0))
-        .map(([key, t]) => ({ key, label: dateLabel(key, today, yesterday), ...t }))
+        .map(([key, t]) => ({
+          key,
+          label: dateLabel(key, today, yesterday),
+          hits: t.hits,
+          misses: t.misses,
+          minuteRows: [...t.byMinute.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .map(([minute, mt]) => ({ minute, hits: mt.hits, misses: mt.misses })),
+        }))
       return { machineId, machine, totalHits: list.filter((r) => r.success).length, totalMisses: list.filter((r) => !r.success).length, dateRows }
     })
   }, [reports, machineItems])
@@ -184,13 +213,48 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
                   </tr>
                 </thead>
                 <tbody>
-                  {dateRows.map((row) => (
-                    <tr key={row.key} className="border-t border-card-border">
-                      <td className="px-4 py-2 font-mono">{row.label}</td>
-                      <td className="px-4 py-2 text-right font-mono text-ok">{row.hits || ''}</td>
-                      <td className="px-4 py-2 text-right font-mono text-muted">{row.misses || ''}</td>
-                    </tr>
-                  ))}
+                  {dateRows.map((row) => {
+                    const isExpanded = !collapsed.has(`${machineId}:${row.key}`)
+                    return (
+                      <Fragment key={row.key}>
+                        <tr
+                          onClick={() => toggleCollapsed(machineId, row.key)}
+                          className="border-t border-card-border cursor-pointer hover:bg-paper/60 transition-colors"
+                          aria-expanded={isExpanded}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              toggleCollapsed(machineId, row.key)
+                            }
+                          }}
+                        >
+                          <td className="px-4 py-2 font-mono">
+                            <span
+                              aria-hidden
+                              className={`inline-block w-3 text-xs text-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                            >
+                              ▸
+                            </span>{' '}
+                            {row.label}
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-ok">{row.hits || ''}</td>
+                          <td className="px-4 py-2 text-right font-mono text-muted">{row.misses || ''}</td>
+                        </tr>
+                        {isExpanded &&
+                          row.minuteRows.map((mr) => (
+                            <tr key={`${row.key}-${mr.minute}`} className="border-t border-card-border/50 bg-paper/40">
+                              <td className="px-4 py-1.5 pl-10 font-mono text-xs text-muted">
+                                :{String(mr.minute).padStart(2, '0')}
+                              </td>
+                              <td className="px-4 py-1.5 text-right font-mono text-xs text-ok">{mr.hits || ''}</td>
+                              <td className="px-4 py-1.5 text-right font-mono text-xs text-muted">{mr.misses || ''}</td>
+                            </tr>
+                          ))}
+                      </Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
