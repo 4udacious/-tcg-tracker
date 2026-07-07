@@ -44,7 +44,7 @@ export default function RolesClient({ members }: Props) {
   async function handleSetRole(id: string, newRole: string) {
     const supabase = createClient()
     const { error } = await supabase.rpc('set_role', { target: id, new_role: newRole })
-    if (error) { showToast(`Failed: ${error.message}`); return }
+    if (error) { showToast('Failed.'); return }
     showToast(`Role updated to ${newRole}.`)
     startTransition(() => router.refresh())
   }
