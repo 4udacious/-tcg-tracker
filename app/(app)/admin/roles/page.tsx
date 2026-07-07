@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import RolesClient from './RolesClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RolesPage() {
   const supabase = await createClient()
 
