@@ -17,11 +17,10 @@ interface Props {
 
 const ROLES = ['contributor', 'member', 'mod', 'admin']
 const ROLE_COLORS: Record<string, string> = {
-  // Contributors are members-minus-analytics; visually same weight as member.
-  contributor: 'text-muted border-card-border',
-  member: 'text-muted border-card-border',
-  mod: 'text-[#818cf8] border-[#818cf8]/30',
-  admin: 'text-signal border-signal/30',
+  contributor: 'text-sky-500 border-sky-400/40 bg-sky-50',
+  member: 'text-ok border-ok/40 bg-ok/5',
+  mod: 'text-[#818cf8] border-[#818cf8]/40 bg-[#818cf8]/5',
+  admin: 'text-signal border-signal/40 bg-signal/5',
 }
 
 export default function RolesClient({ members }: Props) {
@@ -45,7 +44,7 @@ export default function RolesClient({ members }: Props) {
   async function handleSetRole(id: string, newRole: string) {
     const supabase = createClient()
     const { error } = await supabase.rpc('set_role', { target: id, new_role: newRole })
-    if (error) { showToast('Failed.'); return }
+    if (error) { showToast(`Failed: ${error.message}`); return }
     showToast(`Role updated to ${newRole}.`)
     startTransition(() => router.refresh())
   }
