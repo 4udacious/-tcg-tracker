@@ -13,9 +13,11 @@ interface Member {
 
 interface Props {
   members: Member[]
+  userRole: string
 }
 
 const ROLES = ['contributor', 'member', 'mod', 'admin']
+const MOD_ROLES = ['contributor', 'member', 'mod']
 const ROLE_COLORS: Record<string, string> = {
   contributor: 'text-sky-500 border-sky-400/40 bg-sky-50',
   member: 'text-ok border-ok/40 bg-ok/5',
@@ -23,7 +25,8 @@ const ROLE_COLORS: Record<string, string> = {
   admin: 'text-signal border-signal/40 bg-signal/5',
 }
 
-export default function RolesClient({ members }: Props) {
+export default function RolesClient({ members, userRole }: Props) {
+  const assignableRoles = userRole === 'admin' ? ROLES : MOD_ROLES
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [query, setQuery] = useState('')
@@ -95,7 +98,7 @@ export default function RolesClient({ members }: Props) {
               </button>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {ROLES.map((role) => (
+              {assignableRoles.map((role) => (
                 <button
                   key={role}
                   onClick={() => handleSetRole(member.id, role)}

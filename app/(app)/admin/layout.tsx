@@ -24,7 +24,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           { href: '/admin/machines', label: 'Machines' },
           { href: '/admin/roles', label: 'Roles' },
         ]
-      : [{ href: '/admin', label: 'Approvals' }]
+      : [
+          { href: '/admin', label: 'Approvals' },
+          { href: '/admin/roles', label: 'Roles' },
+        ]
 
   return (
     <div className="space-y-4">
