@@ -21,9 +21,9 @@ jobs:
         run: |
           TIMESTAMP=$(date +%Y-%m-%dT%H-%M-%S)
           pg_dump \
-            --host=db.ufzlgmylwtfmwmapxawj.supabase.co \
+            --host=${{ secrets.SUPABASE_DB_HOST }} \
             --port=5432 \
-            --username=postgres \
+            --username=postgres.ufzlgmylwtfmwmapxawj \
             --dbname=postgres \
             --no-owner \
             --no-acl \
