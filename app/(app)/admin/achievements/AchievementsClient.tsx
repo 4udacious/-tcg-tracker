@@ -219,6 +219,15 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
   const usedActions = form.requirements.map((r) => r.action)
   const availableActions = ACTIONS.filter((a) => !usedActions.includes(a.value))
 
+  const fmt = (v: string) => new Date(v).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  const windowSummary = form.startsAt && form.endsAt
+    ? `Counts activity from ${fmt(form.startsAt)} until ${fmt(form.endsAt)}.`
+    : form.startsAt
+    ? `Counts activity on or after ${fmt(form.startsAt)}.`
+    : form.endsAt
+    ? `Counts activity before ${fmt(form.endsAt)}.`
+    : 'Counts all-time activity.'
+
   return (
     <div className="space-y-6">
       {toast && (
@@ -395,26 +404,35 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
               </div>
             )}
 
-            {/* Date range */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted">Starts at (optional)</label>
-                <input
-                  type="datetime-local"
-                  value={form.startsAt}
-                  onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
-                  className="w-full bg-paper border border-card-border rounded-xl px-2 py-2 text-xs outline-none focus:border-signal"
-                />
+            {/* Counting window */}
+            <div className="space-y-2">
+              <div>
+                <label className="text-sm font-medium text-ink">Counting window</label>
+                <p className="text-xs text-muted leading-snug">
+                  Only activity inside this window counts toward the requirement. Leave both blank to count all-time (lifetime) activity.
+                </p>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted">Ends at (optional)</label>
-                <input
-                  type="datetime-local"
-                  value={form.endsAt}
-                  onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
-                  className="w-full bg-paper border border-card-border rounded-xl px-2 py-2 text-xs outline-none focus:border-signal"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted">Count from (optional)</label>
+                  <input
+                    type="datetime-local"
+                    value={form.startsAt}
+                    onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                    className="w-full bg-paper border border-card-border rounded-xl px-2 py-2 text-xs outline-none focus:border-signal"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted">Count until (optional)</label>
+                  <input
+                    type="datetime-local"
+                    value={form.endsAt}
+                    onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
+                    className="w-full bg-paper border border-card-border rounded-xl px-2 py-2 text-xs outline-none focus:border-signal"
+                  />
+                </div>
               </div>
+              <p className="text-xs text-signal font-medium">{windowSummary}</p>
             </div>
 
             {/* Requirements */}
