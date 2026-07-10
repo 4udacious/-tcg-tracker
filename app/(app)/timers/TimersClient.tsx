@@ -91,7 +91,6 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [conditionNote, setConditionNote] = useState('')
-  const [timerNote, setTimerNote] = useState('')
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
     new Set(favorites.map((f) => f.machine_id))
   )
@@ -154,7 +153,6 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     setOutcome(null)
     setSelectedConditions([])
     setConditionNote('')
-    setTimerNote('')
   }
 
   async function handleLogTimer() {
@@ -166,7 +164,6 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       machine_id: selectedMachineId,
       minutes,
       success: outcome === 'hit',
-      note: timerNote.trim() || null,
     })
     if (error) {
       showToast('Something went wrong.', false)
@@ -539,18 +536,6 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                 No luck
               </button>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-ink">Note <span className="font-normal text-muted">(optional)</span></label>
-            <input
-              type="text"
-              value={timerNote}
-              onChange={(e) => setTimerNote(e.target.value)}
-              placeholder="e.g. machine seemed jammed…"
-              maxLength={500}
-              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
-            />
           </div>
 
           <ConditionFlags conditionTypes={conditionTypes} selected={selectedConditions} onChange={setSelectedConditions} />
