@@ -76,10 +76,16 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [, startTransition] = useTransition()
 
   const canSeeAnalytics = role !== 'contributor'
+  const visibleTabs = canSeeAnalytics ? (['log', 'activity', 'analytics'] as const) : (['log', 'activity'] as const)
+
   const [tab, setTab] = useState<'log' | 'activity' | 'analytics'>('log')
+
+  useEffect(() => {
+    if (!canSeeAnalytics && tab === 'analytics') setTab('log')
+  }, [canSeeAnalytics, tab])
   const [logTab, setLogTab] = useState<'favorites' | 'search'>('favorites')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
-  const [minutes, setMinutes] = useState(15)
+  const [minutes, setMinutes] = useState(() => new Date().getMinutes())
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [conditionNote, setConditionNote] = useState('')
@@ -141,7 +147,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
   function resetForm() {
     setSelectedMachineId(null)
-    setMinutes(15)
+    setMinutes(new Date().getMinutes())
     setOutcome(null)
     setSelectedConditions([])
     setConditionNote('')
@@ -305,7 +311,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
       {/* Main tabs */}
       <div className="flex gap-1">
-        {(['log', 'activity', ...(canSeeAnalytics ? ['analytics'] : [])] as const).map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t as 'log' | 'activity' | 'analytics')}
@@ -615,7 +621,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         </section>
       )}
 
-      {tab === 'analytics' && (
+      {tab === 'analytics' && canSeeAnalytics && (
         <TimerAnalytics machineItems={machineItems} favoriteMachines={favoriteMachines} />
       )}
     </div>

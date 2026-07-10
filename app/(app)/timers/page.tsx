@@ -6,22 +6,17 @@ export default async function TimersPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user!.id
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single()
-  const role = profile?.role ?? 'member'
-
   const startOfToday = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const [
+    { data: profileRow },
     { data: machines },
     { data: favorites },
     { data: conditionTypes },
     { data: todayReports },
     { data: todayConditions },
   ] = await Promise.all([
+    supabase.from('profiles').select('role').eq('id', userId).single(),
     supabase
       .from('machines')
       .select('id, machine_code, region, city, neighborhood, venue, address, nickname')
@@ -42,6 +37,8 @@ export default async function TimersPage() {
       .gte('created_at', startOfToday.toISOString())
       .order('created_at', { ascending: false }),
   ])
+
+  const role = profileRow?.role ?? 'member'
 
   return (
     <TimersClient

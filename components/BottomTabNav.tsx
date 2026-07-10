@@ -9,11 +9,11 @@ interface Props {
 
 const tabs = [
   {
-    href: '/',
-    label: 'Home',
+    href: '/timers',
+    label: 'Timers',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15v-5.25a.75.75 0 00-.75-.75h-4.5a.75.75 0 00-.75.75V21H3.75A.75.75 0 013 21V9.75z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
       </svg>
     ),
   },
@@ -32,15 +32,6 @@ const tabs = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/timers',
-    label: 'Timers',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
       </svg>
     ),
   },
@@ -69,10 +60,7 @@ export default function BottomTabNav({ role }: Props) {
     <nav className="fixed bottom-0 inset-x-0 bg-card border-t border-card-border safe-area-inset-bottom z-50">
       <div className="flex">
         {allTabs.map((tab) => {
-          const active =
-            tab.href === '/'
-              ? pathname === '/'
-              : pathname.startsWith(tab.href)
+          const active = pathname.startsWith(tab.href)
           return (
             <Link
               key={tab.href}

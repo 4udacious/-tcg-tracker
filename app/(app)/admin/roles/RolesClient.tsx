@@ -13,16 +13,20 @@ interface Member {
 
 interface Props {
   members: Member[]
+  userRole: string
 }
 
-const ROLES = ['member', 'mod', 'admin']
+const ROLES = ['contributor', 'member', 'mod', 'admin']
+const MOD_ROLES = ['contributor', 'member', 'mod']
 const ROLE_COLORS: Record<string, string> = {
-  member: 'text-muted border-card-border',
-  mod: 'text-[#818cf8] border-[#818cf8]/30',
-  admin: 'text-signal border-signal/30',
+  contributor: 'text-sky-500 border-sky-400/40 bg-sky-50',
+  member: 'text-ok border-ok/40 bg-ok/5',
+  mod: 'text-[#818cf8] border-[#818cf8]/40 bg-[#818cf8]/5',
+  admin: 'text-signal border-signal/40 bg-signal/5',
 }
 
-export default function RolesClient({ members }: Props) {
+export default function RolesClient({ members, userRole }: Props) {
+  const assignableRoles = userRole === 'admin' ? ROLES : MOD_ROLES
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [query, setQuery] = useState('')
@@ -48,6 +52,15 @@ export default function RolesClient({ members }: Props) {
     startTransition(() => router.refresh())
   }
 
+  async function handleRemove(id: string, name: string) {
+    if (!window.confirm(`Remove ${name}'s access? They'll be sent back to the pending queue.`)) return
+    const supabase = createClient()
+    const { error } = await supabase.rpc('set_role', { target: id, new_role: 'pending' })
+    if (error) { showToast('Failed to remove access.'); return }
+    showToast(`${name} removed.`)
+    startTransition(() => router.refresh())
+  }
+
   return (
     <div className="space-y-4">
       {toast && (
@@ -70,14 +83,22 @@ export default function RolesClient({ members }: Props) {
             key={member.id}
             className="bg-card border border-card-border rounded-xl px-4 py-3 space-y-2"
           >
-            <div>
-              <p className="font-medium text-sm">{member.display_name ?? member.username}</p>
-              {member.username && (
-                <p className="font-mono text-xs text-muted">@{member.username}</p>
-              )}
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-medium text-sm">{member.display_name ?? member.username}</p>
+                {member.username && (
+                  <p className="font-mono text-xs text-muted">@{member.username}</p>
+                )}
+              </div>
+              <button
+                onClick={() => handleRemove(member.id, member.display_name ?? member.username ?? 'user')}
+                className="shrink-0 text-xs font-medium text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors"
+              >
+                Remove
+              </button>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {ROLES.map((role) => (
+              {assignableRoles.map((role) => (
                 <button
                   key={role}
                   onClick={() => handleSetRole(member.id, role)}
