@@ -168,7 +168,7 @@ export default function ProfileClient({ userId, profile, achievements, progress,
               <img
                 src={`/Trainers/${trainerIconFile}`}
                 alt="Trainer avatar"
-                className="w-14 h-14 rounded-full object-cover bg-paper"
+                className="w-14 h-14 rounded-full object-contain bg-paper"
               />
             ) : profile?.avatar_url ? (
               <Image

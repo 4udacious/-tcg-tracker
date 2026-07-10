@@ -80,7 +80,7 @@ export default function TrainerIconPicker({ icons, selectedId, userId, onSelect 
             <img
               src={`/Trainers/${ic.file}`}
               alt={ic.label ?? ''}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           </button>
         ))}

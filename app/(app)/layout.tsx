@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   ? profile.trainer_icons[0]
                   : profile?.trainer_icons
                 return ti?.file ? (
-                  <img src={`/Trainers/${ti.file}`} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  <img src={`/Trainers/${ti.file}`} alt="" className="w-5 h-5 rounded-full object-contain" />
                 ) : null
               })()}
               {profile?.display_name ?? profile?.username ?? ''}

@@ -106,7 +106,7 @@ export default function MachineComments({ machineId, userId }: Props) {
                   <img
                     src={`/Trainers/${c.trainer_icon_file}`}
                     alt=""
-                    className="w-7 h-7 rounded-full object-cover bg-paper"
+                    className="w-7 h-7 rounded-full object-contain bg-paper"
                   />
                 ) : (
                   <div className="w-7 h-7 rounded-full bg-ink/10 flex items-center justify-center text-xs font-bold text-muted">
