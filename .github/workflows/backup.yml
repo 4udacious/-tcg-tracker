@@ -16,7 +16,7 @@ jobs:
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Run pg_dump
         env:
@@ -25,7 +25,7 @@ jobs:
           if [ -z "$DB_URL" ]; then echo "ERROR: DB_URL secret is empty"; exit 1; fi
           echo "Connecting to: $(echo $DB_URL | sed 's/:\/\/[^:]*:[^@]*@/:\/\/***:***@/')"
           TIMESTAMP=$(date +%Y-%m-%dT%H-%M-%S)
-          pg_dump "$DB_URL" \
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" \
             --no-owner \
             --no-acl \
             --format=plain \
