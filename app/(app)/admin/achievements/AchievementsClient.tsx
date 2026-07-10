@@ -65,6 +65,7 @@ const EMPTY_FORM = {
   startsAt: '',
   endsAt: '',
   requirements: [] as ReqRow[],
+  isActive: false,
 }
 
 export default function AchievementsClient({ achievements, badgeIcons, members }: Props) {
@@ -105,6 +106,7 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
       startsAt: ach.starts_at ? ach.starts_at.slice(0, 16) : '',
       endsAt: ach.ends_at ? ach.ends_at.slice(0, 16) : '',
       requirements: reqs,
+      isActive: ach.is_active,
     })
     setEditingId(ach.id)
     setView('edit')
@@ -139,7 +141,7 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
       badge_icon_id: form.badgeIconId,
       starts_at: form.startsAt || null,
       ends_at: form.endsAt || null,
-      is_active: true,
+      is_active: form.isActive,
     }
 
     if (view === 'create') {
@@ -447,6 +449,25 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
               ))}
             </div>
           </div>
+
+          {/* Active toggle */}
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
+            className={`w-full flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
+              form.isActive ? 'border-ok/40 bg-ok/5' : 'border-card-border bg-paper'
+            }`}
+          >
+            <div className="text-left">
+              <p className="text-sm font-medium text-ink">Active</p>
+              <p className="text-xs text-muted">
+                {form.isActive ? 'Visible to members — can be earned now' : 'Offline draft — not visible to members yet'}
+              </p>
+            </div>
+            <div className={`w-10 h-6 rounded-full flex items-center transition-colors shrink-0 ${form.isActive ? 'bg-ok' : 'bg-card-border'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${form.isActive ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </button>
 
           <button
             onClick={handleSave}
