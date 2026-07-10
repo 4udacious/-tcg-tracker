@@ -73,6 +73,50 @@ const ACTION_LABELS: Record<string, string> = {
   timer_report: 'Timers logged',
   stock_check: 'Stock reports',
   product_interest: 'Items tracked',
+  favorite_machine: 'Machines favorited',
+}
+
+/** Circular progress ring with arbitrary centered content (badge icon or %). */
+function ProgressRing({
+  pct,
+  size = 60,
+  stroke = 4,
+  children,
+}: {
+  pct: number
+  size?: number
+  stroke?: number
+  children?: React.ReactNode
+}) {
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (Math.min(100, Math.max(0, pct)) / 100) * circumference
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          className="stroke-paper"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className="stroke-signal transition-[stroke-dashoffset] duration-500"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">{children}</div>
+    </div>
+  )
 }
 
 function timeAgo(iso: string) {
@@ -273,41 +317,50 @@ export default function ProfileClient({ userId, profile, achievements, progress,
                   const icon = one(ach.badge_icons)
                   const reqs = ach.achievement_requirements ?? []
                   const achProgress = progressFor(ach.id)
+                  const reqRows = reqs.map((req) => {
+                    const prog = achProgress.find((p) => p.requirement_id === req.id)
+                    const current = Math.min(prog?.current_qty ?? 0, req.qty)
+                    const pct = req.qty > 0 ? Math.min(100, Math.round((current / req.qty) * 100)) : 0
+                    return { req, current, pct }
+                  })
+                  const overallPct = reqRows.length
+                    ? Math.round(reqRows.reduce((sum, r) => sum + r.pct, 0) / reqRows.length)
+                    : 0
                   return (
                     <div key={ach.id} className="bg-card border border-card-border rounded-2xl p-4 flex gap-3">
-                      {icon ? (
-                        <img
-                          src={`/badges/${icon.file}`}
-                          alt={icon.label}
-                          className="w-12 h-12 object-contain grayscale opacity-40 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-paper border border-card-border flex items-center justify-center text-muted text-xl shrink-0">🏅</div>
-                      )}
+                      <ProgressRing pct={overallPct} size={60} stroke={4}>
+                        {icon ? (
+                          <img
+                            src={`/badges/${icon.file}`}
+                            alt={icon.label}
+                            className="w-9 h-9 object-contain grayscale opacity-60"
+                          />
+                        ) : (
+                          <span className="text-xl">🏅</span>
+                        )}
+                      </ProgressRing>
                       <div className="flex-1 min-w-0 space-y-2">
-                        <div>
-                          <p className="font-semibold text-sm">{ach.name}</p>
-                          <p className="text-xs text-muted leading-snug">{ach.description}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm">{ach.name}</p>
+                            <p className="text-xs text-muted leading-snug">{ach.description}</p>
+                          </div>
+                          <span className="font-mono text-xs font-semibold text-signal shrink-0">{overallPct}%</span>
                         </div>
-                        {reqs.map((req) => {
-                          const prog = achProgress.find((p) => p.requirement_id === req.id)
-                          const current = prog?.current_qty ?? 0
-                          const pct = Math.min(100, Math.round((current / req.qty) * 100))
-                          return (
-                            <div key={req.id} className="space-y-1">
-                              <div className="flex justify-between text-xs text-muted">
-                                <span>{ACTION_LABELS[req.action] ?? req.action}</span>
-                                <span className="font-mono">{current}/{req.qty}</span>
-                              </div>
-                              <div className="h-1.5 bg-paper rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-signal rounded-full transition-all"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
+                        {reqRows.map(({ req, current, pct }) => (
+                          <div key={req.id} className="space-y-1">
+                            <div className="flex justify-between text-xs text-muted">
+                              <span>{ACTION_LABELS[req.action] ?? req.action}</span>
+                              <span className="font-mono">{current}/{req.qty}</span>
                             </div>
-                          )
-                        })}
+                            <div className="h-1.5 bg-paper rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-signal rounded-full transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
                         {ach.ends_at && (
                           <p className="font-mono text-[10px] text-muted">
                             Ends {new Date(ach.ends_at).toLocaleDateString()}
