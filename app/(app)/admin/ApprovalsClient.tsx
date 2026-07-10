@@ -34,11 +34,11 @@ export default function ApprovalsClient({ pendingUsers }: Props) {
     setTimeout(() => setToast(null), 3000)
   }
 
-  async function handleApprove(id: string) {
+  async function handleApprove(id: string, role: 'member' | 'contributor') {
     const supabase = createClient()
-    const { error } = await supabase.rpc('approve_user', { target: id })
+    const { error } = await supabase.rpc('set_role', { target: id, new_role: role })
     if (error) { showToast('Failed to approve.'); return }
-    showToast('Approved.')
+    showToast(`Approved as ${role}.`)
     startTransition(() => router.refresh())
   }
 
@@ -90,11 +90,18 @@ export default function ApprovalsClient({ pendingUsers }: Props) {
               </div>
               <div className="flex gap-2 shrink-0">
                 <button
-                  onClick={() => handleApprove(user.id)}
+                  onClick={() => handleApprove(user.id, 'member')}
                   disabled={isPending}
                   className="text-xs font-semibold text-ok border border-ok/30 rounded-lg px-3 py-1.5 hover:bg-ok/10 transition-colors disabled:opacity-50"
                 >
-                  Approve
+                  Member
+                </button>
+                <button
+                  onClick={() => handleApprove(user.id, 'contributor')}
+                  disabled={isPending}
+                  className="text-xs font-semibold text-sky-500 border border-sky-400/30 rounded-lg px-3 py-1.5 hover:bg-sky-50 transition-colors disabled:opacity-50"
+                >
+                  Contributor
                 </button>
                 <button
                   onClick={() => handleRemove(user.id)}
