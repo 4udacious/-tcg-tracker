@@ -4,6 +4,14 @@ import AchievementsClient from './AchievementsClient'
 export default async function AdminAchievementsPage() {
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: me } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user!.id)
+    .single()
+  const userRole = me?.role ?? 'mod'
+
   const [{ data: achievements }, { data: badgeIcons }, { data: members }] = await Promise.all([
     supabase
       .from('achievements')
@@ -26,6 +34,7 @@ export default async function AdminAchievementsPage() {
       achievements={achievements ?? []}
       badgeIcons={badgeIcons ?? []}
       members={members ?? []}
+      userRole={userRole}
     />
   )
 }

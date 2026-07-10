@@ -48,6 +48,7 @@ interface Props {
   achievements: Achievement[]
   badgeIcons: BadgeIcon[]
   members: Member[]
+  userRole: string
 }
 
 interface ReqRow {
@@ -69,7 +70,8 @@ const EMPTY_FORM = {
   isActive: false,
 }
 
-export default function AchievementsClient({ achievements, badgeIcons, members }: Props) {
+export default function AchievementsClient({ achievements, badgeIcons, members, userRole }: Props) {
+  const isAdmin = userRole === 'admin'
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -185,6 +187,16 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
     startTransition(() => router.refresh())
   }
 
+  async function handleDelete(ach: Achievement) {
+    if (!window.confirm(`Permanently delete "${ach.name}"? This removes it for everyone, including anyone who earned it. This cannot be undone.`)) return
+    const supabase = createClient()
+    const { error } = await supabase.from('achievements').delete().eq('id', ach.id)
+    if (error) { showToast('Failed to delete.', false); return }
+    if (view !== 'list') setView('list')
+    showToast('Achievement deleted.', true)
+    startTransition(() => router.refresh())
+  }
+
   async function handleGrant() {
     if (!grantAchId || !grantMemberId) return
     setGranting(true)
@@ -217,7 +229,8 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
         </div>
       )}
 
-      {/* ── Grant panel ── */}
+      {/* ── Grant panel (admin only) ── */}
+      {isAdmin && (
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
         <h2 className="font-display font-semibold text-base">Grant Badge</h2>
         <select
@@ -258,18 +271,21 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
           Grant badge
         </button>
       </section>
+      )}
 
       {/* ── Builder / editor ── */}
       {view === 'list' ? (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold text-base">Achievements</h2>
-            <button
-              onClick={openCreate}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-signal text-white hover:bg-signal/90 transition-colors"
-            >
-              + New
-            </button>
+            {isAdmin && (
+              <button
+                onClick={openCreate}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-signal text-white hover:bg-signal/90 transition-colors"
+              >
+                + New
+              </button>
+            )}
           </div>
           {achievements.length === 0 ? (
             <p className="text-sm text-muted">No achievements yet.</p>
@@ -304,21 +320,31 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
                       )}
                     </div>
                     <div className="flex flex-col gap-1.5 shrink-0">
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => openEdit(ach)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-card-border hover:border-ink/20 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(ach)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                              ach.is_active
+                                ? 'border border-card-border text-muted hover:border-ink/20'
+                                : 'bg-ok/10 text-ok border border-ok/20'
+                            }`}
+                          >
+                            {ach.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </>
+                      )}
                       <button
-                        onClick={() => openEdit(ach)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-medium border border-card-border hover:border-ink/20 transition-colors"
+                        onClick={() => handleDelete(ach)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-colors"
                       >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(ach)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                          ach.is_active
-                            ? 'border border-card-border text-muted hover:border-ink/20'
-                            : 'bg-ok/10 text-ok border border-ok/20'
-                        }`}
-                      >
-                        {ach.is_active ? 'Deactivate' : 'Activate'}
+                        Delete
                       </button>
                     </div>
                   </div>
