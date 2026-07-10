@@ -1,8 +1,10 @@
 'use client'
 
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { checkAchievements } from '@/lib/checkAchievements'
 import TrainerIconPicker from '@/components/TrainerIconPicker'
 
 interface TrainerIcon {
@@ -129,6 +131,7 @@ function timeAgo(iso: string) {
 }
 
 export default function ProfileClient({ userId, profile, achievements, progress, trainerIcons }: Props) {
+  const router = useRouter()
   const [tab, setTab] = useState<'profile' | 'achievements'>('profile')
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saving, setSaving] = useState(false)
@@ -141,6 +144,19 @@ export default function ProfileClient({ userId, profile, achievements, progress,
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
   }
+
+  // Safety net: evaluate achievements on profile open so anything already
+  // qualified (e.g. via data that predates a trigger) gets granted here.
+  useEffect(() => {
+    checkAchievements(userId).then((earned) => {
+      if (earned.length > 0) {
+        const msg = earned.length === 1 ? `🏅 Badge earned: ${earned[0]}!` : `🏅 ${earned.length} new badges earned!`
+        showToast(msg, true)
+        router.refresh()
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
 
   async function handleSave() {
     setSaving(true)
