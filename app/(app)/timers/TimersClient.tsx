@@ -242,7 +242,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       {
         machine: Machine | undefined
         reports: { id: string; minute: number; success: boolean; note: string | null; reporter: string; ago: string; reportedAt: number; isOwn: boolean }[]
-        conditions: { id: string; name: string; ago: string; isOwn: boolean }[]
+        conditions: { id: string; name: string; note: string | null; reporter: string; ago: string; isOwn: boolean }[]
       }
     >()
 
@@ -263,8 +263,12 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       if (!map.has(c.machine_id))
         map.set(c.machine_id, { machine: machines.find((m) => m.id === c.machine_id), reports: [], conditions: [] })
       const ct = one(c.condition_types)
+      const cp = one(c.profiles)
       map.get(c.machine_id)!.conditions.push({
-        id: c.id, name: ct?.name ?? 'Condition',
+        id: c.id,
+        name: ct?.name ?? 'Condition',
+        note: c.note ?? null,
+        reporter: cp?.display_name ?? cp?.username ?? '?',
         ago: timeAgo(new Date(c.created_at)),
         isOwn: c.user_id === userId,
       })
@@ -454,6 +458,37 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
             </div>
           )}
 
+          {selectedMachineId && (() => {
+            const entry = todayByMachine.find((e) => e.machineId === selectedMachineId)
+            if (!entry || entry.conditions.length === 0) return null
+            return (
+              <div className="bg-signal/5 border border-signal/20 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-signal uppercase tracking-wide">Machine status</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {entry.conditions.map((c) => (
+                    <span key={c.id} className="inline-flex items-center gap-1 font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5">
+                      {c.name} · {c.ago}
+                      {c.isOwn && (
+                        <button type="button" onClick={() => handleDeleteCondition(c.id)} aria-label="Delete" className="text-signal/60 hover:text-signal">×</button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                {entry.conditions.filter((c) => c.note).map((c) => (
+                  <div key={`n-${c.id}`} className="flex items-start justify-between gap-2 text-xs">
+                    <div className="min-w-0">
+                      <span className="font-mono text-muted">{c.reporter}: </span>
+                      <span className="text-ink">{c.note}</span>
+                    </div>
+                    {c.isOwn && (
+                      <button type="button" onClick={() => handleDeleteCondition(c.id)} className="shrink-0 text-muted hover:text-red-500 transition-colors">Delete</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-ink">Minute of attempt</label>
@@ -596,24 +631,27 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                               <p className="font-mono text-[10px] text-muted -mt-1">{machine.address}</p>
                             )}
                             {conditions.length > 0 && (
-                              <div className="flex gap-1.5 flex-wrap">
-                                {conditions.map((c) => (
-                                  <span
-                                    key={c.id}
-                                    className="inline-flex items-center gap-1 font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5"
-                                  >
-                                    {c.name} · {c.ago}
+                              <div className="space-y-1.5">
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {conditions.map((c) => (
+                                    <span key={c.id} className="inline-flex items-center gap-1 font-mono text-[10px] font-medium text-signal bg-signal/10 rounded-full px-2 py-0.5">
+                                      {c.name} · {c.ago}
+                                      {c.isOwn && (
+                                        <button type="button" onClick={() => handleDeleteCondition(c.id)} aria-label="Delete status update" className="text-signal/60 hover:text-signal">×</button>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                                {conditions.filter((c) => c.note).map((c) => (
+                                  <div key={`note-${c.id}`} className="flex items-start justify-between gap-2 text-xs pl-1">
+                                    <div className="min-w-0">
+                                      <span className="font-mono text-muted">{c.reporter}: </span>
+                                      <span className="text-ink">{c.note}</span>
+                                    </div>
                                     {c.isOwn && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteCondition(c.id)}
-                                        aria-label="Delete status update"
-                                        className="text-signal/60 hover:text-signal"
-                                      >
-                                        ×
-                                      </button>
+                                      <button type="button" onClick={() => handleDeleteCondition(c.id)} className="shrink-0 text-muted hover:text-red-500 transition-colors text-[10px]">Delete</button>
                                     )}
-                                  </span>
+                                  </div>
                                 ))}
                               </div>
                             )}
