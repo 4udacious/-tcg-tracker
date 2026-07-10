@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { checkAchievements } from '@/lib/checkAchievements'
 
 interface Props {
   userId: string
@@ -21,6 +22,8 @@ export default function FavoriteToggle({ userId, machineId, initialFavorited, on
     const next = !favorited
     if (next) {
       await supabase.from('machine_favorites').insert({ user_id: userId, machine_id: machineId })
+      // Award any favorite-based badges now that a new favorite was added.
+      checkAchievements(userId).catch(() => {})
     } else {
       await supabase.from('machine_favorites').delete().eq('user_id', userId).eq('machine_id', machineId)
     }

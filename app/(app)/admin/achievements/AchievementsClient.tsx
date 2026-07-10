@@ -8,6 +8,7 @@ const ACTIONS = [
   { value: 'timer_report', label: 'Log timers' },
   { value: 'stock_check', label: 'Stock reports' },
   { value: 'product_interest', label: 'Interest tracks' },
+  { value: 'favorite_machine', label: 'Favorite machines' },
 ] as const
 
 type ActionValue = typeof ACTIONS[number]['value']
