@@ -28,7 +28,7 @@ export default async function TimersPage() {
     supabase.from('condition_types').select('id, name').order('sort_order'),
     supabase
       .from('timer_reports')
-      .select('id, machine_id, user_id, minutes, success, reported_at, profiles(username, display_name)')
+      .select('id, machine_id, user_id, minutes, success, note, reported_at, profiles(username, display_name)')
       .gte('reported_at', startOfToday.toISOString())
       .order('reported_at', { ascending: false }),
     supabase

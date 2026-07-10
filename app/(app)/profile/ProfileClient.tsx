@@ -3,6 +3,13 @@
 import Image from 'next/image'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import TrainerIconPicker from '@/components/TrainerIconPicker'
+
+interface TrainerIcon {
+  id: number
+  file: string
+  label: string | null
+}
 
 interface Profile {
   id: string
@@ -10,6 +17,8 @@ interface Profile {
   display_name: string | null
   avatar_url: string | null
   role: string
+  trainer_icon_id: number | null
+  trainer_icons: TrainerIcon | TrainerIcon[] | null
 }
 
 interface Requirement {
@@ -53,6 +62,7 @@ interface Props {
   profile: Profile | null
   achievements: Achievement[]
   progress: ProgressRow[]
+  trainerIcons: TrainerIcon[]
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -74,11 +84,14 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
-export default function ProfileClient({ userId, profile, achievements, progress }: Props) {
+export default function ProfileClient({ userId, profile, achievements, progress, trainerIcons }: Props) {
   const [tab, setTab] = useState<'profile' | 'achievements'>('profile')
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const initialIcon = one(profile?.trainer_icons ?? null)
+  const [trainerIconFile, setTrainerIconFile] = useState<string | null>(initialIcon?.file ?? null)
+  const [trainerIconId, setTrainerIconId] = useState<number | null>(profile?.trainer_icon_id ?? null)
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok })
@@ -151,7 +164,13 @@ export default function ProfileClient({ userId, profile, achievements, progress 
         <section className="space-y-4">
           {/* Avatar + username */}
           <div className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-4">
-            {profile?.avatar_url ? (
+            {trainerIconFile ? (
+              <img
+                src={`/Trainers/${trainerIconFile}`}
+                alt="Trainer avatar"
+                className="w-14 h-14 rounded-full object-cover bg-paper"
+              />
+            ) : profile?.avatar_url ? (
               <Image
                 src={profile.avatar_url}
                 alt={profile.username}
@@ -193,6 +212,18 @@ export default function ProfileClient({ userId, profile, achievements, progress 
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
+
+          {/* Trainer avatar picker */}
+          {trainerIcons.length > 0 && (
+            <div className="bg-card border border-card-border rounded-2xl p-4">
+              <TrainerIconPicker
+                icons={trainerIcons}
+                selectedId={trainerIconId}
+                userId={userId}
+                onSelect={(id, file) => { setTrainerIconId(id); setTrainerIconFile(file) }}
+              />
+            </div>
+          )}
         </section>
       )}
 

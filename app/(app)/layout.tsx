@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, display_name, username')
+    .select('role, display_name, username, trainer_icons(file)')
     .eq('id', user.id)
     .single()
 
@@ -25,7 +25,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             TCG Tracker
           </span>
           <div className="flex items-center gap-3">
-            <Link href="/profile" className="font-mono text-xs text-white/40 hover:text-white/70 transition-colors">
+            <Link href="/profile" className="flex items-center gap-1.5 font-mono text-xs text-white/40 hover:text-white/70 transition-colors">
+              {(() => {
+                const ti = Array.isArray(profile?.trainer_icons)
+                  ? profile.trainer_icons[0]
+                  : profile?.trainer_icons
+                return ti?.file ? (
+                  <img src={`/Trainers/${ti.file}`} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : null
+              })()}
               {profile?.display_name ?? profile?.username ?? ''}
             </Link>
             <SignOutButton />

@@ -8,6 +8,7 @@ import FavoritesQuickPick, { type FavoriteMachine } from '@/components/Favorites
 import FavoriteToggle from '@/components/FavoriteToggle'
 import ConditionFlags, { type ConditionType } from '@/components/ConditionFlags'
 import TimerCard from '@/components/TimerCard'
+import MachineComments from '@/components/MachineComments'
 import TimerAnalytics from './TimerAnalytics'
 import { checkAchievements } from '@/lib/checkAchievements'
 
@@ -33,6 +34,7 @@ interface TodayReport {
   user_id: string
   minutes: number
   success: boolean
+  note: string | null
   reported_at: string
   profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
 }
@@ -89,6 +91,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [conditionNote, setConditionNote] = useState('')
+  const [timerNote, setTimerNote] = useState('')
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
     new Set(favorites.map((f) => f.machine_id))
   )
@@ -151,6 +154,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     setOutcome(null)
     setSelectedConditions([])
     setConditionNote('')
+    setTimerNote('')
   }
 
   async function handleLogTimer() {
@@ -162,6 +166,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       machine_id: selectedMachineId,
       minutes,
       success: outcome === 'hit',
+      note: timerNote.trim() || null,
     })
     if (error) {
       showToast('Something went wrong.', false)
@@ -236,7 +241,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       string,
       {
         machine: Machine | undefined
-        reports: { id: string; minute: number; success: boolean; reporter: string; ago: string; reportedAt: number; isOwn: boolean }[]
+        reports: { id: string; minute: number; success: boolean; note: string | null; reporter: string; ago: string; reportedAt: number; isOwn: boolean }[]
         conditions: { id: string; name: string; ago: string; isOwn: boolean }[]
       }
     >()
@@ -246,7 +251,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         map.set(r.machine_id, { machine: machines.find((m) => m.id === r.machine_id), reports: [], conditions: [] })
       const profile = one(r.profiles)
       map.get(r.machine_id)!.reports.push({
-        id: r.id, minute: r.minutes, success: r.success,
+        id: r.id, minute: r.minutes, success: r.success, note: r.note,
         reporter: profile?.display_name ?? profile?.username ?? '?',
         ago: timeAgo(new Date(r.reported_at)),
         reportedAt: new Date(r.reported_at).getTime(),
@@ -501,6 +506,18 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-ink">Note <span className="font-normal text-muted">(optional)</span></label>
+            <input
+              type="text"
+              value={timerNote}
+              onChange={(e) => setTimerNote(e.target.value)}
+              placeholder="e.g. machine seemed jammed…"
+              maxLength={500}
+              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
+            />
+          </div>
+
           <ConditionFlags conditionTypes={conditionTypes} selected={selectedConditions} onChange={setSelectedConditions} />
 
           {selectedConditions.length > 0 && (
@@ -530,6 +547,12 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
               Report condition
             </button>
           </div>
+
+          {selectedMachineId && (
+            <div className="border-t border-card-border pt-4">
+              <MachineComments machineId={selectedMachineId} userId={userId} />
+            </div>
+          )}
         </section>
       )}
 
@@ -601,6 +624,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                                     key={r.id}
                                     minute={r.minute}
                                     success={r.success}
+                                    note={r.note}
                                     reporter={r.reporter}
                                     ago={r.ago}
                                     isOwn={r.isOwn}
