@@ -48,7 +48,6 @@ interface Props {
   achievements: Achievement[]
   badgeIcons: BadgeIcon[]
   members: Member[]
-  userRole: string
 }
 
 interface ReqRow {
@@ -70,8 +69,7 @@ const EMPTY_FORM = {
   isActive: false,
 }
 
-export default function AchievementsClient({ achievements, badgeIcons, members, userRole }: Props) {
-  const isAdmin = userRole === 'admin'
+export default function AchievementsClient({ achievements, badgeIcons, members }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -229,8 +227,7 @@ export default function AchievementsClient({ achievements, badgeIcons, members, 
         </div>
       )}
 
-      {/* ── Grant panel (admin only) ── */}
-      {isAdmin && (
+      {/* ── Grant panel ── */}
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
         <h2 className="font-display font-semibold text-base">Grant Badge</h2>
         <select
@@ -271,21 +268,18 @@ export default function AchievementsClient({ achievements, badgeIcons, members, 
           Grant badge
         </button>
       </section>
-      )}
 
       {/* ── Builder / editor ── */}
       {view === 'list' ? (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold text-base">Achievements</h2>
-            {isAdmin && (
-              <button
-                onClick={openCreate}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-signal text-white hover:bg-signal/90 transition-colors"
-              >
-                + New
-              </button>
-            )}
+            <button
+              onClick={openCreate}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-signal text-white hover:bg-signal/90 transition-colors"
+            >
+              + New
+            </button>
           </div>
           {achievements.length === 0 ? (
             <p className="text-sm text-muted">No achievements yet.</p>
@@ -320,26 +314,22 @@ export default function AchievementsClient({ achievements, badgeIcons, members, 
                       )}
                     </div>
                     <div className="flex flex-col gap-1.5 shrink-0">
-                      {isAdmin && (
-                        <>
-                          <button
-                            onClick={() => openEdit(ach)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-card-border hover:border-ink/20 transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleToggleActive(ach)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                              ach.is_active
-                                ? 'border border-card-border text-muted hover:border-ink/20'
-                                : 'bg-ok/10 text-ok border border-ok/20'
-                            }`}
-                          >
-                            {ach.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={() => openEdit(ach)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium border border-card-border hover:border-ink/20 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(ach)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          ach.is_active
+                            ? 'border border-card-border text-muted hover:border-ink/20'
+                            : 'bg-ok/10 text-ok border border-ok/20'
+                        }`}
+                      >
+                        {ach.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
                       <button
                         onClick={() => handleDelete(ach)}
                         className="px-2.5 py-1 rounded-lg text-xs font-medium border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-colors"
