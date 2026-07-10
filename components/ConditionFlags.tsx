@@ -17,9 +17,7 @@ export default function ConditionFlags({ conditionTypes, selected, onChange }: P
   }
 
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-ink">Condition flags</label>
-      <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-2 flex-wrap">
         {conditionTypes.map((c) => {
           const active = selected.includes(c.id)
           return (
@@ -36,6 +34,5 @@ export default function ConditionFlags({ conditionTypes, selected, onChange }: P
           )
         })}
       </div>
-    </div>
   )
 }
