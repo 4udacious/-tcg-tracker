@@ -16,6 +16,9 @@ export default async function ProfilePage() {
       .from('achievements')
       .select('id, name, description, starts_at, ends_at, badge_icons(file, label), achievement_requirements(id, action, qty), user_achievements(id, completed_at, granted_by)')
       .eq('is_active', true)
+      // Only embed THIS user's completions — without this, an achievement
+      // earned by anyone would show as earned on everyone's profile.
+      .eq('user_achievements.user_id', userId)
       .order('id'),
     supabase
       .from('v_achievement_progress')
