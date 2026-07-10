@@ -17,14 +17,10 @@ jobs:
 
       - name: Run pg_dump
         env:
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           TIMESTAMP=$(date +%Y-%m-%dT%H-%M-%S)
-          pg_dump \
-            --host=${{ secrets.SUPABASE_DB_HOST }} \
-            --port=5432 \
-            --username=postgres.ufzlgmylwtfmwmapxawj \
-            --dbname=postgres \
+          pg_dump "$DB_URL" \
             --no-owner \
             --no-acl \
             --format=plain \
