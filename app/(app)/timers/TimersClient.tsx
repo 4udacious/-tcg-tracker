@@ -551,22 +551,13 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
             />
           )}
 
-          <div className="flex gap-2">
-            <button
-              onClick={handleLogTimer}
-              disabled={!selectedMachineId || outcome === null || isSubmitting}
-              className="flex-1 bg-signal hover:bg-signal/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
-            >
-              Log timer
-            </button>
-            <button
-              onClick={handleReportCondition}
-              disabled={!selectedMachineId || selectedConditions.length === 0 || isSubmitting}
-              className="flex-1 bg-card border border-card-border hover:border-ink/30 disabled:opacity-50 disabled:cursor-not-allowed text-ink font-semibold rounded-xl py-2.5 text-sm transition-colors"
-            >
-              Report condition
-            </button>
-          </div>
+          <button
+            onClick={handleLogTimer}
+            disabled={!selectedMachineId || outcome === null || isSubmitting}
+            className="w-full bg-signal hover:bg-signal/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+          >
+            Log timer
+          </button>
 
           {selectedMachineId && (
             <div className="border-t border-card-border pt-4">

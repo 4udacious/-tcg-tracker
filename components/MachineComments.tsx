@@ -66,6 +66,12 @@ export default function MachineComments({ machineId, userId }: Props) {
     setSubmitting(false)
   }
 
+  async function handleDelete(id: string) {
+    const supabase = createClient()
+    await supabase.from('machine_comments').delete().eq('id', id)
+    setComments((prev) => prev.filter((c) => c.id !== id))
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -115,9 +121,19 @@ export default function MachineComments({ machineId, userId }: Props) {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span className="text-xs font-semibold text-ink">{c.display_name ?? c.username}</span>
-                  <span className="font-mono text-[10px] text-muted">{timeAgo(new Date(c.created_at))}</span>
+                <div className="flex items-baseline justify-between gap-1.5">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-ink">{c.display_name ?? c.username}</span>
+                    <span className="font-mono text-[10px] text-muted">{timeAgo(new Date(c.created_at))}</span>
+                  </div>
+                  {c.user_id === userId && (
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="shrink-0 text-[10px] text-muted hover:text-red-500 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-ink/80 leading-snug break-words">{c.body}</p>
               </div>
