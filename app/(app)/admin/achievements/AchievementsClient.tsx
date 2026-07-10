@@ -154,9 +154,10 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
       if (error || !newAch) { showToast('Failed to create.', false); return }
 
       if (form.requirements.length > 0) {
-        await supabase.from('achievement_requirements').insert(
+        const { error: reqErr } = await supabase.from('achievement_requirements').insert(
           form.requirements.map((r) => ({ achievement_id: newAch.id, action: r.action, qty: r.qty }))
         )
+        if (reqErr) { showToast('Created, but requirements failed to save.', false); return }
       }
       showToast('Achievement created.', true)
     } else if (editingId) {
@@ -166,9 +167,10 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
       // Replace requirements: delete old, insert new
       await supabase.from('achievement_requirements').delete().eq('achievement_id', editingId)
       if (form.requirements.length > 0) {
-        await supabase.from('achievement_requirements').insert(
+        const { error: reqErr } = await supabase.from('achievement_requirements').insert(
           form.requirements.map((r) => ({ achievement_id: editingId, action: r.action, qty: r.qty }))
         )
+        if (reqErr) { showToast('Saved, but requirements failed to save.', false); return }
       }
       showToast('Achievement updated.', true)
     }
