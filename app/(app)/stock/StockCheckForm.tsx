@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
 import LocationSearch, { type LocationItem } from '@/components/LocationSearch'
+import { checkAchievements } from '@/lib/checkAchievements'
 
 interface Store {
   id: string
@@ -86,6 +87,12 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
     setSelectedTypeId(null)
     setNote('')
     startTransition(() => router.refresh())
+    checkAchievements(userId).then((earned) => {
+      if (earned.length > 0) {
+        const msg = earned.length === 1 ? `🏅 Badge earned: ${earned[0]}!` : `🏅 ${earned.length} new badges earned!`
+        setTimeout(() => showToast(msg, true), 2000)
+      }
+    })
   }
 
   return (

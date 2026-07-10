@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import BottomTabNav from '@/components/BottomTabNav'
@@ -24,9 +25,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             TCG Tracker
           </span>
           <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-white/40">
+            <Link href="/profile" className="font-mono text-xs text-white/40 hover:text-white/70 transition-colors">
               {profile?.display_name ?? profile?.username ?? ''}
-            </span>
+            </Link>
             <SignOutButton />
           </div>
         </div>

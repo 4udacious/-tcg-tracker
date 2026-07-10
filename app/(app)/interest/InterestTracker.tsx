@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
+import { checkAchievements } from '@/lib/checkAchievements'
 
 interface Set {
   id: string
@@ -152,6 +153,14 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
     setProducts([])
     setNote('')
     startTransition(() => router.refresh())
+    if (addedCount > 0) {
+      checkAchievements(userId).then((earned) => {
+        if (earned.length > 0) {
+          const msg = earned.length === 1 ? `🏅 Badge earned: ${earned[0]}!` : `🏅 ${earned.length} new badges earned!`
+          setTimeout(() => showToast(msg, true), 2000)
+        }
+      })
+    }
   }
 
   async function handleStopTracking(id: string) {

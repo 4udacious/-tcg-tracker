@@ -6,6 +6,13 @@ export default async function TimersPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user!.id
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single()
+  const role = profile?.role ?? 'member'
+
   const startOfToday = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const [
@@ -44,6 +51,7 @@ export default async function TimersPage() {
       todayReports={todayReports ?? []}
       todayConditions={todayConditions ?? []}
       userId={userId}
+      role={role}
     />
   )
 }

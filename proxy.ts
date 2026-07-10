@@ -74,7 +74,8 @@ export async function proxy(request: NextRequest) {
   if (
     (pathname.startsWith('/admin/catalog') ||
       pathname.startsWith('/admin/machines') ||
-      pathname.startsWith('/admin/roles')) &&
+      pathname.startsWith('/admin/roles') ||
+      pathname.startsWith('/admin/achievements')) &&
     role !== 'admin'
   ) {
     const url = request.nextUrl.clone()

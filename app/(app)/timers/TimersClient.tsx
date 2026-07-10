@@ -9,6 +9,7 @@ import FavoriteToggle from '@/components/FavoriteToggle'
 import ConditionFlags, { type ConditionType } from '@/components/ConditionFlags'
 import TimerCard from '@/components/TimerCard'
 import TimerAnalytics from './TimerAnalytics'
+import { checkAchievements } from '@/lib/checkAchievements'
 
 interface Machine {
   id: string
@@ -53,6 +54,7 @@ interface Props {
   todayReports: TodayReport[]
   todayConditions: TodayCondition[]
   userId: string
+  role: string
 }
 
 function timeAgo(date: Date): string {
@@ -69,10 +71,11 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v
 }
 
-export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId }: Props) {
+export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId, role }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
 
+  const canSeeAnalytics = role !== 'contributor'
   const [tab, setTab] = useState<'log' | 'activity' | 'analytics'>('log')
   const [logTab, setLogTab] = useState<'favorites' | 'search'>('favorites')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
@@ -173,6 +176,12 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     resetForm()
     setIsSubmitting(false)
     startTransition(() => router.refresh())
+    checkAchievements(userId).then((earned) => {
+      if (earned.length > 0) {
+        const msg = earned.length === 1 ? `🏅 Badge earned: ${earned[0]}!` : `🏅 ${earned.length} new badges earned!`
+        setTimeout(() => showToast(msg, true), 2000)
+      }
+    })
   }
 
   async function handleReportCondition() {
@@ -296,10 +305,10 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
       {/* Main tabs */}
       <div className="flex gap-1">
-        {(['log', 'activity', 'analytics'] as const).map((t) => (
+        {(['log', 'activity', ...(canSeeAnalytics ? ['analytics'] : [])] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => setTab(t as 'log' | 'activity' | 'analytics')}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
               tab === t ? 'bg-ink text-white' : 'bg-card border border-card-border text-ink hover:border-ink/20'
             }`}
