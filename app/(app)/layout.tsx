@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             TCG Tracker
           </span>
           <div className="flex items-center gap-3">
-            <Link href="/profile" className="flex items-center gap-1.5 font-mono text-xs text-white/40 hover:text-white/70 transition-colors">
+            <Link href="/profile" className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors rounded-lg px-2.5 py-1">
               {(() => {
                 const ti = Array.isArray(profile?.trainer_icons)
                   ? profile.trainer_icons[0]
@@ -34,7 +34,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   <img src={`/Trainers/${ti.file}`} alt="" className="w-5 h-5 rounded-full object-contain" />
                 ) : null
               })()}
-              {profile?.display_name ?? profile?.username ?? ''}
+              <span className="font-mono text-xs text-white font-medium">
+                {profile?.display_name ?? profile?.username ?? ''}
+              </span>
             </Link>
             <SignOutButton />
           </div>
