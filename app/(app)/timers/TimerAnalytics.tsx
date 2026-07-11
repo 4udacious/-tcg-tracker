@@ -145,9 +145,8 @@ export default function TimerAnalytics({ machineItems, favoriteMachines, maxDays
         )}
 
         {maxDays === 1 ? (
-          <div className="flex items-center justify-between px-1">
+          <div className="px-1">
             <span className="text-xs font-mono font-medium text-signal">Today only</span>
-            <span className="text-[10px] text-muted">Upgrade to member for full history</span>
           </div>
         ) : (
           <div className="flex gap-2">
