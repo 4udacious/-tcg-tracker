@@ -27,6 +27,7 @@ interface RecentCheck {
   id: string
   created_at: string
   note: string | null
+  has_stock: boolean
   store_locations: { label: string; city: string; region: string } | { label: string; city: string; region: string }[] | null
   product_types: { name: string } | { name: string }[] | null
   profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
@@ -45,6 +46,7 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null)
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null)
+  const [hasStock, setHasStock] = useState<boolean | null>(null)
   const [note, setNote] = useState('')
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
@@ -73,11 +75,11 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
   }
 
   async function handleSubmit() {
-    if (!selectedStoreId || !selectedTypeId) return
+    if (!selectedStoreId || !selectedTypeId || hasStock === null) return
     const supabase = createClient()
     const { error } = await supabase
       .from('stock_checks')
-      .insert({ user_id: userId, store_location_id: selectedStoreId, product_type_id: selectedTypeId, note: note || null })
+      .insert({ user_id: userId, store_location_id: selectedStoreId, product_type_id: selectedTypeId, has_stock: hasStock, note: note || null })
     if (error) {
       showToast('Something went wrong.', false)
       return
@@ -85,6 +87,7 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
     showToast('Stock reported.', true)
     setSelectedStoreId(null)
     setSelectedTypeId(null)
+    setHasStock(null)
     setNote('')
     startTransition(() => router.refresh())
     checkAchievements(userId).then((earned) => {
@@ -119,6 +122,29 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
           onChange={setSelectedTypeId}
           placeholder="Pick a type…"
         />
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-ink">Stock status</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setHasStock(true)}
+              className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
+                hasStock === true ? 'bg-ok text-white border-ok' : 'bg-paper border-card-border text-ink hover:border-ok/40'
+              }`}
+            >
+              In Stock
+            </button>
+            <button
+              type="button"
+              onClick={() => setHasStock(false)}
+              className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
+                hasStock === false ? 'bg-ink text-white border-ink' : 'bg-paper border-card-border text-ink hover:border-ink/40'
+              }`}
+            >
+              No Stock
+            </button>
+          </div>
+        </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-ink">Note (optional)</label>
           <input
@@ -132,7 +158,7 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
         </div>
         <button
           onClick={handleSubmit}
-          disabled={!selectedStoreId || !selectedTypeId || isPending}
+          disabled={!selectedStoreId || !selectedTypeId || hasStock === null || isPending}
           className="w-full bg-signal hover:bg-signal/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
         >
           Report stock
@@ -160,6 +186,9 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
                     <div className="flex items-center gap-2">
                       {fresh && <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse shrink-0" />}
                       <p className="font-medium text-sm truncate">{(type as { name: string } | null)?.name}</p>
+                      <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${check.has_stock ? 'bg-ok/15 text-ok' : 'bg-ink/10 text-muted'}`}>
+                        {check.has_stock ? 'In Stock' : 'No Stock'}
+                      </span>
                     </div>
                     <p className="font-mono text-xs text-muted">
                       {(store as { region: string; city: string; label: string } | null)?.city} — {(store as { region: string; city: string; label: string } | null)?.label}
