@@ -15,6 +15,7 @@ interface Report {
 interface Props {
   machineItems: LocationItem[]
   favoriteMachines: FavoriteMachine[]
+  maxDays?: number
 }
 
 const WINDOWS = [3, 5, 7] as const
@@ -30,10 +31,10 @@ function dateLabel(key: string, today: string, yesterday: string): string {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-export default function TimerAnalytics({ machineItems, favoriteMachines }: Props) {
+export default function TimerAnalytics({ machineItems, favoriteMachines, maxDays }: Props) {
   const [scope, setScope] = useState<'favorites' | 'single'>('favorites')
   const [singleMachineId, setSingleMachineId] = useState<string | null>(null)
-  const [windowDays, setWindowDays] = useState<3 | 5 | 7>(5)
+  const [windowDays, setWindowDays] = useState<3 | 5 | 7>(maxDays === 1 ? 3 : 5)
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(false)
   const [expandedKeys, setExpandedKeys] = useState<globalThis.Set<string>>(new globalThis.Set())
@@ -58,7 +59,7 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
     setLoading(true)
     const supabase = createClient()
     const since = new Date()
-    since.setDate(since.getDate() - windowDays)
+    since.setDate(since.getDate() - (maxDays ?? windowDays))
     supabase
       .from('timer_reports')
       .select('machine_id, minutes, success, reported_at')
@@ -143,19 +144,26 @@ export default function TimerAnalytics({ machineItems, favoriteMachines }: Props
           />
         )}
 
-        <div className="flex gap-2">
-          {WINDOWS.map((d) => (
-            <button
-              key={d}
-              onClick={() => setWindowDays(d)}
-              className={`flex-1 rounded-lg py-1.5 text-sm font-mono font-medium transition-colors ${
-                windowDays === d ? 'bg-signal text-white' : 'bg-paper border border-card-border text-ink'
-              }`}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
+        {maxDays === 1 ? (
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-mono font-medium text-signal">Today only</span>
+            <span className="text-[10px] text-muted">Upgrade to member for full history</span>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            {WINDOWS.map((d) => (
+              <button
+                key={d}
+                onClick={() => setWindowDays(d)}
+                className={`flex-1 rounded-lg py-1.5 text-sm font-mono font-medium transition-colors ${
+                  windowDays === d ? 'bg-signal text-white' : 'bg-paper border border-card-border text-ink'
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {loading ? (
