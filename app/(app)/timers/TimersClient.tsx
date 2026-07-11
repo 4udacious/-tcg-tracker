@@ -356,7 +356,19 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
           {logTab === 'favorites' ? (
             favoriteMachines.length === 0 ? (
-              <p className="text-sm text-muted">No favorites yet. Switch to Search and star a machine first.</p>
+              <div className="text-center py-4 space-y-3">
+                <p className="text-sm text-ink font-medium">No favorites yet</p>
+                <p className="text-xs text-muted">Use the Search tab to find a machine, then tap the star to save it here.</p>
+                <button
+                  onClick={() => { setLogTab('search'); setSelectedMachineId(null) }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-signal border border-signal/30 bg-signal/5 hover:bg-signal/10 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  </svg>
+                  Go to Search
+                </button>
+              </div>
             ) : (
               <div className="relative" ref={favDropdownRef}>
                 <button

@@ -647,6 +647,7 @@ create policy "users can delete own comments"
 
 
 -- ─── 5. v_machine_comments view (14-day rolling window) ──────
+drop view if exists public.v_machine_comments;
 create or replace view public.v_machine_comments
   with (security_invoker = true)
 as

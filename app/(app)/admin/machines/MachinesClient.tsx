@@ -22,11 +22,25 @@ interface Props {
   machines: Machine[]
 }
 
+interface EditState {
+  machineCode: string
+  region: string
+  city: string
+  neighborhood: string
+  venue: string
+  address: string
+  nickname: string
+  latitude: string
+  longitude: string
+}
+
 export default function MachinesClient({ machines }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [toast, setToast] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editState, setEditState] = useState<EditState | null>(null)
 
   const [machineCode, setMachineCode] = useState('')
   const [region, setRegion] = useState('')
@@ -92,6 +106,42 @@ export default function MachinesClient({ machines }: Props) {
     startTransition(() => router.refresh())
   }
 
+  function startEdit(m: Machine) {
+    setEditingId(m.id)
+    setEditState({
+      machineCode: m.machine_code,
+      region: m.region,
+      city: m.city,
+      neighborhood: m.neighborhood ?? '',
+      venue: m.venue,
+      address: m.address ?? '',
+      nickname: m.nickname ?? '',
+      latitude: m.latitude != null ? String(m.latitude) : '',
+      longitude: m.longitude != null ? String(m.longitude) : '',
+    })
+  }
+
+  async function handleSaveEdit(id: string) {
+    if (!editState) return
+    const supabase = createClient()
+    const { error } = await supabase.from('machines').update({
+      machine_code: editState.machineCode.trim(),
+      region: editState.region.trim(),
+      city: editState.city.trim(),
+      neighborhood: editState.neighborhood.trim() || null,
+      venue: editState.venue.trim(),
+      address: editState.address.trim() || null,
+      nickname: editState.nickname.trim() || null,
+      latitude: editState.latitude ? parseFloat(editState.latitude) : null,
+      longitude: editState.longitude ? parseFloat(editState.longitude) : null,
+    }).eq('id', id)
+    if (error) { showToast('Failed to save changes.'); return }
+    showToast('Machine updated.')
+    setEditingId(null)
+    setEditState(null)
+    startTransition(() => router.refresh())
+  }
+
   return (
     <div className="space-y-4">
       {toast && (
@@ -128,27 +178,58 @@ export default function MachinesClient({ machines }: Props) {
 
       <ul className="space-y-2">
         {filtered.map((m) => (
-          <li key={m.id} className="bg-card border border-card-border rounded-xl px-4 py-3 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">
-                <span className="font-mono text-muted">{m.machine_code}</span> — {m.venue}{m.nickname ? ` (${m.nickname})` : ''}
-              </p>
-              <p className="font-mono text-xs text-muted truncate">{m.region} · {m.city}{m.address ? ` · ${m.address}` : ''}</p>
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              <button
-                onClick={() => toggleMachine(m.id, m.is_active)}
-                className={`text-xs font-medium px-3 py-1 rounded-lg border transition-colors ${m.is_active ? 'text-ok border-ok/30 hover:bg-ok/10' : 'text-muted border-card-border hover:text-ink'}`}
-              >
-                {m.is_active ? 'Active' : 'Inactive'}
-              </button>
-              <button
-                onClick={() => deleteMachine(m.id, `${m.machine_code} — ${m.venue}`)}
-                className="text-xs font-medium text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-3 py-1 rounded-lg transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+          <li key={m.id} className="bg-card border border-card-border rounded-xl overflow-hidden">
+            {editingId === m.id && editState ? (
+              <div className="p-4 space-y-2">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">Editing {m.machine_code}</p>
+                <input value={editState.machineCode} onChange={(e) => setEditState({ ...editState, machineCode: e.target.value })} placeholder="Machine code" className="input-field" />
+                <div className="flex gap-2">
+                  <input value={editState.region} onChange={(e) => setEditState({ ...editState, region: e.target.value })} placeholder="Region" className="input-field flex-1" />
+                  <input value={editState.city} onChange={(e) => setEditState({ ...editState, city: e.target.value })} placeholder="City" className="input-field flex-1" />
+                </div>
+                <input value={editState.neighborhood} onChange={(e) => setEditState({ ...editState, neighborhood: e.target.value })} placeholder="Neighborhood (optional)" className="input-field" />
+                <input value={editState.venue} onChange={(e) => setEditState({ ...editState, venue: e.target.value })} placeholder="Venue" className="input-field" />
+                <input value={editState.nickname} onChange={(e) => setEditState({ ...editState, nickname: e.target.value })} placeholder="Nickname (optional)" className="input-field" />
+                <input value={editState.address} onChange={(e) => setEditState({ ...editState, address: e.target.value })} placeholder="Address (optional)" className="input-field" />
+                <div className="flex gap-2">
+                  <input value={editState.latitude} onChange={(e) => setEditState({ ...editState, latitude: e.target.value })} placeholder="Lat" className="input-field flex-1" />
+                  <input value={editState.longitude} onChange={(e) => setEditState({ ...editState, longitude: e.target.value })} placeholder="Long" className="input-field flex-1" />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => handleSaveEdit(m.id)} className="btn-primary flex-1">Save</button>
+                  <button onClick={() => { setEditingId(null); setEditState(null) }} className="flex-1 border border-card-border rounded-xl py-2 text-sm font-semibold text-ink hover:border-ink/30 transition-colors">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 py-3 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    <span className="font-mono text-muted">{m.machine_code}</span> — {m.venue}{m.nickname ? ` (${m.nickname})` : ''}
+                  </p>
+                  <p className="font-mono text-xs text-muted truncate">{m.region} · {m.city}{m.address ? ` · ${m.address}` : ''}</p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  <button
+                    onClick={() => startEdit(m)}
+                    className="text-xs font-medium px-3 py-1 rounded-lg border border-card-border hover:border-ink/30 text-ink transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => toggleMachine(m.id, m.is_active)}
+                    className={`text-xs font-medium px-3 py-1 rounded-lg border transition-colors ${m.is_active ? 'text-ok border-ok/30 hover:bg-ok/10' : 'text-muted border-card-border hover:text-ink'}`}
+                  >
+                    {m.is_active ? 'Active' : 'Inactive'}
+                  </button>
+                  <button
+                    onClick={() => deleteMachine(m.id, `${m.machine_code} — ${m.venue}`)}
+                    className="text-xs font-medium text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-3 py-1 rounded-lg transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
           </li>
         ))}
         {filtered.length === 0 && <p className="text-sm text-muted">No matches.</p>}

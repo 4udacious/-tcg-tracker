@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface TrainerIcon {
@@ -19,20 +19,11 @@ interface Props {
 const PAGE_SIZE = 48
 
 export default function TrainerIconPicker({ icons, selectedId, userId, onSelect }: Props) {
-  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [saving, setSaving] = useState(false)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    if (!q) return icons
-    return icons.filter((ic) =>
-      ic.file.toLowerCase().includes(q) || (ic.label ?? '').toLowerCase().includes(q)
-    )
-  }, [icons, search])
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const totalPages = Math.ceil(icons.length / PAGE_SIZE)
+  const visible = icons.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   async function handleSelect(icon: TrainerIcon) {
     if (icon.id === selectedId) return
@@ -46,24 +37,12 @@ export default function TrainerIconPicker({ icons, selectedId, userId, onSelect 
     setSaving(false)
   }
 
-  function handleSearch(v: string) {
-    setSearch(v)
-    setPage(0)
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-ink">Trainer Avatar</label>
         {saving && <span className="text-xs text-muted">Saving…</span>}
       </div>
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => handleSearch(e.target.value)}
-        placeholder="Search trainer…"
-        className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-signal/20 placeholder:text-muted"
-      />
       <div className="grid grid-cols-6 gap-1.5">
         {visible.map((ic) => (
           <button
@@ -107,9 +86,6 @@ export default function TrainerIconPicker({ icons, selectedId, userId, onSelect 
             Next
           </button>
         </div>
-      )}
-      {filtered.length === 0 && (
-        <p className="text-xs text-muted text-center py-4">No trainers match your search.</p>
       )}
     </div>
   )
