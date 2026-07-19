@@ -165,7 +165,8 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
 
   async function handleStopTracking(id: string) {
     const supabase = createClient()
-    await supabase.from('product_interest').delete().eq('id', id)
+    // Belt-and-braces: scope delete by user_id even if RLS DELETE USING already does.
+    await supabase.from('product_interest').delete().eq('id', id).eq('user_id', userId)
     showToast('Stopped tracking.', true)
     startTransition(() => router.refresh())
   }
