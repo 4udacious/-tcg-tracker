@@ -53,7 +53,6 @@ interface Achievement {
 
 interface ProgressRow {
   achievement_id: number
-  requirement_id: number
   action: string
   required_qty: number
   current_qty: number
@@ -333,11 +332,17 @@ export default function ProfileClient({ userId, profile, achievements, progress,
                   const icon = one(ach.badge_icons)
                   const reqs = ach.achievement_requirements ?? []
                   const achProgress = progressFor(ach.id)
-                  const reqRows = reqs.map((req) => {
-                    const prog = achProgress.find((p) => p.requirement_id === req.id)
-                    const current = Math.min(prog?.current_qty ?? 0, req.qty)
-                    const pct = req.qty > 0 ? Math.min(100, Math.round((current / req.qty) * 100)) : 0
-                    return { req, current, pct }
+                  // Drive the bars straight from the progress-view rows (one per
+                  // requirement). Match to the requirement by action, which is
+                  // unique within an achievement. Fall back to the requirement
+                  // definitions at 0 if the view returned no rows.
+                  const source = achProgress.length > 0
+                    ? achProgress.map((p) => ({ action: p.action, current: p.current_qty ?? 0, required: p.required_qty }))
+                    : reqs.map((r) => ({ action: r.action, current: 0, required: r.qty }))
+                  const reqRows = source.map((row) => {
+                    const current = Math.min(row.current, row.required)
+                    const pct = row.required > 0 ? Math.min(100, Math.round((current / row.required) * 100)) : 0
+                    return { action: row.action, current, required: row.required, pct }
                   })
                   const overallPct = reqRows.length
                     ? Math.round(reqRows.reduce((sum, r) => sum + r.pct, 0) / reqRows.length)
@@ -363,11 +368,11 @@ export default function ProfileClient({ userId, profile, achievements, progress,
                           </div>
                           <span className="font-mono text-xs font-semibold text-signal shrink-0">{overallPct}%</span>
                         </div>
-                        {reqRows.map(({ req, current, pct }) => (
-                          <div key={req.id} className="space-y-1">
+                        {reqRows.map(({ action, current, required, pct }) => (
+                          <div key={action} className="space-y-1">
                             <div className="flex justify-between text-xs text-muted">
-                              <span>{ACTION_LABELS[req.action] ?? req.action}</span>
-                              <span className="font-mono">{current}/{req.qty}</span>
+                              <span>{ACTION_LABELS[action] ?? action}</span>
+                              <span className="font-mono">{current}/{required}</span>
                             </div>
                             <div className="h-1.5 bg-paper rounded-full overflow-hidden">
                               <div

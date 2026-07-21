@@ -22,7 +22,7 @@ export default async function ProfilePage() {
       .order('id'),
     supabase
       .from('v_achievement_progress')
-      .select('achievement_id, requirement_id, action, required_qty, current_qty')
+      .select('achievement_id, action, required_qty, current_qty')
       .eq('user_id', userId),
     supabase
       .from('trainer_icons')
