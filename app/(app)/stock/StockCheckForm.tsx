@@ -25,6 +25,7 @@ interface ProductType {
 
 interface RecentCheck {
   id: string
+  user_id: string
   created_at: string
   note: string | null
   has_stock: boolean
@@ -49,6 +50,7 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
   const [hasStock, setHasStock] = useState<boolean | null>(null)
   const [note, setNote] = useState('')
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const storeItems: LocationItem[] = useMemo(
     () =>
@@ -72,6 +74,15 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this check-in?')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('stock_checks').delete().eq('id', id)
+    if (error) { showToast('Failed to delete.', false); return }
+    setDeletedIds((prev) => new Set(prev).add(id))
+    showToast('Check-in deleted.', true)
   }
 
   async function handleSubmit() {
@@ -171,12 +182,13 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
           <p className="text-sm text-muted">No recent check-ins.</p>
         ) : (
           <ul className="space-y-2">
-            {recentChecks.map((check) => {
+            {recentChecks.filter((c) => !deletedIds.has(c.id)).map((check) => {
               const store = Array.isArray(check.store_locations) ? check.store_locations[0] : check.store_locations
               const type = Array.isArray(check.product_types) ? check.product_types[0] : check.product_types
               const reporter = Array.isArray(check.profiles) ? check.profiles[0] : check.profiles
               const ago = timeAgo(new Date(check.created_at))
               const fresh = Date.now() - new Date(check.created_at).getTime() < 3600000
+              const isOwn = check.user_id === userId
               return (
                 <li
                   key={check.id}
@@ -195,9 +207,17 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
                     </p>
                     {check.note && <p className="text-xs text-muted italic">{check.note}</p>}
                   </div>
-                  <div className="text-right shrink-0 space-y-0.5">
+                  <div className="text-right shrink-0 space-y-1">
                     <p className="font-mono text-xs text-muted">{ago}</p>
                     <p className="text-xs text-muted">{(reporter as { display_name?: string; username: string } | null)?.display_name ?? (reporter as { display_name?: string; username: string } | null)?.username}</p>
+                    {isOwn && (
+                      <button
+                        onClick={() => handleDelete(check.id)}
+                        className="text-[10px] text-muted hover:text-red-500 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </li>
               )

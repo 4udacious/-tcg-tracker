@@ -16,7 +16,7 @@ export default async function StockPage() {
       .order('sort_order'),
     supabase
       .from('stock_checks')
-      .select('id, created_at, note, has_stock, store_locations(label, city, region), product_types(name), profiles(username, display_name)')
+      .select('id, user_id, created_at, note, has_stock, store_locations(label, city, region), product_types(name), profiles(username, display_name)')
       .order('created_at', { ascending: false })
       .limit(20),
   ])
