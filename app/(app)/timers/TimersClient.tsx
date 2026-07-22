@@ -83,6 +83,17 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [tab, setTab] = useState<'log' | 'activity' | 'analytics'>('log')
   const [logTab, setLogTab] = useState<'favorites' | 'search'>('favorites')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
+
+  // Restore last reported machine from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(`tcg_last_machine_${userId}`)
+    if (!stored) return
+    if (!machines.some((m) => m.id === stored)) return
+    setSelectedMachineId(stored)
+    const isFav = favorites.some((f) => f.machine_id === stored)
+    if (!isFav) setLogTab('search')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [minutes, setMinutes] = useState(() => new Date().getMinutes())
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
@@ -175,6 +186,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         }))
       )
     }
+    localStorage.setItem(`tcg_last_machine_${userId}`, selectedMachineId)
     showToast('Timer logged.', true)
     resetForm()
     setIsSubmitting(false)
