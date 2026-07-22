@@ -18,7 +18,8 @@ interface Props {
   maxDays?: number
 }
 
-const WINDOWS = [3, 5, 7] as const
+const CONTRIBUTOR_WINDOWS = [1, 3, 5] as const
+const MEMBER_WINDOWS = [3, 7, 14, 21] as const
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -32,9 +33,12 @@ function dateLabel(key: string, today: string, yesterday: string): string {
 }
 
 export default function TimerAnalytics({ machineItems, favoriteMachines, maxDays }: Props) {
+  const windows = maxDays != null ? CONTRIBUTOR_WINDOWS : MEMBER_WINDOWS
+  const defaultDays = maxDays != null ? 1 : 7
+
   const [scope, setScope] = useState<'favorites' | 'single'>('favorites')
   const [singleMachineId, setSingleMachineId] = useState<string | null>(null)
-  const [windowDays, setWindowDays] = useState<3 | 5 | 7>(maxDays === 1 ? 3 : 5)
+  const [windowDays, setWindowDays] = useState(defaultDays)
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(false)
   const [expandedKeys, setExpandedKeys] = useState<globalThis.Set<string>>(new globalThis.Set())
@@ -59,7 +63,8 @@ export default function TimerAnalytics({ machineItems, favoriteMachines, maxDays
     setLoading(true)
     const supabase = createClient()
     const since = new Date()
-    since.setDate(since.getDate() - (maxDays ?? windowDays))
+    const effectiveDays = maxDays != null ? Math.min(windowDays, maxDays) : windowDays
+    since.setDate(since.getDate() - effectiveDays)
     supabase
       .from('timer_reports')
       .select('machine_id, minutes, success, reported_at')
@@ -144,25 +149,19 @@ export default function TimerAnalytics({ machineItems, favoriteMachines, maxDays
           />
         )}
 
-        {maxDays === 1 ? (
-          <div className="px-1">
-            <span className="text-xs font-mono font-medium text-signal">Today only</span>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            {WINDOWS.map((d) => (
-              <button
-                key={d}
-                onClick={() => setWindowDays(d)}
-                className={`flex-1 rounded-lg py-1.5 text-sm font-mono font-medium transition-colors ${
-                  windowDays === d ? 'bg-signal text-white' : 'bg-paper border border-card-border text-ink'
-                }`}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex gap-2">
+          {windows.map((d) => (
+            <button
+              key={d}
+              onClick={() => setWindowDays(d)}
+              className={`flex-1 rounded-lg py-1.5 text-sm font-mono font-medium transition-colors ${
+                windowDays === d ? 'bg-signal text-white' : 'bg-paper border border-card-border text-ink'
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
       </section>
 
       {loading ? (
