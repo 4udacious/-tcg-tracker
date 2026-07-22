@@ -84,16 +84,25 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [logTab, setLogTab] = useState<'favorites' | 'search'>('favorites')
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
 
-  // Restore last reported machine from localStorage on mount
+  // Restore last selected machine from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem(`tcg_last_machine_${userId}`)
-    if (!stored) return
-    if (!machines.some((m) => m.id === stored)) return
-    setSelectedMachineId(stored)
-    const isFav = favorites.some((f) => f.machine_id === stored)
-    if (!isFav) setLogTab('search')
+    try {
+      const stored = localStorage.getItem(`tcg_last_machine_${userId}`)
+      if (!stored) return
+      if (!machines.some((m) => m.id === stored)) return
+      setSelectedMachineId(stored)
+      if (!favorites.some((f) => f.machine_id === stored)) setLogTab('search')
+    } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Persist to localStorage whenever the selected machine changes
+  useEffect(() => {
+    if (!selectedMachineId) return
+    try {
+      localStorage.setItem(`tcg_last_machine_${userId}`, selectedMachineId)
+    } catch {}
+  }, [selectedMachineId, userId])
   const [minutes, setMinutes] = useState(() => new Date().getMinutes())
   const [outcome, setOutcome] = useState<'hit' | 'miss' | null>(null)
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
@@ -186,7 +195,6 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         }))
       )
     }
-    localStorage.setItem(`tcg_last_machine_${userId}`, selectedMachineId)
     showToast('Timer logged.', true)
     resetForm()
     setIsSubmitting(false)
