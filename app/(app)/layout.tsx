@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, display_name, username, trainer_icons(file)')
+    .select('role, display_name, username, name_color, trainer_icons(file)')
     .eq('id', user.id)
     .single()
 
@@ -34,7 +34,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   <img src={`/Trainers/${ti.file}`} alt="" className="w-5 h-5 rounded-full object-contain" />
                 ) : null
               })()}
-              <span className="font-mono text-xs text-white font-medium">
+              <span
+                className="font-mono text-xs text-white font-medium"
+                style={profile?.name_color ? { color: profile.name_color } : undefined}
+              >
                 {profile?.display_name ?? profile?.username ?? ''}
               </span>
             </Link>

@@ -9,7 +9,7 @@ export default async function MembersPage() {
   const [{ data: profiles }, { data: earned }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, role, trainer_icons(file)')
+      .select('id, username, display_name, avatar_url, role, name_color, trainer_icons(file)')
       .neq('role', 'pending')
       .order('username'),
     supabase.from('user_achievements').select('user_id'),
@@ -27,6 +27,7 @@ export default async function MembersPage() {
     display_name: string | null
     avatar_url: string | null
     role: string
+    name_color: string | null
     trainer_icons: { file: string } | { file: string }[] | null
   }
 
@@ -39,6 +40,7 @@ export default async function MembersPage() {
       avatarUrl: p.avatar_url,
       role: p.role,
       trainerIconFile: ti?.file ?? null,
+      nameColor: p.name_color,
       badgeCount: badgeCounts.get(p.id) ?? 0,
     }
   })

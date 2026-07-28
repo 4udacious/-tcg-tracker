@@ -15,7 +15,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   const [{ data: profile }, { data: earned }, { data: interests }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, role, trainer_icons(file)')
+      .select('id, username, display_name, avatar_url, role, name_color, trainer_icons(file)')
       .eq('id', id)
       .single(),
     supabase
@@ -93,7 +93,12 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           </div>
         )}
         <div className="min-w-0">
-          <p className="font-display font-bold text-lg truncate">{name}</p>
+          <p
+            className="font-display font-bold text-lg truncate"
+            style={profile.name_color ? { color: profile.name_color as string } : undefined}
+          >
+            {name}
+          </p>
           <p className="font-mono text-xs text-muted capitalize">{profile.role}</p>
         </div>
       </div>

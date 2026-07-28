@@ -11,6 +11,7 @@ interface Comment {
   username: string
   display_name: string | null
   trainer_icon_file: string | null
+  name_color: string | null
 }
 
 interface Props {
@@ -38,7 +39,7 @@ export default function MachineComments({ machineId, userId }: Props) {
     const supabase = createClient()
     const { data } = await supabase
       .from('v_machine_comments')
-      .select('id, user_id, body, created_at, username, display_name, trainer_icon_file')
+      .select('id, user_id, body, created_at, username, display_name, trainer_icon_file, name_color')
       .eq('machine_id', machineId)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -123,7 +124,12 @@ export default function MachineComments({ machineId, userId }: Props) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-1.5">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-xs font-semibold text-ink">{c.display_name ?? c.username}</span>
+                    <span
+                      className="text-xs font-semibold text-ink"
+                      style={c.name_color ? { color: c.name_color } : undefined}
+                    >
+                      {c.display_name ?? c.username}
+                    </span>
                     <span className="font-mono text-[10px] text-muted">{timeAgo(new Date(c.created_at))}</span>
                   </div>
                   {c.user_id === userId && (

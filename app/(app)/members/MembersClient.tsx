@@ -10,6 +10,7 @@ export interface MemberSummary {
   avatarUrl: string | null
   role: string
   trainerIconFile: string | null
+  nameColor: string | null
   badgeCount: number
 }
 
@@ -69,7 +70,12 @@ export default function MembersClient({ members }: { members: MemberSummary[] })
               >
                 <MemberAvatar member={m} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm truncate">{m.displayName ?? m.username}</p>
+                  <p
+                    className="font-semibold text-sm truncate"
+                    style={m.nameColor ? { color: m.nameColor } : undefined}
+                  >
+                    {m.displayName ?? m.username}
+                  </p>
                   <p className="font-mono text-xs text-muted capitalize">{m.role}</p>
                 </div>
                 {m.badgeCount > 0 && (
