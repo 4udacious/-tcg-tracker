@@ -29,7 +29,10 @@ interface RecentCheck {
   created_at: string
   note: string | null
   has_stock: boolean
-  store_locations: { label: string; city: string; region: string } | { label: string; city: string; region: string }[] | null
+  store_locations:
+    | { label: string; city: string; region: string; address: string | null; retailers: { name: string } | { name: string }[] | null }
+    | { label: string; city: string; region: string; address: string | null; retailers: { name: string } | { name: string }[] | null }[]
+    | null
   product_types: { name: string } | { name: string }[] | null
   profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
 }
@@ -183,7 +186,9 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
         ) : (
           <ul className="space-y-2">
             {recentChecks.filter((c) => !deletedIds.has(c.id)).map((check) => {
-              const store = Array.isArray(check.store_locations) ? check.store_locations[0] : check.store_locations
+              const storeRaw = Array.isArray(check.store_locations) ? check.store_locations[0] : check.store_locations
+              const store = storeRaw as { label: string; city: string; region: string; address: string | null; retailers: { name: string } | { name: string }[] | null } | null
+              const retailer = store ? (Array.isArray(store.retailers) ? store.retailers[0] : store.retailers) : null
               const type = Array.isArray(check.product_types) ? check.product_types[0] : check.product_types
               const reporter = Array.isArray(check.profiles) ? check.profiles[0] : check.profiles
               const ago = timeAgo(new Date(check.created_at))
@@ -203,8 +208,11 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
                       </span>
                     </div>
                     <p className="font-mono text-xs text-muted">
-                      {(store as { region: string; city: string; label: string } | null)?.city} — {(store as { region: string; city: string; label: string } | null)?.label}
+                      {retailer?.name ? `${retailer.name} — ` : ''}{store?.label}, {store?.city}
                     </p>
+                    {store?.address && (
+                      <p className="font-mono text-[10px] text-muted">{store.address}</p>
+                    )}
                     {check.note && <p className="text-xs text-muted italic">{check.note}</p>}
                   </div>
                   <div className="text-right shrink-0 space-y-1">
