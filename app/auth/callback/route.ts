@@ -6,6 +6,16 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/'
 
+  // Supabase redirects here with error params when the provider step fails
+  // (e.g. Discord returns no email for an unverified account).
+  const providerError = searchParams.get('error_description') ?? searchParams.get('error')
+  if (providerError) {
+    console.error('[auth/callback] provider error:', providerError)
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(providerError)}`
+    )
+  }
+
   if (code) {
     // Build the redirect response first so we can set cookies directly on it
     const redirectResponse = NextResponse.redirect(`${origin}${next}`)
@@ -33,6 +43,9 @@ export async function GET(request: NextRequest) {
     }
 
     console.error('[auth/callback] exchangeCodeForSession error:', error.message)
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(error.message)}`
+    )
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth`)

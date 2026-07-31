@@ -3,10 +3,33 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import SignInButton from '@/components/SignInButton'
 
-export default async function LoginPage() {
+function errorMessage(raw: string): { title: string; detail: string } {
+  const lower = raw.toLowerCase()
+  if (lower.includes('email')) {
+    return {
+      title: 'Discord didn’t share an email address',
+      detail:
+        'Your Discord account needs a verified email before you can sign in. In Discord, go to User Settings → My Account, add or verify your email, then try again.',
+    }
+  }
+  return {
+    title: 'Sign-in failed',
+    detail: 'Something went wrong signing you in. Please try again.',
+  }
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/')
+
+  const { error: rawError } = await searchParams
+  const errorText = Array.isArray(rawError) ? rawError[0] : rawError
+  const err = errorText ? errorMessage(errorText) : null
 
   return (
     <main className="min-h-screen bg-ink flex flex-col items-center justify-center px-6">
@@ -27,6 +50,13 @@ export default async function LoginPage() {
             community restock intel
           </p>
         </div>
+
+        {err && (
+          <div className="bg-signal/10 border border-signal/30 rounded-2xl p-4 text-left space-y-1">
+            <p className="text-signal font-semibold text-sm">{err.title}</p>
+            <p className="text-white/60 text-xs leading-relaxed">{err.detail}</p>
+          </div>
+        )}
 
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8 space-y-6">
           <div className="space-y-1">
