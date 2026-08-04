@@ -78,10 +78,16 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
   const [form, setForm] = useState({ ...EMPTY_FORM })
 
   // Grant panel state
-  const [grantAchId, setGrantAchId] = useState<number | ''>('')
+  const [grantAchIds, setGrantAchIds] = useState<number[]>([])
   const [grantMemberId, setGrantMemberId] = useState<string>('')
   const [granting, setGranting] = useState(false)
   const [memberSearch, setMemberSearch] = useState('')
+
+  function toggleGrantAch(id: number) {
+    setGrantAchIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok })
@@ -196,19 +202,37 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
   }
 
   async function handleGrant() {
-    if (!grantAchId || !grantMemberId) return
+    if (grantAchIds.length === 0 || !grantMemberId) return
     setGranting(true)
     const supabase = createClient()
-    const { error } = await supabase.rpc('grant_achievement', { target: grantMemberId, ach: grantAchId })
-    if (error) showToast('Failed to grant.', false)
-    else {
-      showToast('Badge granted.', true)
-      setGrantAchId('')
+
+    const results = await Promise.all(
+      grantAchIds.map(async (id) => {
+        const { error } = await supabase.rpc('grant_achievement', { target: grantMemberId, ach: id })
+        return { id, ok: !error }
+      })
+    )
+
+    const failed = results.filter((r) => !r.ok)
+    const granted = results.length - failed.length
+
+    if (failed.length === 0) {
+      showToast(granted === 1 ? 'Badge granted.' : `${granted} badges granted.`, true)
+      setGrantAchIds([])
       setGrantMemberId('')
+    } else if (granted === 0) {
+      showToast(failed.length === 1 ? 'Failed to grant.' : 'Failed to grant any badges.', false)
+    } else {
+      // Keep only the ones that failed selected, so a retry targets just those
+      setGrantAchIds(failed.map((f) => f.id))
+      showToast(`${granted} granted, ${failed.length} failed.`, false)
     }
+
     setGranting(false)
     startTransition(() => router.refresh())
   }
+
+  const activeAchievements = achievements.filter((a) => a.is_active)
 
   const filteredMembers = memberSearch.trim()
     ? members.filter((m) =>
@@ -238,17 +262,57 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
 
       {/* ── Grant panel ── */}
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
-        <h2 className="font-display font-semibold text-base">Grant Badge</h2>
-        <select
-          value={grantAchId}
-          onChange={(e) => setGrantAchId(e.target.value ? Number(e.target.value) : '')}
-          className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
-        >
-          <option value="">Pick an achievement…</option>
-          {achievements.filter((a) => a.is_active).map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display font-semibold text-base">Grant Badge</h2>
+          {grantAchIds.length > 0 && (
+            <button
+              onClick={() => setGrantAchIds([])}
+              className="text-xs text-muted hover:text-ink transition-colors"
+            >
+              Clear ({grantAchIds.length})
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-ink">
+            Achievements
+            <span className="font-normal text-muted"> — pick one or more</span>
+          </label>
+          {activeAchievements.length === 0 ? (
+            <p className="text-xs text-muted italic">No active achievements to grant.</p>
+          ) : (
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-card-border bg-paper divide-y divide-card-border">
+              {activeAchievements.map((a) => {
+                const icon = one(a.badge_icons)
+                const checked = grantAchIds.includes(a.id)
+                return (
+                  <label
+                    key={a.id}
+                    className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
+                      checked ? 'bg-signal/10' : 'hover:bg-card'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleGrantAch(a.id)}
+                      className="w-4 h-4 accent-signal shrink-0"
+                    />
+                    {icon ? (
+                      <img src={`/badges/${icon.file}`} alt="" className="w-6 h-6 object-contain shrink-0" />
+                    ) : (
+                      <span className="w-6 h-6 flex items-center justify-center shrink-0">🏅</span>
+                    )}
+                    <span className={`text-sm truncate ${checked ? 'text-ink font-medium' : 'text-ink'}`}>
+                      {a.name}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
         <div className="space-y-2">
           <input
             type="text"
@@ -271,10 +335,14 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
         </div>
         <button
           onClick={handleGrant}
-          disabled={!grantAchId || !grantMemberId || granting}
+          disabled={grantAchIds.length === 0 || !grantMemberId || granting}
           className="w-full bg-signal hover:bg-signal/90 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
         >
-          Grant badge
+          {granting
+            ? 'Granting…'
+            : grantAchIds.length > 1
+            ? `Grant ${grantAchIds.length} badges`
+            : 'Grant badge'}
         </button>
       </section>
 
