@@ -15,7 +15,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   const [{ data: profile }, { data: earned }, { data: interests }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, role, name_color, trainer_icons(file)')
+      .select('id, username, display_name, avatar_url, role, name_color, title, trainer_icons(file)')
       .eq('id', id)
       .single(),
     supabase
@@ -102,7 +102,9 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           >
             {name}
           </p>
-          <p className="font-mono text-xs text-muted capitalize">{profile.role}</p>
+          {profile.title ? (
+            <p className="text-sm text-muted truncate">{profile.title as string}</p>
+          ) : null}
         </div>
       </div>
 

@@ -11,7 +11,7 @@ export default async function RolesPage() {
     supabase.from('profiles').select('role').eq('id', user!.id).single(),
     supabase
       .from('profiles')
-      .select('id, username, display_name, role, name_color')
+      .select('id, username, display_name, role, name_color, title')
       .in('role', ['contributor', 'member', 'mod', 'admin'])
       .order('username'),
   ])

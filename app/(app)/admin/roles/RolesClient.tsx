@@ -10,7 +10,10 @@ interface Member {
   display_name: string | null
   role: string
   name_color: string | null
+  title: string | null
 }
+
+const TITLE_MAX = 40
 
 interface Props {
   members: Member[]
@@ -38,6 +41,8 @@ export default function RolesClient({ members, userRole }: Props) {
   const [, startTransition] = useTransition()
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  // Per-member unsaved title edits, keyed by member id.
+  const [titleDrafts, setTitleDrafts] = useState<Record<string, string>>({})
 
   const filtered = query
     ? members.filter((m) =>
@@ -65,6 +70,23 @@ export default function RolesClient({ members, userRole }: Props) {
     const { error } = await supabase.rpc('set_role', { target: id, new_role: 'pending' })
     if (error) { showToast('Failed to remove access.'); return }
     showToast(`${name} removed.`)
+    startTransition(() => router.refresh())
+  }
+
+  async function handleSaveTitle(id: string, value: string) {
+    const supabase = createClient()
+    const trimmed = value.trim()
+    const { error } = await supabase.rpc('set_user_title', {
+      target: id,
+      new_title: trimmed || null,
+    })
+    if (error) { showToast('Failed to set title.'); return }
+    showToast(trimmed ? 'Title updated.' : 'Title cleared.')
+    setTitleDrafts((d) => {
+      const next = { ...d }
+      delete next[id]
+      return next
+    })
     startTransition(() => router.refresh())
   }
 
@@ -132,6 +154,38 @@ export default function RolesClient({ members, userRole }: Props) {
                 </button>
               ))}
             </div>
+            {(() => {
+              const draft = titleDrafts[member.id]
+              const value = draft ?? member.title ?? ''
+              const dirty = draft !== undefined && draft.trim() !== (member.title ?? '')
+              return (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <span className="text-xs text-muted shrink-0">Title</span>
+                  <input
+                    type="text"
+                    value={value}
+                    maxLength={TITLE_MAX}
+                    placeholder="none"
+                    onChange={(e) =>
+                      setTitleDrafts((d) => ({ ...d, [member.id]: e.target.value }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && dirty) handleSaveTitle(member.id, value)
+                    }}
+                    className="flex-1 min-w-0 bg-paper border border-card-border rounded-lg px-2 py-1 text-xs outline-none focus:border-signal placeholder:text-muted"
+                  />
+                  {dirty && (
+                    <button
+                      onClick={() => handleSaveTitle(member.id, value)}
+                      className="shrink-0 text-xs font-medium text-signal border border-signal/30 rounded-lg px-2.5 py-1 hover:bg-signal/10 transition-colors"
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
+
             <div className="flex items-center gap-1.5 flex-wrap pt-1">
               <span className="text-xs text-muted mr-0.5">Name color</span>
               {NAME_COLORS.map((c) => (

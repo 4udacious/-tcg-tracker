@@ -11,6 +11,7 @@ export interface MemberSummary {
   role: string
   trainerIconFile: string | null
   nameColor: string | null
+  title: string | null
   badgeCount: number
 }
 
@@ -76,7 +77,7 @@ export default function MembersClient({ members }: { members: MemberSummary[] })
                   >
                     {m.displayName ?? m.username}
                   </p>
-                  <p className="font-mono text-xs text-muted capitalize">{m.role}</p>
+                  {m.title && <p className="text-xs text-muted truncate">{m.title}</p>}
                 </div>
                 {m.badgeCount > 0 && (
                   <span className="shrink-0 flex items-center gap-1 text-xs font-mono text-muted">
