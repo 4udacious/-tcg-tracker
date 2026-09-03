@@ -29,7 +29,7 @@ export default async function InterestPage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('product_interest')
-        .select('user_id, note, profiles(username, display_name), products(name, sets(name))')
+        .select('user_id, product_id, note, profiles(username, display_name), products(name, sets(name))')
         .or(liveOnly)
         .order('user_id'),
       supabase
@@ -43,12 +43,16 @@ export default async function InterestPage() {
   // Group live interests by user_id for the "By Person" tab
   type InterestRow = {
     user_id: string
+    product_id: string
     note: string | null
     profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
     products: { name: string; sets: { name: string } | { name: string }[] | null } | { name: string; sets: { name: string } | { name: string }[] | null }[] | null
   }
 
   const peopleMap = new Map<string, { label: string; items: { productName: string; setName: string; note: string | null }[] }>()
+  // Keyed by product_id, not name: names like "Elite Trainer Box" repeat across
+  // many sets, so keying by name would merge every set's wanters into one count.
+  const wantersByProductId = new Map<string, string[]>()
 
   for (const row of (allInterests as InterestRow[] | null) ?? []) {
     const product = Array.isArray(row.products) ? row.products[0] : row.products
@@ -67,6 +71,10 @@ export default async function InterestPage() {
       setName: (set as { name: string } | null)?.name ?? '',
       note: row.note,
     })
+
+    const wanters = wantersByProductId.get(row.product_id) ?? []
+    wanters.push(label)
+    wantersByProductId.set(row.product_id, wanters)
   }
 
   const peopleList = [...peopleMap.entries()]
@@ -86,21 +94,11 @@ export default async function InterestPage() {
     sets: { id: string; name: string; set_type: string } | { id: string; name: string; set_type: string }[] | null
   }
 
-  const wantersByProductName = new Map<string, string[]>()
-  for (const [, person] of peopleMap) {
-    for (const item of person.items) {
-      if (!item.productName) continue
-      const list = wantersByProductName.get(item.productName) ?? []
-      list.push(person.label)
-      wantersByProductName.set(item.productName, list)
-    }
-  }
-
   const bySet = new Map<string, { setType: string; rows: { productName: string; count: number; users: string[] }[] }>()
   for (const p of (products as ProductRow[] | null) ?? []) {
     const set = Array.isArray(p.sets) ? p.sets[0] : p.sets
     if (!set) continue
-    const users = wantersByProductName.get(p.name) ?? []
+    const users = wantersByProductId.get(p.id) ?? []
     if (!bySet.has(set.name)) bySet.set(set.name, { setType: set.set_type ?? '', rows: [] })
     bySet.get(set.name)!.rows.push({ productName: p.name, count: users.length, users })
   }
