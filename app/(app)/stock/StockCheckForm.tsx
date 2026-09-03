@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
 import LocationSearch, { type LocationItem } from '@/components/LocationSearch'
+import StoreFavoriteToggle from '@/components/StoreFavoriteToggle'
 import { checkAchievements } from '@/lib/checkAchievements'
 
 interface Store {
@@ -41,13 +42,18 @@ interface Props {
   stores: Store[]
   productTypes: ProductType[]
   recentChecks: RecentCheck[]
+  favoriteStoreIds: string[]
   userId: string
 }
 
-export default function StockCheckForm({ stores, productTypes, recentChecks, userId }: Props) {
+export default function StockCheckForm({ stores, productTypes, recentChecks, favoriteStoreIds, userId }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
+  const [storeTab, setStoreTab] = useState<'favorites' | 'search'>(
+    favoriteStoreIds.length > 0 ? 'favorites' : 'search'
+  )
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set(favoriteStoreIds))
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null)
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null)
   const [hasStock, setHasStock] = useState<boolean | null>(null)
@@ -61,7 +67,9 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
         const retailer = Array.isArray(s.retailers) ? s.retailers[0] : s.retailers
         const retailerName = (retailer as { name: string } | null)?.name ?? ''
         return {
-          id: s.id,
+          // Normalise to string here so favourite matching can't compare a
+          // bigint-as-number against a string id.
+          id: String(s.id),
           primary: `${retailerName} — ${s.label}`,
           secondary: s.address ?? undefined,
           region: s.region,
@@ -71,6 +79,22 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
       }),
     [stores]
   )
+
+  // Favorited stores, grouped by city for the picker.
+  const favoriteStores = useMemo(
+    () => storeItems.filter((s) => favoriteIds.has(s.id)),
+    [storeItems, favoriteIds]
+  )
+
+  const favoritesByCity = useMemo(() => {
+    const byCity = new Map<string, LocationItem[]>()
+    for (const s of favoriteStores) {
+      const city = s.city ?? 'Other'
+      if (!byCity.has(city)) byCity.set(city, [])
+      byCity.get(city)!.push(s)
+    }
+    return [...byCity.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [favoriteStores])
 
   const typeOptions: SelectOption[] = productTypes.map((t) => ({ id: t.id, label: t.name }))
 
@@ -122,13 +146,106 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, use
 
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-4">
         <h2 className="font-display font-semibold text-base">Report stock</h2>
-        <LocationSearch
-          label="Store"
-          items={storeItems}
-          value={selectedStoreId}
-          onChange={setSelectedStoreId}
-          placeholder="Search by city, store, address…"
-        />
+        {/* Store picker: saved favorites, or full search */}
+        <div className="space-y-2">
+          <div className="flex gap-1 bg-paper rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => { setStoreTab('favorites'); setSelectedStoreId(null) }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                storeTab === 'favorites' ? 'bg-ink text-white' : 'text-ink'
+              }`}
+            >
+              Favorites
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStoreTab('search'); setSelectedStoreId(null) }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                storeTab === 'search' ? 'bg-ink text-white' : 'text-ink'
+              }`}
+            >
+              Search
+            </button>
+          </div>
+
+          {storeTab === 'favorites' ? (
+            favoriteStores.length === 0 ? (
+              <div className="text-center py-4 space-y-3">
+                <p className="text-sm text-ink font-medium">No favorite stores yet</p>
+                <p className="text-xs text-muted">Use the Search tab to find a store, then tap the star to save it here.</p>
+                <button
+                  type="button"
+                  onClick={() => { setStoreTab('search'); setSelectedStoreId(null) }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-signal border border-signal/30 bg-signal/5 hover:bg-signal/10 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  </svg>
+                  Go to Search
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-ink">Store</label>
+                <div className="border border-card-border rounded-xl overflow-hidden">
+                  <div className="max-h-60 overflow-y-auto">
+                    {favoritesByCity.map(([city, cityStores]) => (
+                      <div key={city}>
+                        <div className="sticky top-0 bg-paper px-3 py-1 border-b border-card-border">
+                          <p className="text-xs font-semibold text-ink">{city}</p>
+                        </div>
+                        <ul>
+                          {cityStores.map((s) => (
+                            <li
+                              key={s.id}
+                              onClick={() => setSelectedStoreId(s.id === selectedStoreId ? null : s.id)}
+                              className={`px-3 py-2 cursor-pointer transition-colors ${
+                                s.id === selectedStoreId ? 'bg-signal/10' : 'hover:bg-paper'
+                              }`}
+                            >
+                              <p className={`text-sm ${s.id === selectedStoreId ? 'text-signal font-medium' : 'text-ink'}`}>
+                                {s.primary}
+                              </p>
+                              {s.secondary && <p className="font-mono text-xs text-muted">{s.secondary}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <LocationSearch
+                  label="Store"
+                  items={storeItems}
+                  value={selectedStoreId}
+                  onChange={setSelectedStoreId}
+                  placeholder="Search by city, store, address…"
+                />
+              </div>
+              {selectedStoreId && (
+                <StoreFavoriteToggle
+                  userId={userId}
+                  storeId={selectedStoreId}
+                  initialFavorited={favoriteIds.has(selectedStoreId)}
+                  onChange={(fav) => {
+                    setFavoriteIds((prev) => {
+                      const next = new Set(prev)
+                      if (fav) next.add(selectedStoreId)
+                      else next.delete(selectedStoreId)
+                      return next
+                    })
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>
         <SearchableSelect
           label="Product type"
           options={typeOptions}
