@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import SignInButton from '@/components/SignInButton'
+import InAppBrowserWarning from '@/components/InAppBrowserWarning'
 
 function errorMessage(raw: string): { title: string; detail: string } {
   const lower = raw.toLowerCase()
@@ -14,7 +15,8 @@ function errorMessage(raw: string): { title: string; detail: string } {
   }
   return {
     title: 'Sign-in failed',
-    detail: 'Something went wrong signing you in. Please try again.',
+    detail:
+      'Something went wrong signing you in. If you opened this page inside another app (like Discord), open www.wapc.us in Chrome or Safari and try again.',
   }
 }
 
@@ -50,6 +52,8 @@ export default async function LoginPage({
             community restock intel
           </p>
         </div>
+
+        <InAppBrowserWarning />
 
         {err && (
           <div className="bg-signal/10 border border-signal/30 rounded-2xl p-4 text-left space-y-1">
