@@ -17,7 +17,34 @@ interface MyInterest {
   note: string | null
   product_id: string
   created_at: string
+  /** null = "forever need"; past timestamp = lapsed. */
+  expires_at: string | null
   products: { id: string; name: string; sets: { id: string; name: string } | { id: string; name: string }[] | null } | { id: string; name: string; sets: { id: string; name: string } | { id: string; name: string }[] | null }[] | null
+}
+
+const TRACK_DAYS = 14
+
+/** Timestamp `TRACK_DAYS` from now, for starting or resetting a timer. */
+function freshExpiry(): string {
+  return new Date(Date.now() + TRACK_DAYS * 86400000).toISOString()
+}
+
+type InterestStatus =
+  | { kind: 'forever' }
+  | { kind: 'expired' }
+  | { kind: 'active'; label: string; urgent: boolean }
+
+function statusOf(expiresAt: string | null): InterestStatus {
+  if (expiresAt === null) return { kind: 'forever' }
+  const msLeft = new Date(expiresAt).getTime() - Date.now()
+  if (msLeft <= 0) return { kind: 'expired' }
+  const hoursLeft = Math.floor(msLeft / 3600000)
+  if (hoursLeft < 24) {
+    return { kind: 'active', label: hoursLeft <= 1 ? 'expires within the hour' : `${hoursLeft}h left`, urgent: true }
+  }
+  // Round up so a just-added entry reads "14d left" rather than "13d left".
+  const daysLeft = Math.ceil(hoursLeft / 24)
+  return { kind: 'active', label: `${daysLeft}d left`, urgent: daysLeft <= 3 }
 }
 
 interface Person {
@@ -139,13 +166,27 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
       return
     }
     const addedCount = data?.length ?? 0
-    const skipped = rows.length - addedCount
-    if (addedCount === 0) {
+
+    // Anything already on the list that had lapsed gets its timer restarted —
+    // otherwise the insert above is ignored and re-adding would appear to do
+    // nothing. Active and "forever need" rows are left untouched.
+    const { data: revived } = await supabase
+      .from('product_interest')
+      .update({ expires_at: freshExpiry() })
+      .eq('user_id', userId)
+      .in('product_id', selectedProductIds)
+      .lt('expires_at', new Date().toISOString())
+      .select('id')
+    const revivedCount = revived?.length ?? 0
+
+    const skipped = rows.length - addedCount - revivedCount
+    const touched = addedCount + revivedCount
+    if (touched === 0) {
       showToast(rows.length === 1 ? 'Already tracking.' : 'Already tracking all of those.', false)
     } else if (skipped > 0) {
-      showToast(`Tracked ${addedCount}, already tracking ${skipped}.`, true)
+      showToast(`Tracked ${touched}, already tracking ${skipped}.`, true)
     } else {
-      showToast(addedCount === 1 ? 'Tracked!' : `Tracked ${addedCount} items!`, true)
+      showToast(touched === 1 ? 'Tracked!' : `Tracked ${touched} items!`, true)
     }
     setSelectedSetId(null)
     setSelectedProductIds([])
@@ -169,6 +210,33 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
     showToast('Stopped tracking.', true)
     startTransition(() => router.refresh())
   }
+
+  /** null resets to a fresh 14 days; 'forever' clears the time limit. */
+  async function handleSetExpiry(id: string, mode: 'reset' | 'forever', msg: string) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('product_interest')
+      .update({ expires_at: mode === 'forever' ? null : freshExpiry() })
+      .eq('id', id)
+    if (error) {
+      showToast('Something went wrong.', false)
+      return
+    }
+    showToast(msg, true)
+    startTransition(() => router.refresh())
+  }
+
+  // Live entries first, lapsed ones collected at the bottom; otherwise keep the
+  // newest-first order the server sent.
+  const sortedInterests = useMemo(
+    () =>
+      [...myInterests].sort((a, b) => {
+        const aDead = statusOf(a.expires_at).kind === 'expired' ? 1 : 0
+        const bDead = statusOf(b.expires_at).kind === 'expired' ? 1 : 0
+        return aDead - bDead
+      }),
+    [myInterests]
+  )
 
   const tabs: { id: Tab; label: string }[] = useMemo(
     () => [
@@ -280,34 +348,95 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
           </section>
 
           <section className="space-y-3">
-            <h2 className="font-display font-semibold text-base">My Requests</h2>
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="font-display font-semibold text-base">My Requests</h2>
+              <span className="font-mono text-[10px] text-muted">expire after {TRACK_DAYS} days</span>
+            </div>
             {myInterests.length === 0 ? (
               <p className="text-sm text-muted">Nothing tracked yet. Pick a set to start.</p>
             ) : (
               <ul className="space-y-2">
-                {myInterests.map((item) => {
+                {sortedInterests.map((item) => {
                   const product = Array.isArray(item.products) ? item.products[0] : item.products
                   const set = product
                     ? Array.isArray((product as { sets: unknown }).sets)
                       ? ((product as { sets: { name: string }[] }).sets)[0]
                       : (product as { sets: { name: string } | null }).sets
                     : null
+                  const status = statusOf(item.expires_at)
+                  const expired = status.kind === 'expired'
                   return (
                     <li
                       key={item.id}
-                      className="bg-card border border-card-border rounded-xl px-4 py-3 flex items-start justify-between gap-3"
+                      className={`bg-card border rounded-xl px-4 py-3 space-y-2 ${
+                        expired ? 'border-card-border opacity-60' : 'border-card-border'
+                      }`}
                     >
-                      <div className="space-y-0.5 min-w-0">
-                        <p className="font-medium text-sm truncate">{(product as { name: string } | null)?.name}</p>
-                        <p className="font-mono text-xs text-muted">{(set as { name: string } | null)?.name}</p>
-                        {item.note && <p className="text-xs text-muted italic">{item.note}</p>}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="font-medium text-sm truncate">{(product as { name: string } | null)?.name}</p>
+                          <p className="font-mono text-xs text-muted">{(set as { name: string } | null)?.name}</p>
+                          {item.note && <p className="text-xs text-muted italic">{item.note}</p>}
+                        </div>
+                        <span
+                          className={`shrink-0 font-mono text-[10px] px-2 py-0.5 rounded-full border ${
+                            status.kind === 'forever'
+                              ? 'text-signal border-signal/40 bg-signal/5'
+                              : status.kind === 'expired'
+                              ? 'text-muted border-card-border'
+                              : status.urgent
+                              ? 'text-[#f97316] border-[#f97316]/40 bg-[#f97316]/5'
+                              : 'text-muted border-card-border'
+                          }`}
+                        >
+                          {status.kind === 'forever'
+                            ? 'forever'
+                            : status.kind === 'expired'
+                            ? 'expired'
+                            : status.label}
+                        </span>
                       </div>
-                      <button
-                        onClick={() => handleStopTracking(item.id)}
-                        className="shrink-0 text-xs text-muted hover:text-ink underline underline-offset-2 transition-colors"
-                      >
-                        Stop tracking
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {expired ? (
+                          <button
+                            onClick={() => handleSetExpiry(item.id, 'reset', 'Re-added for 2 weeks.')}
+                            className="text-xs font-medium text-signal border border-signal/30 rounded-lg px-2.5 py-1 hover:bg-signal/10 transition-colors"
+                          >
+                            Re-add
+                          </button>
+                        ) : status.kind === 'forever' ? (
+                          <button
+                            onClick={() => handleSetExpiry(item.id, 'reset', 'Back on a 2-week timer.')}
+                            className="text-xs font-medium text-muted border border-card-border rounded-lg px-2.5 py-1 hover:text-ink hover:border-ink/20 transition-colors"
+                          >
+                            Use timer
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleSetExpiry(item.id, 'reset', 'Extended 2 weeks.')}
+                            className="text-xs font-medium text-muted border border-card-border rounded-lg px-2.5 py-1 hover:text-ink hover:border-ink/20 transition-colors"
+                          >
+                            Extend
+                          </button>
+                        )}
+
+                        {status.kind !== 'forever' && (
+                          <button
+                            onClick={() => handleSetExpiry(item.id, 'forever', 'Marked as a forever need.')}
+                            className="text-xs font-medium text-signal border border-signal/30 rounded-lg px-2.5 py-1 hover:bg-signal/10 transition-colors"
+                          >
+                            Forever need
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleStopTracking(item.id)}
+                          className="text-xs font-medium text-muted border border-card-border rounded-lg px-2.5 py-1 hover:text-red-500 hover:border-red-400/40 transition-colors ml-auto"
+                        >
+                          Stop tracking
+                        </button>
+                      </div>
                     </li>
                   )
                 })}

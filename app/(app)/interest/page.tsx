@@ -1,30 +1,46 @@
 import { createClient } from '@/lib/supabase/server'
 import InterestTracker from './InterestTracker'
 
+export const dynamic = 'force-dynamic'
+
 export default async function InterestPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: sets }, { data: myInterests }, { data: allInterests }, { data: overview }] = await Promise.all([
-    supabase
-      .from('sets')
-      .select('id, name, set_type')
-      .eq('is_active', true)
-      .order('sort_order')
-      .order('name'),
-    supabase
-      .from('product_interest')
-      .select('id, note, product_id, created_at, products(id, name, sets(id, name))')
-      .eq('user_id', user!.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('product_interest')
-      .select('user_id, note, profiles(username, display_name), products(name, sets(name))')
-      .order('user_id'),
-    supabase.from('v_interest_overview').select('*'),
-  ])
+  // An entry is live while it has no expiry ("forever need") or its expiry is
+  // still in the future. Lapsed entries stay in the table so their owner can
+  // re-add them, but they drop out of everyone else's view.
+  const nowIso = new Date().toISOString()
+  const liveOnly = `expires_at.is.null,expires_at.gt.${nowIso}`
 
-  // Group allInterests by user_id for the "By Person" tab
+  const [{ data: sets }, { data: myInterests }, { data: allInterests }, { data: products }] =
+    await Promise.all([
+      supabase
+        .from('sets')
+        .select('id, name, set_type')
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('name'),
+      // The owner's own list deliberately includes lapsed rows.
+      supabase
+        .from('product_interest')
+        .select('id, note, product_id, created_at, expires_at, products(id, name, sets(id, name))')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('product_interest')
+        .select('user_id, note, profiles(username, display_name), products(name, sets(name))')
+        .or(liveOnly)
+        .order('user_id'),
+      supabase
+        .from('products')
+        .select('id, name, sort_order, sets(id, name, set_type)')
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('name'),
+    ])
+
+  // Group live interests by user_id for the "By Person" tab
   type InterestRow = {
     user_id: string
     note: string | null
@@ -61,35 +77,36 @@ export default async function InterestPage() {
     [...peopleMap.entries()].map(([id, v]) => [id, v.items])
   )
 
-  // v_interest_overview: one row per product. Column names per brief are
-  // set_name, set_type, interested_count, interested_users — product identity
-  // and sort columns aren't documented, so we read defensively.
-  type OverviewRow = {
-    set_name?: string
-    set_type?: string
-    interested_count?: number
-    interested_users?: string[]
-    product_name?: string
-    name?: string
-    [key: string]: unknown
+  // Build the "By Set" board from the catalog plus live interest, so products
+  // with nobody waiting still appear under "Show all" and lapsed entries stop
+  // inflating the counts.
+  type ProductRow = {
+    id: string
+    name: string
+    sets: { id: string; name: string; set_type: string } | { id: string; name: string; set_type: string }[] | null
   }
 
-  const overviewBySet = (overview as OverviewRow[] | null ?? []).reduce<
-    Record<string, { setType: string; rows: { productName: string; count: number; users: string[] }[] }>
-  >((acc, row) => {
-    const setName = row.set_name ?? 'Unknown set'
-    const productName = row.product_name ?? row.name ?? 'Unknown product'
-    const count = row.interested_count ?? 0
-    const users = row.interested_users ?? []
-    if (!acc[setName]) {
-      acc[setName] = { setType: row.set_type ?? '', rows: [] }
+  const wantersByProductName = new Map<string, string[]>()
+  for (const [, person] of peopleMap) {
+    for (const item of person.items) {
+      if (!item.productName) continue
+      const list = wantersByProductName.get(item.productName) ?? []
+      list.push(person.label)
+      wantersByProductName.set(item.productName, list)
     }
-    acc[setName].rows.push({ productName, count, users })
-    return acc
-  }, {})
+  }
+
+  const bySet = new Map<string, { setType: string; rows: { productName: string; count: number; users: string[] }[] }>()
+  for (const p of (products as ProductRow[] | null) ?? []) {
+    const set = Array.isArray(p.sets) ? p.sets[0] : p.sets
+    if (!set) continue
+    const users = wantersByProductName.get(p.name) ?? []
+    if (!bySet.has(set.name)) bySet.set(set.name, { setType: set.set_type ?? '', rows: [] })
+    bySet.get(set.name)!.rows.push({ productName: p.name, count: users.length, users })
+  }
 
   const setOrder = (sets ?? []).map((s) => s.name)
-  const interestBoard = Object.entries(overviewBySet)
+  const interestBoard = [...bySet.entries()]
     .sort(([a], [b]) => {
       const ia = setOrder.indexOf(a)
       const ib = setOrder.indexOf(b)

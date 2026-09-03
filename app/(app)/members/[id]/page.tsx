@@ -23,10 +23,13 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
       .select('id, completed_at, granted_by, achievements(id, name, description, is_active, badge_icons(file, label))')
       .eq('user_id', id)
       .order('completed_at', { ascending: false }),
+    // Lapsed entries stay in the table for their owner to re-add, but they
+    // shouldn't show on someone else's profile.
     supabase
       .from('product_interest')
       .select('id, note, created_at, products(name, sets(name))')
       .eq('user_id', id)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('created_at', { ascending: false }),
   ])
 
