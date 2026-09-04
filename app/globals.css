@@ -8,6 +8,43 @@
   --signal: #F6A609;
   --ok: #16A34A;
   --muted: #6B7280;
+
+  /* Solid dark surfaces (header, active tabs, toasts). In light mode this is
+     just --ink; dark mode overrides it so those stay dark while text flips. */
+  --surface-strong: #0E1726;
+}
+
+/* --ink is dual purpose: primary text (text-ink, ~84 uses) and a solid dark
+   surface (bg-ink, ~27 uses). In dark mode it flips light so text and the
+   /10-/40 opacity tints read correctly, and the solid surfaces are redirected
+   to --surface-strong by the utility overrides below. */
+:root[data-theme='dark'] {
+  --ink: #E7ECF5;
+  --paper: #0B1120;
+  --card: #141C2B;
+  --card-border: #27334A;
+  --signal: #F7B62E;
+  --ok: #35C26B;
+  --muted: #94A2B8;
+
+  --surface-strong: #1B2436;
+}
+
+:root[data-theme='dark'] .bg-ink {
+  background-color: var(--surface-strong);
+}
+
+:root[data-theme='dark'] .border-ink {
+  border-color: var(--surface-strong);
+}
+
+/* Only apply once a theme is resolved, so the pre-paint script can't flash. */
+html {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 @theme inline {

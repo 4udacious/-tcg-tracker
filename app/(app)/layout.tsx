@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import BottomTabNav from '@/components/BottomTabNav'
 import SignOutButton from '@/components/SignOutButton'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -41,6 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 {profile?.display_name ?? profile?.username ?? ''}
               </span>
             </Link>
+            <ThemeToggle />
             <SignOutButton />
           </div>
         </div>
