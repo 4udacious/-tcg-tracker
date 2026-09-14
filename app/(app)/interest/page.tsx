@@ -24,17 +24,17 @@ export default async function InterestPage() {
       // The owner's own list deliberately includes lapsed rows.
       supabase
         .from('product_interest')
-        .select('id, note, product_id, created_at, expires_at, products(id, name, sets(id, name))')
+        .select('id, note, product_id, created_at, expires_at, products(id, name, image_url, sets(id, name))')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false }),
       supabase
         .from('product_interest')
-        .select('user_id, product_id, note, profiles(username, display_name), products(name, sets(name))')
+        .select('user_id, product_id, note, profiles(username, display_name), products(name, image_url, sets(name))')
         .or(liveOnly)
         .order('user_id'),
       supabase
         .from('products')
-        .select('id, name, sort_order, sets(id, name, set_type)')
+        .select('id, name, image_url, sort_order, sets(id, name, set_type)')
         .eq('is_active', true)
         .order('sort_order')
         .order('name'),
@@ -46,10 +46,10 @@ export default async function InterestPage() {
     product_id: string
     note: string | null
     profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
-    products: { name: string; sets: { name: string } | { name: string }[] | null } | { name: string; sets: { name: string } | { name: string }[] | null }[] | null
+    products: { name: string; image_url: string | null; sets: { name: string } | { name: string }[] | null } | { name: string; image_url: string | null; sets: { name: string } | { name: string }[] | null }[] | null
   }
 
-  const peopleMap = new Map<string, { label: string; items: { productName: string; setName: string; note: string | null }[] }>()
+  const peopleMap = new Map<string, { label: string; items: { productName: string; setName: string; imageUrl: string | null; note: string | null }[] }>()
   // Keyed by product_id, not name: names like "Elite Trainer Box" repeat across
   // many sets, so keying by name would merge every set's wanters into one count.
   const wantersByProductId = new Map<string, string[]>()
@@ -69,6 +69,7 @@ export default async function InterestPage() {
     peopleMap.get(row.user_id)!.items.push({
       productName: (product as { name: string } | null)?.name ?? '',
       setName: (set as { name: string } | null)?.name ?? '',
+      imageUrl: (product as { image_url: string | null } | null)?.image_url ?? null,
       note: row.note,
     })
 
@@ -91,16 +92,17 @@ export default async function InterestPage() {
   type ProductRow = {
     id: string
     name: string
+    image_url: string | null
     sets: { id: string; name: string; set_type: string } | { id: string; name: string; set_type: string }[] | null
   }
 
-  const bySet = new Map<string, { setType: string; rows: { productName: string; count: number; users: string[] }[] }>()
+  const bySet = new Map<string, { setType: string; rows: { productName: string; imageUrl: string | null; count: number; users: string[] }[] }>()
   for (const p of (products as ProductRow[] | null) ?? []) {
     const set = Array.isArray(p.sets) ? p.sets[0] : p.sets
     if (!set) continue
     const users = wantersByProductId.get(p.id) ?? []
     if (!bySet.has(set.name)) bySet.set(set.name, { setType: set.set_type ?? '', rows: [] })
-    bySet.get(set.name)!.rows.push({ productName: p.name, count: users.length, users })
+    bySet.get(set.name)!.rows.push({ productName: p.name, imageUrl: p.image_url, count: users.length, users })
   }
 
   const setOrder = (sets ?? []).map((s) => s.name)

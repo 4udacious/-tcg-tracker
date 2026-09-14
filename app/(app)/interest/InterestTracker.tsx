@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
+import ProductThumb from '@/components/ProductThumb'
 import { checkAchievements } from '@/lib/checkAchievements'
 
 interface Set {
@@ -19,7 +20,7 @@ interface MyInterest {
   created_at: string
   /** null = "forever need"; past timestamp = lapsed. */
   expires_at: string | null
-  products: { id: string; name: string; sets: { id: string; name: string } | { id: string; name: string }[] | null } | { id: string; name: string; sets: { id: string; name: string } | { id: string; name: string }[] | null }[] | null
+  products: { id: string; name: string; image_url: string | null; sets: { id: string; name: string } | { id: string; name: string }[] | null } | { id: string; name: string; image_url: string | null; sets: { id: string; name: string } | { id: string; name: string }[] | null }[] | null
 }
 
 const TRACK_DAYS = 14
@@ -55,11 +56,13 @@ interface Person {
 interface PersonItem {
   productName: string
   setName: string
+  imageUrl: string | null
   note: string | null
 }
 
 interface BoardRow {
   productName: string
+  imageUrl: string | null
   count: number
   users: string[]
 }
@@ -99,7 +102,7 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
   }
 
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
-  const [products, setProducts] = useState<SelectOption[]>([])
+  const [products, setProducts] = useState<(SelectOption & { imageUrl: string | null })[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
   const [productFilter, setProductFilter] = useState('')
@@ -134,12 +137,12 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
     const supabase = createClient()
     const { data } = await supabase
       .from('products')
-      .select('id, name')
+      .select('id, name, image_url')
       .eq('set_id', setId)
       .eq('is_active', true)
       .order('sort_order')
       .order('name')
-    setProducts((data ?? []).map((p) => ({ id: p.id, label: p.name })))
+    setProducts((data ?? []).map((p) => ({ id: p.id, label: p.name, imageUrl: p.image_url })))
     setLoadingProducts(false)
   }
 
@@ -314,6 +317,7 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
                               onChange={() => toggleProduct(p.id)}
                               className="accent-signal w-4 h-4 rounded shrink-0"
                             />
+                            <ProductThumb src={p.imageUrl} className="w-10 h-10" />
                             <span className="text-ink">{p.label}</span>
                           </label>
                         </li>
@@ -373,7 +377,11 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-0.5 min-w-0">
+                        <ProductThumb
+                          src={(product as { image_url: string | null } | null)?.image_url}
+                          className={`w-12 h-12 ${expired ? 'grayscale' : ''}`}
+                        />
+                        <div className="space-y-0.5 min-w-0 flex-1">
                           <p className="font-medium text-sm truncate">{(product as { name: string } | null)?.name}</p>
                           <p className="font-mono text-xs text-muted">{(set as { name: string } | null)?.name}</p>
                           {item.note && <p className="text-xs text-muted italic">{item.note}</p>}
@@ -462,10 +470,13 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
           ) : (
             <ul className="space-y-2">
               {selectedPersonItems.map((item, i) => (
-                <li key={i} className="bg-card border border-card-border rounded-xl px-4 py-3 space-y-0.5">
-                  <p className="font-medium text-sm">{item.productName}</p>
-                  <p className="font-mono text-xs text-muted">{item.setName}</p>
-                  {item.note && <p className="text-xs text-muted italic">{item.note}</p>}
+                <li key={i} className="bg-card border border-card-border rounded-xl px-4 py-3 flex items-start gap-3">
+                  <ProductThumb src={item.imageUrl} className="w-12 h-12" />
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="font-medium text-sm">{item.productName}</p>
+                    <p className="font-mono text-xs text-muted">{item.setName}</p>
+                    {item.note && <p className="text-xs text-muted italic">{item.note}</p>}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -519,16 +530,21 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
                           }`}
                         >
                           <td className="px-4 py-2.5">
-                            <p className={`font-medium leading-snug break-words ${row.productName.length > 26 ? 'text-xs' : 'text-sm'}`}>
-                              {row.productName}
-                            </p>
-                            {row.users.length > 0 && (
-                              <WhoCell
-                                users={row.users}
-                                expanded={expandedWho.has(row.productName)}
-                                onToggle={() => toggleWho(row.productName)}
-                              />
-                            )}
+                            <div className="flex items-center gap-3">
+                              <ProductThumb src={row.imageUrl} className="w-10 h-10" />
+                              <div className="min-w-0">
+                                <p className={`font-medium leading-snug break-words ${row.productName.length > 26 ? 'text-xs' : 'text-sm'}`}>
+                                  {row.productName}
+                                </p>
+                                {row.users.length > 0 && (
+                                  <WhoCell
+                                    users={row.users}
+                                    expanded={expandedWho.has(row.productName)}
+                                    onToggle={() => toggleWho(row.productName)}
+                                  />
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-4 py-2.5 text-right">
                             <span className={`font-mono font-semibold ${row.count > 0 ? 'text-signal' : 'text-muted'}`}>

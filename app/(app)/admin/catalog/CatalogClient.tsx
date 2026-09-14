@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
+import ProductThumb from '@/components/ProductThumb'
 
 type Tab = 'sets' | 'products' | 'retailers' | 'stores'
 
 interface Set { id: string; name: string; set_type: string; sort_order: number; is_active: boolean }
-interface Product { id: string; name: string; set_id: string; is_active: boolean }
+interface Product { id: string; name: string; set_id: string; is_active: boolean; image_url: string | null }
 interface Retailer { id: string; name: string }
 interface Store { id: string; region: string; city: string; neighborhood: string | null; label: string; address: string | null; latitude: number | null; longitude: number | null; is_active: boolean; retailer_id: string }
 
@@ -32,10 +33,12 @@ export default function CatalogClient({
   // Product form state
   const [productName, setProductName] = useState('')
   const [productSetId, setProductSetId] = useState<string | null>(null)
+  const [productImageUrl, setProductImageUrl] = useState('')
 
   // Product edit state
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [editProductName, setEditProductName] = useState('')
+  const [editProductImageUrl, setEditProductImageUrl] = useState('')
   const [savingProduct, setSavingProduct] = useState(false)
 
   // Retailer form state
@@ -75,21 +78,28 @@ export default function CatalogClient({
   async function addProduct() {
     if (!productName.trim() || !productSetId) return
     const supabase = createClient()
-    const { error } = await supabase.from('products').insert({ name: productName.trim(), set_id: productSetId })
+    const { error } = await supabase.from('products').insert({
+      name: productName.trim(),
+      set_id: productSetId,
+      image_url: productImageUrl.trim() || null,
+    })
     if (error) { showToast('Failed to add product.'); return }
     showToast('Product added.')
     setProductName('')
+    setProductImageUrl('')
     startTransition(() => router.refresh())
   }
 
   function startEditProduct(p: Product) {
     setEditingProductId(p.id)
     setEditProductName(p.name)
+    setEditProductImageUrl(p.image_url ?? '')
   }
 
   function cancelEditProduct() {
     setEditingProductId(null)
     setEditProductName('')
+    setEditProductImageUrl('')
   }
 
   async function saveProductName() {
@@ -98,13 +108,14 @@ export default function CatalogClient({
     const supabase = createClient()
     const { error } = await supabase
       .from('products')
-      .update({ name: editProductName.trim() })
+      .update({ name: editProductName.trim(), image_url: editProductImageUrl.trim() || null })
       .eq('id', editingProductId)
     setSavingProduct(false)
-    if (error) { showToast('Failed to rename product.'); return }
-    showToast('Product renamed.')
+    if (error) { showToast('Failed to save product.'); return }
+    showToast('Product saved.')
     setEditingProductId(null)
     setEditProductName('')
+    setEditProductImageUrl('')
     startTransition(() => router.refresh())
   }
 
@@ -203,6 +214,15 @@ export default function CatalogClient({
             <h3 className="font-semibold text-sm">Add product</h3>
             <SearchableSelect label="Set" options={setOptions} value={productSetId} onChange={setProductSetId} placeholder="Pick a set…" />
             <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Product name" className="input-field" />
+            <div className="flex items-center gap-2">
+              <ProductThumb key={productImageUrl} src={productImageUrl.trim() || null} className="w-11 h-11" />
+              <input
+                value={productImageUrl}
+                onChange={(e) => setProductImageUrl(e.target.value)}
+                placeholder="Image URL (optional)"
+                className="input-field"
+              />
+            </div>
             <button onClick={addProduct} className="btn-primary w-full">Add product</button>
           </div>
           <ul className="space-y-2">
@@ -223,6 +243,15 @@ export default function CatalogClient({
                         autoFocus
                         className="input-field"
                       />
+                      <div className="flex items-center gap-2">
+                        <ProductThumb key={editProductImageUrl} src={editProductImageUrl.trim() || null} className="w-11 h-11" />
+                        <input
+                          value={editProductImageUrl}
+                          onChange={(e) => setEditProductImageUrl(e.target.value)}
+                          placeholder="Image URL (optional)"
+                          className="input-field"
+                        />
+                      </div>
                       <div className="flex gap-2">
                         <button
                           onClick={saveProductName}
@@ -242,7 +271,8 @@ export default function CatalogClient({
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
+                      <ProductThumb src={p.image_url} className="w-10 h-10" />
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{p.name}</p>
                         <p className="font-mono text-xs text-muted">{set?.name ?? p.set_id}</p>
                       </div>

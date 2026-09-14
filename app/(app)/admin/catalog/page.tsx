@@ -7,7 +7,7 @@ export default async function CatalogPage() {
   const [{ data: sets }, { data: products }, { data: retailers }, { data: stores }] =
     await Promise.all([
       supabase.from('sets').select('id, name, set_type, sort_order, is_active').order('sort_order').order('name'),
-      supabase.from('products').select('id, name, set_id, is_active').order('name'),
+      supabase.from('products').select('id, name, set_id, is_active, image_url').order('name'),
       supabase.from('retailers').select('id, name').order('name'),
       supabase
         .from('store_locations')
