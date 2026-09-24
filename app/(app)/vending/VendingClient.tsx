@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+/**
+ * Colours inside the machine screen are deliberately fixed rather than theme
+ * tokens. The screen emulates a physical LCD, so it stays light in dark mode;
+ * using `text-ink` here made controls invisible against the permanently-light
+ * tiles once the theme flipped.
+ */
+const SCREEN_INK = '#0E1726'
+
 interface MachineState {
   status: string
   cycle_no: number
@@ -20,6 +28,12 @@ interface StockRow {
   pack_name: string
   image_url: string
   quantity: number
+}
+
+interface Watcher {
+  watcher_id: string
+  name: string
+  is_holder: boolean
 }
 
 interface Props {
@@ -55,11 +69,25 @@ export default function VendingClient({ initialState, initialStock, balance, use
   const [message, setMessage] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ packs: number; restocked: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [watchers, setWatchers] = useState<Watcher[]>([])
+  const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
   const fetching = useRef(false)
+  const knownWatchers = useRef<Set<string>>(new Set())
+  const noticeId = useRef(0)
+  const holderRef = useRef(false)
 
   const iAmHolder = !!state?.holder_id && state.holder_id === userId
+  holderRef.current = iAmHolder
   const status = state?.status ?? 'maintenance'
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
+  const others = watchers.filter((w) => w.watcher_id !== userId)
+  const lurkers = others.filter((w) => !w.is_holder)
+
+  function pushNotice(text: string) {
+    const id = ++noticeId.current
+    setNotices((n) => [...n, { id, text }])
+    setTimeout(() => setNotices((n) => n.filter((x) => x.id !== id)), 6000)
+  }
 
   const refresh = useCallback(async () => {
     if (fetching.current) return
@@ -81,8 +109,45 @@ export default function VendingClient({ initialState, initialStock, balance, use
     fetching.current = false
   }, [userId])
 
-  // The cycle clock. Frozen while somebody holds the machine, so it simply
-  // stops ticking rather than needing special-casing here.
+  // Presence. Rides on a plain poll rather than realtime: a stale watcher
+  // just ages out, with no connection lifecycle to manage.
+  const ping = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase.rpc('vending_ping')
+    const list = (data as Watcher[]) ?? []
+    setWatchers(list)
+
+    // Announce arrivals to whoever is holding the machine - this is the
+    // pressure that makes "leave some behind" an actual decision.
+    const seen = knownWatchers.current
+    for (const w of list) {
+      if (w.watcher_id !== userId && !seen.has(w.watcher_id)) {
+        if (holderRef.current) pushNotice(`${w.name} is lurking behind you`)
+      }
+    }
+    knownWatchers.current = new Set(list.map((w) => w.watcher_id))
+  }, [userId])
+
+  useEffect(() => {
+    ping()
+    const t = setInterval(ping, 5000)
+    return () => clearInterval(t)
+  }, [ping])
+
+  useEffect(() => {
+    function leave() {
+      const supabase = createClient()
+      supabase.rpc('vending_unwatch')
+      if (holderRef.current) supabase.rpc('vending_release')
+    }
+    window.addEventListener('pagehide', leave)
+    return () => {
+      window.removeEventListener('pagehide', leave)
+      leave()
+    }
+  }, [])
+
+  // Cycle clock. Frozen while the machine is held, so it simply stops.
   useEffect(() => {
     if (state?.frozen) return
     if (secondsLeft <= 0) { refresh(); return }
@@ -90,16 +155,13 @@ export default function VendingClient({ initialState, initialStock, balance, use
     return () => clearInterval(t)
   }, [secondsLeft, state?.frozen, refresh])
 
-  // Poll while someone else is using the machine, so waiting users see it
-  // free up without having to mash refresh.
+  // Poll harder while someone else holds it, so waiters see it free up.
   useEffect(() => {
     if (!state?.holder_id || iAmHolder) return
     const t = setInterval(refresh, 4000)
     return () => clearInterval(t)
   }, [state?.holder_id, iAmHolder, refresh])
 
-  // My own hold countdown, plus a heartbeat so the minute is one of
-  // *inactivity* rather than a hard cap.
   useEffect(() => {
     if (!iAmHolder || !state?.holder_expires) return
     const tick = setInterval(() => {
@@ -117,22 +179,10 @@ export default function VendingClient({ initialState, initialStock, balance, use
   }, [])
 
   useEffect(() => {
-    function onVisible() { if (document.visibilityState === 'visible') refresh() }
+    function onVisible() { if (document.visibilityState === 'visible') { refresh(); ping() } }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refresh])
-
-  // Release the machine if the holder navigates away, rather than making
-  // everyone wait out the full timeout.
-  useEffect(() => {
-    if (!iAmHolder) return
-    function release() {
-      const supabase = createClient()
-      supabase.rpc('vending_release')
-    }
-    window.addEventListener('pagehide', release)
-    return () => { window.removeEventListener('pagehide', release) }
-  }, [iAmHolder])
+  }, [refresh, ping])
 
   async function claim() {
     setBusy(true); setMessage(null); setReceipt(null)
@@ -143,6 +193,9 @@ export default function VendingClient({ initialState, initialStock, balance, use
       | null
     if (r?.ok) {
       await refresh()
+      if (lurkers.length > 0) {
+        pushNotice(`${lurkers.length} ${lurkers.length === 1 ? 'trainer is' : 'trainers are'} watching you`)
+      }
     } else {
       switch (r?.reason) {
         case 'busy': setMessage(`${r.holder_name} beat you to the machine.`); break
@@ -208,16 +261,20 @@ export default function VendingClient({ initialState, initialStock, balance, use
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-sm">
-        <div className="relative rounded-[2rem] bg-[#f2f2f0] p-3 pt-0 shadow-[0_0_0_3px_#ff3b53,0_0_28px_rgba(255,59,83,0.45)]">
-          <div className="flex justify-center -mt-6 mb-3">
-            <div className="relative w-20 h-20 rounded-full border-[3px] border-[#ff3b53] overflow-hidden shadow-[0_0_18px_rgba(255,59,83,0.5)] bg-white">
-              <div className="h-1/2 bg-[#e03040]" />
-              <div className="h-[3px] bg-black" />
-              <div className="h-1/2 bg-[#f7f7f5]" />
+      {/* pt-10 leaves room for the crown, which overhangs the cabinet. */}
+      <div className="mx-auto w-full max-w-sm pt-10">
+        <div className="relative rounded-[2rem] bg-[#f2f2f0] px-3 pb-3 pt-0 shadow-[0_0_0_3px_#ff3b53,0_0_28px_rgba(255,59,83,0.45)]">
+          {/* Crown, overhanging the cabinet without being clipped by it. */}
+          <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-10">
+            <div className="relative w-20 h-20 rounded-full overflow-hidden border-[3px] border-[#ff3b53] shadow-[0_0_18px_rgba(255,59,83,0.55)] bg-[#f7f7f5]">
+              <div className="absolute inset-x-0 top-0 h-1/2 bg-[#e03040]" />
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[3px] bg-black" />
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border-[3px] border-black" />
             </div>
           </div>
+
+          {/* Spacer for the overhanging crown */}
+          <div className="h-12" />
 
           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border-2 border-black">
             {receipt ? (
@@ -231,11 +288,22 @@ export default function VendingClient({ initialState, initialStock, balance, use
             ) : iAmHolder ? (
               <StockScreen stock={stock} soldOut={false} cart={cart} onAdd={addToCart} interactive />
             ) : (
-              <AttractScreen
-                onStart={claim}
-                busy={busy}
-                lockedBy={someoneElse ? state!.holder_name : null}
-              />
+              <AttractScreen onStart={claim} busy={busy} lockedBy={someoneElse ? state!.holder_name : null} />
+            )}
+
+            {/* On-screen arrival messages. Sits above the call-to-action so it
+                never covers TOUCH TO START. */}
+            {notices.length > 0 && (
+              <div className="absolute inset-x-0 bottom-14 z-20 px-1.5 space-y-1 pointer-events-none">
+                {notices.map((n) => (
+                  <div
+                    key={n.id}
+                    className="rounded bg-black/80 text-white text-[8px] font-semibold tracking-wide px-2 py-1 shadow"
+                  >
+                    {n.text}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -249,7 +317,24 @@ export default function VendingClient({ initialState, initialStock, balance, use
         </p>
       )}
 
-      {/* Holder controls */}
+      {/* Who else is here */}
+      {others.length > 0 && (
+        <div className="mx-auto w-full max-w-sm flex items-center gap-2 flex-wrap justify-center">
+          {others.map((w) => (
+            <span
+              key={w.watcher_id}
+              className={`text-[10px] font-medium rounded-full px-2 py-0.5 border ${
+                w.is_holder
+                  ? 'border-signal/40 bg-signal/10 text-signal'
+                  : 'border-card-border text-muted'
+              }`}
+            >
+              {w.name}{w.is_holder ? ' · at the machine' : ''}
+            </span>
+          ))}
+        </div>
+      )}
+
       {iAmHolder && !receipt && (
         <div className="mx-auto w-full max-w-sm bg-card border border-card-border rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -260,9 +345,17 @@ export default function VendingClient({ initialState, initialStock, balance, use
               {mmss(holdLeft)} left
             </span>
           </div>
-          {cartCount > tokens && (
-            <p className="text-xs text-red-500">That is more than you can afford.</p>
+
+          {lurkers.length > 0 && (
+            <p className="text-xs text-signal font-medium">
+              {lurkers.length === 1
+                ? `${lurkers[0].name} is waiting behind you.`
+                : `${lurkers.length} trainers are waiting behind you.`}
+            </p>
           )}
+
+          {cartCount > tokens && <p className="text-xs text-red-500">That is more than you can afford.</p>}
+
           <div className="flex gap-2">
             <button
               onClick={checkout}
@@ -295,7 +388,6 @@ export default function VendingClient({ initialState, initialStock, balance, use
         </div>
       )}
 
-      {/* Status line */}
       {!iAmHolder && !receipt && (
         <div className="mx-auto w-full max-w-sm bg-card border border-card-border rounded-2xl px-4 py-3 flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -323,41 +415,65 @@ export default function VendingClient({ initialState, initialStock, balance, use
 
 /* ────────────────────────────── screens ────────────────────────────── */
 
+const ATTRACT_PACKS = [
+  'base-set-charizard', 'jungle-scyther', 'fossil-lapras', 'team-rocket-giovanni',
+  'base-set-venusaur', 'fossil-zapdos', 'jungle-flareon', 'team-rocket-dark-gyarados',
+  'base-set-blastoise', 'jungle-wigglytuff', 'fossil-aerodactyl', 'team-rocket-jessie-james',
+]
+
 function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy: boolean; lockedBy: string | null }) {
+  // Two rows drifting opposite ways, so the tall screen reads as full of
+  // product rather than mostly empty sky.
+  const rowA = ATTRACT_PACKS.slice(0, 6)
+  const rowB = ATTRACT_PACKS.slice(6)
   return (
     <button
       onClick={onStart}
       disabled={busy || !!lockedBy}
       className="absolute inset-0 w-full h-full flex flex-col bg-gradient-to-b from-[#dff1fb] to-[#bfe4f7] focus:outline-none disabled:cursor-not-allowed"
     >
-      <div className="px-3 pt-3">
+      <div className="px-3 pt-3 shrink-0">
         <div className="rounded bg-[#c82030] text-white text-[9px] font-bold tracking-wide py-0.5">NOTICE</div>
-        <p className="mt-1 text-[7px] leading-tight text-ink/70">
+        <p className="mt-1 text-[8px] leading-snug" style={{ color: `${SCREEN_INK}b3` }}>
           One trainer at a time. Collect your packs from the tray before the next person steps up.
         </p>
       </div>
 
-      <div className="relative flex-1 overflow-hidden">
-        <div className="absolute inset-0 flex items-center gap-3 animate-[drift_18s_linear_infinite] will-change-transform">
-          {['base-set-charizard','jungle-scyther','fossil-lapras','team-rocket-giovanni','base-set-venusaur','fossil-zapdos','jungle-flareon','team-rocket-dark-gyarados'].map((f, i) => (
-            <img key={i} src={`/packs/${f}.webp`} alt="" className="h-24 w-auto shrink-0 drop-shadow-md" />
-          ))}
-        </div>
+      <div className="relative flex-1 overflow-hidden flex flex-col justify-center gap-2 py-2">
+        <DriftRow files={rowA} seconds={22} />
+        <DriftRow files={rowB} seconds={28} reverse />
       </div>
 
-      <div className={`m-2 rounded py-2 text-center font-extrabold text-sm tracking-wide shadow ${
-        lockedBy ? 'bg-black/70 text-white/80' : 'bg-[#f5c518] text-ink animate-pulse'
-      }`}>
+      <div className={`m-2 rounded py-2.5 text-center font-extrabold text-sm tracking-wide shadow shrink-0 ${
+        lockedBy ? 'bg-black/75 text-white' : 'bg-[#f5c518] animate-pulse'
+      }`} style={lockedBy ? undefined : { color: SCREEN_INK }}>
         {lockedBy ? `${lockedBy.toUpperCase()} IS USING IT` : busy ? 'STARTING…' : 'TOUCH TO START'}
       </div>
 
       <style>{`
-        @keyframes drift { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+        @keyframes driftL { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+        @keyframes driftR { from { transform: translateX(-50%) } to { transform: translateX(0) } }
         @media (prefers-reduced-motion: reduce) {
-          .animate-\\[drift_18s_linear_infinite\\] { animation: none }
+          .vm-drift { animation: none !important }
         }
       `}</style>
     </button>
+  )
+}
+
+function DriftRow({ files, seconds, reverse }: { files: string[]; seconds: number; reverse?: boolean }) {
+  const doubled = [...files, ...files]
+  return (
+    <div className="relative overflow-hidden">
+      <div
+        className="vm-drift flex items-center gap-2 w-max will-change-transform"
+        style={{ animation: `${reverse ? 'driftR' : 'driftL'} ${seconds}s linear infinite` }}
+      >
+        {doubled.map((f, i) => (
+          <img key={i} src={`/packs/${f}.webp`} alt="" className="h-28 w-auto shrink-0 drop-shadow-md" />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -373,7 +489,7 @@ function StockScreen({
   if (stock.length === 0) {
     return (
       <div className="absolute inset-0 bg-[#eaf4fb] flex items-center justify-center p-4">
-        <p className="text-xs text-ink/60 text-center">Cleared out.</p>
+        <p className="text-xs text-center" style={{ color: `${SCREEN_INK}99` }}>Cleared out.</p>
       </div>
     )
   }
@@ -391,7 +507,9 @@ function StockScreen({
                 className={`w-full aspect-[2/3] object-contain ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
                 loading="lazy"
               />
-              <p className="mt-0.5 text-[6px] leading-tight text-ink/70 text-center truncate">{s.pack_name}</p>
+              <p className="mt-0.5 text-[6px] leading-tight text-center truncate" style={{ color: `${SCREEN_INK}b3` }}>
+                {s.pack_name}
+              </p>
 
               {soldOut || gone ? (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -407,22 +525,31 @@ function StockScreen({
 
               {interactive && !gone && (
                 <div className="mt-0.5 flex items-center justify-center gap-1">
+                  {/* Fixed colours: this tile is always light, even in dark
+                      mode. Icons rather than glyphs, so nothing depends on
+                      font coverage or text encoding. */}
                   <button
                     onClick={() => onAdd(s, -1)}
                     disabled={taken === 0}
-                    className="w-4 h-4 rounded bg-black/10 text-ink text-[9px] leading-none disabled:opacity-30"
+                    className="w-5 h-5 rounded bg-black/75 text-white flex items-center justify-center disabled:opacity-25"
                     aria-label={`Remove one ${s.pack_name}`}
                   >
-                    −
+                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" aria-hidden>
+                      <path d="M2 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
                   </button>
-                  <span className="font-mono text-[8px] w-3 text-center">{taken}</span>
+                  <span className="font-mono text-[9px] w-3 text-center font-bold" style={{ color: SCREEN_INK }}>
+                    {taken}
+                  </span>
                   <button
                     onClick={() => onAdd(s, 1)}
                     disabled={taken >= s.quantity}
-                    className="w-4 h-4 rounded bg-[#c82030] text-white text-[9px] leading-none disabled:opacity-30"
+                    className="w-5 h-5 rounded bg-[#c82030] text-white flex items-center justify-center disabled:opacity-25"
                     aria-label={`Add one ${s.pack_name}`}
                   >
-                    +
+                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" aria-hidden>
+                      <path d="M5 2v6M2 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
                   </button>
                 </div>
               )}
@@ -437,10 +564,10 @@ function StockScreen({
 function DispensingScreen({ packs, restocked }: { packs: number; restocked: boolean }) {
   return (
     <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 p-4 text-center">
-      <p className="text-[10px] font-semibold tracking-wide text-ink/70">COLLECTING</p>
-      <p className="text-sm font-bold text-ink">{packs} OF {packs} TOTAL ITEMS</p>
+      <p className="text-[10px] font-semibold tracking-wide" style={{ color: `${SCREEN_INK}b3` }}>COLLECTING</p>
+      <p className="text-sm font-bold" style={{ color: SCREEN_INK }}>{packs} OF {packs} TOTAL ITEMS</p>
       <div className="my-2 h-px w-3/4 bg-black/20" />
-      <p className="text-[10px] text-ink/50">PLEASE WAIT</p>
+      <p className="text-[10px]" style={{ color: `${SCREEN_INK}80` }}>PLEASE WAIT</p>
       {restocked && <p className="mt-2 text-[9px] font-semibold text-[#c82030]">RESTOCKING…</p>}
     </div>
   )
