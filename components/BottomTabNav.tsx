@@ -27,16 +27,6 @@ const tabs = [
     ),
   },
   {
-    href: '/vending',
-    label: 'Vending',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3.75h14a1 1 0 011 1v14.5a1 1 0 01-1 1H5a1 1 0 01-1-1V4.75a1 1 0 011-1z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h5v5H7zM15 7h2M15 10h2M7 16h10" />
-      </svg>
-    ),
-  },
-  {
     href: '/members',
     label: 'Members',
     icon: (
@@ -48,29 +38,42 @@ const tabs = [
 ]
 
 /**
- * Stock check-in is disabled for members while the feature is reworked.
- * Admins keep access so it can still be exercised; the route itself is
- * gated in proxy.ts, this only controls whether the tab is shown.
+ * Features visible to admins only for now. Stock check-in is off while it is
+ * reworked; Vending is hidden until pack opening and the collection view are
+ * built. The routes themselves are gated in proxy.ts - this only controls
+ * whether the tab is shown.
  */
-const stockTab = {
-  href: '/stock',
-  label: 'Stock',
-  icon: (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-    </svg>
-  ),
-}
+const adminPreviewTabs = [
+  {
+    href: '/stock',
+    label: 'Stock',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/vending',
+    label: 'Vending',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3.75h14a1 1 0 011 1v14.5a1 1 0 01-1 1H5a1 1 0 01-1-1V4.75a1 1 0 011-1z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h5v5H7zM15 7h2M15 10h2M7 16h10" />
+      </svg>
+    ),
+  },
+]
 
 export default function BottomTabNav({ role }: Props) {
   const pathname = usePathname()
   const showAdmin = role === 'mod' || role === 'admin'
   const isAdmin = role === 'admin'
 
-  // Slot Stock in after Interest for admins, without depending on the index
-  // of anything after it.
+  // Slot the admin-only previews in after Interest, without depending on the
+  // index of anything after them.
   const baseTabs = isAdmin
-    ? tabs.flatMap((t) => (t.href === '/interest' ? [t, stockTab] : [t]))
+    ? tabs.flatMap((t) => (t.href === '/interest' ? [t, ...adminPreviewTabs] : [t]))
     : tabs
 
   const allTabs = showAdmin
