@@ -47,6 +47,88 @@ const RARITY_LABEL: Record<string, string> = {
   C: 'Common', U: 'Uncommon', R: 'Rare', H: 'Holo Rare', S: 'Secret Rare',
 }
 
+/**
+ * Binder styling per set. The cover art reuses a pack wrapper we already
+ * ship, so the shelf needs no new image assets and each binder is
+ * recognisably its set.
+ */
+const BINDERS: Record<string, { cover: string; spine: string; body: string; foil: string }> = {
+  base1: { cover: '/packs/base-set-charizard.webp',     spine: '#7f1d1d', body: '#b91c1c', foil: '#fca5a5' },
+  base2: { cover: '/packs/jungle-scyther.webp',         spine: '#14532d', body: '#166534', foil: '#86efac' },
+  base3: { cover: '/packs/fossil-aerodactyl.webp',      spine: '#1e3a5f', body: '#1e4976', foil: '#93c5fd' },
+  base5: { cover: '/packs/team-rocket-giovanni.webp',   spine: '#1c1917', body: '#292524', foil: '#d6d3d1' },
+}
+
+const DEFAULT_BINDER = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1' }
+
+/**
+ * A binder on the shelf. Drawn in CSS rather than shipped as artwork: a
+ * spine with rings, a foil nameplate, and a cover window showing one of the
+ * set's own pack wrappers. Empty binders sit closed and desaturated.
+ */
+function BinderCover({
+  setCode, setName, owned, total, onOpen,
+}: {
+  setCode: string
+  setName: string
+  owned: number
+  total: number
+  onOpen: () => void
+}) {
+  const t = BINDERS[setCode] ?? DEFAULT_BINDER
+  const empty = owned === 0
+  const pct = total > 0 ? Math.round((owned / total) * 100) : 0
+
+  return (
+    <button
+      onClick={onOpen}
+      className={`group relative block w-full aspect-[3/4] rounded-lg overflow-hidden shadow-md transition-transform ${
+        empty ? 'opacity-55' : 'hover:-translate-y-0.5 hover:shadow-lg'
+      }`}
+      style={{ background: t.body }}
+      aria-label={`Open the ${setName} binder, ${owned} of ${total} cards`}
+    >
+      {/* Spine with rings */}
+      <div className="absolute inset-y-0 left-0 w-5" style={{ background: t.spine }}>
+        <div className="h-full flex flex-col items-center justify-center gap-3">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="block w-2.5 h-2.5 rounded-full border"
+              style={{ borderColor: t.foil, background: 'rgba(0,0,0,0.25)' }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Cover window */}
+      <div className="absolute inset-y-3 left-8 right-3 rounded-sm overflow-hidden"
+           style={{ background: 'rgba(0,0,0,0.22)', boxShadow: `inset 0 0 0 1px ${t.foil}55` }}>
+        {t.cover ? (
+          <img
+            src={t.cover}
+            alt=""
+            className={`w-full h-full object-contain p-1.5 ${empty ? 'grayscale' : ''}`}
+            loading="lazy"
+          />
+        ) : null}
+      </div>
+
+      {/* Nameplate */}
+      <div className="absolute inset-x-8 bottom-2 rounded-sm px-1.5 py-1 text-center"
+           style={{ background: 'rgba(0,0,0,0.55)' }}>
+        <p className="text-[10px] font-semibold leading-tight truncate text-white">{setName}</p>
+        <p className="font-mono text-[9px] leading-tight" style={{ color: t.foil }}>
+          {owned}/{total}
+        </p>
+        <div className="mt-1 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.18)' }}>
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: t.foil }} />
+        </div>
+      </div>
+    </button>
+  )
+}
+
 /** Border treatment per rarity. Holo and secret get the loud ones. */
 function rarityRing(r: string): string {
   switch (r) {
@@ -64,7 +146,8 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
   const [reveal, setReveal] = useState<RevealCard[] | null>(null)
   const [revealed, setRevealed] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [setFilter, setSetFilter] = useState<string>('all')
+  // null = the shelf; a set_code = that binder is open.
+  const [openBinder, setOpenBinder] = useState<string | null>(null)
 
   const bySet = useMemo(() => {
     const map = new Map<string, CollectionCard[]>()
@@ -98,8 +181,6 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
     setRevealed(0)
     router.refresh()
   }
-
-  const visibleSets = setFilter === 'all' ? setTotals : setTotals.filter((s) => s.set_code === setFilter)
 
   return (
     <div className="space-y-5">
@@ -148,63 +229,82 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
           </span>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          <button
-            onClick={() => setSetFilter('all')}
-            className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-              setFilter === 'all' ? 'bg-ink text-white' : 'bg-card border border-card-border text-ink'
-            }`}
-          >
-            All
-          </button>
-          {setTotals.map((s) => {
-            const owned = bySet.get(s.set_code)?.length ?? 0
-            return (
-              <button
-                key={s.set_code}
-                onClick={() => setSetFilter(s.set_code)}
-                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  setFilter === s.set_code ? 'bg-ink text-white' : 'bg-card border border-card-border text-ink'
-                }`}
-              >
-                {s.set_name} <span className="font-mono opacity-60">{owned}/{s.total}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {uniqueCards === 0 ? (
-          <p className="text-sm text-muted">Nothing collected yet. Open a pack to start.</p>
+        {openBinder === null ? (
+          /* ── The shelf ── */
+          uniqueCards === 0 && packs.length === 0 ? (
+            <p className="text-sm text-muted">Nothing collected yet. Open a pack to start.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              {setTotals.map((s) => {
+                const owned = bySet.get(s.set_code)?.length ?? 0
+                return (
+                  <BinderCover
+                    key={s.set_code}
+                    setCode={s.set_code}
+                    setName={s.set_name}
+                    owned={owned}
+                    total={s.total}
+                    onOpen={() => setOpenBinder(s.set_code)}
+                  />
+                )
+              })}
+            </div>
+          )
         ) : (
-          visibleSets.map((s) => {
-            const cards = bySet.get(s.set_code) ?? []
-            if (cards.length === 0) return null
+          /* ── An open binder ── */
+          (() => {
+            const s = setTotals.find((t) => t.set_code === openBinder)
+            const cards = bySet.get(openBinder) ?? []
+            const theme = BINDERS[openBinder] ?? DEFAULT_BINDER
             return (
-              <div key={s.set_code} className="space-y-1.5 pt-1">
-                <p className="font-mono text-[10px] text-muted uppercase tracking-wide">
-                  {s.set_name} — {cards.length}/{s.total}
-                </p>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {cards.map((c) => (
-                    <div key={c.card_id} className="relative">
-                      <img
-                        src={c.image_url}
-                        alt={c.name}
-                        title={`${c.name} · ${RARITY_LABEL[c.rarity] ?? c.rarity} · #${c.number}`}
-                        className={`w-full aspect-[245/342] object-contain rounded bg-white ${rarityRing(c.rarity)}`}
-                        loading="lazy"
-                      />
-                      {c.copies > 1 && (
-                        <span className="absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
-                          ×{c.copies}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setOpenBinder(null)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to shelf
+                </button>
+
+                <div
+                  className="rounded-xl px-3 py-2 flex items-baseline justify-between gap-2"
+                  style={{ background: theme.body }}
+                >
+                  <p className="font-display font-semibold text-sm text-white">{s?.set_name ?? openBinder}</p>
+                  <p className="font-mono text-[10px]" style={{ color: theme.foil }}>
+                    {cards.length}/{s?.total ?? 0}
+                  </p>
                 </div>
+
+                {cards.length === 0 ? (
+                  <p className="text-sm text-muted py-4 text-center">
+                    This binder is empty. Open a {s?.set_name} pack to fill it.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {cards.map((c) => (
+                      <div key={c.card_id} className="relative">
+                        <img
+                          src={c.image_url}
+                          alt={c.name}
+                          title={`${c.name} · ${RARITY_LABEL[c.rarity] ?? c.rarity} · #${c.number}`}
+                          className={`w-full aspect-[245/342] object-contain rounded bg-white ${rarityRing(c.rarity)}`}
+                          loading="lazy"
+                        />
+                        {c.copies > 1 && (
+                          <span className="absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+                            ×{c.copies}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
-          })
+          })()
         )}
       </section>
 

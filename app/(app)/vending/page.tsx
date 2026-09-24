@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import VendingClient from './VendingClient'
+import VendingClient, { type RecentBuy } from './VendingClient'
 import type { UnopenedPack, CollectionCard, SetTotal } from './CollectionPanel'
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +41,8 @@ export default async function VendingPage() {
       supabase.from('vending_cards').select('set_code'),
     ])
 
+  const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
+
   type PackRow = {
     id: number
     vending_packs:
@@ -78,6 +80,7 @@ export default async function VendingPage() {
       packs={packs}
       collection={(collection as CollectionCard[] | null) ?? []}
       setTotals={setTotals}
+      recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
     />
   )
 }

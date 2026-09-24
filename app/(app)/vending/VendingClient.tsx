@@ -41,6 +41,23 @@ interface Watcher {
   is_holder: boolean
 }
 
+export interface RecentBuy {
+  buyer: string
+  icon_file: string | null
+  packs: number
+  sets: string
+  bought_at: string
+}
+
+function agoLabel(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const h = Math.floor(mins / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 interface Props {
   initialState: MachineState | null
   initialStock: StockRow[]
@@ -50,6 +67,7 @@ interface Props {
   packs: UnopenedPack[]
   collection: CollectionCard[]
   setTotals: SetTotal[]
+  recentBuys: RecentBuy[]
 }
 
 function mmss(total: number): string {
@@ -67,9 +85,10 @@ function untilLabel(iso: string): string {
 }
 
 export default function VendingClient({
-  initialState, initialStock, balance, userId, cooldownUntil, packs, collection, setTotals,
+  initialState, initialStock, balance, userId, cooldownUntil, packs, collection, setTotals, recentBuys,
 }: Props) {
   const [view, setView] = useState<'machine' | 'collection'>('machine')
+  const [buys, setBuys] = useState<RecentBuy[]>(recentBuys)
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
   const [tokens, setTokens] = useState(balance)
@@ -118,6 +137,8 @@ export default function VendingClient({
       }
       if (next.holder_id !== userId) setCart({})
     }
+    const { data: b } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
+    if (b) setBuys(b as RecentBuy[])
     fetching.current = false
   }, [userId])
 
@@ -454,6 +475,41 @@ export default function VendingClient({
           </button>
         </div>
       )}
+
+      {/* ── Recent buys ── */}
+      <section className="mx-auto w-full max-w-sm space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="font-display font-semibold text-sm">Recent buys</h2>
+          <span className="font-mono text-[10px] text-muted">1 token = 1 pack</span>
+        </div>
+        {buys.length === 0 ? (
+          <p className="text-xs text-muted">Nothing bought yet. Be the first.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {buys.map((b, i) => (
+              <li
+                key={`${b.bought_at}-${b.buyer}-${i}`}
+                className="bg-card border border-card-border rounded-xl px-3 py-2 flex items-center gap-2.5"
+              >
+                {b.icon_file ? (
+                  <img src={`/Trainers/${b.icon_file}`} alt="" className="w-6 h-6 rounded-full object-contain bg-paper shrink-0" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-ink/10 flex items-center justify-center text-[10px] font-bold text-muted shrink-0">
+                    {b.buyer.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <p className="text-xs min-w-0 flex-1 truncate">
+                  <span className="font-medium">{b.buyer}</span>
+                  <span className="text-muted"> took </span>
+                  <span className="font-mono font-semibold text-signal">{b.packs}</span>
+                  <span className="text-muted"> from {b.sets}</span>
+                </p>
+                <span className="font-mono text-[10px] text-muted shrink-0">{agoLabel(b.bought_at)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       </>
       )}
