@@ -23,11 +23,15 @@ interface MachineState {
   holder_expires: string | null
 }
 
+/**
+ * Stock is offered by set, not by pack art. `display_image_url` is one
+ * representative wrapper chosen for this cycle; the wrapper a buyer actually
+ * receives is rolled per pack at checkout.
+ */
 interface StockRow {
-  pack_id: number
+  set_code: string
   set_name: string
-  pack_name: string
-  image_url: string
+  display_image_url: string
   quantity: number
 }
 
@@ -71,7 +75,8 @@ export default function VendingClient({
   const [tokens, setTokens] = useState(balance)
   const [cooldown, setCooldown] = useState<string | null>(cooldownUntil)
   const [secondsLeft, setSecondsLeft] = useState(initialState?.seconds_left ?? 0)
-  const [cart, setCart] = useState<Record<number, number>>({})
+  // Keyed by set_code: you buy "a Base Set pack", not a specific wrapper.
+  const [cart, setCart] = useState<Record<string, number>>({})
   const [holdLeft, setHoldLeft] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ packs: number; restocked: boolean } | null>(null)
@@ -219,11 +224,11 @@ export default function VendingClient({
 
   function addToCart(s: StockRow, delta: number) {
     setCart((c) => {
-      const cur = c[s.pack_id] ?? 0
+      const cur = c[s.set_code] ?? 0
       const next = Math.min(s.quantity, Math.max(0, cur + delta))
       const copy = { ...c }
-      if (next === 0) delete copy[s.pack_id]
-      else copy[s.pack_id] = next
+      if (next === 0) delete copy[s.set_code]
+      else copy[s.set_code] = next
       return copy
     })
     beat()
@@ -233,7 +238,7 @@ export default function VendingClient({
     if (cartCount === 0) return
     setBusy(true); setMessage(null)
     const supabase = createClient()
-    const items = Object.entries(cart).map(([pack_id, qty]) => ({ pack_id: Number(pack_id), qty }))
+    const items = Object.entries(cart).map(([set_code, qty]) => ({ set_code, qty }))
     const { data } = await supabase.rpc('vending_checkout', { p_items: items })
     const r = (Array.isArray(data) ? data[0] : data) as
       | { ok: boolean; reason: string; packs_bought: number; balance: number; restocked: boolean }
@@ -265,7 +270,7 @@ export default function VendingClient({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="font-display font-semibold text-base">Vending Machine</h1>
+        <h1 className="font-display font-semibold text-base">Virtual Vending Machine</h1>
         <div className="flex items-center gap-1.5 bg-card border border-card-border rounded-full px-3 py-1">
           <span className="font-mono text-sm font-semibold text-signal">{tokens}</span>
           <span className="text-xs text-muted">{tokens === 1 ? 'token' : 'tokens'}</span>
@@ -525,7 +530,7 @@ function StockScreen({
 }: {
   stock: StockRow[]
   soldOut: boolean
-  cart: Record<number, number>
+  cart: Record<string, number>
   onAdd: (s: StockRow, delta: number) => void
   interactive: boolean
 }) {
@@ -538,20 +543,23 @@ function StockScreen({
   }
   return (
     <div className="absolute inset-0 bg-[#eaf4fb] overflow-y-auto p-2">
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         {stock.map((s) => {
-          const taken = cart[s.pack_id] ?? 0
+          const taken = cart[s.set_code] ?? 0
           const gone = s.quantity === 0
           return (
-            <div key={s.pack_id} className="relative rounded bg-white border border-black/10 p-1">
+            <div key={s.set_code} className="relative rounded bg-white border border-black/10 p-1">
               <img
-                src={s.image_url}
-                alt={`${s.set_name} — ${s.pack_name}`}
+                src={s.display_image_url}
+                alt={s.set_name}
                 className={`w-full aspect-[2/3] object-contain ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
                 loading="lazy"
               />
-              <p className="mt-0.5 text-[6px] leading-tight text-center truncate" style={{ color: `${SCREEN_INK}b3` }}>
-                {s.pack_name}
+              <p className="mt-0.5 text-[9px] font-semibold leading-tight text-center truncate" style={{ color: SCREEN_INK }}>
+                {s.set_name}
+              </p>
+              <p className="text-[6px] leading-tight text-center" style={{ color: `${SCREEN_INK}99` }}>
+                wrapper varies
               </p>
 
               {soldOut || gone ? (
@@ -575,7 +583,7 @@ function StockScreen({
                     onClick={() => onAdd(s, -1)}
                     disabled={taken === 0}
                     className="w-5 h-5 rounded bg-black/75 text-white flex items-center justify-center disabled:opacity-25"
-                    aria-label={`Remove one ${s.pack_name}`}
+                    aria-label={`Remove one ${s.set_name} pack`}
                   >
                     <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" aria-hidden>
                       <path d="M2 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -588,7 +596,7 @@ function StockScreen({
                     onClick={() => onAdd(s, 1)}
                     disabled={taken >= s.quantity}
                     className="w-5 h-5 rounded bg-[#c82030] text-white flex items-center justify-center disabled:opacity-25"
-                    aria-label={`Add one ${s.pack_name}`}
+                    aria-label={`Add one ${s.set_name} pack`}
                   >
                     <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" aria-hidden>
                       <path d="M5 2v6M2 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
