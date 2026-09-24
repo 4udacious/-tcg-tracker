@@ -58,6 +58,7 @@ const REASON_LABEL: Record<string, string> = {
   purchase: 'Purchase',
   refund: 'Refund',
   timer_reward: 'Timer report',
+  timer_revoked: 'Timer report deleted',
 }
 
 function one<T>(v: T | T[] | null): T | null {

@@ -282,11 +282,29 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   }
 
   async function handleDeleteReport(id: string) {
-    if (!window.confirm('Delete this timer report?')) return
+    const earning = !!rewardState && rewardState.per_report > 0
+    if (!window.confirm(
+      earning
+        ? 'Delete this timer report?\n\nThe token it earned will be taken back, and your balance can go negative.'
+        : 'Delete this timer report?'
+    )) return
     const supabase = createClient()
     const { error } = await supabase.from('timer_reports').delete().eq('id', id)
     if (error) { showToast('Failed to delete.', false); return }
-    showToast('Timer deleted.', true)
+
+    // The token is taken back by a trigger on the delete, so read the status
+    // back rather than assuming one was.
+    const { data: rw } = await supabase.rpc('timer_reward_status')
+    const next = (Array.isArray(rw) ? rw[0] : rw) as RewardStatus | null
+    const lost = next && rewardState ? rewardState.earned - next.earned : 0
+    if (next) setRewardState(next)
+
+    showToast(
+      lost > 0
+        ? `Timer deleted. ${lost} token${lost === 1 ? '' : 's'} taken back.`
+        : 'Timer deleted.',
+      true
+    )
     startTransition(() => router.refresh())
   }
 
