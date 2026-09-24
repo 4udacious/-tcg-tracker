@@ -64,6 +64,7 @@ interface Props {
   achievements: Achievement[]
   progress: ProgressRow[]
   trainerIcons: TrainerIcon[]
+  tokenBalance: number
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -129,7 +130,7 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
-export default function ProfileClient({ userId, profile, achievements, progress, trainerIcons }: Props) {
+export default function ProfileClient({ userId, profile, achievements, progress, trainerIcons, tokenBalance }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<'profile' | 'achievements'>('profile')
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
@@ -245,9 +246,13 @@ export default function ProfileClient({ userId, profile, achievements, progress,
                 </svg>
               </div>
             )}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-sm truncate">{profile?.username}</p>
               <p className="font-mono text-xs text-muted capitalize">{profile?.role}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="font-mono text-lg font-semibold text-signal leading-none">{tokenBalance}</p>
+              <p className="text-[10px] text-muted">{tokenBalance === 1 ? 'token' : 'tokens'}</p>
             </div>
           </div>
 

@@ -6,7 +6,7 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user!.id
 
-  const [{ data: profile }, { data: achievements }, { data: progress }, { data: trainerIcons }] = await Promise.all([
+  const [{ data: profile }, { data: achievements }, { data: progress }, { data: trainerIcons }, { data: tokenBalance }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url, role, trainer_icon_id, trainer_icons(id, file, label)')
@@ -28,6 +28,7 @@ export default async function ProfilePage() {
       .from('trainer_icons')
       .select('id, file, label')
       .order('id'),
+    supabase.rpc('token_balance', { target: userId }),
   ])
 
   return (
@@ -37,6 +38,7 @@ export default async function ProfilePage() {
       achievements={achievements ?? []}
       progress={progress ?? []}
       trainerIcons={trainerIcons ?? []}
+      tokenBalance={(tokenBalance as number | null) ?? 0}
     />
   )
 }
