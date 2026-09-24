@@ -27,6 +27,16 @@ const tabs = [
     ),
   },
   {
+    href: '/vending',
+    label: 'Vending',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3.75h14a1 1 0 011 1v14.5a1 1 0 01-1 1H5a1 1 0 01-1-1V4.75a1 1 0 011-1z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h5v5H7zM15 7h2M15 10h2M7 16h10" />
+      </svg>
+    ),
+  },
+  {
     href: '/members',
     label: 'Members',
     icon: (
@@ -57,7 +67,11 @@ export default function BottomTabNav({ role }: Props) {
   const showAdmin = role === 'mod' || role === 'admin'
   const isAdmin = role === 'admin'
 
-  const baseTabs = isAdmin ? [tabs[0], tabs[1], stockTab, tabs[2]] : tabs
+  // Slot Stock in after Interest for admins, without depending on the index
+  // of anything after it.
+  const baseTabs = isAdmin
+    ? tabs.flatMap((t) => (t.href === '/interest' ? [t, stockTab] : [t]))
+    : tabs
 
   const allTabs = showAdmin
     ? [
