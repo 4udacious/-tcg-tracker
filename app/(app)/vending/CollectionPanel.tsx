@@ -58,9 +58,11 @@ const RARITY_LABEL: Record<string, string> = {
 type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain' }
 
 const BINDERS: Record<string, Binder> = {
-  base1: { cover: '/packs/base-set-charizard.webp',   spine: '#7f1d1d', body: '#b91c1c', foil: '#fca5a5', fit: 'contain' },
+  base1: { cover: '/binders/base-set.webp',           spine: '#1e3a8a', body: '#1d4ed8', foil: '#93c5fd', fit: 'cover' },
   base2: { cover: '/binders/jungle.webp',             spine: '#14532d', body: '#166534', foil: '#86efac', fit: 'cover' },
-  base3: { cover: '/packs/fossil-aerodactyl.webp',    spine: '#1e3a5f', body: '#1e4976', foil: '#93c5fd', fit: 'contain' },
+  // Moved off navy once Base Set took the blue cover art; amber suits a
+  // fossil set better than it suited Base Set anyway.
+  base3: { cover: '/packs/fossil-aerodactyl.webp',    spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'contain' },
   base5: { cover: '/packs/team-rocket-giovanni.webp', spine: '#1c1917', body: '#292524', foil: '#d6d3d1', fit: 'contain' },
 }
 
