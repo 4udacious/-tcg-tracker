@@ -111,6 +111,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     new Set(favorites.map((f) => f.machine_id))
   )
   const [collapsedCities, setCollapsedCities] = useState<Set<string>>(new Set())
+  const [removedFavIds, setRemovedFavIds] = useState<Set<string>>(new Set())
   const [favDropdownOpen, setFavDropdownOpen] = useState(false)
   const favDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -139,12 +140,15 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     [machines]
   )
 
+  // Favorites removed in this session drop out immediately, without waiting
+  // for the server data to come back around.
   const favoriteMachines: FavoriteMachine[] = useMemo(
     () =>
       favorites
         .map((f) => one(f.machines))
-        .filter((m): m is FavoriteMachine => m !== null),
-    [favorites]
+        .filter((m): m is FavoriteMachine => m !== null)
+        .filter((m) => !removedFavIds.has(m.id)),
+    [favorites, removedFavIds]
   )
 
   // Group favorites by city for the dropdown
@@ -161,6 +165,30 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  async function handleRemoveFavorite(machineId: string, label: string) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('machine_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('machine_id', machineId)
+    if (error) {
+      showToast('Failed to remove favorite.', false)
+      return
+    }
+    setRemovedFavIds((prev) => new Set(prev).add(machineId))
+    setFavoriteIds((prev) => {
+      const next = new Set(prev)
+      next.delete(machineId)
+      return next
+    })
+    // The machine is no longer in this list, so a stale selection would show
+    // as "Select a favorite…" with the form still armed. Clear it instead.
+    if (selectedMachineId === machineId) setSelectedMachineId(null)
+    showToast(`Removed ${label} from favorites.`, true)
+    startTransition(() => router.refresh())
   }
 
   function resetForm() {
@@ -434,15 +462,33 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                             {cityMachines.map((m) => (
                               <li
                                 key={m.id}
-                                onClick={() => { setSelectedMachineId(m.id); setFavDropdownOpen(false) }}
-                                className={`px-3 py-2 cursor-pointer transition-colors ${
+                                className={`flex items-center gap-2 transition-colors ${
                                   m.id === selectedMachineId ? 'bg-signal/10' : 'hover:bg-paper'
                                 }`}
                               >
-                                <p className={`text-sm ${m.id === selectedMachineId ? 'text-signal font-medium' : 'text-ink'}`}>
-                                  {m.machine_code} — {m.nickname ?? m.venue}
-                                </p>
-                                {m.address && <p className="font-mono text-xs text-muted">{m.address}</p>}
+                                <div
+                                  onClick={() => { setSelectedMachineId(m.id); setFavDropdownOpen(false) }}
+                                  className="flex-1 min-w-0 px-3 py-2 cursor-pointer"
+                                >
+                                  <p className={`text-sm ${m.id === selectedMachineId ? 'text-signal font-medium' : 'text-ink'}`}>
+                                    {m.machine_code} — {m.nickname ?? m.venue}
+                                  </p>
+                                  {m.address && <p className="font-mono text-xs text-muted">{m.address}</p>}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRemoveFavorite(m.id, `${m.machine_code} — ${m.nickname ?? m.venue}`)
+                                  }}
+                                  aria-label={`Remove ${m.machine_code} from favorites`}
+                                  title="Remove from favorites"
+                                  className="shrink-0 mr-2 w-7 h-7 rounded-full flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                                    <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                                  </svg>
+                                </button>
                               </li>
                             ))}
                           </ul>

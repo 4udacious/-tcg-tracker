@@ -65,6 +65,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Stock check-in is switched off for everyone but admins while the feature
+  // is reworked. Gated here rather than only hiding the tab, so a bookmark or
+  // a typed URL can't reach it either.
+  if (pathname.startsWith('/stock') && role !== 'admin') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/timers'
+    return NextResponse.redirect(url)
+  }
+
   if (pathname.startsWith('/admin') && role !== 'mod' && role !== 'admin') {
     const url = request.nextUrl.clone()
     url.pathname = '/'

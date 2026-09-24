@@ -27,15 +27,6 @@ const tabs = [
     ),
   },
   {
-    href: '/stock',
-    label: 'Stock',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-      </svg>
-    ),
-  },
-  {
     href: '/members',
     label: 'Members',
     icon: (
@@ -46,13 +37,31 @@ const tabs = [
   },
 ]
 
+/**
+ * Stock check-in is disabled for members while the feature is reworked.
+ * Admins keep access so it can still be exercised; the route itself is
+ * gated in proxy.ts, this only controls whether the tab is shown.
+ */
+const stockTab = {
+  href: '/stock',
+  label: 'Stock',
+  icon: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+    </svg>
+  ),
+}
+
 export default function BottomTabNav({ role }: Props) {
   const pathname = usePathname()
   const showAdmin = role === 'mod' || role === 'admin'
+  const isAdmin = role === 'admin'
+
+  const baseTabs = isAdmin ? [tabs[0], tabs[1], stockTab, tabs[2]] : tabs
 
   const allTabs = showAdmin
     ? [
-        ...tabs,
+        ...baseTabs,
         {
           href: '/admin',
           label: 'Admin',
@@ -63,7 +72,7 @@ export default function BottomTabNav({ role }: Props) {
           ),
         },
       ]
-    : tabs
+    : baseTabs
 
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-card border-t border-card-border safe-area-inset-bottom z-50">
