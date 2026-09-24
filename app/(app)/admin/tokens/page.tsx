@@ -14,7 +14,7 @@ export default async function AdminTokensPage() {
   if (me?.role !== 'admin') redirect('/admin')
 
   const [{ data: settings }, { data: balances }, { data: period }, { data: recent }] = await Promise.all([
-    supabase.from('vending_settings').select('monthly_allowance, tokens_expire_monthly, per_cycle_pack_cap, cooldown_hours').single(),
+    supabase.from('vending_settings').select('monthly_allowance, tokens_expire_monthly, per_cycle_pack_cap, cooldown_hours, tokens_per_timer_report, max_earned_tokens_per_month').single(),
     supabase
       .from('v_token_balances')
       .select('user_id, username, display_name, role, effective_allowance, balance')
@@ -30,7 +30,7 @@ export default async function AdminTokensPage() {
 
   return (
     <TokensClient
-      settings={settings ?? { monthly_allowance: 10, tokens_expire_monthly: true, per_cycle_pack_cap: null, cooldown_hours: 3 }}
+      settings={settings ?? { monthly_allowance: 10, tokens_expire_monthly: true, per_cycle_pack_cap: null, cooldown_hours: 3, tokens_per_timer_report: 1, max_earned_tokens_per_month: 15 }}
       balances={balances ?? []}
       period={(period as string) ?? ''}
       recent={recent ?? []}

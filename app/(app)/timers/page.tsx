@@ -40,6 +40,9 @@ export default async function TimersPage() {
 
   const role = profileRow?.role ?? 'member'
 
+  const { data: rewardRows } = await supabase.rpc('timer_reward_status')
+  const reward = (Array.isArray(rewardRows) ? rewardRows[0] : rewardRows) ?? null
+
   return (
     <TimersClient
       machines={machines ?? []}
@@ -49,6 +52,7 @@ export default async function TimersPage() {
       todayConditions={todayConditions ?? []}
       userId={userId}
       role={role}
+      reward={reward}
     />
   )
 }

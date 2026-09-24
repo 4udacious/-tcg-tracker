@@ -9,6 +9,8 @@ interface Settings {
   tokens_expire_monthly: boolean
   per_cycle_pack_cap: number | null
   cooldown_hours: number
+  tokens_per_timer_report: number
+  max_earned_tokens_per_month: number
 }
 
 /** Presets for the post-purchase cooldown, in hours. */
@@ -55,6 +57,7 @@ const REASON_LABEL: Record<string, string> = {
   admin_adjustment: 'Adjustment',
   purchase: 'Purchase',
   refund: 'Refund',
+  timer_reward: 'Timer report',
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -77,6 +80,8 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
   const [cap, setCap] = useState(settings.per_cycle_pack_cap == null ? '' : String(settings.per_cycle_pack_cap))
   const [expire, setExpire] = useState(settings.tokens_expire_monthly)
   const [cooldown, setCooldown] = useState(Number(settings.cooldown_hours ?? 3))
+  const [perReport, setPerReport] = useState(String(settings.tokens_per_timer_report ?? 1))
+  const [earnCap, setEarnCap] = useState(String(settings.max_earned_tokens_per_month ?? 15))
 
   const [search, setSearch] = useState('')
   const [adjusting, setAdjusting] = useState<string | null>(null)
@@ -107,6 +112,10 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
     if (!Number.isInteger(n) || n < 0) { showToast('Allowance must be a whole number, 0 or more.', false); return }
     const c = cap.trim() === '' ? null : Number(cap)
     if (c !== null && (!Number.isInteger(c) || c < 1)) { showToast('Cap must be a whole number of 1 or more, or blank.', false); return }
+    const pr = Number(perReport)
+    const ec = Number(earnCap)
+    if (!Number.isInteger(pr) || pr < 0) { showToast('Tokens per report must be a whole number, 0 or more.', false); return }
+    if (!Number.isInteger(ec) || ec < 0) { showToast('Monthly earning cap must be a whole number, 0 or more.', false); return }
     setBusy(true)
     const supabase = createClient()
     const { error } = await supabase.rpc('update_vending_settings', {
@@ -114,6 +123,8 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
       p_per_cycle_pack_cap: c,
       p_tokens_expire_monthly: expire,
       p_cooldown_hours: cooldown,
+      p_tokens_per_timer_report: pr,
+      p_max_earned_tokens_per_month: ec,
     })
     setBusy(false)
     if (error) { showToast('Failed to save settings.', false); return }
@@ -202,6 +213,38 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
             onChange={(e) => setCap(e.target.value)}
             className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal placeholder:text-muted"
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-ink">Earn by reporting timers</label>
+          <p className="text-xs text-muted">
+            Tokens awarded for each timer logged, hit or miss, and the most a member can earn this
+            way per month. Set tokens per report to 0 to turn earning off.
+          </p>
+          <div className="flex gap-2 pt-0.5">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-muted">Per report</label>
+              <input
+                type="number" min={0} value={perReport}
+                onChange={(e) => setPerReport(e.target.value)}
+                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-muted">Monthly cap</label>
+              <input
+                type="number" min={0} value={earnCap}
+                onChange={(e) => setEarnCap(e.target.value)}
+                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              />
+            </div>
+          </div>
+          {Number(perReport) > 0 && Number(earnCap) > 0 && (
+            <p className="text-xs text-muted">
+              That is {Math.ceil(Number(earnCap) / Number(perReport))} report
+              {Math.ceil(Number(earnCap) / Number(perReport)) === 1 ? '' : 's'} to reach the cap.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">

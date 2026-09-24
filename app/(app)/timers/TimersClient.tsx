@@ -49,6 +49,13 @@ interface TodayCondition {
   profiles: { username: string; display_name?: string } | { username: string; display_name?: string }[] | null
 }
 
+export interface RewardStatus {
+  earned: number
+  cap: number
+  per_report: number
+  balance: number
+}
+
 interface Props {
   machines: Machine[]
   favorites: FavoriteRow[]
@@ -57,6 +64,7 @@ interface Props {
   todayConditions: TodayCondition[]
   userId: string
   role: string
+  reward: RewardStatus | null
 }
 
 function timeAgo(date: Date): string {
@@ -73,7 +81,8 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v
 }
 
-export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId, role }: Props) {
+export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId, role, reward }: Props) {
+  const [rewardState, setRewardState] = useState<RewardStatus | null>(reward)
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -223,7 +232,21 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         }))
       )
     }
-    showToast('Timer logged.', true)
+    // The token is awarded by a trigger on the insert, so read the status
+    // back rather than assuming - it may have been capped.
+    const { data: rw } = await supabase.rpc('timer_reward_status')
+    const next = (Array.isArray(rw) ? rw[0] : rw) as RewardStatus | null
+    const gained = next && rewardState ? next.earned - rewardState.earned : 0
+    if (next) setRewardState(next)
+
+    if (gained > 0) {
+      showToast(`Timer logged. +${gained} token${gained === 1 ? '' : 's'}.`, true)
+    } else if (next && next.per_report > 0 && next.earned >= next.cap) {
+      showToast(`Timer logged. Monthly token cap reached (${next.cap}).`, true)
+    } else {
+      showToast('Timer logged.', true)
+    }
+
     resetForm()
     setIsSubmitting(false)
     startTransition(() => router.refresh())
@@ -375,7 +398,27 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
       {tab === 'log' && (
         <section className="bg-card border border-card-border rounded-2xl p-4 space-y-4">
-          <h2 className="font-display font-semibold text-base">Log timer</h2>
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-base">Log timer</h2>
+            {rewardState && rewardState.per_report > 0 && (
+              <span
+                className={`font-mono text-[10px] ${
+                  rewardState.earned >= rewardState.cap ? 'text-muted' : 'text-signal'
+                }`}
+                title="Tokens earned from timer reports this month"
+              >
+                {rewardState.earned >= rewardState.cap
+                  ? `token cap reached ${rewardState.earned}/${rewardState.cap}`
+                  : `${rewardState.earned}/${rewardState.cap} tokens earned`}
+              </span>
+            )}
+          </div>
+          {rewardState && rewardState.per_report > 0 && rewardState.earned < rewardState.cap && (
+            <p className="text-xs text-muted -mt-2">
+              Every timer you log earns {rewardState.per_report} token
+              {rewardState.per_report === 1 ? '' : 's'} — hit or miss.
+            </p>
+          )}
 
           {/* Inner machine-picker tabs */}
           <div className="flex gap-1 bg-paper rounded-xl p-1">
