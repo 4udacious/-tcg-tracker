@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
@@ -148,6 +148,8 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
   const [error, setError] = useState<string | null>(null)
   // null = the shelf; a set_code = that binder is open.
   const [openBinder, setOpenBinder] = useState<string | null>(null)
+  // Index into the open binder's cards, for the enlarged view.
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null)
 
   const bySet = useMemo(() => {
     const map = new Map<string, CollectionCard[]>()
@@ -181,6 +183,32 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
     setRevealed(0)
     router.refresh()
   }
+
+  const zoomCards = openBinder ? bySet.get(openBinder) ?? [] : []
+
+  const stepZoom = useCallback((delta: number) => {
+    setZoomIndex((i) => {
+      if (i === null) return i
+      const next = i + delta
+      if (next < 0 || next >= zoomCards.length) return i
+      return next
+    })
+  }, [zoomCards.length])
+
+  // Keyboard: escape closes, arrows page through the binder.
+  useEffect(() => {
+    if (zoomIndex === null) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setZoomIndex(null)
+      else if (e.key === 'ArrowRight') stepZoom(1)
+      else if (e.key === 'ArrowLeft') stepZoom(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomIndex, stepZoom])
+
+  // Leaving a binder should not leave a card floating over the shelf.
+  useEffect(() => { setZoomIndex(null) }, [openBinder])
 
   return (
     <div className="space-y-5">
@@ -284,17 +312,22 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
                   </p>
                 ) : (
                   <div className="grid grid-cols-4 gap-1.5">
-                    {cards.map((c) => (
+                    {cards.map((c, i) => (
                       <div key={c.card_id} className="relative">
-                        <img
-                          src={c.image_url}
-                          alt={c.name}
-                          title={`${c.name} · ${RARITY_LABEL[c.rarity] ?? c.rarity} · #${c.number}`}
-                          className={`w-full aspect-[245/342] object-contain rounded bg-white ${rarityRing(c.rarity)}`}
-                          loading="lazy"
-                        />
+                        <button
+                          onClick={() => setZoomIndex(i)}
+                          className="block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform hover:-translate-y-0.5"
+                          aria-label={`Enlarge ${c.name}`}
+                        >
+                          <img
+                            src={c.image_url}
+                            alt={c.name}
+                            className={`w-full aspect-[245/342] object-contain rounded bg-white ${rarityRing(c.rarity)}`}
+                            loading="lazy"
+                          />
+                        </button>
                         {c.copies > 1 && (
-                          <span className="absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+                          <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
                             ×{c.copies}
                           </span>
                         )}
@@ -307,6 +340,78 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
           })()
         )}
       </section>
+
+      {/* ── Enlarged card ── */}
+      {zoomIndex !== null && zoomCards[zoomIndex] && (() => {
+        const c = zoomCards[zoomIndex]
+        const first = zoomIndex === 0
+        const last = zoomIndex === zoomCards.length - 1
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4 gap-3"
+            onClick={() => setZoomIndex(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${c.name}, enlarged`}
+          >
+            <button
+              onClick={() => setZoomIndex(null)}
+              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Arrows sit at the overlay edges rather than inline, so they do
+                not squeeze the card on a narrow screen. */}
+            <button
+              onClick={(e) => { e.stopPropagation(); stepZoom(-1) }}
+              disabled={first}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center disabled:opacity-20 hover:bg-white/20 transition-colors"
+              aria-label="Previous card"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Capped near the source resolution (245px wide), so enlarging
+                does not just magnify compression artefacts. */}
+            <img
+              src={c.image_url}
+              alt={c.name}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-[min(72vw,330px)] aspect-[245/342] object-contain rounded-lg bg-white ${rarityRing(c.rarity)}`}
+            />
+
+            <button
+              onClick={(e) => { e.stopPropagation(); stepZoom(1) }}
+              disabled={last}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center disabled:opacity-20 hover:bg-white/20 transition-colors"
+              aria-label="Next card"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            <div className="text-center" onClick={(e) => e.stopPropagation()}>
+              <p className="text-white font-semibold text-sm">{c.name}</p>
+              <p className={`text-xs font-medium ${
+                c.rarity === 'H' ? 'text-amber-300' : c.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
+              }`}>
+                {RARITY_LABEL[c.rarity] ?? c.rarity} · #{c.number}
+                {c.copies > 1 && <span className="text-white/50"> · {c.copies} copies</span>}
+              </p>
+              <p className="font-mono text-[10px] text-white/35 mt-1">
+                {zoomIndex + 1} of {zoomCards.length}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Reveal overlay ── */}
       {reveal && (
