@@ -48,18 +48,23 @@ const RARITY_LABEL: Record<string, string> = {
 }
 
 /**
- * Binder styling per set. The cover art reuses a pack wrapper we already
- * ship, so the shelf needs no new image assets and each binder is
- * recognisably its set.
+ * Binder styling per set.
+ *
+ * `fit: 'cover'` is for real cover artwork, which should fill the window
+ * edge to edge like an actual binder face. `fit: 'contain'` is for the pack
+ * wrappers standing in until artwork exists - those are tall and narrow, so
+ * cropping them would cut the design apart.
  */
-const BINDERS: Record<string, { cover: string; spine: string; body: string; foil: string }> = {
-  base1: { cover: '/packs/base-set-charizard.webp',     spine: '#7f1d1d', body: '#b91c1c', foil: '#fca5a5' },
-  base2: { cover: '/packs/jungle-scyther.webp',         spine: '#14532d', body: '#166534', foil: '#86efac' },
-  base3: { cover: '/packs/fossil-aerodactyl.webp',      spine: '#1e3a5f', body: '#1e4976', foil: '#93c5fd' },
-  base5: { cover: '/packs/team-rocket-giovanni.webp',   spine: '#1c1917', body: '#292524', foil: '#d6d3d1' },
+type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain' }
+
+const BINDERS: Record<string, Binder> = {
+  base1: { cover: '/packs/base-set-charizard.webp',   spine: '#7f1d1d', body: '#b91c1c', foil: '#fca5a5', fit: 'contain' },
+  base2: { cover: '/binders/jungle.webp',             spine: '#14532d', body: '#166534', foil: '#86efac', fit: 'cover' },
+  base3: { cover: '/packs/fossil-aerodactyl.webp',    spine: '#1e3a5f', body: '#1e4976', foil: '#93c5fd', fit: 'contain' },
+  base5: { cover: '/packs/team-rocket-giovanni.webp', spine: '#1c1917', body: '#292524', foil: '#d6d3d1', fit: 'contain' },
 }
 
-const DEFAULT_BINDER = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1' }
+const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
 
 /**
  * A binder on the shelf. Drawn in CSS rather than shipped as artwork: a
@@ -108,7 +113,9 @@ function BinderCover({
           <img
             src={t.cover}
             alt=""
-            className={`w-full h-full object-contain p-1.5 ${empty ? 'grayscale' : ''}`}
+            className={`w-full h-full ${
+              t.fit === 'cover' ? 'object-cover' : 'object-contain p-1.5'
+            } ${empty ? 'grayscale' : ''}`}
             loading="lazy"
           />
         ) : null}
