@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import CardCelebration from './CardCelebration'
 
 export interface UnopenedPack {
   id: number
@@ -209,7 +210,7 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
 
       {/* ── Reveal overlay ── */}
       {reveal && (
-        <div className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4 gap-4">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black/85 flex flex-col items-center justify-center p-4 gap-4">
           {(() => {
             const idx = Math.min(revealed, reveal.length - 1)
             const card = reveal[idx]
@@ -238,30 +239,65 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
                 </>
               )
             }
+            const special = card.rarity === 'H' || card.rarity === 'S'
             return (
               <>
-                <p className="font-mono text-[10px] text-white/50">
+                {/* Keyed by card so the animation restarts on every hit
+                    rather than only the first one in a pack. */}
+                {special && <CardCelebration key={card.card_id} rarity={card.rarity as 'H' | 'S'} />}
+
+                <p className="relative font-mono text-[10px] text-white/50">
                   {idx + 1} of {reveal.length}
                 </p>
-                <button onClick={() => setRevealed((n) => n + 1)} className="block">
+                <button onClick={() => setRevealed((n) => n + 1)} className="relative block">
                   <img
                     src={card.image_url}
                     alt={card.name}
-                    className={`max-h-[55vh] w-auto rounded-lg bg-white ${rarityRing(card.rarity)}`}
+                    className={`max-h-[55vh] w-auto rounded-lg bg-white ${rarityRing(card.rarity)} ${
+                      special ? (card.rarity === 'S' ? 'vm-card-hit vm-card-secret' : 'vm-card-hit vm-card-holo') : ''
+                    }`}
                   />
                 </button>
-                <div className="text-center">
-                  <p className="text-white font-semibold text-sm">{card.name}</p>
-                  <p className={`text-xs ${card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'}`}>
-                    {RARITY_LABEL[card.rarity] ?? card.rarity}
+                <div className="relative text-center">
+                  <p className={`font-semibold ${special ? 'text-base' : 'text-sm'} text-white`}>{card.name}</p>
+                  <p className={`text-xs font-medium ${
+                    card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
+                  }`}>
+                    {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? '✦ HOLO RARE ✦' : RARITY_LABEL[card.rarity] ?? card.rarity}
                   </p>
                 </div>
                 <button
                   onClick={() => setRevealed((n) => n + 1)}
-                  className="text-white/60 text-xs underline underline-offset-2"
+                  className="relative text-white/60 text-xs underline underline-offset-2"
                 >
                   {idx + 1 === reveal.length ? 'Finish' : 'Next card'}
                 </button>
+
+                <style>{`
+                  @keyframes vmCardIn {
+                    0%   { transform: scale(0.72) rotate(-6deg); opacity: 0; }
+                    55%  { transform: scale(1.06) rotate(1.5deg); opacity: 1; }
+                    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+                  }
+                  @keyframes vmGlowHolo {
+                    0%, 100% { box-shadow: 0 0 18px 2px rgba(251,191,36,0.55); }
+                    50%      { box-shadow: 0 0 40px 10px rgba(251,191,36,0.85); }
+                  }
+                  @keyframes vmGlowSecret {
+                    0%   { box-shadow: 0 0 22px 4px rgba(232,121,249,0.7); }
+                    33%  { box-shadow: 0 0 34px 8px rgba(34,211,238,0.7); }
+                    66%  { box-shadow: 0 0 34px 8px rgba(167,139,250,0.7); }
+                    100% { box-shadow: 0 0 22px 4px rgba(232,121,249,0.7); }
+                  }
+                  .vm-card-hit    { animation: vmCardIn 620ms cubic-bezier(.2,.8,.3,1.1) both; }
+                  .vm-card-holo   { animation: vmCardIn 620ms cubic-bezier(.2,.8,.3,1.1) both, vmGlowHolo 1.9s ease-in-out 620ms infinite; }
+                  .vm-card-secret { animation: vmCardIn 620ms cubic-bezier(.2,.8,.3,1.1) both, vmGlowSecret 2.4s linear 620ms infinite; }
+                  @media (prefers-reduced-motion: reduce) {
+                    .vm-card-hit, .vm-card-holo, .vm-card-secret { animation: none; }
+                    .vm-card-holo   { box-shadow: 0 0 20px 4px rgba(251,191,36,0.6); }
+                    .vm-card-secret { box-shadow: 0 0 20px 4px rgba(232,121,249,0.6); }
+                  }
+                `}</style>
               </>
             )
           })()}
