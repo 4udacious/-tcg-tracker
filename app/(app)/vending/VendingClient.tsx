@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal } from './CollectionPanel'
 
 /**
  * Colours inside the machine screen are deliberately fixed rather than theme
@@ -42,6 +43,9 @@ interface Props {
   balance: number
   userId: string
   cooldownUntil: string | null
+  packs: UnopenedPack[]
+  collection: CollectionCard[]
+  setTotals: SetTotal[]
 }
 
 function mmss(total: number): string {
@@ -58,7 +62,10 @@ function untilLabel(iso: string): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
-export default function VendingClient({ initialState, initialStock, balance, userId, cooldownUntil }: Props) {
+export default function VendingClient({
+  initialState, initialStock, balance, userId, cooldownUntil, packs, collection, setTotals,
+}: Props) {
+  const [view, setView] = useState<'machine' | 'collection'>('machine')
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
   const [tokens, setTokens] = useState(balance)
@@ -261,6 +268,30 @@ export default function VendingClient({ initialState, initialStock, balance, use
         </div>
       </div>
 
+      <div className="flex gap-1">
+        {(['machine', 'collection'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+              view === v ? 'bg-ink text-white' : 'bg-card border border-card-border text-ink hover:border-ink/20'
+            }`}
+          >
+            {v}
+            {v === 'collection' && packs.length > 0 && (
+              <span className="ml-1.5 font-mono text-[10px] rounded-full bg-signal text-white px-1.5 py-0.5">
+                {packs.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {view === 'collection' ? (
+        <CollectionPanel packs={packs} collection={collection} setTotals={setTotals} />
+      ) : (
+      <>
+
       {/* pt-10 leaves room for the crown, which overhangs the cabinet. */}
       <div className="mx-auto w-full max-w-sm pt-10">
         <div className="relative rounded-[2rem] bg-[#f2f2f0] px-3 pb-3 pt-0 shadow-[0_0_0_3px_#ff3b53,0_0_28px_rgba(255,59,83,0.45)]">
@@ -408,6 +439,9 @@ export default function VendingClient({ initialState, initialStock, balance, use
             Refresh
           </button>
         </div>
+      )}
+
+      </>
       )}
     </div>
   )
