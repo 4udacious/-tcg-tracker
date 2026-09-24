@@ -242,7 +242,11 @@ export default function VendingClient({
       setTokens(r.balance)
       setCart({})
       setReceipt({ packs: r.packs_bought, restocked: r.restocked })
-      setCooldown(new Date(Date.now() + 3 * 3600_000).toISOString())
+      // Read the real cooldown back rather than assuming a duration - it is
+      // an admin setting and can be anything.
+      const { data: me } = await supabase
+        .from('profiles').select('vending_cooldown_until').eq('id', userId).single()
+      setCooldown(me?.vending_cooldown_until ?? null)
     } else {
       switch (r?.reason) {
         case 'not_holder': setMessage('Your session timed out.'); break
@@ -310,16 +314,18 @@ export default function VendingClient({
           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border-2 border-black">
             {receipt ? (
               <DispensingScreen packs={receipt.packs} restocked={receipt.restocked} />
-            ) : status === 'blacked_out' ? (
-              <BlackoutScreen />
-            ) : status === 'maintenance' ? (
-              <MaintenanceScreen />
             ) : status === 'out_of_stock' ? (
               <StockScreen stock={stock} soldOut cart={{}} onAdd={() => {}} interactive={false} />
-            ) : iAmHolder ? (
-              <StockScreen stock={stock} soldOut={false} cart={cart} onAdd={addToCart} interactive />
+            ) : status === 'in_stock' ? (
+              iAmHolder ? (
+                <StockScreen stock={stock} soldOut={false} cart={cart} onAdd={addToCart} interactive />
+              ) : (
+                <AttractScreen onStart={claim} busy={busy} lockedBy={someoneElse ? state!.holder_name : null} />
+              )
             ) : (
-              <AttractScreen onStart={claim} busy={busy} lockedBy={someoneElse ? state!.holder_name : null} />
+              // Everything non-buyable shows maintenance. This also catches a
+              // machine still parked on the retired blackout status.
+              <MaintenanceScreen />
             )}
 
             {/* On-screen arrival messages. Sits above the call-to-action so it
@@ -412,7 +418,11 @@ export default function VendingClient({
         <div className="mx-auto w-full max-w-sm bg-card border border-card-border rounded-2xl p-4 space-y-2 text-center">
           <p className="text-sm font-medium">Collected {receipt.packs} pack{receipt.packs === 1 ? '' : 's'}.</p>
           {receipt.restocked && <p className="text-xs text-signal font-medium">The machine restocked behind you.</p>}
-          <p className="text-xs text-muted">Back in 3 hours.</p>
+          <p className="text-xs text-muted">
+            {cooldown && new Date(cooldown).getTime() > Date.now()
+              ? `Back in ${untilLabel(cooldown)}.`
+              : 'You can use the machine again now.'}
+          </p>
           <button onClick={() => setReceipt(null)} className="text-xs text-muted underline underline-offset-2 hover:text-ink">
             Done
           </button>
@@ -427,7 +437,6 @@ export default function VendingClient({
                 ? `${state!.holder_name} is at the machine`
                 : status === 'in_stock' ? `Stocked — ${stock.reduce((n, s) => n + s.quantity, 0)} packs`
                 : status === 'out_of_stock' ? 'Sold out'
-                : status === 'blacked_out' ? 'Machine is dark'
                 : 'Under maintenance'}
             </p>
             <p className="font-mono text-[10px] text-muted">
@@ -603,15 +612,6 @@ function DispensingScreen({ packs, restocked }: { packs: number; restocked: bool
       <div className="my-2 h-px w-3/4 bg-black/20" />
       <p className="text-[10px]" style={{ color: `${SCREEN_INK}80` }}>PLEASE WAIT</p>
       {restocked && <p className="mt-2 text-[9px] font-semibold text-[#c82030]">RESTOCKING…</p>}
-    </div>
-  )
-}
-
-function BlackoutScreen() {
-  return (
-    <div className="absolute inset-0 bg-black flex items-center justify-center">
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] via-transparent to-white/[0.03]" />
-      <p className="relative font-mono text-[10px] text-white/20 tracking-widest">NO SIGNAL</p>
     </div>
   )
 }

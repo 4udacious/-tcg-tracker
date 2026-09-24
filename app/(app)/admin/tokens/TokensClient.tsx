@@ -8,7 +8,21 @@ interface Settings {
   monthly_allowance: number
   tokens_expire_monthly: boolean
   per_cycle_pack_cap: number | null
+  cooldown_hours: number
 }
+
+/** Presets for the post-purchase cooldown, in hours. */
+const COOLDOWN_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: 'None' },
+  { value: 0.25, label: '15 min' },
+  { value: 0.5, label: '30 min' },
+  { value: 1, label: '1 hour' },
+  { value: 2, label: '2 hours' },
+  { value: 3, label: '3 hours' },
+  { value: 6, label: '6 hours' },
+  { value: 12, label: '12 hours' },
+  { value: 24, label: '24 hours' },
+]
 
 interface BalanceRow {
   user_id: string
@@ -62,6 +76,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
   const [allowance, setAllowance] = useState(String(settings.monthly_allowance))
   const [cap, setCap] = useState(settings.per_cycle_pack_cap == null ? '' : String(settings.per_cycle_pack_cap))
   const [expire, setExpire] = useState(settings.tokens_expire_monthly)
+  const [cooldown, setCooldown] = useState(Number(settings.cooldown_hours ?? 3))
 
   const [search, setSearch] = useState('')
   const [adjusting, setAdjusting] = useState<string | null>(null)
@@ -98,6 +113,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
       p_monthly_allowance: n,
       p_per_cycle_pack_cap: c,
       p_tokens_expire_monthly: expire,
+      p_cooldown_hours: cooldown,
     })
     setBusy(false)
     if (error) { showToast('Failed to save settings.', false); return }
@@ -186,6 +202,35 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
             onChange={(e) => setCap(e.target.value)}
             className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal placeholder:text-muted"
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-ink">Cooldown after buying</label>
+          <p className="text-xs text-muted">
+            How long a member waits before they can use the machine again. This is the main brake on one
+            person clearing every restock.
+          </p>
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {COOLDOWN_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => setCooldown(o.value)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  cooldown === o.value
+                    ? 'bg-signal text-white border-signal'
+                    : 'bg-paper border-card-border text-ink hover:border-ink/30'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {cooldown === 0 && (
+            <p className="text-xs text-[#f97316]">
+              With no cooldown and no pack cap, the fastest member can take every restock.
+            </p>
+          )}
         </div>
 
         <button
