@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal } from './CollectionPanel'
 
@@ -87,6 +88,8 @@ function untilLabel(iso: string): string {
 export default function VendingClient({
   initialState, initialStock, balance, userId, cooldownUntil, packs, collection, setTotals, recentBuys,
 }: Props) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const [view, setView] = useState<'machine' | 'collection'>('machine')
   const [buys, setBuys] = useState<RecentBuy[]>(recentBuys)
   const [state, setState] = useState<MachineState | null>(initialState)
@@ -273,6 +276,10 @@ export default function VendingClient({
       const { data: me } = await supabase
         .from('profiles').select('vending_cooldown_until').eq('id', userId).single()
       setCooldown(me?.vending_cooldown_until ?? null)
+      // The unopened-packs list is a server prop, so without this the packs
+      // just bought do not show up in the collection until something else
+      // forces a reload.
+      startTransition(() => router.refresh())
     } else {
       switch (r?.reason) {
         case 'not_holder': setMessage('Your session timed out.'); break
@@ -449,9 +456,20 @@ export default function VendingClient({
               ? `Back in ${untilLabel(cooldown)}.`
               : 'You can use the machine again now.'}
           </p>
-          <button onClick={() => setReceipt(null)} className="text-xs text-muted underline underline-offset-2 hover:text-ink">
-            Done
-          </button>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => { setReceipt(null); setView('collection') }}
+              className="flex-1 bg-signal hover:bg-signal/90 text-white font-semibold rounded-xl py-2 text-sm transition-colors"
+            >
+              Open them
+            </button>
+            <button
+              onClick={() => setReceipt(null)}
+              className="px-4 border border-card-border rounded-xl text-sm font-medium text-muted hover:text-ink transition-colors"
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
 

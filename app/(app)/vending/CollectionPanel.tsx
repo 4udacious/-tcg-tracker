@@ -150,6 +150,15 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
   const [openBinder, setOpenBinder] = useState<string | null>(null)
   // Index into the open binder's cards, for the enlarged view.
   const [zoomIndex, setZoomIndex] = useState<number | null>(null)
+  // Packs opened in this session drop out immediately, rather than lingering
+  // until the server props catch up and inviting a second tap that would be
+  // refused with "already open".
+  const [openedIds, setOpenedIds] = useState<Set<number>>(new Set())
+
+  const visiblePacks = useMemo(
+    () => packs.filter((p) => !openedIds.has(p.id)),
+    [packs, openedIds]
+  )
 
   const bySet = useMemo(() => {
     const map = new Map<string, CollectionCard[]>()
@@ -173,6 +182,7 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
     const { data, error: err } = await supabase.rpc('open_pack', { p_user_pack_id: id })
     setOpening(false)
     if (err) { setError(err.message.replace(/^.*?:\s*/, '')); return }
+    setOpenedIds((prev) => new Set(prev).add(id))
     const cards = ((data as RevealCard[]) ?? []).sort((a, b) => a.slot - b.slot)
     setReveal(cards)
     setRevealed(0)
@@ -217,7 +227,7 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="font-display font-semibold text-base">Unopened</h2>
           <span className="font-mono text-[10px] text-muted">
-            {packs.length} pack{packs.length === 1 ? '' : 's'}
+            {visiblePacks.length} pack{visiblePacks.length === 1 ? '' : 's'}
           </span>
         </div>
 
@@ -225,13 +235,13 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
           <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">{error}</p>
         )}
 
-        {packs.length === 0 ? (
+        {visiblePacks.length === 0 ? (
           <p className="text-sm text-muted">
             No unopened packs. Buy some from the machine.
           </p>
         ) : (
           <ul className="grid grid-cols-3 gap-2">
-            {packs.map((p) => (
+            {visiblePacks.map((p) => (
               <li key={p.id} className="bg-card border border-card-border rounded-xl p-2 flex flex-col gap-1.5">
                 <img src={p.image_url} alt={`${p.set_name} — ${p.pack_name}`} className="w-full aspect-[2/3] object-contain" loading="lazy" />
                 <p className="text-[10px] text-muted text-center truncate">{p.set_name}</p>
@@ -259,7 +269,7 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
 
         {openBinder === null ? (
           /* ── The shelf ── */
-          uniqueCards === 0 && packs.length === 0 ? (
+          uniqueCards === 0 && visiblePacks.length === 0 ? (
             <p className="text-sm text-muted">Nothing collected yet. Open a pack to start.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 pt-1">
