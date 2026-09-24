@@ -13,11 +13,12 @@ export default async function VendingPage() {
   const { data: stateRows } = await supabase.rpc('get_vending_state')
   const state = (Array.isArray(stateRows) ? stateRows[0] : stateRows) ?? null
 
-  const [{ data: stock }, { data: balance }] = await Promise.all([
+  const [{ data: stock }, { data: balance }, { data: me }] = await Promise.all([
     state && (state.status === 'in_stock' || state.status === 'out_of_stock')
       ? supabase.rpc('get_vending_stock', { p_cycle: state.cycle_no })
       : Promise.resolve({ data: [] }),
     supabase.rpc('token_balance', { target: userId }),
+    supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
   ])
 
   return (
@@ -25,6 +26,8 @@ export default async function VendingPage() {
       initialState={state}
       initialStock={stock ?? []}
       balance={(balance as number | null) ?? 0}
+      userId={userId}
+      cooldownUntil={me?.vending_cooldown_until ?? null}
     />
   )
 }
