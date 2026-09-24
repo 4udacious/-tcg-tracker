@@ -60,10 +60,10 @@ type Binder = { cover: string; spine: string; body: string; foil: string; fit: '
 const BINDERS: Record<string, Binder> = {
   base1: { cover: '/binders/base-set.webp',           spine: '#1e3a8a', body: '#1d4ed8', foil: '#93c5fd', fit: 'cover' },
   base2: { cover: '/binders/jungle.webp',             spine: '#14532d', body: '#166534', foil: '#86efac', fit: 'cover' },
-  // Moved off navy once Base Set took the blue cover art; amber suits a
-  // fossil set better than it suited Base Set anyway.
-  base3: { cover: '/packs/fossil-aerodactyl.webp',    spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'contain' },
-  base5: { cover: '/packs/team-rocket-giovanni.webp', spine: '#1c1917', body: '#292524', foil: '#d6d3d1', fit: 'contain' },
+  // Amber, chosen when Base Set took blue, happens to match the kraft-paper
+  // artwork exactly.
+  base3: { cover: '/binders/fossil.webp',             spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'cover' },
+  base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
