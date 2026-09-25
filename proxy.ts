@@ -65,11 +65,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin-only previews: Stock is switched off while it is reworked, and
-  // Vending is hidden until pack opening and the collection view exist.
-  // Gated here rather than only hiding the tab, so a bookmark or a typed URL
-  // can't reach them either.
-  if ((pathname.startsWith('/stock') || pathname.startsWith('/vending')) && role !== 'admin') {
+  // Stock check-in stays admin-only while it is reworked. Gated here rather
+  // than only hiding the tab, so a bookmark or a typed URL can't reach it
+  // either.
+  if (pathname.startsWith('/stock') && role !== 'admin') {
     const url = request.nextUrl.clone()
     url.pathname = '/timers'
     return NextResponse.redirect(url)

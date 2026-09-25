@@ -27,6 +27,16 @@ const tabs = [
     ),
   },
   {
+    href: '/vending',
+    label: 'VVM',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3.75h14a1 1 0 011 1v14.5a1 1 0 01-1 1H5a1 1 0 01-1-1V4.75a1 1 0 011-1z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h5v5H7zM15 7h2M15 10h2M7 16h10" />
+      </svg>
+    ),
+  },
+  {
     href: '/members',
     label: 'Members',
     icon: (
@@ -38,10 +48,8 @@ const tabs = [
 ]
 
 /**
- * Features visible to admins only for now. Stock check-in is off while it is
- * reworked; Vending is hidden until pack opening and the collection view are
- * built. The routes themselves are gated in proxy.ts - this only controls
- * whether the tab is shown.
+ * Still admin-only: stock check-in, while it is reworked. The route itself is
+ * gated in proxy.ts - this only controls whether the tab is shown.
  */
 const adminPreviewTabs = [
   {
@@ -50,16 +58,6 @@ const adminPreviewTabs = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/vending',
-    label: 'VVM',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3.75h14a1 1 0 011 1v14.5a1 1 0 01-1 1H5a1 1 0 01-1-1V4.75a1 1 0 011-1z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h5v5H7zM15 7h2M15 10h2M7 16h10" />
       </svg>
     ),
   },
