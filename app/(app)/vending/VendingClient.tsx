@@ -34,6 +34,17 @@ interface StockRow {
   set_name: string
   display_image_url: string
   quantity: number
+  description: string | null
+}
+
+/** What the detail popup shows, for either kind of shelf item. */
+type ItemDetail = {
+  title: string
+  subtitle: string
+  description: string | null
+  image: string | null
+  accent: string
+  fit: 'contain' | 'cover'
 }
 
 /**
@@ -128,6 +139,9 @@ export default function VendingClient({
   // Tickets are priced per item, so they are carted separately from packs.
   const [ticketCart, setTicketCart] = useState<Record<number, number>>({})
   const [holdLeft, setHoldLeft] = useState(0)
+  // Tapping an item on the shelf opens this; browsing is allowed even when
+  // you are not the one holding the machine.
+  const [detail, setDetail] = useState<ItemDetail | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ packs: number; tickets: number; restocked: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -299,6 +313,28 @@ export default function VendingClient({
     beat()
   }
 
+  function showPackDetail(s: StockRow) {
+    setDetail({
+      title: s.set_name,
+      subtitle: `${s.quantity} in the machine · 1 token each · wrapper varies`,
+      description: s.description,
+      image: s.display_image_url,
+      accent: '#c82030',
+      fit: 'contain',
+    })
+  }
+
+  function showTicketDetail(t: TicketStockRow) {
+    setDetail({
+      title: t.name,
+      subtitle: `${t.rarity} · ${t.token_price} token${t.token_price === 1 ? '' : 's'} · ${t.remaining} left`,
+      description: t.description,
+      image: t.image_url,
+      accent: TICKET_RARITY_COLOR[t.rarity] ?? TICKET_RARITY_COLOR.common,
+      fit: 'cover',
+    })
+  }
+
   function addTicketToCart(t: TicketStockRow, delta: number) {
     setTicketCart((c) => {
       const cur = c[t.ticket_id] ?? 0
@@ -407,10 +443,10 @@ export default function VendingClient({
             {receipt ? (
               <DispensingScreen packs={receipt.packs} restocked={receipt.restocked} />
             ) : status === 'out_of_stock' ? (
-              <StockScreen stock={stock} tickets={tickets} soldOut cart={{}} ticketCart={{}} onAdd={() => {}} onAddTicket={() => {}} interactive={false} />
+              <StockScreen stock={stock} tickets={tickets} soldOut cart={{}} ticketCart={{}} onAdd={() => {}} onAddTicket={() => {}} onInspect={showPackDetail} onInspectTicket={showTicketDetail} interactive={false} />
             ) : status === 'in_stock' ? (
               iAmHolder ? (
-                <StockScreen stock={stock} tickets={tickets} soldOut={false} cart={cart} ticketCart={ticketCart} onAdd={addToCart} onAddTicket={addTicketToCart} interactive />
+                <StockScreen stock={stock} tickets={tickets} soldOut={false} cart={cart} ticketCart={ticketCart} onAdd={addToCart} onAddTicket={addTicketToCart} onInspect={showPackDetail} onInspectTicket={showTicketDetail} interactive />
               ) : (
                 <AttractScreen onStart={claim} busy={busy} lockedBy={someoneElse ? state!.holder_name : null} />
               )
@@ -439,6 +475,8 @@ export default function VendingClient({
           <div className="mt-3 h-10 rounded-xl bg-[#111] border-[3px] border-[#ff3b53] shadow-[inset_0_4px_14px_rgba(0,0,0,0.8)]" />
         </div>
       </div>
+
+      {detail && <ItemDetailDialog detail={detail} onClose={() => setDetail(null)} />}
 
       {message && (
         <p className="mx-auto w-full max-w-sm text-center text-sm font-medium text-signal bg-signal/10 border border-signal/30 rounded-xl px-3 py-2">
@@ -669,8 +707,72 @@ function DriftRow({ files, seconds, reverse }: { files: string[]; seconds: numbe
   )
 }
 
+/** Detail popup for a shelf item. Escape and backdrop both dismiss it. */
+function ItemDetailDialog({ detail, onClose }: { detail: ItemDetail; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={detail.title}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xs bg-card border border-card-border rounded-2xl overflow-hidden shadow-2xl"
+        style={{ borderTop: `4px solid ${detail.accent}` }}
+      >
+        <div className="p-4 space-y-3">
+          <div className="flex gap-3">
+            {detail.image ? (
+              <img
+                src={detail.image}
+                alt=""
+                className={`w-20 h-28 rounded-lg bg-paper shrink-0 ${detail.fit === 'cover' ? 'object-cover' : 'object-contain'}`}
+              />
+            ) : (
+              <div
+                className="w-20 h-28 rounded-lg flex items-center justify-center text-3xl shrink-0"
+                style={{ backgroundColor: `${detail.accent}22` }}
+              >
+                🎟️
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h3 className="font-display font-bold text-base leading-tight">{detail.title}</h3>
+              <p className="font-mono text-[10px] uppercase tracking-wide mt-1" style={{ color: detail.accent }}>
+                {detail.subtitle}
+              </p>
+            </div>
+          </div>
+
+          {detail.description ? (
+            <p className="text-sm text-ink/80 leading-relaxed whitespace-pre-line">{detail.description}</p>
+          ) : (
+            <p className="text-sm text-muted italic">No description yet.</p>
+          )}
+
+          <button
+            onClick={onClose}
+            className="w-full bg-ink text-white font-semibold rounded-xl py-2.5 text-sm hover:opacity-90 transition-opacity"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StockScreen({
-  stock, tickets, soldOut, cart, ticketCart, onAdd, onAddTicket, interactive,
+  stock, tickets, soldOut, cart, ticketCart, onAdd, onAddTicket, onInspect, onInspectTicket, interactive,
 }: {
   stock: StockRow[]
   tickets: TicketStockRow[]
@@ -679,6 +781,8 @@ function StockScreen({
   ticketCart: Record<number, number>
   onAdd: (s: StockRow, delta: number) => void
   onAddTicket: (t: TicketStockRow, delta: number) => void
+  onInspect: (s: StockRow) => void
+  onInspectTicket: (t: TicketStockRow) => void
   interactive: boolean
 }) {
   if (stock.length === 0 && tickets.length === 0) {
@@ -696,12 +800,19 @@ function StockScreen({
           const gone = s.quantity === 0
           return (
             <div key={s.set_code} className="relative rounded bg-white border border-black/10 p-1">
-              <img
-                src={s.display_image_url}
-                alt={s.set_name}
-                className={`w-full aspect-[2/3] object-contain ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
-                loading="lazy"
-              />
+              <button
+                type="button"
+                onClick={() => onInspect(s)}
+                className="block w-full cursor-pointer"
+                aria-label={`About ${s.set_name}`}
+              >
+                <img
+                  src={s.display_image_url}
+                  alt={s.set_name}
+                  className={`w-full aspect-[2/3] object-contain ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
+                  loading="lazy"
+                />
+              </button>
               <p className="mt-0.5 text-[9px] font-semibold leading-tight text-center truncate" style={{ color: SCREEN_INK }}>
                 {s.set_name}
               </p>
@@ -774,21 +885,28 @@ function StockScreen({
                 {t.rarity}
               </span>
 
-              {t.image_url ? (
-                <img
-                  src={t.image_url}
-                  alt={t.name}
-                  className={`w-full aspect-[2/3] object-cover rounded-sm ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
-                  loading="lazy"
-                />
-              ) : (
-                <div
-                  className={`w-full aspect-[2/3] rounded-sm flex items-center justify-center text-2xl ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
-                  style={{ backgroundColor: `${colour}22` }}
-                >
-                  🎟️
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => onInspectTicket(t)}
+                className="block w-full cursor-pointer"
+                aria-label={`About ${t.name}`}
+              >
+                {t.image_url ? (
+                  <img
+                    src={t.image_url}
+                    alt={t.name}
+                    className={`w-full aspect-[2/3] object-cover rounded-sm ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div
+                    className={`w-full aspect-[2/3] rounded-sm flex items-center justify-center text-2xl ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
+                    style={{ backgroundColor: `${colour}22` }}
+                  >
+                    🎟️
+                  </div>
+                )}
+              </button>
 
               <p className="mt-0.5 text-[9px] font-semibold leading-tight text-center truncate" style={{ color: SCREEN_INK }}>
                 {t.name}
