@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import VendingClient, { type RecentBuy } from './VendingClient'
-import type { UnopenedPack, CollectionCard, SetTotal } from './CollectionPanel'
+import VendingClient, { type RecentBuy, type TicketStockRow } from './VendingClient'
+import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket } from './CollectionPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,10 +21,15 @@ export default async function VendingPage() {
   const { data: stateRows } = await supabase.rpc('get_vending_state')
   const state = (Array.isArray(stateRows) ? stateRows[0] : stateRows) ?? null
 
-  const [{ data: stock }, { data: balance }, { data: me }, { data: packRows }, { data: collection }, { data: catalog }] =
+  const showStock = state && (state.status === 'in_stock' || state.status === 'out_of_stock')
+
+  const [{ data: stock }, { data: ticketStock }, { data: balance }, { data: me }, { data: packRows }, { data: collection }, { data: catalog }] =
     await Promise.all([
-      state && (state.status === 'in_stock' || state.status === 'out_of_stock')
+      showStock
         ? supabase.rpc('get_vending_stock', { p_cycle: state.cycle_no })
+        : Promise.resolve({ data: [] }),
+      showStock
+        ? supabase.rpc('get_vending_ticket_stock', { p_cycle: state.cycle_no })
         : Promise.resolve({ data: [] }),
       supabase.rpc('token_balance', { target: userId }),
       supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
@@ -42,6 +47,37 @@ export default async function VendingPage() {
     ])
 
   const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
+
+  // Owned raffle tickets, collapsed to one row per ticket with a copy count.
+  const { data: ticketRows } = await supabase
+    .from('user_raffle_tickets')
+    .select('ticket_id, raffle_tickets(name, description, rarity, image_url)')
+    .eq('user_id', userId)
+
+  type OwnedRow = {
+    ticket_id: number
+    raffle_tickets:
+      | { name: string; description: string | null; rarity: string; image_url: string | null }
+      | { name: string; description: string | null; rarity: string; image_url: string | null }[]
+      | null
+  }
+
+  const ticketMap = new Map<number, OwnedTicket>()
+  for (const row of (ticketRows as OwnedRow[] | null) ?? []) {
+    const t = Array.isArray(row.raffle_tickets) ? row.raffle_tickets[0] : row.raffle_tickets
+    if (!t) continue
+    const existing = ticketMap.get(row.ticket_id)
+    if (existing) existing.copies += 1
+    else ticketMap.set(row.ticket_id, {
+      ticket_id: row.ticket_id,
+      name: t.name,
+      description: t.description,
+      rarity: t.rarity,
+      image_url: t.image_url,
+      copies: 1,
+    })
+  }
+  const ownedTickets = [...ticketMap.values()].sort((a, b) => a.name.localeCompare(b.name))
 
   type PackRow = {
     id: number
@@ -74,12 +110,14 @@ export default async function VendingPage() {
     <VendingClient
       initialState={state}
       initialStock={stock ?? []}
+      initialTickets={(ticketStock as TicketStockRow[] | null) ?? []}
       balance={(balance as number | null) ?? 0}
       userId={userId}
       cooldownUntil={me?.vending_cooldown_until ?? null}
       packs={packs}
       collection={(collection as CollectionCard[] | null) ?? []}
       setTotals={setTotals}
+      ownedTickets={ownedTickets}
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
     />
   )

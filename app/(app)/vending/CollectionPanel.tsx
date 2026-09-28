@@ -37,10 +37,28 @@ interface RevealCard {
   slot: number
 }
 
+export interface OwnedTicket {
+  ticket_id: number
+  name: string
+  description: string | null
+  rarity: string
+  image_url: string | null
+  copies: number
+}
+
 interface Props {
   packs: UnopenedPack[]
   collection: CollectionCard[]
   setTotals: SetTotal[]
+  tickets: OwnedTicket[]
+}
+
+const TICKET_RARITY_COLOR: Record<string, string> = {
+  common: '#6B7280',
+  uncommon: '#16A34A',
+  rare: '#0EA5E9',
+  ultra: '#A855F7',
+  legendary: '#F6A609',
 }
 
 const RARITY_LABEL: Record<string, string> = {
@@ -149,7 +167,7 @@ function rarityRing(r: string): string {
   }
 }
 
-export default function CollectionPanel({ packs, collection, setTotals }: Props) {
+export default function CollectionPanel({ packs, collection, setTotals, tickets }: Props) {
   const router = useRouter()
   const [opening, setOpening] = useState(false)
   const [reveal, setReveal] = useState<RevealCard[] | null>(null)
@@ -266,6 +284,55 @@ export default function CollectionPanel({ packs, collection, setTotals }: Props)
           </ul>
         )}
       </section>
+
+      {/* ── Raffle tickets ── */}
+      {tickets.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-base">Raffle Tickets</h2>
+            <span className="font-mono text-[10px] text-muted">
+              {tickets.reduce((n, t) => n + t.copies, 0)} held
+            </span>
+          </div>
+          <ul className="grid grid-cols-2 gap-2">
+            {tickets.map((t) => {
+              const colour = TICKET_RARITY_COLOR[t.rarity] ?? TICKET_RARITY_COLOR.common
+              return (
+                <li
+                  key={t.ticket_id}
+                  className="relative bg-card rounded-xl p-2 flex gap-2 items-center"
+                  style={{ border: `2px solid ${colour}` }}
+                >
+                  {t.image_url ? (
+                    <img src={t.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0"
+                      style={{ backgroundColor: `${colour}22` }}
+                    >
+                      🎟️
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold truncate">{t.name}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-wide" style={{ color: colour }}>
+                      {t.rarity}
+                    </p>
+                  </div>
+                  {t.copies > 1 && (
+                    <span
+                      className="shrink-0 rounded-full text-white text-[10px] font-bold px-1.5"
+                      style={{ backgroundColor: colour }}
+                    >
+                      ×{t.copies}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* ── Collection ── */}
       <section className="space-y-2">

@@ -25,6 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           { href: '/admin/roles', label: 'Roles' },
           { href: '/admin/achievements', label: 'Achievements' },
           { href: '/admin/tokens', label: 'Tokens' },
+          { href: '/admin/raffle', label: 'Raffle' },
         ]
       : [
           { href: '/admin', label: 'Approvals' },
