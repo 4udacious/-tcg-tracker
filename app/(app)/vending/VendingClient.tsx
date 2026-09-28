@@ -60,6 +60,21 @@ export interface TicketStockRow {
   token_price: number
   quantity: number
   remaining: number
+  /** null = no cap on how many one member may hold. */
+  per_user_limit: number | null
+  /** How many the signed-in member already holds. */
+  owned: number
+}
+
+/**
+ * Most a member may add right now: limited by what is in the machine, what the
+ * raffle has left, and their remaining personal allowance.
+ */
+function ticketCeiling(t: TicketStockRow): number {
+  const personal = t.per_user_limit === null
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, t.per_user_limit - t.owned)
+  return Math.max(0, Math.min(t.quantity, t.remaining, personal))
 }
 
 const TICKET_RARITY_COLOR: Record<string, string> = {
@@ -325,9 +340,12 @@ export default function VendingClient({
   }
 
   function showTicketDetail(t: TicketStockRow) {
+    const limitNote = t.per_user_limit === null
+      ? ''
+      : ` · max ${t.per_user_limit} each (you hold ${t.owned})`
     setDetail({
       title: t.name,
-      subtitle: `${t.rarity} · ${t.token_price} token${t.token_price === 1 ? '' : 's'} · ${t.remaining} left`,
+      subtitle: `${t.rarity} · ${t.token_price} token${t.token_price === 1 ? '' : 's'} · ${t.remaining} left${limitNote}`,
       description: t.description,
       image: t.image_url,
       accent: TICKET_RARITY_COLOR[t.rarity] ?? TICKET_RARITY_COLOR.common,
@@ -338,9 +356,7 @@ export default function VendingClient({
   function addTicketToCart(t: TicketStockRow, delta: number) {
     setTicketCart((c) => {
       const cur = c[t.ticket_id] ?? 0
-      // Can't take more than is in the machine, or more than the raffle has left.
-      const ceiling = Math.min(t.quantity, t.remaining)
-      const next = Math.min(ceiling, Math.max(0, cur + delta))
+      const next = Math.min(ticketCeiling(t), Math.max(0, cur + delta))
       const copy = { ...c }
       if (next === 0) delete copy[t.ticket_id]
       else copy[t.ticket_id] = next
@@ -379,6 +395,7 @@ export default function VendingClient({
         case 'insufficient_stock': setMessage('Someone got there first — stock changed.'); break
         case 'insufficient_tokens': setMessage('Not enough tokens.'); break
         case 'ticket_sold_out': setMessage('That raffle ticket just ran out.'); break
+        case 'ticket_limit_reached': setMessage('You already hold the maximum of that ticket.'); break
         case 'ticket_unavailable': setMessage('That raffle ticket is no longer available.'); break
         default: setMessage('Checkout failed.')
       }
@@ -869,8 +886,10 @@ function StockScreen({
         {/* Raffle tickets share the shelf with packs, flagged by rarity colour. */}
         {tickets.map((t) => {
           const taken = ticketCart[t.ticket_id] ?? 0
-          const ceiling = Math.min(t.quantity, t.remaining)
+          const ceiling = ticketCeiling(t)
           const gone = ceiling === 0
+          // Distinguish "you've hit your personal cap" from "the machine is out".
+          const maxedOut = ceiling === 0 && t.quantity > 0 && t.remaining > 0
           const colour = TICKET_RARITY_COLOR[t.rarity] ?? TICKET_RARITY_COLOR.common
           return (
             <div
@@ -918,7 +937,7 @@ function StockScreen({
               {soldOut || gone ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="rotate-[-8deg] bg-black/80 text-white text-[7px] font-extrabold tracking-wider px-2 py-0.5 shadow">
-                    SOLD OUT
+                    {maxedOut ? 'LIMIT REACHED' : 'SOLD OUT'}
                   </span>
                 </div>
               ) : (

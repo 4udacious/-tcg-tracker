@@ -15,6 +15,8 @@ export interface RaffleTicket {
   ends_at: string | null
   total_quantity: number
   claimed_quantity: number
+  /** null = a member may hold any number of this ticket. */
+  per_user_limit: number | null
   is_active: boolean
   created_at: string
 }
@@ -46,6 +48,8 @@ const EMPTY_FORM = {
   startsAt: '',
   endsAt: '',
   totalQuantity: 10,
+  // Empty string means "no cap", so the input can be cleared.
+  perUserLimit: '' as number | '',
   isActive: false,
 }
 
@@ -86,6 +90,7 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
       startsAt: t.starts_at ? t.starts_at.slice(0, 16) : '',
       endsAt: t.ends_at ? t.ends_at.slice(0, 16) : '',
       totalQuantity: t.total_quantity,
+      perUserLimit: t.per_user_limit ?? '',
       isActive: t.is_active,
     })
     setEditingId(t.id)
@@ -122,6 +127,12 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
     if (form.startsAt && form.endsAt && new Date(form.endsAt) <= new Date(form.startsAt)) {
       showToast('End date must be after the start date.', false); return
     }
+    if (form.perUserLimit !== '' && Number(form.perUserLimit) < 1) {
+      showToast('Per-member limit must be at least 1, or blank for no limit.', false); return
+    }
+    if (form.perUserLimit !== '' && Number(form.perUserLimit) > form.totalQuantity) {
+      showToast('Per-member limit cannot exceed the total quantity.', false); return
+    }
     if (editingId) {
       const current = tickets.find((t) => t.id === editingId)
       if (current && form.totalQuantity < current.claimed_quantity) {
@@ -141,6 +152,7 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
       starts_at: form.startsAt || null,
       ends_at: form.endsAt || null,
       total_quantity: form.totalQuantity,
+      per_user_limit: form.perUserLimit === '' ? null : Number(form.perUserLimit),
       is_active: form.isActive,
     }
 
@@ -234,6 +246,7 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
                         {t.description && <p className="text-xs text-muted leading-snug">{t.description}</p>}
                         <p className="font-mono text-[11px] text-muted">
                           {t.token_price} token{t.token_price === 1 ? '' : 's'} · {remaining}/{t.total_quantity} left
+                          {t.per_user_limit ? ` · max ${t.per_user_limit} per member` : ''}
                         </p>
                         {(t.starts_at || t.ends_at) && (
                           <p className="font-mono text-[10px] text-signal">
@@ -399,6 +412,25 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
                 className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
               />
             </div>
+          </div>
+
+          {/* Per-member holding cap */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-ink">Limit per member</label>
+            <p className="text-xs text-muted leading-snug">
+              Most copies one member may hold. Leave blank for no limit.
+            </p>
+            <input
+              type="number"
+              min={1}
+              max={form.totalQuantity}
+              value={form.perUserLimit}
+              placeholder="No limit"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, perUserLimit: e.target.value === '' ? '' : Number(e.target.value) }))
+              }
+              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal placeholder:text-muted"
+            />
           </div>
 
           {/* Rarity */}

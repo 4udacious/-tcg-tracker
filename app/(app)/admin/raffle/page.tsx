@@ -16,7 +16,7 @@ export default async function AdminRafflePage() {
   const [{ data: tickets }, { data: holders }] = await Promise.all([
     supabase
       .from('raffle_tickets')
-      .select('id, name, description, token_price, rarity, image_url, starts_at, ends_at, total_quantity, claimed_quantity, is_active, created_at')
+      .select('id, name, description, token_price, rarity, image_url, starts_at, ends_at, total_quantity, claimed_quantity, per_user_limit, is_active, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('user_raffle_tickets')
