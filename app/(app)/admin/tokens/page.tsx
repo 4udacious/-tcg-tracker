@@ -17,7 +17,7 @@ export default async function AdminTokensPage() {
     supabase.from('vending_settings').select('monthly_allowance, tokens_expire_monthly, per_cycle_pack_cap, cooldown_hours, tokens_per_timer_report, max_earned_tokens_per_month').single(),
     supabase
       .from('v_token_balances')
-      .select('user_id, username, display_name, role, effective_allowance, balance')
+      .select('user_id, username, display_name, role, effective_allowance, balance, allowance_balance, earned_balance')
       .neq('role', 'pending')
       .order('username'),
     supabase.rpc('current_token_period'),

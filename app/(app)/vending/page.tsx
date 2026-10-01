@@ -31,7 +31,7 @@ export default async function VendingPage() {
       showStock
         ? supabase.rpc('get_vending_ticket_stock', { p_cycle: state.cycle_no })
         : Promise.resolve({ data: [] }),
-      supabase.rpc('token_balance', { target: userId }),
+      supabase.rpc('token_breakdown'),
       supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
       supabase
         .from('user_packs')
@@ -45,6 +45,9 @@ export default async function VendingPage() {
         .eq('user_id', userId),
       supabase.from('vending_cards').select('set_code'),
     ])
+
+  const bd = (Array.isArray(balance) ? balance[0] : balance) as
+    { total: number; allowance: number; earned: number } | null
 
   const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
 
@@ -111,7 +114,9 @@ export default async function VendingPage() {
       initialState={state}
       initialStock={stock ?? []}
       initialTickets={(ticketStock as TicketStockRow[] | null) ?? []}
-      balance={(balance as number | null) ?? 0}
+      balance={bd?.total ?? 0}
+      allowance={bd?.allowance ?? 0}
+      earned={bd?.earned ?? 0}
       userId={userId}
       cooldownUntil={me?.vending_cooldown_until ?? null}
       packs={packs}

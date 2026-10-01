@@ -113,6 +113,8 @@ interface Props {
   initialStock: StockRow[]
   initialTickets: TicketStockRow[]
   balance: number
+  allowance: number
+  earned: number
   userId: string
   cooldownUntil: string | null
   packs: UnopenedPack[]
@@ -137,8 +139,10 @@ function untilLabel(iso: string): string {
 }
 
 export default function VendingClient({
-  initialState, initialStock, initialTickets, balance, userId, cooldownUntil, packs, collection, setTotals, ownedTickets, recentBuys,
+  initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
+  packs, collection, setTotals, ownedTickets, recentBuys,
 }: Props) {
+  const [split, setSplit] = useState({ allowance, earned })
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [view, setView] = useState<'machine' | 'collection'>('machine')
@@ -385,6 +389,10 @@ export default function VendingClient({
       const { data: me } = await supabase
         .from('profiles').select('vending_cooldown_until').eq('id', userId).single()
       setCooldown(me?.vending_cooldown_until ?? null)
+      // Spending draws allowance first, so the split shifts on every buy.
+      const { data: bd } = await supabase.rpc('token_breakdown')
+      const b = (Array.isArray(bd) ? bd[0] : bd) as { allowance: number; earned: number } | null
+      if (b) setSplit({ allowance: b.allowance, earned: b.earned })
       // The unopened-packs list is a server prop, so without this the packs
       // just bought do not show up in the collection until something else
       // forces a reload.
@@ -411,9 +419,20 @@ export default function VendingClient({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-display font-semibold text-base">Virtual Vending Machine</h1>
-        <div className="flex items-center gap-1.5 bg-card border border-card-border rounded-full px-3 py-1">
-          <span className="font-mono text-sm font-semibold text-signal">{tokens}</span>
-          <span className="text-xs text-muted">{tokens === 1 ? 'token' : 'tokens'}</span>
+        <div className="text-right">
+          <div className="flex items-center gap-1.5 bg-card border border-card-border rounded-full px-3 py-1">
+            <span className="font-mono text-sm font-semibold text-signal">{tokens}</span>
+            <span className="text-xs text-muted">{tokens === 1 ? 'token' : 'tokens'}</span>
+          </div>
+          {/* Which part is perishable matters now that spending takes the
+              allowance first and earned tokens carry over. */}
+          {tokens > 0 && (
+            <p className="font-mono text-[10px] text-muted mt-0.5">
+              {split.allowance > 0 && `${split.allowance} expire`}
+              {split.allowance > 0 && split.earned > 0 && ' · '}
+              {split.earned > 0 && `${split.earned} kept`}
+            </p>
+          )}
         </div>
       </div>
 

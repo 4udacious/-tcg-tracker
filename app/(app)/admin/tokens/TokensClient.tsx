@@ -33,6 +33,8 @@ interface BalanceRow {
   role: string
   effective_allowance: number
   balance: number
+  allowance_balance: number
+  earned_balance: number
 }
 
 interface LedgerRow {
@@ -59,6 +61,7 @@ const REASON_LABEL: Record<string, string> = {
   refund: 'Refund',
   timer_reward: 'Timer report',
   timer_revoked: 'Timer report deleted',
+  rebucket: 'Bucket correction',
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -345,6 +348,14 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
                       <p className="text-sm font-medium truncate">{label}</p>
                       <p className="font-mono text-xs text-muted">
                         {b.effective_allowance}/mo{b.role !== 'member' ? ` · ${b.role}` : ''}
+                        {b.balance !== 0 && (
+                          <>
+                            {' · '}
+                            <span title="Expires at month end">{b.allowance_balance} exp</span>
+                            {' · '}
+                            <span title="Earned, carries over" className="text-signal">{b.earned_balance} kept</span>
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
