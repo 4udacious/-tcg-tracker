@@ -44,6 +44,7 @@ export default async function VendingPage() {
       supabase
         .from('user_cards')
         .select('id, center_x, center_y, corners, edges, surface, border_wear, wear_seed, ' +
+                'grading_started_at, grading_ready_at, graded_at, grade, ' +
                 'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
         .eq('user_id', userId)
         .order('acquired_at'),
@@ -54,6 +55,10 @@ export default async function VendingPage() {
     { total: number; allowance: number; earned: number } | null
 
   const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
+
+  const { data: gradingRows } = await supabase.rpc('grading_settings')
+  const grading = (Array.isArray(gradingRows) ? gradingRows[0] : gradingRows) as
+    { cost: number; days: number } | null
 
   // Owned raffle tickets, collapsed to one row per ticket with a copy count.
   const { data: ticketRows } = await supabase
@@ -109,6 +114,8 @@ export default async function VendingPage() {
     id: number
     center_x: number; center_y: number
     corners: number; edges: number; surface: number; border_wear: number; wear_seed: number
+    grading_started_at: string | null; grading_ready_at: string | null
+    graded_at: string | null; grade: number | null
     vending_cards:
       | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }
       | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }[]
@@ -141,6 +148,10 @@ export default async function VendingPage() {
       surface: row.surface,
       border_wear: row.border_wear,
       wear_seed: row.wear_seed,
+      grading_started_at: row.grading_started_at,
+      grading_ready_at: row.grading_ready_at,
+      graded_at: row.graded_at,
+      grade: row.grade,
     })
   }
   const cards = [...cardMap.values()]
@@ -169,6 +180,8 @@ export default async function VendingPage() {
       setTotals={setTotals}
       ownedTickets={ownedTickets}
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
+      gradingCost={grading?.cost ?? 3}
+      gradingDays={Number(grading?.days ?? 7)}
     />
   )
 }

@@ -11,6 +11,8 @@ interface Settings {
   cooldown_hours: number
   tokens_per_timer_report: number
   max_earned_tokens_per_month: number
+  grading_cost: number
+  grading_days: number
 }
 
 /** Presets for the post-purchase cooldown, in hours. */
@@ -86,6 +88,8 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
   const [cooldown, setCooldown] = useState(Number(settings.cooldown_hours ?? 3))
   const [perReport, setPerReport] = useState(String(settings.tokens_per_timer_report ?? 1))
   const [earnCap, setEarnCap] = useState(String(settings.max_earned_tokens_per_month ?? 15))
+  const [gradeCost, setGradeCost] = useState(String(settings.grading_cost ?? 3))
+  const [gradeDays, setGradeDays] = useState(String(settings.grading_days ?? 7))
 
   const [search, setSearch] = useState('')
   const [adjusting, setAdjusting] = useState<string | null>(null)
@@ -120,6 +124,10 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
     const ec = Number(earnCap)
     if (!Number.isInteger(pr) || pr < 0) { showToast('Tokens per report must be a whole number, 0 or more.', false); return }
     if (!Number.isInteger(ec) || ec < 0) { showToast('Monthly earning cap must be a whole number, 0 or more.', false); return }
+    const gc = Number(gradeCost)
+    const gd = Number(gradeDays)
+    if (!Number.isInteger(gc) || gc < 0) { showToast('Grading cost must be a whole number, 0 or more.', false); return }
+    if (!Number.isFinite(gd) || gd < 0) { showToast('Grading wait must be 0 days or more.', false); return }
     setBusy(true)
     const supabase = createClient()
     const { error } = await supabase.rpc('update_vending_settings', {
@@ -129,6 +137,8 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
       p_cooldown_hours: cooldown,
       p_tokens_per_timer_report: pr,
       p_max_earned_tokens_per_month: ec,
+      p_grading_cost: gc,
+      p_grading_days: gd,
     })
     setBusy(false)
     if (error) { showToast('Failed to save settings.', false); return }
@@ -249,6 +259,36 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
               {Math.ceil(Number(earnCap) / Number(perReport)) === 1 ? '' : 's'} to reach the cap.
             </p>
           )}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-ink">Card grading</label>
+          <p className="text-xs text-muted">
+            What it costs to send one card off for grading, and how long it stays away before the
+            grade and its condition numbers are revealed. Set the wait to 0 for an instant grade.
+          </p>
+          <div className="flex gap-2 pt-0.5">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-muted">Tokens per card</label>
+              <input
+                type="number" min={0} value={gradeCost}
+                onChange={(e) => setGradeCost(e.target.value)}
+                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-muted">Days to wait</label>
+              <input
+                type="number" min={0} step="0.5" value={gradeDays}
+                onChange={(e) => setGradeDays(e.target.value)}
+                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted">
+            Changing these only affects cards sent from now on — anything already with the graders
+            keeps the wait it was submitted under.
+          </p>
         </div>
 
         <div className="space-y-1">

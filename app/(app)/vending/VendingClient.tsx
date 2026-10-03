@@ -122,6 +122,8 @@ interface Props {
   setTotals: SetTotal[]
   ownedTickets: OwnedTicket[]
   recentBuys: RecentBuy[]
+  gradingCost: number
+  gradingDays: number
 }
 
 function mmss(total: number): string {
@@ -140,7 +142,7 @@ function untilLabel(iso: string): string {
 
 export default function VendingClient({
   initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
-  packs, collection, setTotals, ownedTickets, recentBuys,
+  packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays,
 }: Props) {
   const [split, setSplit] = useState({ allowance, earned })
   const router = useRouter()
@@ -457,7 +459,8 @@ export default function VendingClient({
       </div>
 
       {view === 'collection' ? (
-        <CollectionPanel packs={packs} collection={collection} setTotals={setTotals} tickets={ownedTickets} />
+        <CollectionPanel packs={packs} collection={collection} setTotals={setTotals}
+          tickets={ownedTickets} gradingCost={gradingCost} gradingDays={gradingDays} />
       ) : (
       <>
 

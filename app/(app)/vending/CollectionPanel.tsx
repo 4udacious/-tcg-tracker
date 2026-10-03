@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
@@ -23,6 +23,46 @@ export interface CardCopy {
   surface: number
   border_wear: number
   wear_seed: number
+  /** null until sent for grading. */
+  grading_started_at: string | null
+  grading_ready_at: string | null
+  /** null until the grade has been collected. */
+  graded_at: string | null
+  grade: number | null
+}
+
+type GradeState = 'ungraded' | 'waiting' | 'ready' | 'graded'
+
+function gradeState(c: CardCopy): GradeState {
+  if (c.graded_at) return 'graded'
+  if (!c.grading_started_at) return 'ungraded'
+  if (c.grading_ready_at && new Date(c.grading_ready_at).getTime() <= Date.now()) return 'ready'
+  return 'waiting'
+}
+
+/** "6 days", "4 hours", "12 min" - whichever unit still reads as a wait. */
+function waitLabel(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return 'any moment'
+  const mins = Math.round(ms / 60000)
+  if (mins < 60) return `${mins} min`
+  const hours = Math.round(mins / 60)
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`
+  return `${Math.round(hours / 24)} days`
+}
+
+/** Gem mint down to played, for the badge. */
+function gradeTone(g: number): string {
+  if (g >= 10) return 'bg-amber-400 text-ink'
+  if (g >= 9) return 'bg-emerald-400 text-ink'
+  if (g >= 8) return 'bg-sky-400 text-ink'
+  if (g >= 6) return 'bg-slate-300 text-ink'
+  return 'bg-stone-500 text-white'
+}
+
+const GRADE_LABEL: Record<number, string> = {
+  10: 'Gem Mint', 9: 'Mint', 8: 'Near Mint-Mint', 7: 'Near Mint',
+  6: 'Excellent-Mint', 5: 'Excellent', 4: 'Very Good-Excellent',
 }
 
 export interface CollectionCard {
@@ -72,6 +112,8 @@ interface Props {
   collection: CollectionCard[]
   setTotals: SetTotal[]
   tickets: OwnedTicket[]
+  gradingCost: number
+  gradingDays: number
 }
 
 const TICKET_RARITY_COLOR: Record<string, string> = {
@@ -188,8 +230,11 @@ function rarityRing(r: string): string {
   }
 }
 
-export default function CollectionPanel({ packs, collection, setTotals, tickets }: Props) {
+export default function CollectionPanel({
+  packs, collection, setTotals, tickets, gradingCost, gradingDays,
+}: Props) {
   const router = useRouter()
+  const [, startTransition] = useTransition()
   const [opening, setOpening] = useState(false)
   const [reveal, setReveal] = useState<RevealCard[] | null>(null)
   const [revealed, setRevealed] = useState(0)
@@ -271,6 +316,60 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
 
   // Leaving a binder should not leave a card floating over the shelf.
   useEffect(() => { setZoomIndex(null) }, [openBinder])
+
+  // Grading. Copies are server props, so an accepted action is reflected
+  // locally first and the refresh catches up behind it - otherwise the button
+  // sits dead for a beat and invites a second tap.
+  const [grading, setGrading] = useState<number | null>(null)
+  const [gradeNote, setGradeNote] = useState<string | null>(null)
+  const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
+  const withPatch = useCallback(
+    (c: CardCopy): CardCopy => ({ ...c, ...(patch[c.id] ?? {}) }),
+    [patch]
+  )
+
+  async function sendForGrading(copy: CardCopy) {
+    setGrading(copy.id); setGradeNote(null)
+    const supabase = createClient()
+    const { data, error: err } = await supabase.rpc('submit_for_grading', {
+      p_user_card_id: copy.id,
+    })
+    setGrading(null)
+    const row = (Array.isArray(data) ? data[0] : data) as
+      { ok: boolean; reason: string; ready_at: string | null } | null
+    if (err || !row?.ok) {
+      setGradeNote(
+        row?.reason === 'insufficient_tokens' ? `Not enough tokens — grading costs ${gradingCost}.`
+        : row?.reason === 'already_submitted' ? 'That copy is already with the graders.'
+        : 'Could not send that card for grading.'
+      )
+      return
+    }
+    setPatch((p) => ({
+      ...p,
+      [copy.id]: { grading_started_at: new Date().toISOString(), grading_ready_at: row.ready_at },
+    }))
+    setGradeNote('Sent for grading.')
+    startTransition(() => router.refresh())
+  }
+
+  async function collectGrade(copy: CardCopy) {
+    setGrading(copy.id); setGradeNote(null)
+    const supabase = createClient()
+    const { data, error: err } = await supabase.rpc('collect_grade', { p_user_card_id: copy.id })
+    setGrading(null)
+    const row = (Array.isArray(data) ? data[0] : data) as
+      { ok: boolean; reason: string; grade: number | null } | null
+    if (err || !row?.ok) {
+      setGradeNote(row?.reason === 'not_ready' ? 'Still with the graders.' : 'Could not fetch that grade.')
+      return
+    }
+    setPatch((p) => ({
+      ...p,
+      [copy.id]: { graded_at: new Date().toISOString(), grade: row.grade },
+    }))
+    startTransition(() => router.refresh())
+  }
 
   return (
     <div className="space-y-5">
@@ -464,7 +563,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
         // copyIndex can outrun the stack when the arrows move to a card with
         // fewer copies, so clamp rather than trusting it.
         const ci = Math.min(copyIndex, c.copies.length - 1)
-        const copy = c.copies[ci]
+        const copy = withPatch(c.copies[ci])
         return (
           <div
             className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4 gap-3"
@@ -532,31 +631,116 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                   switching card, not just incrementing a counter. */}
               {c.copies.length > 1 && (
                 <div className="flex items-center justify-center gap-1.5 mt-2">
-                  {c.copies.map((cp, i) => (
-                    <button
-                      key={cp.id}
-                      onClick={() => setCopyIndex(i)}
-                      className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-colors ${
-                        i === ci
-                          ? 'bg-white text-ink font-bold'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
-                      }`}
-                      aria-label={`View copy ${i + 1} of ${c.copies.length}`}
-                      aria-pressed={i === ci}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                  {c.copies.map((raw, i) => {
+                    const cp = withPatch(raw)
+                    const g = gradeState(cp)
+                    return (
+                      <button
+                        key={cp.id}
+                        onClick={() => setCopyIndex(i)}
+                        className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-colors ${
+                          i === ci
+                            ? 'bg-white text-ink font-bold'
+                            : 'bg-white/10 text-white/60 hover:bg-white/20'
+                        }`}
+                        aria-label={`View copy ${i + 1} of ${c.copies.length}${
+                          g === 'graded' ? `, graded ${cp.grade}` : g === 'ready' ? ', grade ready' : ''
+                        }`}
+                        aria-pressed={i === ci}
+                      >
+                        {i + 1}
+                        {/* A dot so a graded or waiting copy is findable
+                            without opening each one in turn. */}
+                        {g !== 'ungraded' && (
+                          <span className={`ml-0.5 inline-block w-1 h-1 rounded-full align-middle ${
+                            // Amber and signal orange are near-identical at
+                            // 4px; ready needs action, so it gets its own hue.
+                            g === 'graded' ? 'bg-amber-400'
+                            : g === 'ready' ? 'bg-emerald-400'
+                            : 'bg-white/40'
+                          }`} />
+                        )}
+                      </button>
+                    )
+                  })}
                   <span className="font-mono text-[10px] text-white/35 ml-0.5">
                     {c.copies.length} copies
                   </span>
                 </div>
               )}
 
-              {/* The condition is visible on the card itself; the numbers
-                  behind it stay sealed until grading comes back. */}
+              {/* Condition is visible on the card itself from the moment it
+                  is pulled; the numbers behind it stay sealed until grading
+                  comes back. */}
+              {(() => {
+                const st = gradeState(copy)
+                const busy = grading === copy.id
+                return (
+                  <div className="mt-2.5">
+                    {st === 'graded' && copy.grade != null && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className={`rounded-md px-2 py-0.5 font-display font-bold text-sm ${gradeTone(copy.grade)}`}>
+                            {copy.grade}
+                          </span>
+                          <span className="text-white/80 text-xs font-medium">
+                            {GRADE_LABEL[copy.grade] ?? 'Graded'}
+                          </span>
+                        </div>
+                        {/* Unsealed: the numbers behind the wear. */}
+                        <div className="grid grid-cols-4 gap-x-2 font-mono text-[9px] text-white/45">
+                          <span>CEN {100 - Math.max(Math.abs(copy.center_x), Math.abs(copy.center_y))}</span>
+                          <span>COR {copy.corners}</span>
+                          <span>EDG {copy.edges}</span>
+                          <span>SUR {copy.surface}</span>
+                        </div>
+                        <div className="font-mono text-[9px] text-white/45">
+                          BORDER {copy.border_wear}
+                        </div>
+                      </div>
+                    )}
+
+                    {st === 'ungraded' && (
+                      <button
+                        onClick={() => sendForGrading(copy)}
+                        disabled={busy}
+                        className="rounded-lg border border-white/25 text-white/85 text-xs font-medium px-3 py-1.5 hover:bg-white/10 transition-colors disabled:opacity-40"
+                      >
+                        {busy ? 'Sending…' : `Send for grading · ${gradingCost} token${gradingCost === 1 ? '' : 's'}`}
+                      </button>
+                    )}
+
+                    {st === 'waiting' && copy.grading_ready_at && (
+                      <p className="font-mono text-[10px] text-white/45">
+                        At the graders · back in {waitLabel(copy.grading_ready_at)}
+                      </p>
+                    )}
+
+                    {st === 'ready' && (
+                      <button
+                        onClick={() => collectGrade(copy)}
+                        disabled={busy}
+                        className="rounded-lg bg-signal text-white text-xs font-semibold px-3 py-1.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+                      >
+                        {busy ? 'Opening…' : 'Grade is back — reveal'}
+                      </button>
+                    )}
+
+                    {st === 'ungraded' && (
+                      <p className="font-mono text-[9px] text-white/30 mt-1">
+                        Takes {gradingDays} day{gradingDays === 1 ? '' : 's'}
+                      </p>
+                    )}
+
+                    {gradeNote && (
+                      <p className="text-[10px] text-amber-300/90 mt-1.5">{gradeNote}</p>
+                    )}
+                  </div>
+                )
+              })()}
+
               <p className="font-mono text-[10px] text-white/35 mt-1.5">
-                Ungraded · {zoomIndex + 1} of {zoomCards.length}
+                {zoomIndex + 1} of {zoomCards.length}
               </p>
             </div>
           </div>
