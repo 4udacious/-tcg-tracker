@@ -73,9 +73,11 @@ export default function Slab({
                style={{ fontSize: 'clamp(4px, 4cqw, 8px)' }}>
               {setName}{SET_YEAR[setCode] ? ` · ${SET_YEAR[setCode]}` : ''} · #{number}
             </p>
-            <p className="font-mono tracking-[0.14em] text-muted/70 mt-[4%]"
-               style={{ fontSize: 'clamp(3px, 3.2cqw, 6px)' }}>
-              WAPC GRADING
+            {/* Longer than the old mark, so slightly tighter tracking and a
+                truncate guard keep it on one line at thumbnail width. */}
+            <p className="font-mono tracking-[0.1em] text-muted/70 mt-[4%] truncate"
+               style={{ fontSize: 'clamp(3px, 3.1cqw, 6px)' }}>
+              WAPC AUTHENTICATION
             </p>
           </div>
 
