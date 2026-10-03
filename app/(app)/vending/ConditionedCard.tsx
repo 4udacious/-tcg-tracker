@@ -144,10 +144,19 @@ export default function ConditionedCard({
     //
     // This is the one mark kept at thumbnail size: in a binder grid it is
     // the clearest signal that a card is worn.
-    const bw = Math.max(0, (100 - border_wear) / 100)
+    // Calibrated against a photo of heavy whitening: even at its worst it is
+    // a scatter of small nicks and short frays hugging the cut, not long
+    // bands. Heavier wear means MORE marks, not bigger ones - scaling the
+    // size instead is what made the first attempt look like damage.
+    //
+    // Enlarged only. At true scale these are under a pixel deep on an 84px
+    // thumbnail, so the grid showed nothing; drawing them big enough to see
+    // there would mean a card looking more worn in the binder than in hand.
+    // Corner and edge wear carry the grid instead - they scale with the card.
+    const bw = detail === 'full' ? Math.max(0, (100 - border_wear) / 100) : 0
     const whitening: WhiteBand[] = []
     if (bw > 0.02) {
-      const runsPerEdge = Math.max(1, Math.round(1 + bw * (detail === 'full' ? 3.2 : 2)))
+      const runsPerEdge = Math.max(1, Math.round(1 + bw * 6))
       for (let side = 0; side < 4; side++) {
         const along = side < 2 ? W : H
         for (let i = 0; i < runsPerEdge; i++) {
@@ -158,13 +167,15 @@ export default function ConditionedCard({
           const centre = u < 0.5
             ? Math.pow(u * 2, 1.8) * 0.5 * along
             : along - Math.pow((1 - u) * 2, 1.8) * 0.5 * along
-          const len = along * (0.07 + rnd() * (0.14 + bw * 0.3))
+          const len = along * (0.015 + rnd() * (0.025 + bw * 0.07))
           const a0 = Math.max(0, centre - len / 2)
           const a1 = Math.min(along, centre + len / 2)
-          if (a1 - a0 < 4) continue
+          if (a1 - a0 < 2) continue
 
-          const steps = Math.max(4, Math.round((a1 - a0) / 7))
-          const peak = 0.9 + bw * 6.5
+          // Short runs still need a few points, or the wobble flattens into
+          // a plain rectangle.
+          const steps = Math.max(3, Math.round((a1 - a0) / 3.5))
+          const peak = 0.5 + bw * 2.0
           const inner: [number, number][] = []
           for (let s = 0; s <= steps; s++) {
             const t = s / steps
@@ -187,7 +198,9 @@ export default function ConditionedCard({
             `M${pt(a0, 0)} L${pt(a1, 0)} ` +
             inner.slice().reverse().map(([p, dep]) => `L${pt(p, dep)}`).join(' ') +
             ' Z'
-          whitening.push({ d, alpha: Math.min(0.95, 0.5 + bw * 0.6) })
+          // Opaque where it exists - exposed core is white card stock, not a
+          // wash. The marks stay subtle by being small, not by being faint.
+          whitening.push({ d, alpha: Math.min(0.9, 0.55 + bw * 0.35) })
         }
       }
     }
