@@ -401,6 +401,7 @@ export default function VendingClient({
       switch (r?.reason) {
         case 'not_holder': setMessage('Your session timed out.'); break
         case 'insufficient_stock': setMessage('Someone got there first — stock changed.'); break
+        case 'set_sold_out': setMessage('That set has sold out for good.'); break
         case 'insufficient_tokens': setMessage('Not enough tokens.'); break
         case 'ticket_sold_out': setMessage('That raffle ticket just ran out.'); break
         case 'ticket_limit_reached': setMessage('You already hold the maximum of that ticket.'); break

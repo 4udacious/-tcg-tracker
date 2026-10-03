@@ -1,0 +1,5 @@
+-- Checkout draws down the per-set inventory as well as the per-cycle offer.
+-- The cycle offer is already capped at what remains, but the check is
+-- repeated at checkout under a row lock: a restock can rebuild the offer
+-- mid-cycle, so the cycle row alone is not the authority on what is left.
+-- Refuses with 'set_sold_out'. See the applied migration for the full body.

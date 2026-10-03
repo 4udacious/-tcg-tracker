@@ -17,14 +17,19 @@ export default async function AdminVvmPage() {
       .select('set_code, set_name, image_url, sort_order, is_active')
       .eq('is_active', true)
       .order('sort_order'),
-    supabase.from('vending_set_info').select('set_code, description'),
+    supabase.from('vending_set_info').select('set_code, description, total_quantity, claimed_quantity'),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
 
-  const descriptions = new Map<string, string | null>(
-    ((info as { set_code: string; description: string | null }[] | null) ?? [])
-      .map((i) => [i.set_code, i.description])
+  type InfoRow = {
+    set_code: string
+    description: string | null
+    total_quantity: number | null
+    claimed_quantity: number
+  }
+  const infoBySet = new Map<string, InfoRow>(
+    ((info as InfoRow[] | null) ?? []).map((i) => [i.set_code, i])
   )
 
   // The machine sells by set, so collapse the per-wrapper rows into one card
@@ -41,7 +46,9 @@ export default async function AdminVvmPage() {
         set_name: p.set_name,
         image_url: p.image_url,
         artCount: 1,
-        description: descriptions.get(p.set_code) ?? null,
+        description: infoBySet.get(p.set_code)?.description ?? null,
+        totalQuantity: infoBySet.get(p.set_code)?.total_quantity ?? null,
+        claimedQuantity: infoBySet.get(p.set_code)?.claimed_quantity ?? 0,
       })
     }
   }
