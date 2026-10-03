@@ -43,7 +43,7 @@ export default async function VendingPage() {
       // condition, so they cannot be collapsed before they reach the client.
       supabase
         .from('user_cards')
-        .select('id, center_x, center_y, corners, edges, surface, wear_seed, ' +
+        .select('id, center_x, center_y, corners, edges, surface, border_wear, wear_seed, ' +
                 'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
         .eq('user_id', userId)
         .order('acquired_at'),
@@ -108,7 +108,7 @@ export default async function VendingPage() {
   type CopyRow = {
     id: number
     center_x: number; center_y: number
-    corners: number; edges: number; surface: number; wear_seed: number
+    corners: number; edges: number; surface: number; border_wear: number; wear_seed: number
     vending_cards:
       | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }
       | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }[]
@@ -139,6 +139,7 @@ export default async function VendingPage() {
       corners: row.corners,
       edges: row.edges,
       surface: row.surface,
+      border_wear: row.border_wear,
       wear_seed: row.wear_seed,
     })
   }

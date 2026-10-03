@@ -21,6 +21,7 @@ export interface CardCopy {
   corners: number
   edges: number
   surface: number
+  border_wear: number
   wear_seed: number
 }
 
@@ -53,6 +54,7 @@ interface RevealCard {
   corners: number
   edges: number
   surface: number
+  border_wear: number
   wear_seed: number
 }
 

@@ -9,6 +9,8 @@ export interface Condition {
   corners: number
   edges: number
   surface: number
+  /** The coloured border going chalky, distinct from the cut itself. */
+  border_wear: number
   wear_seed: number
 }
 
@@ -93,7 +95,7 @@ export default function ConditionedCard({
   /** Extra classes for the inner stack, rarely needed. */
   frameClassName?: string
 }) {
-  const { center_x, center_y, corners, edges, surface, wear_seed } = condition
+  const { center_x, center_y, corners, edges, surface, border_wear, wear_seed } = condition
 
   const layers = useMemo(() => {
     const rnd = mulberry32(wear_seed || 1)
@@ -130,6 +132,47 @@ export default function ConditionedCard({
       return `linear-gradient(${dir}, rgba(255,255,255,${Math.min(0.95, amt * 1.15).toFixed(3)}) 0%, ` +
              `rgba(255,255,255,0) ${w}%)`
     })
+
+    // Border whitening: the coloured border face chalking up, inward from the
+    // cut. Patches rather than a stripe, because it wears unevenly, and
+    // weighted toward the corners, which is where a card is actually gripped.
+    // Unlike the other marks this stays on thumbnails - at a glance it is the
+    // clearest signal that a card is worn, and a uniform fringe would not say
+    // anything the edge gradient above does not already say.
+    const bw = Math.max(0, (100 - border_wear) / 100)
+    const perEdge = detail === 'full'
+      ? Math.round(2 + bw * 5)
+      : Math.round(1 + bw * 2)
+
+    /** Biased toward both ends of the edge, where handling concentrates. */
+    const towardCorners = () => {
+      const u = rnd()
+      return u < 0.5
+        ? Math.pow(u * 2, 1.7) * 50
+        : 100 - Math.pow((1 - u) * 2, 1.7) * 50
+    }
+
+    const whitening: string[] = []
+    for (let side = 0; side < 4; side++) {
+      const horizontal = side < 2
+      for (let i = 0; i < perEdge; i++) {
+        const p = towardCorners()
+        const spread = 5 + rnd() * 15   // along the edge
+        const depth = 1.1 + rnd() * 3.2 // inward from the cut
+        const rx = horizontal ? spread : depth
+        const ry = horizontal ? depth : spread
+        const at = side === 0 ? `${p.toFixed(1)}% 0%`
+                 : side === 1 ? `${p.toFixed(1)}% 100%`
+                 : side === 2 ? `0% ${p.toFixed(1)}%`
+                 :              `100% ${p.toFixed(1)}%`
+        const a = Math.min(0.92, bw * (0.45 + rnd() * 0.85))
+        whitening.push(
+          `radial-gradient(ellipse ${rx.toFixed(1)}% ${ry.toFixed(1)}% at ${at}, ` +
+          `rgba(255,255,255,${a.toFixed(3)}) 0%, ` +
+          `rgba(255,255,255,${(a * 0.35).toFixed(3)}) 55%, rgba(255,255,255,0) 100%)`
+        )
+      }
+    }
 
     // Everything below is drawn only on the enlarged view. At four columns
     // these are sub-pixel, and they are the expensive part of the card.
@@ -239,14 +282,16 @@ export default function ConditionedCard({
       : []
 
     return {
-      background: [...corner, ...edge].join(', '),
+      // Corners on top, then the crisp cut fringe, then the broader chalking
+      // spreading inward beneath both.
+      background: [...corner, ...edge, ...whitening].join(', '),
       scratches,
       creases,
       smudges,
       dents,
       swirl: rnd() * 360,
     }
-  }, [corners, edges, surface, wear_seed, detail])
+  }, [corners, edges, surface, border_wear, wear_seed, detail])
 
   const holo = detail === 'full' && (rarity === 'H' || rarity === 'S')
 
