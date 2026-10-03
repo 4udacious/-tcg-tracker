@@ -39,10 +39,14 @@ export default async function VendingPage() {
         .eq('user_id', userId)
         .is('opened_at', null)
         .order('acquired_at'),
+      // Per copy, not per card: two copies of one card have different
+      // condition, so they cannot be collapsed before they reach the client.
       supabase
-        .from('v_user_collection')
-        .select('card_id, set_code, number, name, rarity, image_url, copies')
-        .eq('user_id', userId),
+        .from('user_cards')
+        .select('id, center_x, center_y, corners, edges, surface, wear_seed, ' +
+                'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
+        .eq('user_id', userId)
+        .order('acquired_at'),
       supabase.from('vending_cards').select('set_code'),
     ])
 
@@ -100,6 +104,46 @@ export default async function VendingPage() {
     }
   })
 
+  // Group the copies under their card, keeping each copy's own condition.
+  type CopyRow = {
+    id: number
+    center_x: number; center_y: number
+    corners: number; edges: number; surface: number; wear_seed: number
+    vending_cards:
+      | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }
+      | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }[]
+      | null
+  }
+
+  const cardMap = new Map<number, CollectionCard>()
+  for (const row of (collection as CopyRow[] | null) ?? []) {
+    const c = Array.isArray(row.vending_cards) ? row.vending_cards[0] : row.vending_cards
+    if (!c) continue
+    let entry = cardMap.get(c.id)
+    if (!entry) {
+      entry = {
+        card_id: c.id,
+        set_code: c.set_code,
+        number: c.number,
+        name: c.name,
+        rarity: c.rarity,
+        image_url: c.image_url,
+        copies: [],
+      }
+      cardMap.set(c.id, entry)
+    }
+    entry.copies.push({
+      id: row.id,
+      center_x: row.center_x,
+      center_y: row.center_y,
+      corners: row.corners,
+      edges: row.edges,
+      surface: row.surface,
+      wear_seed: row.wear_seed,
+    })
+  }
+  const cards = [...cardMap.values()]
+
   // Totals per set, for the "12/102" completion counters.
   const counts = new Map<string, number>()
   for (const c of (catalog as { set_code: string }[] | null) ?? []) {
@@ -120,7 +164,7 @@ export default async function VendingPage() {
       userId={userId}
       cooldownUntil={me?.vending_cooldown_until ?? null}
       packs={packs}
-      collection={(collection as CollectionCard[] | null) ?? []}
+      collection={cards}
       setTotals={setTotals}
       ownedTickets={ownedTickets}
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}

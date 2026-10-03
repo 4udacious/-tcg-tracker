@@ -4,12 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
+import ConditionedCard from './ConditionedCard'
 
 export interface UnopenedPack {
   id: number
   set_name: string
   pack_name: string
   image_url: string
+}
+
+/** One pulled copy, with its own condition. */
+export interface CardCopy {
+  id: number
+  center_x: number
+  center_y: number
+  corners: number
+  edges: number
+  surface: number
+  wear_seed: number
 }
 
 export interface CollectionCard {
@@ -19,7 +31,8 @@ export interface CollectionCard {
   name: string
   rarity: string
   image_url: string
-  copies: number
+  /** Every copy owned, oldest first. Never empty. */
+  copies: CardCopy[]
 }
 
 export interface SetTotal {
@@ -35,6 +48,12 @@ interface RevealCard {
   number: string
   image_url: string
   slot: number
+  center_x: number
+  center_y: number
+  corners: number
+  edges: number
+  surface: number
+  wear_seed: number
 }
 
 export interface OwnedTicket {
@@ -177,6 +196,9 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
   const [openBinder, setOpenBinder] = useState<string | null>(null)
   // Index into the open binder's cards, for the enlarged view.
   const [zoomIndex, setZoomIndex] = useState<number | null>(null)
+  // Which copy of the zoomed card is showing. Duplicates are not the same
+  // object any more, so they get their own page rather than a ×N badge alone.
+  const [copyIndex, setCopyIndex] = useState(0)
   // Packs opened in this session drop out immediately, rather than lingering
   // until the server props catch up and inviting a second tap that would be
   // refused with "already open".
@@ -199,7 +221,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
     return map
   }, [collection])
 
-  const totalCards = collection.reduce((n, c) => n + c.copies, 0)
+  const totalCards = collection.reduce((n, c) => n + c.copies.length, 0)
   const uniqueCards = collection.length
   const allTotal = setTotals.reduce((n, s) => n + s.total, 0)
 
@@ -228,6 +250,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
       if (i === null) return i
       const next = i + delta
       if (next < 0 || next >= zoomCards.length) return i
+      setCopyIndex(0)
       return next
     })
   }, [zoomCards.length])
@@ -401,20 +424,24 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                     {cards.map((c, i) => (
                       <div key={c.card_id} className="relative">
                         <button
-                          onClick={() => setZoomIndex(i)}
+                          onClick={() => { setZoomIndex(i); setCopyIndex(0) }}
                           className="block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform hover:-translate-y-0.5"
                           aria-label={`Enlarge ${c.name}`}
                         >
-                          <img
+                          {/* The first copy stands in for the stack, so the
+                              slot shows a card actually owned rather than
+                              pristine catalogue art. */}
+                          <ConditionedCard
                             src={c.image_url}
                             alt={c.name}
-                            className={`w-full aspect-[245/342] object-contain rounded bg-white ${rarityRing(c.rarity)}`}
-                            loading="lazy"
+                            condition={c.copies[0]}
+                            rarity={c.rarity}
+                            className={`w-full aspect-[245/342] rounded bg-white ${rarityRing(c.rarity)}`}
                           />
                         </button>
-                        {c.copies > 1 && (
+                        {c.copies.length > 1 && (
                           <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
-                            ×{c.copies}
+                            ×{c.copies.length}
                           </span>
                         )}
                       </div>
@@ -432,6 +459,10 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
         const c = zoomCards[zoomIndex]
         const first = zoomIndex === 0
         const last = zoomIndex === zoomCards.length - 1
+        // copyIndex can outrun the stack when the arrows move to a card with
+        // fewer copies, so clamp rather than trusting it.
+        const ci = Math.min(copyIndex, c.copies.length - 1)
+        const copy = c.copies[ci]
         return (
           <div
             className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4 gap-3"
@@ -465,12 +496,16 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
 
             {/* Capped near the source resolution (245px wide), so enlarging
                 does not just magnify compression artefacts. */}
-            <img
-              src={c.image_url}
-              alt={c.name}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-[min(72vw,330px)] aspect-[245/342] object-contain rounded-lg bg-white ${rarityRing(c.rarity)}`}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <ConditionedCard
+                src={c.image_url}
+                alt={c.name}
+                condition={copy}
+                rarity={c.rarity}
+                detail="full"
+                className={`w-[min(72vw,330px)] aspect-[245/342] rounded-lg bg-white ${rarityRing(c.rarity)}`}
+              />
+            </div>
 
             <button
               onClick={(e) => { e.stopPropagation(); stepZoom(1) }}
@@ -489,10 +524,37 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                 c.rarity === 'H' ? 'text-amber-300' : c.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
               }`}>
                 {RARITY_LABEL[c.rarity] ?? c.rarity} · #{c.number}
-                {c.copies > 1 && <span className="text-white/50"> · {c.copies} copies</span>}
               </p>
-              <p className="font-mono text-[10px] text-white/35 mt-1">
-                {zoomIndex + 1} of {zoomCards.length}
+
+              {/* Each copy is its own object, so switching between them is
+                  switching card, not just incrementing a counter. */}
+              {c.copies.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  {c.copies.map((cp, i) => (
+                    <button
+                      key={cp.id}
+                      onClick={() => setCopyIndex(i)}
+                      className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-colors ${
+                        i === ci
+                          ? 'bg-white text-ink font-bold'
+                          : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      }`}
+                      aria-label={`View copy ${i + 1} of ${c.copies.length}`}
+                      aria-pressed={i === ci}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <span className="font-mono text-[10px] text-white/35 ml-0.5">
+                    {c.copies.length} copies
+                  </span>
+                </div>
+              )}
+
+              {/* The condition is visible on the card itself; the numbers
+                  behind it stay sealed until grading comes back. */}
+              <p className="font-mono text-[10px] text-white/35 mt-1.5">
+                Ungraded · {zoomIndex + 1} of {zoomCards.length}
               </p>
             </div>
           </div>
@@ -513,11 +575,13 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                   <p className="text-white font-display font-semibold">Pack opened</p>
                   <div className="grid grid-cols-4 gap-1.5 max-w-sm">
                     {reveal.map((c) => (
-                      <img
+                      <ConditionedCard
                         key={c.card_id}
                         src={c.image_url}
                         alt={c.name}
-                        className={`w-full aspect-[245/342] object-contain rounded bg-white ${rarityRing(c.rarity)}`}
+                        condition={c}
+                        rarity={c.rarity}
+                        className={`w-full aspect-[245/342] rounded bg-white ${rarityRing(c.rarity)}`}
                       />
                     ))}
                   </div>
@@ -541,10 +605,15 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                   {idx + 1} of {reveal.length}
                 </p>
                 <button onClick={() => setRevealed((n) => n + 1)} className="relative block">
-                  <img
+                  {/* Condition lands with the card, so the first look already
+                      tells you whether the cut was kind to it. */}
+                  <ConditionedCard
                     src={card.image_url}
                     alt={card.name}
-                    className={`max-h-[55vh] w-auto rounded-lg bg-white ${rarityRing(card.rarity)} ${
+                    condition={card}
+                    rarity={card.rarity}
+                    detail="full"
+                    className={`h-[55vh] aspect-[245/342] rounded-lg bg-white ${rarityRing(card.rarity)} ${
                       special ? (card.rarity === 'S' ? 'vm-card-hit vm-card-secret' : 'vm-card-hit vm-card-holo') : ''
                     }`}
                   />
