@@ -30,6 +30,33 @@ const MARGIN = 2.2
 /** Card aspect, for expressing a width-relative inset as a height percentage. */
 const VK = 245 / 342
 
+/**
+ * Card units for the wear overlay's SVG. Marks are authored against the
+ * source art's pixel dimensions and stretched to whatever size the card is
+ * drawn at, so a scratch sits in the same place on a thumbnail and enlarged.
+ */
+const W = 245
+const H = 342
+
+type Scratch = {
+  d: string
+  width: number
+  alpha: number
+  dark: boolean
+  kind: 'hair' | 'nick' | 'scrape' | 'gouge'
+}
+
+/** A point on one of the four edges, kept off the very corners. */
+function edgePoint(rnd: () => number, side: number): [number, number] {
+  const t = 0.12 + rnd() * 0.76
+  switch (side) {
+    case 0:  return [t * W, 0]
+    case 1:  return [W, t * H]
+    case 2:  return [t * W, H]
+    default: return [0, t * H]
+  }
+}
+
 /** Deterministic PRNG so a given copy always wears the same way. */
 function mulberry32(seed: number) {
   let a = seed >>> 0
@@ -104,21 +131,105 @@ export default function ConditionedCard({
              `rgba(255,255,255,0) ${w}%)`
     })
 
-    // Scratches: hairlines at shallow angles. Count and contrast both scale
-    // with surface wear, so a 95 card gets one faint line and a 45 gets a mess.
-    const scratches = detail === 'full'
-      ? Array.from({ length: Math.round(sw * 11) }, () => ({
-          top: `${rnd() * 96}%`,
-          left: `${-10 + rnd() * 50}%`,
-          width: `${18 + rnd() * 62}%`,
-          angle: (rnd() - 0.5) * 70,
-          opacity: 0.18 + sw * rnd() * 0.72,
-          thick: rnd() < 0.22,
-        }))
+    // Everything below is drawn only on the enlarged view. At four columns
+    // these are sub-pixel, and they are the expensive part of the card.
+    const detailed = detail === 'full'
+
+    // Scratches, as paths rather than rotated bars, so they can bow and vary
+    // in length the way handling marks actually do. Four kinds mixed: fine
+    // hairlines, short nicks, long curved scrapes, and dark gouges where the
+    // surface has been taken off rather than just scuffed.
+    const scratches: Scratch[] = []
+    if (detailed) {
+      const n = Math.round(sw * 15)
+      let lx = rnd() * W, ly = rnd() * H
+      for (let i = 0; i < n; i++) {
+        const roll = rnd()
+        const kind: Scratch['kind'] =
+          roll < 0.3 ? 'nick' : roll < 0.52 ? 'scrape' : roll < 0.66 ? 'gouge' : 'hair'
+
+        // Handling marks cluster - a card gets scuffed in the same places
+        // repeatedly. Scattering every scratch independently looks sprayed on.
+        if (rnd() < 0.45) {
+          lx = Math.max(0, Math.min(W, lx + (rnd() - rnd()) * 34))
+          ly = Math.max(0, Math.min(H, ly + (rnd() - rnd()) * 34))
+        } else {
+          lx = rnd() * W; ly = rnd() * H
+        }
+
+        let len: number, bow: number, width: number, alpha: number, dark = false
+        if (kind === 'nick') {
+          len = 3 + rnd() * 11; bow = 0
+          width = 0.5 + rnd() * 0.5; alpha = 0.3 + sw * rnd() * 0.6
+        } else if (kind === 'scrape') {
+          len = 38 + rnd() * 105; bow = (rnd() - 0.5) * 20
+          width = 0.4 + rnd() * 0.5; alpha = 0.16 + sw * rnd() * 0.44
+        } else if (kind === 'gouge') {
+          len = 8 + rnd() * 26; bow = (rnd() - 0.5) * 5
+          width = 0.6 + rnd() * 0.7; alpha = 0.18 + sw * rnd() * 0.42; dark = true
+        } else {
+          len = 22 + rnd() * 85; bow = (rnd() - 0.5) * 7
+          width = 0.3 + rnd() * 0.35; alpha = 0.2 + sw * rnd() * 0.55
+        }
+
+        const ang = (rnd() - 0.5) * Math.PI * 1.25
+        const x2 = lx + Math.cos(ang) * len
+        const y2 = ly + Math.sin(ang) * len
+        const mx = (lx + x2) / 2 - Math.sin(ang) * bow
+        const my = (ly + y2) / 2 + Math.cos(ang) * bow
+        scratches.push({
+          d: `M${lx.toFixed(1)} ${ly.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,
+          width, alpha: Math.min(0.9, alpha), dark, kind,
+        })
+      }
+    }
+
+    // Creases. A real crease is a ridge: it catches light along one side and
+    // shadows along the other, which is why it is drawn as an offset pair
+    // rather than a single line. Severe damage, so only beaten cards get one
+    // - a clean card with a fold through it would make no sense.
+    const creases: string[] = []
+    if (detailed) {
+      const chance = Math.max(0, Math.min(0.8, (68 - surface) / 60))
+      if (rnd() < chance) {
+        const make = () => {
+          const a = Math.floor(rnd() * 4)
+          let b = Math.floor(rnd() * 4)
+          if (b === a) b = (b + 1 + Math.floor(rnd() * 3)) % 4
+          const [x1, y1] = edgePoint(rnd, a)
+          const [x2, y2] = edgePoint(rnd, b)
+          // Two control points: a fold wanders rather than arcing cleanly.
+          const c1x = x1 + (x2 - x1) * 0.33 + (rnd() - 0.5) * 34
+          const c1y = y1 + (y2 - y1) * 0.33 + (rnd() - 0.5) * 34
+          const c2x = x1 + (x2 - x1) * 0.66 + (rnd() - 0.5) * 34
+          const c2y = y1 + (y2 - y1) * 0.66 + (rnd() - 0.5) * 34
+          return `M${x1.toFixed(1)} ${y1.toFixed(1)} C${c1x.toFixed(1)} ${c1y.toFixed(1)} ` +
+                 `${c2x.toFixed(1)} ${c2y.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`
+        }
+        creases.push(make())
+        if (rnd() < 0.22) creases.push(make())
+      }
+    }
+
+    // Dirt and finger grease: soft irregular darkening, no hard edge. Rotated
+    // ellipses rather than circles, or they read as drop shadows.
+    const smudges = detailed
+      ? Array.from({ length: Math.round(sw * 5) }, () => {
+          const w = 9 + rnd() * 26
+          return {
+            left: `${rnd() * 96 - 6}%`,
+            top: `${rnd() * 96 - 6}%`,
+            w: `${w}%`,
+            h: `${w * (0.45 + rnd() * 0.75)}%`,
+            angle: rnd() * 180,
+            opacity: 0.06 + sw * rnd() * 0.26,
+            warm: rnd() < 0.45,
+          }
+        })
       : []
 
     // Dents and print nicks: small soft dark spots.
-    const dents = detail === 'full'
+    const dents = detailed
       ? Array.from({ length: Math.round(sw * 5) }, () => ({
           top: `${4 + rnd() * 90}%`,
           left: `${4 + rnd() * 90}%`,
@@ -130,6 +241,8 @@ export default function ConditionedCard({
     return {
       background: [...corner, ...edge].join(', '),
       scratches,
+      creases,
+      smudges,
       dents,
       swirl: rnd() * 360,
     }
@@ -191,20 +304,55 @@ export default function ConditionedCard({
           style={{ backgroundImage: layers.background }}
         />
 
-        {layers.scratches.map((s, i) => (
+        {/* Grime, under the scratches: dirt settles into the surface, the
+            marks that cut through it sit on top. */}
+        {layers.smudges.map((s, i) => (
           <span
-            key={`s${i}`}
-            className="absolute pointer-events-none"
+            key={`m${i}`}
+            className="absolute rounded-full pointer-events-none"
             style={{
-              top: s.top, left: s.left, width: s.width,
-              height: s.thick ? 1.6 : 0.8,
-              background: 'rgba(255,255,255,0.95)',
+              left: s.left, top: s.top, width: s.w, height: s.h,
               opacity: s.opacity,
               transform: `rotate(${s.angle.toFixed(1)}deg)`,
-              transformOrigin: 'left center',
+              background: s.warm
+                ? 'radial-gradient(ellipse, rgba(92,74,48,0.85) 0%, rgba(92,74,48,0.4) 45%, rgba(92,74,48,0) 76%)'
+                : 'radial-gradient(ellipse, rgba(64,66,72,0.8) 0%, rgba(64,66,72,0.36) 45%, rgba(64,66,72,0) 76%)',
             }}
           />
         ))}
+
+        {(layers.scratches.length > 0 || layers.creases.length > 0) && (
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {/* Creases first: a scratch can lie across a fold, not under it. */}
+            {layers.creases.map((d, i) => (
+              <g key={`c${i}`} fill="none" strokeLinecap="round">
+                {/* The lit side of the ridge and its shadow, offset apart. */}
+                <path d={d} stroke="rgba(255,255,255,0.5)" strokeWidth={1.3}
+                      transform="translate(-0.8,-0.8)" />
+                <path d={d} stroke="rgba(48,38,26,0.38)" strokeWidth={1.3}
+                      transform="translate(0.8,0.8)" />
+                <path d={d} stroke="rgba(255,255,255,0.22)" strokeWidth={2.6} />
+              </g>
+            ))}
+
+            {layers.scratches.map((s, i) => (
+              <path
+                key={`s${i}`}
+                d={s.d}
+                fill="none"
+                strokeLinecap="round"
+                strokeWidth={s.width}
+                stroke={s.dark ? 'rgba(46,36,24,0.95)' : 'rgba(255,255,255,0.95)'}
+                opacity={s.alpha}
+              />
+            ))}
+          </svg>
+        )}
 
         {layers.dents.map((d, i) => (
           <span
