@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
+import Slab from './Slab'
 
 export interface UnopenedPack {
   id: number
@@ -256,17 +257,55 @@ export default function CollectionPanel({
     [packs, openedIds]
   )
 
+  const [grading, setGrading] = useState<number | null>(null)
+  const [gradeNote, setGradeNote] = useState<string | null>(null)
+  const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
+  // The vault is a peer of the shelf, not a binder inside it.
+  const [shelf, setShelf] = useState<'binders' | 'vault'>('binders')
+  const [slabIndex, setSlabIndex] = useState<number | null>(null)
+  const [gradeReveal, setGradeReveal] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
+  const withPatch = useCallback(
+    (c: CardCopy): CardCopy => ({ ...c, ...(patch[c.id] ?? {}) }),
+    [patch]
+  )
+
+  /**
+   * Graded copies leave the binder for the vault, the way a slabbed card
+   * leaves the page it was in. Derived rather than stored: a copy's grade
+   * already says where it lives.
+   */
+  const slabs = useMemo(() => {
+    const out: { card: CollectionCard; copy: CardCopy }[] = []
+    for (const card of collection) {
+      for (const raw of card.copies) {
+        const copy = withPatch(raw)
+        if (copy.graded_at && copy.grade != null) out.push({ card, copy })
+      }
+    }
+    // Best first - a shelf of slabs is a trophy case.
+    return out.sort((a, b) =>
+      (b.copy.grade ?? 0) - (a.copy.grade ?? 0) || a.card.name.localeCompare(b.card.name))
+  }, [collection, withPatch])
+
+  /**
+   * The binder holds raw copies only. A card whose every copy has been
+   * slabbed keeps its slot rather than leaving a hole in the set - grading
+   * your only Charizard should not look like losing it.
+   */
   const bySet = useMemo(() => {
-    const map = new Map<string, CollectionCard[]>()
+    const map = new Map<string, (CollectionCard & { raw: CardCopy[]; slabbed: number })[]>()
     for (const c of collection) {
+      const copies = c.copies.map(withPatch)
+      const raw = copies.filter((x) => !x.graded_at)
+      const slabbed = copies.length - raw.length
       if (!map.has(c.set_code)) map.set(c.set_code, [])
-      map.get(c.set_code)!.push(c)
+      map.get(c.set_code)!.push({ ...c, raw, slabbed })
     }
     for (const list of map.values()) {
       list.sort((a, b) => Number(a.number) - Number(b.number))
     }
     return map
-  }, [collection])
+  }, [collection, withPatch])
 
   const totalCards = collection.reduce((n, c) => n + c.copies.length, 0)
   const uniqueCards = collection.length
@@ -295,12 +334,17 @@ export default function CollectionPanel({
   const stepZoom = useCallback((delta: number) => {
     setZoomIndex((i) => {
       if (i === null) return i
-      const next = i + delta
+      // Skip past cards that are entirely in the vault - their binder slot is
+      // a marker, not something that can be enlarged.
+      let next = i + delta
+      while (next >= 0 && next < zoomCards.length && zoomCards[next].raw.length === 0) {
+        next += delta
+      }
       if (next < 0 || next >= zoomCards.length) return i
       setCopyIndex(0)
       return next
     })
-  }, [zoomCards.length])
+  }, [zoomCards])
 
   // Keyboard: escape closes, arrows page through the binder.
   useEffect(() => {
@@ -320,13 +364,6 @@ export default function CollectionPanel({
   // Grading. Copies are server props, so an accepted action is reflected
   // locally first and the refresh catches up behind it - otherwise the button
   // sits dead for a beat and invites a second tap.
-  const [grading, setGrading] = useState<number | null>(null)
-  const [gradeNote, setGradeNote] = useState<string | null>(null)
-  const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
-  const withPatch = useCallback(
-    (c: CardCopy): CardCopy => ({ ...c, ...(patch[c.id] ?? {}) }),
-    [patch]
-  )
 
   async function sendForGrading(copy: CardCopy) {
     setGrading(copy.id); setGradeNote(null)
@@ -353,7 +390,7 @@ export default function CollectionPanel({
     startTransition(() => router.refresh())
   }
 
-  async function collectGrade(copy: CardCopy) {
+  async function collectGrade(card: CollectionCard, copy: CardCopy) {
     setGrading(copy.id); setGradeNote(null)
     const supabase = createClient()
     const { data, error: err } = await supabase.rpc('collect_grade', { p_user_card_id: copy.id })
@@ -364,10 +401,11 @@ export default function CollectionPanel({
       setGradeNote(row?.reason === 'not_ready' ? 'Still with the graders.' : 'Could not fetch that grade.')
       return
     }
-    setPatch((p) => ({
-      ...p,
-      [copy.id]: { graded_at: new Date().toISOString(), grade: row.grade },
-    }))
+    const graded: CardCopy = { ...copy, graded_at: new Date().toISOString(), grade: row.grade }
+    setPatch((p) => ({ ...p, [copy.id]: graded }))
+    // The copy leaves the binder the moment it is graded, so without this the
+    // card would simply vanish under the tap that revealed it.
+    setGradeReveal({ card, copy: graded })
     startTransition(() => router.refresh())
   }
 
@@ -467,7 +505,60 @@ export default function CollectionPanel({
           </span>
         </div>
 
-        {openBinder === null ? (
+        {/* Raw cards live in binders, graded ones in the vault - the two do
+            not mix, so they get their own shelves rather than a filter. */}
+        {openBinder === null && (
+          <div className="flex gap-1.5">
+            {([['binders', 'Binders'], ['vault', 'Vault']] as const).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setShelf(k)}
+                className={`text-xs font-medium rounded-lg px-3 py-1.5 transition-colors ${
+                  shelf === k
+                    ? 'bg-ink text-white'
+                    : 'border border-card-border text-muted hover:text-ink'
+                }`}
+                aria-pressed={shelf === k}
+              >
+                {label}
+                {k === 'vault' && slabs.length > 0 && (
+                  <span className={shelf === k ? 'text-white/60' : 'text-muted'}> · {slabs.length}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {openBinder === null && shelf === 'vault' ? (
+          /* ── The vault ── */
+          slabs.length === 0 ? (
+            <p className="text-sm text-muted">
+              Nothing graded yet. Open a card in a binder and send it off.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
+              {slabs.map(({ card, copy }, i) => (
+                <button
+                  key={copy.id}
+                  onClick={() => setSlabIndex(i)}
+                  className="block w-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal rounded-[6%]"
+                  aria-label={`${card.name}, graded ${copy.grade}`}
+                >
+                  <Slab
+                    condition={copy}
+                    grade={copy.grade!}
+                    src={card.image_url}
+                    alt={card.name}
+                    name={card.name}
+                    number={card.number}
+                    setCode={card.set_code}
+                    setName={setTotals.find((s) => s.set_code === card.set_code)?.set_name ?? card.set_code}
+                  />
+                </button>
+              ))}
+            </div>
+          )
+        ) : openBinder === null ? (
           /* ── The shelf ── */
           uniqueCards === 0 && visiblePacks.length === 0 ? (
             <p className="text-sm text-muted">Nothing collected yet. Open a pack to start.</p>
@@ -526,23 +617,47 @@ export default function CollectionPanel({
                       <div key={c.card_id} className="relative">
                         <button
                           onClick={() => { setZoomIndex(i); setCopyIndex(0) }}
-                          className="block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform hover:-translate-y-0.5"
-                          aria-label={`Enlarge ${c.name}`}
+                          disabled={c.raw.length === 0}
+                          className="block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-default"
+                          aria-label={c.raw.length === 0
+                            ? `${c.name}, in the vault`
+                            : `Enlarge ${c.name}`}
                         >
-                          {/* The first copy stands in for the stack, so the
-                              slot shows a card actually owned rather than
-                              pristine catalogue art. */}
-                          <ConditionedCard
-                            src={c.image_url}
-                            alt={c.name}
-                            condition={c.copies[0]}
-                            rarity={c.rarity}
-                            className={`w-full aspect-[245/342] rounded ${rarityRing(c.rarity)}`}
-                          />
+                          {c.raw.length > 0 ? (
+                            /* The first copy stands in for the stack, so the
+                               slot shows a card actually owned rather than
+                               pristine catalogue art. */
+                            <ConditionedCard
+                              src={c.image_url}
+                              alt={c.name}
+                              condition={c.raw[0]}
+                              rarity={c.rarity}
+                              className={`w-full aspect-[245/342] rounded ${rarityRing(c.rarity)}`}
+                            />
+                          ) : (
+                            /* Every copy slabbed: the slot stays filled so the
+                               set still reads as complete, and says where the
+                               card went. */
+                            <div className="w-full aspect-[245/342] rounded border border-dashed border-card-border bg-paper flex flex-col items-center justify-center gap-1 px-1">
+                              <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24"
+                                   stroke="currentColor" strokeWidth={1.5}>
+                                <rect x="5" y="3" width="14" height="18" rx="2" />
+                                <path d="M8 7h8" strokeLinecap="round" />
+                              </svg>
+                              <span className="font-mono text-[8px] text-muted text-center leading-tight">
+                                in vault
+                              </span>
+                            </div>
+                          )}
                         </button>
-                        {c.copies.length > 1 && (
+                        {c.raw.length > 1 && (
                           <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
-                            ×{c.copies.length}
+                            ×{c.raw.length}
+                          </span>
+                        )}
+                        {c.slabbed > 0 && c.raw.length > 0 && (
+                          <span className="pointer-events-none absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+                            {c.slabbed}★
                           </span>
                         )}
                       </div>
@@ -556,14 +671,14 @@ export default function CollectionPanel({
       </section>
 
       {/* ── Enlarged card ── */}
-      {zoomIndex !== null && zoomCards[zoomIndex] && (() => {
+      {zoomIndex !== null && zoomCards[zoomIndex]?.raw.length > 0 && (() => {
         const c = zoomCards[zoomIndex]
         const first = zoomIndex === 0
         const last = zoomIndex === zoomCards.length - 1
         // copyIndex can outrun the stack when the arrows move to a card with
         // fewer copies, so clamp rather than trusting it.
-        const ci = Math.min(copyIndex, c.copies.length - 1)
-        const copy = withPatch(c.copies[ci])
+        const ci = Math.min(copyIndex, c.raw.length - 1)
+        const copy = c.raw[ci]
         return (
           <div
             className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4 gap-3"
@@ -629,10 +744,9 @@ export default function CollectionPanel({
 
               {/* Each copy is its own object, so switching between them is
                   switching card, not just incrementing a counter. */}
-              {c.copies.length > 1 && (
+              {c.raw.length > 1 && (
                 <div className="flex items-center justify-center gap-1.5 mt-2">
-                  {c.copies.map((raw, i) => {
-                    const cp = withPatch(raw)
+                  {c.raw.map((cp, i) => {
                     const g = gradeState(cp)
                     return (
                       <button
@@ -643,7 +757,7 @@ export default function CollectionPanel({
                             ? 'bg-white text-ink font-bold'
                             : 'bg-white/10 text-white/60 hover:bg-white/20'
                         }`}
-                        aria-label={`View copy ${i + 1} of ${c.copies.length}${
+                        aria-label={`View copy ${i + 1} of ${c.raw.length}${
                           g === 'graded' ? `, graded ${cp.grade}` : g === 'ready' ? ', grade ready' : ''
                         }`}
                         aria-pressed={i === ci}
@@ -664,7 +778,7 @@ export default function CollectionPanel({
                     )
                   })}
                   <span className="font-mono text-[10px] text-white/35 ml-0.5">
-                    {c.copies.length} copies
+                    {c.raw.length} copies
                   </span>
                 </div>
               )}
@@ -718,7 +832,7 @@ export default function CollectionPanel({
 
                     {st === 'ready' && (
                       <button
-                        onClick={() => collectGrade(copy)}
+                        onClick={() => collectGrade(c, copy)}
                         disabled={busy}
                         className="rounded-lg bg-signal text-white text-xs font-semibold px-3 py-1.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
                       >
@@ -743,6 +857,73 @@ export default function CollectionPanel({
                 {zoomIndex + 1} of {zoomCards.length}
               </p>
             </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Enlarged slab ── */}
+      {slabIndex !== null && slabs[slabIndex] && (() => {
+        const { card, copy } = slabs[slabIndex]
+        const setName = setTotals.find((s) => s.set_code === card.set_code)?.set_name ?? card.set_code
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4 gap-3"
+            onClick={() => setSlabIndex(null)}
+            role="dialog" aria-modal="true" aria-label={`${card.name}, graded ${copy.grade}`}
+          >
+            <button
+              onClick={() => setSlabIndex(null)}
+              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div onClick={(e) => e.stopPropagation()} className="w-[min(78vw,320px)]">
+              <Slab
+                condition={copy} grade={copy.grade!} src={card.image_url} alt={card.name}
+                name={card.name} number={card.number} setCode={card.set_code} setName={setName}
+              />
+            </div>
+
+            <div className="text-center" onClick={(e) => e.stopPropagation()}>
+              <div className="grid grid-cols-4 gap-x-2 font-mono text-[9px] text-white/45">
+                <span>CEN {100 - Math.max(Math.abs(copy.center_x), Math.abs(copy.center_y))}</span>
+                <span>COR {copy.corners}</span>
+                <span>EDG {copy.edges}</span>
+                <span>SUR {copy.surface}</span>
+              </div>
+              <p className="font-mono text-[9px] text-white/45 mt-0.5">BORDER {copy.border_wear}</p>
+              <p className="font-mono text-[10px] text-white/35 mt-1.5">
+                {slabIndex + 1} of {slabs.length}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── A grade coming back ── */}
+      {gradeReveal && (() => {
+        const { card, copy } = gradeReveal
+        const setName = setTotals.find((s) => s.set_code === card.set_code)?.set_name ?? card.set_code
+        return (
+          <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 gap-4">
+            {(copy.grade ?? 0) >= 9 && <CardCelebration rarity={copy.grade === 10 ? 'S' : 'H'} />}
+            <p className="relative text-white font-display font-semibold">Back from grading</p>
+            <div className="relative w-[min(70vw,280px)]">
+              <Slab
+                condition={copy} grade={copy.grade!} src={card.image_url} alt={card.name}
+                name={card.name} number={card.number} setCode={card.set_code} setName={setName}
+              />
+            </div>
+            <button
+              onClick={() => { setGradeReveal(null); setZoomIndex(null); setShelf('vault') }}
+              className="relative bg-signal text-white font-semibold rounded-xl px-6 py-2.5 text-sm"
+            >
+              Put it in the vault
+            </button>
           </div>
         )
       })()}
