@@ -436,7 +436,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                             alt={c.name}
                             condition={c.copies[0]}
                             rarity={c.rarity}
-                            className={`w-full aspect-[245/342] rounded bg-white ${rarityRing(c.rarity)}`}
+                            className={`w-full aspect-[245/342] rounded ${rarityRing(c.rarity)}`}
                           />
                         </button>
                         {c.copies.length > 1 && (
@@ -503,7 +503,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                 condition={copy}
                 rarity={c.rarity}
                 detail="full"
-                className={`w-[min(72vw,330px)] aspect-[245/342] rounded-lg bg-white ${rarityRing(c.rarity)}`}
+                className={`w-[min(72vw,330px)] aspect-[245/342] rounded-lg ${rarityRing(c.rarity)}`}
               />
             </div>
 
@@ -581,7 +581,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                         alt={c.name}
                         condition={c}
                         rarity={c.rarity}
-                        className={`w-full aspect-[245/342] rounded bg-white ${rarityRing(c.rarity)}`}
+                        className={`w-full aspect-[245/342] rounded ${rarityRing(c.rarity)}`}
                       />
                     ))}
                   </div>
@@ -613,7 +613,7 @@ export default function CollectionPanel({ packs, collection, setTotals, tickets 
                     condition={card}
                     rarity={card.rarity}
                     detail="full"
-                    className={`h-[55vh] aspect-[245/342] rounded-lg bg-white ${rarityRing(card.rarity)} ${
+                    className={`h-[55vh] aspect-[245/342] rounded-lg ${rarityRing(card.rarity)} ${
                       special ? (card.rarity === 'S' ? 'vm-card-hit vm-card-secret' : 'vm-card-hit vm-card-holo') : ''
                     }`}
                   />

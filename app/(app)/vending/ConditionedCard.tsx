@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { borderColor } from './cardBorders'
 
 export interface Condition {
   center_x: number
@@ -12,13 +13,22 @@ export interface Condition {
 }
 
 /**
- * How far off-centre the worst card can look, as a percentage of card width
- * in each direction. The image is overscanned by twice this so there is slack
- * to slide into: at centre_x = 100 one border crops to nothing and the
- * opposite one doubles, which is what a badly cut card actually looks like.
+ * Centering is the width of the border, not a crop.
+ *
+ * The art sits inside a frame painted the card's own yellow, inset by MARGIN
+ * on every side. Shifting it spends margin from one side and adds it to the
+ * other, so the border goes thin on one edge and fat on the opposite one -
+ * which is exactly what a miscut card is. Nothing is cropped and the whole
+ * picture stays visible, unlike the earlier overscan approach, which ate the
+ * card's yellow border to buy its travel.
+ *
+ * At centre 100 the borders land around 69/31. MARGIN trades travel against
+ * how thick a well-cut card's border looks, since the frame margin adds to
+ * the border already in the scan.
  */
-const TRAVEL = 3
-const OVERSCAN = 1 + (TRAVEL * 2) / 100
+const MARGIN = 2.2
+/** Card aspect, for expressing a width-relative inset as a height percentage. */
+const VK = 245 / 342
 
 /** Deterministic PRNG so a given copy always wears the same way. */
 function mulberry32(seed: number) {
@@ -127,40 +137,53 @@ export default function ConditionedCard({
 
   const holo = detail === 'full' && (rarity === 'H' || rarity === 'S')
 
-  return (
-    <div className={`relative overflow-hidden isolate ${className}`}>
-      <div className={`absolute inset-0 ${frameClassName}`}>
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{
-            // Scale first, then slide: the translate percentages stay
-            // relative to the unscaled box, so TRAVEL means what it says.
-            transform: `translate(${((center_x / 100) * TRAVEL).toFixed(3)}%, ` +
-                       `${((center_y / 100) * TRAVEL).toFixed(3)}%) scale(${OVERSCAN})`,
-          }}
-        />
+  const dx = (center_x / 100) * MARGIN
+  const dy = (center_y / 100) * MARGIN
 
-        {/* Holo swirl, under the wear so scratches read as being on top of
-            the foil rather than beneath it. Confined to the art window: these
-            sets foil the picture only, so running it full-bleed tints the
-            text box too and reads as a filter over the card rather than foil
-            in it. Inset matches the Base-era layout every set here uses. */}
-        {holo && (
-          <div
-            className="absolute pointer-events-none opacity-25"
-            style={{
-              top: '12.5%', bottom: '53%', left: '8%', right: '8%',
-              mixBlendMode: 'color-dodge',
-              background:
-                `repeating-conic-gradient(from ${layers.swirl.toFixed(1)}deg at 50% 45%, ` +
-                'rgba(56,189,248,0.55) 0deg, rgba(167,139,250,0.2) 14deg, ' +
-                'rgba(244,114,182,0.5) 28deg, rgba(56,189,248,0.55) 42deg)',
-            }}
+  return (
+    <div
+      className={`relative overflow-hidden isolate ${className}`}
+      // The frame is the card's border. Painting it the card's own yellow is
+      // what lets the margin and the border in the scan read as one edge.
+      style={{ background: borderColor(src) }}
+    >
+      <div className={`absolute inset-0 ${frameClassName}`}>
+        <div
+          className="absolute overflow-hidden"
+          style={{
+            left: `${(MARGIN + dx).toFixed(3)}%`,
+            right: `${(MARGIN - dx).toFixed(3)}%`,
+            top: `${((MARGIN + dy) * VK).toFixed(3)}%`,
+            bottom: `${((MARGIN - dy) * VK).toFixed(3)}%`,
+          }}
+        >
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-fill"
           />
-        )}
+
+          {/* Holo swirl, under the wear so scratches read as being on top of
+              the foil rather than beneath it. Confined to the art window:
+              these sets foil the picture only, so running it full-bleed tints
+              the text box too and reads as a filter over the card rather than
+              foil in it. Inset matches the Base-era layout every set here
+              uses, and it lives inside the art so it travels with a bad cut. */}
+          {holo && (
+            <div
+              className="absolute pointer-events-none opacity-25"
+              style={{
+                top: '12.5%', bottom: '53%', left: '8%', right: '8%',
+                mixBlendMode: 'color-dodge',
+                background:
+                  `repeating-conic-gradient(from ${layers.swirl.toFixed(1)}deg at 50% 45%, ` +
+                  'rgba(56,189,248,0.55) 0deg, rgba(167,139,250,0.2) 14deg, ' +
+                  'rgba(244,114,182,0.5) 28deg, rgba(56,189,248,0.55) 42deg)',
+              }}
+            />
+          )}
+        </div>
 
         {/* Corner and edge wear. */}
         <div
