@@ -40,6 +40,8 @@ const VK = 245 / 342
 const W = 245
 const H = 342
 
+type WhiteBand = { d: string; alpha: number }
+
 type Scratch = {
   d: string
   width: number
@@ -133,44 +135,60 @@ export default function ConditionedCard({
              `rgba(255,255,255,0) ${w}%)`
     })
 
-    // Border whitening: the coloured border face chalking up, inward from the
-    // cut. Patches rather than a stripe, because it wears unevenly, and
-    // weighted toward the corners, which is where a card is actually gripped.
-    // Unlike the other marks this stays on thumbnails - at a glance it is the
-    // clearest signal that a card is worn, and a uniform fringe would not say
-    // anything the edge gradient above does not already say.
+    // Border whitening: the card's white core showing through the ink along
+    // the cut. Not a haze spreading inward across the border face - a thin
+    // ragged fringe hugging the very edge, thick in places, gone in others,
+    // heaviest at the corners. Drawn as filled bands whose inner boundary
+    // wobbles, because the tell is the raggedness; a smooth one reads as a
+    // glow or a drop shadow.
+    //
+    // This is the one mark kept at thumbnail size: in a binder grid it is
+    // the clearest signal that a card is worn.
     const bw = Math.max(0, (100 - border_wear) / 100)
-    const perEdge = detail === 'full'
-      ? Math.round(2 + bw * 5)
-      : Math.round(1 + bw * 2)
+    const whitening: WhiteBand[] = []
+    if (bw > 0.02) {
+      const runsPerEdge = Math.max(1, Math.round(1 + bw * (detail === 'full' ? 3.2 : 2)))
+      for (let side = 0; side < 4; side++) {
+        const along = side < 2 ? W : H
+        for (let i = 0; i < runsPerEdge; i++) {
+          // Biased toward both ends: whitening starts at the corners, which
+          // is where a card is gripped and where the cut has two exposed
+          // faces meeting.
+          const u = rnd()
+          const centre = u < 0.5
+            ? Math.pow(u * 2, 1.8) * 0.5 * along
+            : along - Math.pow((1 - u) * 2, 1.8) * 0.5 * along
+          const len = along * (0.07 + rnd() * (0.14 + bw * 0.3))
+          const a0 = Math.max(0, centre - len / 2)
+          const a1 = Math.min(along, centre + len / 2)
+          if (a1 - a0 < 4) continue
 
-    /** Biased toward both ends of the edge, where handling concentrates. */
-    const towardCorners = () => {
-      const u = rnd()
-      return u < 0.5
-        ? Math.pow(u * 2, 1.7) * 50
-        : 100 - Math.pow((1 - u) * 2, 1.7) * 50
-    }
+          const steps = Math.max(4, Math.round((a1 - a0) / 7))
+          const peak = 0.9 + bw * 6.5
+          const inner: [number, number][] = []
+          for (let s = 0; s <= steps; s++) {
+            const t = s / steps
+            // Taper at both ends so a run fades into clean border instead of
+            // stopping square, and drop out entirely now and then.
+            const taper = Math.sin(Math.PI * t)
+            const gap = rnd() < 0.18 ? 0.1 : 1
+            inner.push([a0 + (a1 - a0) * t, peak * taper * gap * (0.35 + rnd() * 0.75)])
+          }
 
-    const whitening: string[] = []
-    for (let side = 0; side < 4; side++) {
-      const horizontal = side < 2
-      for (let i = 0; i < perEdge; i++) {
-        const p = towardCorners()
-        const spread = 5 + rnd() * 15   // along the edge
-        const depth = 1.1 + rnd() * 3.2 // inward from the cut
-        const rx = horizontal ? spread : depth
-        const ry = horizontal ? depth : spread
-        const at = side === 0 ? `${p.toFixed(1)}% 0%`
-                 : side === 1 ? `${p.toFixed(1)}% 100%`
-                 : side === 2 ? `0% ${p.toFixed(1)}%`
-                 :              `100% ${p.toFixed(1)}%`
-        const a = Math.min(0.92, bw * (0.45 + rnd() * 0.85))
-        whitening.push(
-          `radial-gradient(ellipse ${rx.toFixed(1)}% ${ry.toFixed(1)}% at ${at}, ` +
-          `rgba(255,255,255,${a.toFixed(3)}) 0%, ` +
-          `rgba(255,255,255,${(a * 0.35).toFixed(3)}) 55%, rgba(255,255,255,0) 100%)`
-        )
+          const pt = (p: number, d: number): string => {
+            switch (side) {
+              case 0:  return `${p.toFixed(1)} ${d.toFixed(1)}`
+              case 1:  return `${p.toFixed(1)} ${(H - d).toFixed(1)}`
+              case 2:  return `${d.toFixed(1)} ${p.toFixed(1)}`
+              default: return `${(W - d).toFixed(1)} ${p.toFixed(1)}`
+            }
+          }
+          const d =
+            `M${pt(a0, 0)} L${pt(a1, 0)} ` +
+            inner.slice().reverse().map(([p, dep]) => `L${pt(p, dep)}`).join(' ') +
+            ' Z'
+          whitening.push({ d, alpha: Math.min(0.95, 0.5 + bw * 0.6) })
+        }
       }
     }
 
@@ -282,9 +300,8 @@ export default function ConditionedCard({
       : []
 
     return {
-      // Corners on top, then the crisp cut fringe, then the broader chalking
-      // spreading inward beneath both.
-      background: [...corner, ...edge, ...whitening].join(', '),
+      background: [...corner, ...edge].join(', '),
+      whitening,
       scratches,
       creases,
       smudges,
@@ -366,14 +383,21 @@ export default function ConditionedCard({
           />
         ))}
 
-        {(layers.scratches.length > 0 || layers.creases.length > 0) && (
+        {(layers.scratches.length > 0 || layers.creases.length > 0 ||
+          layers.whitening.length > 0) && (
           <svg
             className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox={`0 0 ${W} ${H}`}
             preserveAspectRatio="none"
             aria-hidden="true"
           >
-            {/* Creases first: a scratch can lie across a fold, not under it. */}
+            {/* The exposed core along the cut. Drawn first so scratches and
+                folds pass over it. */}
+            {layers.whitening.map((b, i) => (
+              <path key={`w${i}`} d={b.d} fill="#fdfcf7" opacity={b.alpha} />
+            ))}
+
+            {/* Creases: a scratch can lie across a fold, not under it. */}
             {layers.creases.map((d, i) => (
               <g key={`c${i}`} fill="none" strokeLinecap="round">
                 {/* The lit side of the ridge and its shadow, offset apart. */}
