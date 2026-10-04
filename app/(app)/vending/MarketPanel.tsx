@@ -333,17 +333,31 @@ function ListingDetail({
                   : `Leading bid ${l.current_bid}. You would take home about ${takeHome}.`
                 : `Listed at ${l.price}. You would take home ${takeHome} after the ${feePercent}% fee.`}
             </p>
-            <button
-              onClick={onCancel} disabled={busy}
-              className="w-full rounded-xl border border-red-500/30 text-red-500 text-sm font-medium py-2.5 hover:bg-red-500/10 transition-colors disabled:opacity-40"
-            >
-              {busy ? 'Pulling…' : 'Pull this listing'}
-            </button>
-            {l.kind === 'auction' && l.bid_count > 0 && (
-              <p className="text-[11px] text-muted">
-                Once an auction has a bid it has to run its course.
-              </p>
-            )}
+            {/* An auction with a live bid cannot be pulled, so the button
+                says so rather than failing when tapped. Without a bid it is
+                exactly as cancellable as a fixed-price listing. */}
+            {(() => {
+              const locked = l.kind === 'auction' && l.current_bid != null
+              return (
+                <>
+                  <button
+                    onClick={onCancel} disabled={busy || locked}
+                    className="w-full rounded-xl border border-red-500/30 text-red-500 text-sm font-medium py-2.5 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    {busy ? 'Pulling…'
+                      : locked ? 'Cannot pull - it has a bid'
+                      : l.kind === 'auction' ? 'Pull this auction' : 'Pull this listing'}
+                  </button>
+                  <p className="text-[11px] text-muted">
+                    {locked
+                      ? 'Once an auction has a bid it has to run its course.'
+                      : l.kind === 'auction'
+                        ? 'No bids yet, so you can still take it down. Your items come straight back.'
+                        : 'Your items come straight back.'}
+                  </p>
+                </>
+              )
+            })()}
           </div>
         ) : l.kind === 'fixed' ? (
           <button
@@ -408,6 +422,10 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   const [hours, setHours] = useState(24)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  // Choosing the goods and choosing how they sell are two jobs; a
+  // collection runs to hundreds of cards, so doing both on one sheet
+  // buries the price controls under the grid.
+  const [step, setStep] = useState<'pick' | 'price'>('pick')
 
   const copies = useMemo(() => {
     const out: { card: CollectionCard; copy: CardCopy }[] = []
@@ -543,15 +561,34 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
          onClick={onClose} role="dialog" aria-modal="true" aria-label="New listing">
       <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[88vh] flex flex-col"
            onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-baseline justify-between gap-2 shrink-0">
-          <h3 className="font-display font-semibold text-base">New listing</h3>
-          <button onClick={onClose} className="text-xs text-muted hover:text-ink">Close</button>
+        <div className="flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            {step === 'price' && (
+              <button
+                onClick={() => setStep('pick')}
+                className="text-muted hover:text-ink transition-colors"
+                aria-label="Back to choosing items"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <h3 className="font-display font-semibold text-base truncate">
+              {step === 'pick' ? 'What are you selling?' : 'How does it sell?'}
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-xs text-muted hover:text-ink shrink-0">Close</button>
         </div>
 
         <div className="overflow-y-auto space-y-3 min-h-0">
+        {step === 'pick' ? (
+          <>
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-ink">
-              What are you selling? {total > 0 && <span className="text-muted">({total} picked)</span>}
+              {total > 0
+                ? <span className="text-muted">{total} picked</span>
+                : 'Pick the cards or packs you want to sell.'}
             </p>
             {copies.length === 0 && packs.length === 0 ? (
               <p className="text-sm text-muted">Nothing to sell yet.</p>
@@ -642,6 +679,18 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
               </>
             )}
           </div>
+          </>
+        ) : (
+          <>
+
+          {/* What you are selling, so step two is not a decision made blind. */}
+          <p className="text-xs text-muted leading-snug">
+            Selling{' '}
+            <span className="text-ink font-medium">
+              {picked.length === 1 ? picked[0].label : `${picked.length} items`}
+            </span>
+            {picked.length > 1 && <span> — {picked.map((i) => i.label).join(', ')}</span>}
+          </p>
 
           <div className="flex gap-1.5">
             {([['fixed', 'Buy now'], ['auction', 'Auction']] as const).map(([k, label]) => (
@@ -749,15 +798,21 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
               className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal placeholder:text-muted"
             />
           </div>
+          </>
+        )}
         </div>
 
         <button
-          onClick={submit}
-          disabled={busy || total === 0 || !Number.isInteger(n) || n < 1}
+          onClick={step === 'pick' ? () => setStep('price') : submit}
+          disabled={
+            busy || total === 0 ||
+            (step === 'price' && !split && (!Number.isInteger(n) || n < 1))
+          }
           className="shrink-0 w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
         >
           {busy ? 'Listing…'
             : total === 0 ? 'Pick something to sell'
+            : step === 'pick' ? `Continue with ${total} item${total === 1 ? '' : 's'}`
             : split && total > 1 ? `Put up ${picked.length} listings`
             : kind === 'auction' ? `Start the auction at ${n}` : `List for ${n}`}
         </button>
