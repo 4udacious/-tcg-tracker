@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import VendingClient, { type RecentBuy, type TicketStockRow } from './VendingClient'
 import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket } from './CollectionPanel'
 import type { ShowcaseItem } from './ShowcaseRoom'
+import type { MarketListing } from './MarketPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,7 @@ export default async function VendingPage() {
         .select('id, vending_packs(set_name, pack_name, image_url)')
         .eq('user_id', userId)
         .is('opened_at', null)
+        .is('market_listing_id', null)
         .order('acquired_at'),
       // Per copy, not per card: two copies of one card have different
       // condition, so they cannot be collapsed before they reach the client.
@@ -48,6 +50,7 @@ export default async function VendingPage() {
                 'grading_started_at, grading_ready_at, graded_at, grade, ' +
                 'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
         .eq('user_id', userId)
+        .is('market_listing_id', null)
         .order('acquired_at'),
       supabase.from('vending_cards').select('set_code'),
     ])
@@ -62,6 +65,11 @@ export default async function VendingPage() {
     supabase.from('showcase_settings')
       .select('warmth, brightness, shelf').eq('user_id', userId).maybeSingle(),
   ])
+
+  const { data: marketRows } = await supabase.rpc('get_market_listings', { p_mine: false })
+  const { data: myListingRows } = await supabase.rpc('get_market_listings', { p_mine: true })
+
+  const { data: feeRow } = await supabase.rpc('market_fee_percent')
 
   const { data: gradingRows } = await supabase.rpc('grading_settings')
   const grading = (Array.isArray(gradingRows) ? gradingRows[0] : gradingRows) as
@@ -191,6 +199,9 @@ export default async function VendingPage() {
       gradingDays={Number(grading?.days ?? 7)}
       showcaseItems={(showcaseRows as ShowcaseItem[] | null) ?? []}
       showcaseLighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}
+      listings={(marketRows as MarketListing[] | null) ?? []}
+      myListings={(myListingRows as MarketListing[] | null) ?? []}
+      feePercent={Number(feeRow ?? 10)}
     />
   )
 }

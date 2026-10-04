@@ -1,0 +1,597 @@
+'use client'
+
+import { useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import ConditionedCard from './ConditionedCard'
+import type { CollectionCard, CardCopy, UnopenedPack } from './CollectionPanel'
+
+export interface MarketListing {
+  id: number
+  seller_id: string
+  seller_name: string
+  seller_display: string | null
+  kind: 'fixed' | 'auction'
+  note: string | null
+  price: number
+  current_bid: number | null
+  is_leading: boolean
+  ends_at: string | null
+  status: 'active' | 'sold' | 'cancelled' | 'expired'
+  created_at: string
+  item_count: number
+  card_count: number
+  pack_count: number
+  preview_image: string | null
+  preview_name: string | null
+  preview_grade: number | null
+  bid_count: number
+}
+
+const AUCTION_HOURS = [
+  { h: 6, label: '6 hours' },
+  { h: 12, label: '12 hours' },
+  { h: 24, label: '1 day' },
+  { h: 72, label: '3 days' },
+  { h: 168, label: '7 days' },
+]
+
+/** "4d 2h", "3h 10m", "ended" - tight enough for a listing tile. */
+function timeLeft(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return 'ending'
+  const mins = Math.floor(ms / 60000)
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ${mins % 60}m`
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`
+}
+
+/** What a buyer actually pays for an auction: the next legal bid. */
+function minBid(l: MarketListing): number {
+  return l.current_bid == null ? l.price : l.current_bid + 1
+}
+
+export default function MarketPanel({
+  listings, myListings, collection, packs, balance, feePercent, userId,
+}: {
+  listings: MarketListing[]
+  myListings: MarketListing[]
+  collection: CollectionCard[]
+  packs: UnopenedPack[]
+  balance: number
+  feePercent: number
+  userId: string
+}) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+  const [tab, setTab] = useState<'browse' | 'stand'>('browse')
+  const [open, setOpen] = useState<MarketListing | null>(null)
+  const [composing, setComposing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+
+  const board = useMemo(
+    () => listings.filter((l) => l.status === 'active' && l.seller_id !== userId),
+    [listings, userId]
+  )
+
+  function fail(msg: string) { setNote(msg); setTimeout(() => setNote(null), 4000) }
+
+  async function buy(l: MarketListing) {
+    setBusy(true)
+    const supabase = createClient()
+    const { data, error } = await supabase.rpc('market_buy', { p_listing: l.id })
+    setBusy(false)
+    const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; reason: string } | null
+    if (error || !row?.ok) {
+      fail(
+        row?.reason === 'insufficient_tokens' ? 'Not enough tokens for that.'
+        : row?.reason === 'not_active' ? 'Someone just bought that.'
+        : 'Could not complete that purchase.'
+      )
+      return
+    }
+    setOpen(null)
+    startTransition(() => router.refresh())
+  }
+
+  async function bid(l: MarketListing, amount: number) {
+    setBusy(true)
+    const supabase = createClient()
+    const { data, error } = await supabase.rpc('market_place_bid', {
+      p_listing: l.id, p_amount: amount,
+    })
+    setBusy(false)
+    const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; reason: string } | null
+    if (error || !row?.ok) {
+      fail(
+        row?.reason === 'too_low' ? 'Someone has already bid that much or more.'
+        : row?.reason === 'insufficient_tokens' ? 'Not enough tokens to cover that bid.'
+        : row?.reason === 'already_leading' ? 'You are already the top bid.'
+        : row?.reason === 'ended' ? 'That auction has finished.'
+        : 'Could not place that bid.'
+      )
+      return
+    }
+    setOpen(null)
+    startTransition(() => router.refresh())
+  }
+
+  async function cancel(l: MarketListing) {
+    setBusy(true)
+    const supabase = createClient()
+    const { data, error } = await supabase.rpc('market_cancel_listing', { p_listing: l.id })
+    setBusy(false)
+    const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; reason: string } | null
+    if (error || !row?.ok) {
+      fail(row?.reason === 'has_bids'
+        ? 'That auction already has a bid, so it has to run its course.'
+        : 'Could not cancel that listing.')
+      return
+    }
+    setOpen(null)
+    startTransition(() => router.refresh())
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-display font-semibold text-base">Market</h2>
+        <span className="font-mono text-[10px] text-muted">{balance} tokens</span>
+      </div>
+
+      {note && (
+        <p className="text-sm text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+          {note}
+        </p>
+      )}
+
+      <div className="flex gap-1.5">
+        {([['browse', 'Browse'], ['stand', 'My stand']] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`text-xs font-medium rounded-lg px-3 py-1.5 transition-colors ${
+              tab === k ? 'bg-ink text-white' : 'border border-card-border text-muted hover:text-ink'
+            }`}
+            aria-pressed={tab === k}
+          >
+            {label}
+            {k === 'stand' && myListings.some((l) => l.status === 'active') && (
+              <span className={tab === k ? 'text-white/60' : 'text-muted'}>
+                {' '}· {myListings.filter((l) => l.status === 'active').length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'browse' ? (
+        board.length === 0 ? (
+          <p className="text-sm text-muted">
+            Nothing for sale right now. Open a stand and be the first.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-2.5">
+            {board.map((l) => (
+              <li key={l.id}>
+                <ListingTile listing={l} onOpen={() => setOpen(l)} />
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <div className="space-y-3">
+          <button
+            onClick={() => setComposing(true)}
+            className="w-full bg-signal text-white font-semibold rounded-xl py-2.5 text-sm hover:bg-signal/90 transition-colors"
+          >
+            List something for sale
+          </button>
+          <p className="text-xs text-muted leading-snug">
+            The market keeps {feePercent}% of every sale. Listed items leave your
+            collection until they sell or you pull them.
+          </p>
+
+          {myListings.length === 0 ? (
+            <p className="text-sm text-muted">Your stand is empty.</p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-2.5">
+              {myListings.map((l) => (
+                <li key={l.id}>
+                  <ListingTile listing={l} mine onOpen={() => setOpen(l)} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {open && (
+        <ListingDetail
+          listing={open} mine={open.seller_id === userId} busy={busy} balance={balance}
+          feePercent={feePercent}
+          onClose={() => setOpen(null)}
+          onBuy={() => buy(open)} onBid={(n) => bid(open, n)} onCancel={() => cancel(open)}
+        />
+      )}
+
+      {composing && (
+        <Compose
+          collection={collection} packs={packs} feePercent={feePercent}
+          onClose={() => setComposing(false)}
+          onDone={() => { setComposing(false); startTransition(() => router.refresh()) }}
+          onError={fail}
+        />
+      )}
+    </div>
+  )
+}
+
+function ListingTile({ listing: l, mine, onOpen }: {
+  listing: MarketListing; mine?: boolean; onOpen: () => void
+}) {
+  const live = l.status === 'active'
+  return (
+    <button
+      onClick={onOpen}
+      className={`w-full text-left bg-card border border-card-border rounded-xl p-2 space-y-1.5 transition-transform hover:-translate-y-0.5 ${
+        live ? '' : 'opacity-60'
+      }`}
+    >
+      <div className="relative">
+        {l.preview_image ? (
+          <img src={l.preview_image} alt="" className="w-full aspect-[245/342] object-contain rounded bg-paper" loading="lazy" />
+        ) : (
+          <div className="w-full aspect-[245/342] rounded bg-paper" />
+        )}
+        {l.item_count > 1 && (
+          <span className="absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+            {l.item_count} items
+          </span>
+        )}
+        {l.preview_grade != null && (
+          <span className="absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+            {l.preview_grade}
+          </span>
+        )}
+      </div>
+
+      <p className="text-xs font-semibold truncate">{l.preview_name ?? 'Bundle'}</p>
+
+      <div className="flex items-baseline justify-between gap-1">
+        <span className="font-display font-bold text-sm">
+          {l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price}
+          <span className="font-mono text-[9px] text-muted font-normal"> tokens</span>
+        </span>
+        {l.kind === 'auction' && live && l.ends_at && (
+          <span className={`font-mono text-[9px] ${l.is_leading ? 'text-emerald-500' : 'text-muted'}`}>
+            {timeLeft(l.ends_at)}
+          </span>
+        )}
+      </div>
+
+      <p className="font-mono text-[9px] text-muted truncate">
+        {!live ? l.status
+          : l.kind === 'auction'
+            ? `${l.bid_count} bid${l.bid_count === 1 ? '' : 's'}${l.is_leading ? ' · yours' : ''}`
+            : 'buy now'}
+        {!mine && ` · ${l.seller_display ?? l.seller_name}`}
+      </p>
+    </button>
+  )
+}
+
+function ListingDetail({
+  listing: l, mine, busy, balance, feePercent, onClose, onBuy, onBid, onCancel,
+}: {
+  listing: MarketListing; mine: boolean; busy: boolean; balance: number; feePercent: number
+  onClose: () => void; onBuy: () => void; onBid: (n: number) => void; onCancel: () => void
+}) {
+  const [amount, setAmount] = useState(String(minBid(l)))
+  const live = l.status === 'active'
+  const n = Number(amount)
+  const takeHome = Math.ceil((l.current_bid ?? l.price) * (1 - feePercent / 100))
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+         onClick={onClose} role="dialog" aria-modal="true" aria-label="Listing">
+      <div className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[85vh] overflow-y-auto"
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-display font-semibold text-base truncate">
+              {l.preview_name ?? 'Bundle'}
+            </h3>
+            <p className="font-mono text-[10px] text-muted">
+              {l.card_count > 0 && `${l.card_count} card${l.card_count === 1 ? '' : 's'}`}
+              {l.card_count > 0 && l.pack_count > 0 && ' · '}
+              {l.pack_count > 0 && `${l.pack_count} pack${l.pack_count === 1 ? '' : 's'}`}
+              {' · '}{l.seller_display ?? l.seller_name}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-xs text-muted hover:text-ink shrink-0">Close</button>
+        </div>
+
+        {l.preview_image && (
+          <img src={l.preview_image} alt="" className="w-32 mx-auto aspect-[245/342] object-contain rounded bg-paper" />
+        )}
+
+        {l.note && <p className="text-sm text-muted leading-snug">{l.note}</p>}
+
+        {!live ? (
+          <p className="text-sm text-muted">This listing is {l.status}.</p>
+        ) : mine ? (
+          <div className="space-y-2">
+            <p className="text-sm text-muted">
+              {l.kind === 'auction'
+                ? l.current_bid == null
+                  ? `No bids yet. Opening at ${l.price}.`
+                  : `Leading bid ${l.current_bid}. You would take home about ${takeHome}.`
+                : `Listed at ${l.price}. You would take home ${takeHome} after the ${feePercent}% fee.`}
+            </p>
+            <button
+              onClick={onCancel} disabled={busy}
+              className="w-full rounded-xl border border-red-500/30 text-red-500 text-sm font-medium py-2.5 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+            >
+              {busy ? 'Pulling…' : 'Pull this listing'}
+            </button>
+            {l.kind === 'auction' && l.bid_count > 0 && (
+              <p className="text-[11px] text-muted">
+                Once an auction has a bid it has to run its course.
+              </p>
+            )}
+          </div>
+        ) : l.kind === 'fixed' ? (
+          <button
+            onClick={onBuy} disabled={busy || balance < l.price}
+            className="w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+          >
+            {busy ? 'Buying…' : balance < l.price ? `Need ${l.price - balance} more tokens` : `Buy for ${l.price}`}
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-muted">
+              {l.current_bid == null ? `Opening bid ${l.price}.` : `Leading bid ${l.current_bid}.`}
+              {l.ends_at && ` Ends in ${timeLeft(l.ends_at)}.`}
+            </p>
+            {l.is_leading ? (
+              <p className="text-sm text-emerald-600 font-medium">You are the top bid.</p>
+            ) : (
+              <>
+                <input
+                  type="number" min={minBid(l)} value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
+                />
+                <button
+                  onClick={() => onBid(n)}
+                  disabled={busy || !Number.isInteger(n) || n < minBid(l) || n > balance}
+                  className="w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+                >
+                  {busy ? 'Bidding…' : `Bid ${Number.isFinite(n) ? n : ''}`}
+                </button>
+                <p className="text-[11px] text-muted leading-snug">
+                  Your bid is held until someone outbids you or the auction ends.
+                  Minimum {minBid(l)}.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Building a listing: pick the goods, then say how it sells. */
+function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
+  collection: CollectionCard[]
+  packs: UnopenedPack[]
+  feePercent: number
+  onClose: () => void
+  onDone: () => void
+  onError: (m: string) => void
+}) {
+  const [cards, setCards] = useState<Set<number>>(new Set())
+  const [chosenPacks, setChosenPacks] = useState<Set<number>>(new Set())
+  const [kind, setKind] = useState<'fixed' | 'auction'>('fixed')
+  const [price, setPrice] = useState('10')
+  const [hours, setHours] = useState(24)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const copies = useMemo(() => {
+    const out: { card: CollectionCard; copy: CardCopy }[] = []
+    for (const card of collection) {
+      for (const copy of card.copies) {
+        // A card away at the graders cannot be sold out from under the grade.
+        if (copy.grading_started_at && !copy.graded_at) continue
+        out.push({ card, copy })
+      }
+    }
+    return out.sort((a, b) => (b.copy.grade ?? -1) - (a.copy.grade ?? -1)
+      || a.card.name.localeCompare(b.card.name))
+  }, [collection])
+
+  const total = cards.size + chosenPacks.size
+  const n = Number(price)
+  const takeHome = Math.ceil(n * (1 - feePercent / 100))
+
+  function toggle<T>(set: Set<T>, v: T, apply: (s: Set<T>) => void) {
+    const next = new Set(set)
+    if (next.has(v)) next.delete(v); else next.add(v)
+    apply(next)
+  }
+
+  async function submit() {
+    setBusy(true)
+    const supabase = createClient()
+    const { data, error } = await supabase.rpc('market_create_listing', {
+      p_kind: kind,
+      p_price: n,
+      p_card_ids: [...cards],
+      p_pack_ids: [...chosenPacks],
+      p_hours: kind === 'auction' ? hours : null,
+      p_note: note.trim() || null,
+    })
+    setBusy(false)
+    const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; reason: string } | null
+    if (error || !row?.ok) {
+      onError(
+        row?.reason === 'bad_cards' ? 'One of those cards is no longer available.'
+        : row?.reason === 'bad_packs' ? 'One of those packs is no longer available.'
+        : row?.reason === 'empty_listing' ? 'Pick at least one thing to sell.'
+        : 'Could not create that listing.'
+      )
+      return
+    }
+    onDone()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+         onClick={onClose} role="dialog" aria-modal="true" aria-label="New listing">
+      <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[88vh] flex flex-col"
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-baseline justify-between gap-2 shrink-0">
+          <h3 className="font-display font-semibold text-base">New listing</h3>
+          <button onClick={onClose} className="text-xs text-muted hover:text-ink">Close</button>
+        </div>
+
+        <div className="overflow-y-auto space-y-3 min-h-0">
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-ink">
+              What are you selling? {total > 0 && <span className="text-muted">({total} picked)</span>}
+            </p>
+            {copies.length === 0 && packs.length === 0 ? (
+              <p className="text-sm text-muted">Nothing to sell yet.</p>
+            ) : (
+              <ul className="grid grid-cols-4 gap-2">
+                {copies.map(({ card, copy }) => {
+                  const on = cards.has(copy.id)
+                  return (
+                    <li key={copy.id}>
+                      <button
+                        onClick={() => toggle(cards, copy.id, setCards)}
+                        className={`relative block w-full rounded transition-all ${
+                          on ? 'ring-2 ring-signal scale-95' : ''
+                        }`}
+                        aria-pressed={on}
+                        aria-label={`${on ? 'Remove' : 'Add'} ${card.name}`}
+                      >
+                        <ConditionedCard
+                          src={card.image_url} alt={card.name} condition={copy}
+                          rarity={card.rarity}
+                          className="w-full aspect-[245/342] rounded"
+                        />
+                        {copy.grade != null && copy.graded_at && (
+                          <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1 shadow">
+                            {copy.grade}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+                {packs.map((p) => {
+                  const on = chosenPacks.has(p.id)
+                  return (
+                    <li key={`p${p.id}`}>
+                      <button
+                        onClick={() => toggle(chosenPacks, p.id, setChosenPacks)}
+                        className={`relative block w-full rounded transition-all ${
+                          on ? 'ring-2 ring-signal scale-95' : ''
+                        }`}
+                        aria-pressed={on}
+                        aria-label={`${on ? 'Remove' : 'Add'} sealed ${p.set_name} pack`}
+                      >
+                        <img src={p.image_url} alt="" className="w-full aspect-[245/342] object-contain rounded bg-paper" />
+                        <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[8px] font-mono text-center py-0.5 rounded-b">
+                          sealed
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex gap-1.5">
+            {([['fixed', 'Buy now'], ['auction', 'Auction']] as const).map(([k, label]) => (
+              <button
+                key={k} onClick={() => setKind(k)}
+                className={`flex-1 text-xs font-medium rounded-lg px-3 py-2 transition-colors ${
+                  kind === k ? 'bg-ink text-white' : 'border border-card-border text-muted hover:text-ink'
+                }`}
+                aria-pressed={kind === k}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-ink">
+              {kind === 'auction' ? 'Opening bid' : 'Price'}
+            </label>
+            <input
+              type="number" min={1} value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
+            />
+            {n > 0 && (
+              <p className="text-[11px] text-muted">
+                You keep {takeHome} after the {feePercent}% market fee.
+              </p>
+            )}
+          </div>
+
+          {kind === 'auction' && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-ink">Runs for</p>
+              <div className="flex flex-wrap gap-1.5">
+                {AUCTION_HOURS.map((o) => (
+                  <button
+                    key={o.h} onClick={() => setHours(o.h)}
+                    className={`text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
+                      hours === o.h ? 'bg-ink text-white' : 'border border-card-border text-muted hover:text-ink'
+                    }`}
+                    aria-pressed={hours === o.h}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-ink">Note <span className="text-muted">(optional)</span></label>
+            <input
+              value={note} onChange={(e) => setNote(e.target.value)} maxLength={200}
+              placeholder="Anything a buyer should know"
+              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal placeholder:text-muted"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={submit}
+          disabled={busy || total === 0 || !Number.isInteger(n) || n < 1}
+          className="shrink-0 w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+        >
+          {busy ? 'Listing…'
+            : total === 0 ? 'Pick something to sell'
+            : kind === 'auction' ? `Start the auction at ${n}` : `List for ${n}`}
+        </button>
+        <p className="shrink-0 text-[11px] text-muted leading-snug">
+          Listed items leave your collection straight away and come back if the
+          listing is pulled or ends without a sale.
+        </p>
+      </div>
+    </div>
+  )
+}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal, type OwnedTicket } from './CollectionPanel'
 import ShowcasePanel from './ShowcasePanel'
+import MarketPanel, { type MarketListing } from './MarketPanel'
 import type { ShowcaseItem, Lighting } from './ShowcaseRoom'
 
 /**
@@ -128,6 +129,13 @@ interface Props {
   gradingDays: number
   showcaseItems: ShowcaseItem[]
   showcaseLighting: Lighting
+  listings: MarketListing[]
+  myListings: MarketListing[]
+  feePercent: number
+}
+
+const VIEW_LABEL: Record<string, string> = {
+  machine: 'Machine', collection: 'Cards', showcase: 'Showcase', market: 'Market',
 }
 
 function mmss(total: number): string {
@@ -147,12 +155,12 @@ function untilLabel(iso: string): string {
 export default function VendingClient({
   initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
   packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays,
-  showcaseItems, showcaseLighting,
+  showcaseItems, showcaseLighting, listings, myListings, feePercent,
 }: Props) {
   const [split, setSplit] = useState({ allowance, earned })
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [view, setView] = useState<'machine' | 'collection' | 'showcase'>('machine')
+  const [view, setView] = useState<'machine' | 'collection' | 'showcase' | 'market'>('machine')
   const [buys, setBuys] = useState<RecentBuy[]>(recentBuys)
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
@@ -445,15 +453,15 @@ export default function VendingClient({
       </div>
 
       <div className="flex gap-1">
-        {(['machine', 'collection', 'showcase'] as const).map((v) => (
+        {(['machine', 'collection', 'showcase', 'market'] as const).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
               view === v ? 'bg-ink text-white' : 'bg-card border border-card-border text-ink hover:border-ink/20'
             }`}
           >
-            {v}
+            {VIEW_LABEL[v]}
             {v === 'collection' && packs.length > 0 && (
               <span className="ml-1.5 font-mono text-[10px] rounded-full bg-signal text-white px-1.5 py-0.5">
                 {packs.length}
@@ -463,7 +471,10 @@ export default function VendingClient({
         ))}
       </div>
 
-      {view === 'showcase' ? (
+      {view === 'market' ? (
+        <MarketPanel listings={listings} myListings={myListings} collection={collection}
+          packs={packs} balance={tokens} feePercent={feePercent} userId={userId} />
+      ) : view === 'showcase' ? (
         <ShowcasePanel initialItems={showcaseItems} initialLighting={showcaseLighting}
           collection={collection} />
       ) : view === 'collection' ? (
