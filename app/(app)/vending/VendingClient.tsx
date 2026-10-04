@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal, type OwnedTicket } from './CollectionPanel'
 import ShowcasePanel from './ShowcasePanel'
 import MarketPanel, { type MarketListing } from './MarketPanel'
+import LobbyChat from './LobbyChat'
 import { fmt, num } from './tokens'
 import type { ShowcaseItem, Lighting } from './ShowcaseRoom'
 
@@ -661,6 +662,11 @@ export default function VendingClient({
           </button>
         </div>
       )}
+
+      {/* ── Lobby chat ── */}
+      <div className="mx-auto w-full max-w-sm">
+        <LobbyChat watching={others.length} />
+      </div>
 
       {/* ── Recent buys ── */}
       <section className="mx-auto w-full max-w-sm space-y-2">
