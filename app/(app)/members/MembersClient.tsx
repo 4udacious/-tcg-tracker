@@ -13,6 +13,7 @@ export interface MemberSummary {
   nameColor: string | null
   title: string | null
   badgeCount: number
+  showcaseCount: number
 }
 
 function MemberAvatar({ member, size = 44 }: { member: MemberSummary; size?: number }) {
@@ -79,6 +80,15 @@ export default function MembersClient({ members }: { members: MemberSummary[] })
                   </p>
                   {m.title && <p className="text-xs text-muted truncate">{m.title}</p>}
                 </div>
+                {/* A shelf with something on it is worth a visit. */}
+                {m.showcaseCount > 0 && (
+                  <span
+                    className="shrink-0 flex items-center gap-1 text-xs font-mono text-muted"
+                    title={`${m.showcaseCount} on display`}
+                  >
+                    🖼 {m.showcaseCount}
+                  </span>
+                )}
                 {m.badgeCount > 0 && (
                   <span className="shrink-0 flex items-center gap-1 text-xs font-mono text-muted">
                     🏅 {m.badgeCount}

@@ -15,6 +15,14 @@ export default async function MembersPage() {
     supabase.from('user_achievements').select('user_id'),
   ])
 
+  // What each member has on their shelves, so the list can point at a
+  // showcase worth visiting.
+  const { data: showcaseRows } = await supabase.rpc('member_showcase_counts')
+  const onDisplay = new Map<string, number>()
+  for (const r of (showcaseRows as { user_id: string; on_display: number }[] | null) ?? []) {
+    onDisplay.set(r.user_id, r.on_display)
+  }
+
   // Count earned badges per member.
   const badgeCounts = new Map<string, number>()
   for (const row of (earned as { user_id: string }[] | null) ?? []) {
@@ -44,6 +52,7 @@ export default async function MembersPage() {
       nameColor: p.name_color,
       title: p.title,
       badgeCount: badgeCounts.get(p.id) ?? 0,
+      showcaseCount: onDisplay.get(p.id) ?? 0,
     }
   })
 
