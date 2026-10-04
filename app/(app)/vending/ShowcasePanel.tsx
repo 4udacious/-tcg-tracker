@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS } from './ShowcaseRoom'
+import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS, SET_NAMES } from './ShowcaseRoom'
 import ConditionedCard from './ConditionedCard'
 import type { CollectionCard } from './CollectionPanel'
 
@@ -30,6 +30,9 @@ export default function ShowcasePanel({
   const [light, setLight] = useState<Lighting>(initialLighting)
   const [items, setItems] = useState<ShowcaseItem[]>(initialItems)
   const [picking, setPicking] = useState<number | null>(null)
+  // null = every set. Reset each time the picker opens, since the set you
+  // wanted last time says nothing about the slot you are filling now.
+  const [setFilter, setSetFilter] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
@@ -62,6 +65,20 @@ export default function ShowcasePanel({
     return out.sort((a, b) =>
       (b.grade ?? -1) - (a.grade ?? -1) || a.name.localeCompare(b.name))
   }, [collection])
+
+  /** Only the sets this trainer actually owns something from, with counts. */
+  const setTabs = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const c of candidates) counts.set(c.set_code, (counts.get(c.set_code) ?? 0) + 1)
+    return [...counts.entries()]
+      .map(([code, n]) => ({ code, name: SET_NAMES[code] ?? code, n }))
+      .sort((a, b) => a.code.localeCompare(b.code))
+  }, [candidates])
+
+  const shown = useMemo(
+    () => (setFilter ? candidates.filter((c) => c.set_code === setFilter) : candidates),
+    [candidates, setFilter]
+  )
 
   async function saveLighting(next: Lighting) {
     setLight(next)
@@ -121,7 +138,11 @@ export default function ShowcasePanel({
         </p>
       )}
 
-      <ShowcaseRoom items={items} lighting={light} onSlotClick={setPicking} />
+      <ShowcaseRoom
+        items={items}
+        lighting={light}
+        onSlotClick={(slot) => { setPicking(slot); setSetFilter(null) }}
+      />
 
       {/* ── Lighting ── */}
       <div className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
@@ -211,8 +232,41 @@ export default function ShowcasePanel({
                 Nothing to display yet. Open a pack first.
               </p>
             ) : (
+              <>
+                {/* Only worth a tab row once there is more than one set to
+                    choose between. */}
+                {setTabs.length > 1 && (
+                  <div className="flex gap-1.5 mt-3 overflow-x-auto shrink-0 pb-0.5">
+                    <button
+                      onClick={() => setSetFilter(null)}
+                      className={`shrink-0 text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
+                        setFilter === null
+                          ? 'bg-ink text-white'
+                          : 'border border-card-border text-muted hover:text-ink'
+                      }`}
+                      aria-pressed={setFilter === null}
+                    >
+                      All <span className={setFilter === null ? 'text-white/60' : ''}>{candidates.length}</span>
+                    </button>
+                    {setTabs.map((t) => (
+                      <button
+                        key={t.code}
+                        onClick={() => setSetFilter(t.code)}
+                        className={`shrink-0 text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
+                          setFilter === t.code
+                            ? 'bg-ink text-white'
+                            : 'border border-card-border text-muted hover:text-ink'
+                        }`}
+                        aria-pressed={setFilter === t.code}
+                      >
+                        {t.name} <span className={setFilter === t.code ? 'text-white/60' : ''}>{t.n}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
               <ul className="grid grid-cols-4 gap-2 mt-3 overflow-y-auto">
-                {candidates.map((c) => {
+                {shown.map((c) => {
                   const already = placed.has(c.user_card_id)
                   return (
                     <li key={c.user_card_id}>
@@ -241,6 +295,7 @@ export default function ShowcasePanel({
                   )
                 })}
               </ul>
+              </>
             )}
           </div>
         </div>

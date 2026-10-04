@@ -27,7 +27,7 @@ export const SHELVES = 4
 export const PER_SHELF = 3
 export const SLOTS = SHELVES * PER_SHELF
 
-const SET_NAMES: Record<string, string> = {
+export const SET_NAMES: Record<string, string> = {
   base1: 'Base Set', base2: 'Jungle', base3: 'Fossil', base5: 'Team Rocket',
 }
 
