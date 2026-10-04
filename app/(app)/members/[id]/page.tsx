@@ -123,20 +123,28 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         {badges.length === 0 ? (
           <p className="text-sm text-muted">No achievements earned yet.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {badges.map((b) => (
-              <div key={b.id} className="bg-card border border-card-border rounded-2xl p-3 flex flex-col items-center text-center gap-2">
-                {b.icon ? (
-                  <img src={`/badges/${b.icon.file}`} alt={b.icon.label} className="w-14 h-14 object-contain" />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-signal/10 flex items-center justify-center text-signal text-2xl">🏅</div>
-                )}
-                <div className="space-y-0.5">
-                  <p className="font-semibold text-xs">{b.name}</p>
-                  <p className="text-[10px] text-muted leading-snug">{b.description}</p>
+          /* Icons only, four across. The names and descriptions were taking
+             six rows to say what the sprites already say, and a trainer's
+             badge case reads better as a case than as a list. The name rides
+             along in alt and title so it is still reachable. */
+          <div className="bg-card border border-card-border rounded-2xl p-4">
+            <div className="grid grid-cols-4 gap-x-3 gap-y-4 justify-items-center">
+              {badges.map((b) => (
+                <div key={b.id} title={b.description ? `${b.name} — ${b.description}` : b.name}>
+                  {b.icon ? (
+                    <img
+                      src={`/badges/${b.icon.file}`}
+                      alt={b.name}
+                      className="w-12 h-12 object-contain"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-signal/10 flex items-center justify-center text-signal text-xl">
+                      🏅
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </section>
