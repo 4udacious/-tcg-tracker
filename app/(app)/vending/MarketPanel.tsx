@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ConditionedCard from './ConditionedCard'
 import HoloMark, { rarityLabel } from './HoloMark'
+import { SET_NAMES } from './ShowcaseRoom'
 import type { CollectionCard, CardCopy, UnopenedPack } from './CollectionPanel'
 
 export interface MarketListing {
@@ -399,6 +400,11 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   const [chosenPacks, setChosenPacks] = useState<Set<number>>(new Set())
   const [kind, setKind] = useState<'fixed' | 'auction'>('fixed')
   const [price, setPrice] = useState('10')
+  // null = everything. 'sealed' = unopened packs. Otherwise a set code.
+  const [filter, setFilter] = useState<string | null>(null)
+  // One price for the lot, or a price each.
+  const [split, setSplit] = useState(false)
+  const [prices, setPrices] = useState<Record<string, string>>({})
   const [hours, setHours] = useState(24)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -416,9 +422,54 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
       || a.card.name.localeCompare(b.card.name))
   }, [collection])
 
+  /** Tabs over what the seller actually owns, sealed packs included. */
+  const tabs = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const { card } of copies) counts.set(card.set_code, (counts.get(card.set_code) ?? 0) + 1)
+    const sets = [...counts.entries()]
+      .map(([code, n]) => ({ code, label: SET_NAMES[code] ?? code, n }))
+      .sort((a, b) => a.code.localeCompare(b.code))
+    return packs.length > 0
+      ? [{ code: 'sealed', label: 'Sealed', n: packs.length }, ...sets]
+      : sets
+  }, [copies, packs])
+
+  const shownCopies = useMemo(
+    () => (filter === null ? copies
+      : filter === 'sealed' ? []
+      : copies.filter((c) => c.card.set_code === filter)),
+    [copies, filter]
+  )
+  const shownPacks = useMemo(
+    () => (filter === null || filter === 'sealed' ? packs : []),
+    [packs, filter]
+  )
+
   const total = cards.size + chosenPacks.size
   const n = Number(price)
   const takeHome = Math.ceil(n * (1 - feePercent / 100))
+
+  /** Everything picked, in the order it will be listed. */
+  const picked = useMemo(() => {
+    const out: { key: string; label: string; cardId?: number; packId?: number }[] = []
+    for (const { card, copy } of copies) {
+      if (cards.has(copy.id)) {
+        out.push({
+          key: `c${copy.id}`,
+          label: card.name + (copy.graded_at && copy.grade != null ? ` · ${copy.grade}` : ''),
+          cardId: copy.id,
+        })
+      }
+    }
+    for (const p of packs) {
+      if (chosenPacks.has(p.id)) {
+        out.push({ key: `p${p.id}`, label: `${p.set_name} pack`, packId: p.id })
+      }
+    }
+    return out
+  }, [copies, packs, cards, chosenPacks])
+
+  const priceFor = (key: string) => prices[key] ?? price
 
   function toggle<T>(set: Set<T>, v: T, apply: (s: Set<T>) => void) {
     const next = new Set(set)
@@ -426,29 +477,65 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     apply(next)
   }
 
-  async function submit() {
-    setBusy(true)
-    const supabase = createClient()
+  const reasonText = (reason?: string) =>
+    reason === 'bad_cards' ? 'One of those cards is no longer available.'
+    : reason === 'bad_packs' ? 'One of those packs is no longer available.'
+    : reason === 'empty_listing' ? 'Pick at least one thing to sell.'
+    : reason === 'bad_price' ? 'Every price has to be at least 1 token.'
+    : 'Could not create that listing.'
+
+  async function createOne(
+    supabase: ReturnType<typeof createClient>,
+    price: number, cardIds: number[], packIds: number[]
+  ) {
     const { data, error } = await supabase.rpc('market_create_listing', {
       p_kind: kind,
-      p_price: n,
-      p_card_ids: [...cards],
-      p_pack_ids: [...chosenPacks],
+      p_price: price,
+      p_card_ids: cardIds,
+      p_pack_ids: packIds,
       p_hours: kind === 'auction' ? hours : null,
       p_note: note.trim() || null,
     })
-    setBusy(false)
     const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; reason: string } | null
-    if (error || !row?.ok) {
-      onError(
-        row?.reason === 'bad_cards' ? 'One of those cards is no longer available.'
-        : row?.reason === 'bad_packs' ? 'One of those packs is no longer available.'
-        : row?.reason === 'empty_listing' ? 'Pick at least one thing to sell.'
-        : 'Could not create that listing.'
-      )
+    return { ok: !error && !!row?.ok, reason: row?.reason }
+  }
+
+  async function submit() {
+    setBusy(true)
+    const supabase = createClient()
+
+    if (!split) {
+      const r = await createOne(supabase, n, [...cards], [...chosenPacks])
+      setBusy(false)
+      if (!r.ok) { onError(reasonText(r.reason)); return }
+      onDone()
       return
     }
-    onDone()
+
+    // Separate listings go up one at a time. There is no bulk call, so a
+    // failure part-way leaves the earlier ones standing rather than rolling
+    // back - better to say how many went up than to pretend it was atomic.
+    let made = 0
+    let firstFailure: string | undefined
+    for (const item of picked) {
+      const each = Number(priceFor(item.key))
+      if (!Number.isInteger(each) || each < 1) { firstFailure = 'bad_price'; break }
+      const r = await createOne(
+        supabase, each,
+        item.cardId ? [item.cardId] : [],
+        item.packId ? [item.packId] : []
+      )
+      if (!r.ok) { firstFailure = r.reason; break }
+      made += 1
+    }
+    setBusy(false)
+
+    if (firstFailure) {
+      onError(made > 0
+        ? `Listed ${made} of ${picked.length}. ${reasonText(firstFailure)}`
+        : reasonText(firstFailure))
+    }
+    if (made > 0) onDone()
   }
 
   return (
@@ -469,8 +556,38 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             {copies.length === 0 && packs.length === 0 ? (
               <p className="text-sm text-muted">Nothing to sell yet.</p>
             ) : (
+              <>
+              {tabs.length > 1 && (
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                  <button
+                    onClick={() => setFilter(null)}
+                    className={`shrink-0 text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
+                      filter === null ? 'bg-ink text-white'
+                        : 'border border-card-border text-muted hover:text-ink'
+                    }`}
+                    aria-pressed={filter === null}
+                  >
+                    All <span className={filter === null ? 'text-white/60' : ''}>
+                      {copies.length + packs.length}
+                    </span>
+                  </button>
+                  {tabs.map((t) => (
+                    <button
+                      key={t.code}
+                      onClick={() => setFilter(t.code)}
+                      className={`shrink-0 text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
+                        filter === t.code ? 'bg-ink text-white'
+                          : 'border border-card-border text-muted hover:text-ink'
+                      }`}
+                      aria-pressed={filter === t.code}
+                    >
+                      {t.label} <span className={filter === t.code ? 'text-white/60' : ''}>{t.n}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <ul className="grid grid-cols-4 gap-2">
-                {copies.map(({ card, copy }) => {
+                {shownCopies.map(({ card, copy }) => {
                   const on = cards.has(copy.id)
                   return (
                     <li key={copy.id}>
@@ -498,7 +615,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                     </li>
                   )
                 })}
-                {packs.map((p) => {
+                {shownPacks.map((p) => {
                   const on = chosenPacks.has(p.id)
                   return (
                     <li key={`p${p.id}`}>
@@ -519,6 +636,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                   )
                 })}
               </ul>
+              </>
             )}
           </div>
 
@@ -536,21 +654,70 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             ))}
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-ink">
-              {kind === 'auction' ? 'Opening bid' : 'Price'}
-            </label>
-            <input
-              type="number" min={1} value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
-            />
-            {n > 0 && (
+          {/* Only a choice once there is more than one thing in the basket. */}
+          {total > 1 && (
+            <div className="flex gap-1.5">
+              {([[false, 'One bundle'], [true, 'Price each']] as const).map(([v, label]) => (
+                <button
+                  key={label} onClick={() => setSplit(v)}
+                  className={`flex-1 text-xs font-medium rounded-lg px-2 py-2 transition-colors ${
+                    split === v ? 'bg-ink text-white'
+                      : 'border border-card-border text-muted hover:text-ink'
+                  }`}
+                  aria-pressed={split === v}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {split && total > 1 ? (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-ink">
+                {kind === 'auction' ? 'Opening bid each' : 'Price each'}
+              </label>
+              <ul className="space-y-1.5">
+                {picked.map((item) => {
+                  const each = Number(priceFor(item.key))
+                  return (
+                    <li key={item.key} className="flex items-center gap-2">
+                      <span className="flex-1 text-sm truncate">{item.label}</span>
+                      <input
+                        type="number" min={1} value={priceFor(item.key)}
+                        onChange={(e) => setPrices((p) => ({ ...p, [item.key]: e.target.value }))}
+                        aria-label={`Price for ${item.label}`}
+                        className="w-20 bg-paper border border-card-border rounded-lg px-2 py-1.5 text-sm text-right outline-none focus:border-signal"
+                      />
+                      <span className="w-16 text-right font-mono text-[10px] text-muted">
+                        {each >= 1 ? `keep ${Math.ceil(each * (1 - feePercent / 100))}` : '—'}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
               <p className="text-[11px] text-muted">
-                You keep {takeHome} after the {feePercent}% market fee.
+                {picked.length} separate listings. Each sells on its own.
               </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-ink">
+                {kind === 'auction' ? 'Opening bid' : 'Price'}
+                {total > 1 && <span className="text-muted"> for all {total}</span>}
+              </label>
+              <input
+                type="number" min={1} value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
+              />
+              {n > 0 && (
+                <p className="text-[11px] text-muted">
+                  You keep {takeHome} after the {feePercent}% market fee.
+                </p>
+              )}
+            </div>
+          )}
 
           {kind === 'auction' && (
             <div className="space-y-1.5">
@@ -588,6 +755,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
         >
           {busy ? 'Listing…'
             : total === 0 ? 'Pick something to sell'
+            : split && total > 1 ? `Put up ${picked.length} listings`
             : kind === 'auction' ? `Start the auction at ${n}` : `List for ${n}`}
         </button>
         <p className="shrink-0 text-[11px] text-muted leading-snug">
