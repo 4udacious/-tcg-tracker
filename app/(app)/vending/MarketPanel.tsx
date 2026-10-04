@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import ConditionedCard from './ConditionedCard'
 import HoloMark, { rarityLabel } from './HoloMark'
 import { SET_NAMES } from './ShowcaseRoom'
+import { num, fmt, money, takeHome, CENT } from './tokens'
 import type { CollectionCard, CardCopy, UnopenedPack } from './CollectionPanel'
 
 export interface MarketListing {
@@ -51,7 +52,7 @@ function timeLeft(iso: string): string {
 
 /** What a buyer actually pays for an auction: the next legal bid. */
 function minBid(l: MarketListing): number {
-  return l.current_bid == null ? l.price : l.current_bid + 1
+  return l.current_bid == null ? num(l.price) : money(num(l.current_bid) + CENT)
 }
 
 export default function MarketPanel({
@@ -140,7 +141,7 @@ export default function MarketPanel({
     <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display font-semibold text-base">Market</h2>
-        <span className="font-mono text-[10px] text-muted">{balance} tokens</span>
+        <span className="font-mono text-[10px] text-muted">{fmt(balance)} tokens</span>
       </div>
 
       {note && (
@@ -264,7 +265,7 @@ function ListingTile({ listing: l, mine, onOpen }: {
 
       <div className="flex items-baseline justify-between gap-1">
         <span className="font-display font-bold text-sm">
-          {l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price}
+          {fmt(l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price)}
           <span className="font-mono text-[9px] text-muted font-normal"> tokens</span>
         </span>
         {l.kind === 'auction' && live && l.ends_at && (
@@ -291,10 +292,10 @@ function ListingDetail({
   listing: MarketListing; mine: boolean; busy: boolean; balance: number; feePercent: number
   onClose: () => void; onBuy: () => void; onBid: (n: number) => void; onCancel: () => void
 }) {
-  const [amount, setAmount] = useState(String(minBid(l)))
+  const [amount, setAmount] = useState(fmt(minBid(l)))
   const live = l.status === 'active'
   const n = Number(amount)
-  const takeHome = Math.ceil((l.current_bid ?? l.price) * (1 - feePercent / 100))
+  const keep = takeHome(num(l.current_bid ?? l.price), feePercent)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
@@ -329,9 +330,9 @@ function ListingDetail({
             <p className="text-sm text-muted">
               {l.kind === 'auction'
                 ? l.current_bid == null
-                  ? `No bids yet. Opening at ${l.price}.`
-                  : `Leading bid ${l.current_bid}. You would take home about ${takeHome}.`
-                : `Listed at ${l.price}. You would take home ${takeHome} after the ${feePercent}% fee.`}
+                  ? `No bids yet. Opening at ${fmt(l.price)}.`
+                  : `Leading bid ${fmt(l.current_bid)}. You would take home about ${fmt(keep)}.`
+                : `Listed at ${fmt(l.price)}. You would take home ${fmt(keep)} after the ${feePercent}% fee.`}
             </p>
             {/* An auction with a live bid cannot be pulled, so the button
                 says so rather than failing when tapped. Without a bid it is
@@ -361,15 +362,17 @@ function ListingDetail({
           </div>
         ) : l.kind === 'fixed' ? (
           <button
-            onClick={onBuy} disabled={busy || balance < l.price}
+            onClick={onBuy} disabled={busy || num(balance) < num(l.price)}
             className="w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
           >
-            {busy ? 'Buying…' : balance < l.price ? `Need ${l.price - balance} more tokens` : `Buy for ${l.price}`}
+            {busy ? 'Buying…'
+              : num(balance) < num(l.price) ? `Need ${fmt(money(num(l.price) - num(balance)))} more tokens`
+              : `Buy for ${fmt(l.price)}`}
           </button>
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-muted">
-              {l.current_bid == null ? `Opening bid ${l.price}.` : `Leading bid ${l.current_bid}.`}
+              {l.current_bid == null ? `Opening bid ${l.price}.` : `Leading bid ${fmt(l.current_bid)}.`}
               {l.ends_at && ` Ends in ${timeLeft(l.ends_at)}.`}
             </p>
             {l.is_leading ? (
@@ -377,20 +380,20 @@ function ListingDetail({
             ) : (
               <>
                 <input
-                  type="number" min={minBid(l)} value={amount}
+                  type="number" min={minBid(l)} step="0.01" value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
                 />
                 <button
                   onClick={() => onBid(n)}
-                  disabled={busy || !Number.isInteger(n) || n < minBid(l) || n > balance}
+                  disabled={busy || !(n >= minBid(l)) || n > num(balance)}
                   className="w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
                 >
-                  {busy ? 'Bidding…' : `Bid ${Number.isFinite(n) ? n : ''}`}
+                  {busy ? 'Bidding…' : `Bid ${Number.isFinite(n) ? fmt(n) : ''}`}
                 </button>
                 <p className="text-[11px] text-muted leading-snug">
                   Your bid is held until someone outbids you or the auction ends.
-                  Minimum {minBid(l)}.
+                  Minimum {fmt(minBid(l))}.
                 </p>
               </>
             )}
@@ -465,7 +468,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
 
   const total = cards.size + chosenPacks.size
   const n = Number(price)
-  const takeHome = Math.ceil(n * (1 - feePercent / 100))
+  const keep = takeHome(n, feePercent)
 
   /** Everything picked, in the order it will be listed. */
   const picked = useMemo(() => {
@@ -536,8 +539,8 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     let made = 0
     let firstFailure: string | undefined
     for (const item of picked) {
-      const each = Number(priceFor(item.key))
-      if (!Number.isInteger(each) || each < 1) { firstFailure = 'bad_price'; break }
+      const each = money(Number(priceFor(item.key)))
+      if (!(each >= CENT)) { firstFailure = 'bad_price'; break }
       const r = await createOne(
         supabase, each,
         item.cardId ? [item.cardId] : [],
@@ -731,18 +734,18 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
               </label>
               <ul className="space-y-1.5">
                 {picked.map((item) => {
-                  const each = Number(priceFor(item.key))
+                  const each = money(Number(priceFor(item.key)))
                   return (
                     <li key={item.key} className="flex items-center gap-2">
                       <span className="flex-1 text-sm truncate">{item.label}</span>
                       <input
-                        type="number" min={1} value={priceFor(item.key)}
+                        type="number" min={CENT} step="0.01" value={priceFor(item.key)}
                         onChange={(e) => setPrices((p) => ({ ...p, [item.key]: e.target.value }))}
                         aria-label={`Price for ${item.label}`}
                         className="w-20 bg-paper border border-card-border rounded-lg px-2 py-1.5 text-sm text-right outline-none focus:border-signal"
                       />
                       <span className="w-16 text-right font-mono text-[10px] text-muted">
-                        {each >= 1 ? `keep ${Math.ceil(each * (1 - feePercent / 100))}` : '—'}
+                        {each >= CENT ? `keep ${fmt(takeHome(each, feePercent))}` : '—'}
                       </span>
                     </li>
                   )
@@ -759,13 +762,13 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                 {total > 1 && <span className="text-muted"> for all {total}</span>}
               </label>
               <input
-                type="number" min={1} value={price}
+                type="number" min={CENT} step="0.01" value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
               />
               {n > 0 && (
                 <p className="text-[11px] text-muted">
-                  You keep {takeHome} after the {feePercent}% market fee.
+                  You keep {fmt(keep)} after the {feePercent}% market fee.
                 </p>
               )}
             </div>
@@ -806,7 +809,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
           onClick={step === 'pick' ? () => setStep('price') : submit}
           disabled={
             busy || total === 0 ||
-            (step === 'price' && !split && (!Number.isInteger(n) || n < 1))
+            (step === 'price' && !split && !(n >= CENT))
           }
           className="shrink-0 w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
         >
@@ -814,7 +817,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             : total === 0 ? 'Pick something to sell'
             : step === 'pick' ? `Continue with ${total} item${total === 1 ? '' : 's'}`
             : split && total > 1 ? `Put up ${picked.length} listings`
-            : kind === 'auction' ? `Start the auction at ${n}` : `List for ${n}`}
+            : kind === 'auction' ? `Start the auction at ${fmt(n)}` : `List for ${fmt(n)}`}
         </button>
         <p className="shrink-0 text-[11px] text-muted leading-snug">
           Listed items leave your collection straight away and come back if the

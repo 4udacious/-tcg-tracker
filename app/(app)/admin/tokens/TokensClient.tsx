@@ -124,11 +124,11 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
     if (c !== null && (!Number.isInteger(c) || c < 1)) { showToast('Cap must be a whole number of 1 or more, or blank.', false); return }
     const pr = Number(perReport)
     const ec = Number(earnCap)
-    if (!Number.isInteger(pr) || pr < 0) { showToast('Tokens per report must be a whole number, 0 or more.', false); return }
-    if (!Number.isInteger(ec) || ec < 0) { showToast('Monthly earning cap must be a whole number, 0 or more.', false); return }
+    if (!Number.isFinite(pr) || pr < 0) { showToast('Tokens per report must be 0 or more.', false); return }
+    if (!Number.isFinite(ec) || ec < 0) { showToast('Monthly earning cap must be 0 or more.', false); return }
     const gc = Number(gradeCost)
     const gd = Number(gradeDays)
-    if (!Number.isInteger(gc) || gc < 0) { showToast('Grading cost must be a whole number, 0 or more.', false); return }
+    if (!Number.isFinite(gc) || gc < 0) { showToast('Grading cost must be 0 or more.', false); return }
     if (!Number.isFinite(gd) || gd < 0) { showToast('Grading wait must be 0 days or more.', false); return }
     const mf = Number(marketFee)
     if (!Number.isInteger(mf) || mf < 0 || mf > 50) { showToast('Market fee must be a whole number between 0 and 50.', false); return }
@@ -218,7 +218,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
           <label className="text-sm font-medium text-ink">Monthly allowance</label>
           <p className="text-xs text-muted">Tokens each approved user receives. 1 token = 1 pack.</p>
           <input
-            type="number" min={0} value={allowance}
+            type="number" min={0} step="0.01" value={allowance}
             onChange={(e) => setAllowance(e.target.value)}
             className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal"
           />
@@ -244,7 +244,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
             <div className="flex-1 space-y-1">
               <label className="text-xs font-medium text-muted">Per report</label>
               <input
-                type="number" min={0} value={perReport}
+                type="number" min={0} step="0.01" value={perReport}
                 onChange={(e) => setPerReport(e.target.value)}
                 className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
               />
@@ -252,7 +252,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
             <div className="flex-1 space-y-1">
               <label className="text-xs font-medium text-muted">Monthly cap</label>
               <input
-                type="number" min={0} value={earnCap}
+                type="number" min={0} step="0.01" value={earnCap}
                 onChange={(e) => setEarnCap(e.target.value)}
                 className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
               />
@@ -298,7 +298,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
             <div className="flex-1 space-y-1">
               <label className="text-xs font-medium text-muted">Tokens per card</label>
               <input
-                type="number" min={0} value={gradeCost}
+                type="number" min={0} step="0.01" value={gradeCost}
                 onChange={(e) => setGradeCost(e.target.value)}
                 className="w-full bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
               />

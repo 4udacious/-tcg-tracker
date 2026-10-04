@@ -185,9 +185,9 @@ export default async function VendingPage() {
       initialState={state}
       initialStock={stock ?? []}
       initialTickets={(ticketStock as TicketStockRow[] | null) ?? []}
-      balance={bd?.total ?? 0}
-      allowance={bd?.allowance ?? 0}
-      earned={bd?.earned ?? 0}
+      balance={Number(bd?.total ?? 0)}
+      allowance={Number(bd?.allowance ?? 0)}
+      earned={Number(bd?.earned ?? 0)}
       userId={userId}
       cooldownUntil={me?.vending_cooldown_until ?? null}
       packs={packs}
@@ -195,7 +195,7 @@ export default async function VendingPage() {
       setTotals={setTotals}
       ownedTickets={ownedTickets}
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
-      gradingCost={grading?.cost ?? 3}
+      gradingCost={Number(grading?.cost ?? 3)}
       gradingDays={Number(grading?.days ?? 7)}
       showcaseItems={(showcaseRows as ShowcaseItem[] | null) ?? []}
       showcaseLighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}

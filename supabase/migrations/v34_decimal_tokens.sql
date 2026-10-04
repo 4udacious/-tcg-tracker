@@ -1,0 +1,32 @@
+-- Tokens gain cents.
+--
+-- Applied live as v34..v38. numeric(12,2) rather than counting hundredths in
+-- an integer: Postgres numeric is exact, so there is no float drift, and
+-- every existing whole number stays valid without a data migration. Nothing
+-- is rescaled - a balance of 12 is still 12, it can now also be 12.50.
+--
+-- Percentages stay integers. A fee of 10% is not money.
+--
+-- Widened: token_ledger.delta; market_listings price/current_bid/sold_price/
+-- fee; market_bids amount/from_allowance/from_earned; vending_settings
+-- monthly_allowance/grading_cost/tokens_per_timer_report/
+-- max_earned_tokens_per_month; profiles.monthly_token_allowance;
+-- raffle_tickets.token_price.
+--
+-- Every function holding money in an int local had to be rebuilt, because a
+-- numeric assigned to an int silently truncates. That is not hypothetical:
+-- market_settle_due kept the fee in an int, so an auction settling at 0.51
+-- recorded a fee of 0 even though the right 0.05 had been withheld. The
+-- money was correct, the figure stored against the listing was not.
+--
+-- Rounding: the market fee rounds to the cent and the seller receives the
+-- exact remainder, so buyer paid = seller received + fee burned, always.
+-- Verified at 0.51: fee 0.05, seller 0.46, circulation down 0.05.
+--
+-- The smallest unit anywhere is 0.01: the minimum listing price, and the
+-- minimum auction raise.
+--
+-- This file is a marker. The live DDL spans v34_decimal_tokens_columns,
+-- v35_decimal_tokens_functions, v36_decimal_market_and_checkout,
+-- v37_decimal_checkout and v38_settle_fee_is_numeric; the function bodies
+-- are unchanged from their own migrations apart from the money types.

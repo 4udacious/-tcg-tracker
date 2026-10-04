@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
 import Slab from './Slab'
+import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
 
 export interface UnopenedPack {
@@ -828,7 +829,7 @@ export default function CollectionPanel({
                         disabled={busy}
                         className="rounded-lg border border-white/25 text-white/85 text-sm font-medium px-4 py-2 hover:bg-white/10 transition-colors disabled:opacity-40"
                       >
-                        {busy ? 'Sending…' : `Send for grading · ${gradingCost} token${gradingCost === 1 ? '' : 's'}`}
+                        {busy ? 'Sending…' : `Send for grading · ${fmt(gradingCost)} token${gradingCost === 1 ? '' : 's'}`}
                       </button>
                     )}
 
@@ -933,7 +934,7 @@ export default function CollectionPanel({
 
               <ul className="text-sm text-muted space-y-1.5">
                 <li className="flex gap-2">
-                  <span className="text-ink font-semibold shrink-0">{gradingCost}</span>
+                  <span className="text-ink font-semibold shrink-0">{fmt(gradingCost)}</span>
                   <span>token{gradingCost === 1 ? '' : 's'} charged now, and not refunded.</span>
                 </li>
                 <li className="flex gap-2">

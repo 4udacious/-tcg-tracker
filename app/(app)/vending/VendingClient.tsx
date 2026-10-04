@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal, type OwnedTicket } from './CollectionPanel'
 import ShowcasePanel from './ShowcasePanel'
 import MarketPanel, { type MarketListing } from './MarketPanel'
+import { fmt, num } from './tokens'
 import type { ShowcaseItem, Lighting } from './ShowcaseRoom'
 
 /**
@@ -395,7 +396,7 @@ export default function VendingClient({
       | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; balance: number; restocked: boolean }
       | null
     if (r?.ok) {
-      setTokens(r.balance)
+      setTokens(num(r.balance))
       setCart({})
       setTicketCart({})
       setReceipt({ packs: r.packs_bought, tickets: r.tickets_bought ?? 0, restocked: r.restocked })
@@ -437,7 +438,7 @@ export default function VendingClient({
         <h1 className="font-display font-semibold text-base">Virtual Vending Machine</h1>
         <div className="text-right">
           <div className="flex items-center gap-1.5 bg-card border border-card-border rounded-full px-3 py-1">
-            <span className="font-mono text-sm font-semibold text-signal">{tokens}</span>
+            <span className="font-mono text-sm font-semibold text-signal">{fmt(tokens)}</span>
             <span className="text-xs text-muted">{tokens === 1 ? 'token' : 'tokens'}</span>
           </div>
           {/* Which part is perishable matters now that spending takes the
