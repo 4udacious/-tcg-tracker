@@ -7,6 +7,29 @@ import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS, SET_NAMES } from
 import ConditionedCard from './ConditionedCard'
 import type { CollectionCard } from './CollectionPanel'
 
+/**
+ * Marks a holo or secret rare in a picker grid.
+ *
+ * Jungle, Fossil and Team Rocket each print about sixteen cards twice - once
+ * holo, once not - with the same name and the same artwork. At thumbnail size
+ * the two are identical, so without this there is no way to tell which copy
+ * you are putting on the shelf. Uses the same glyphs as the pull reveal.
+ */
+function HoloMark({ rarity }: { rarity: string }) {
+  if (rarity !== 'H' && rarity !== 'S') return null
+  const secret = rarity === 'S'
+  return (
+    <span
+      className={`pointer-events-none absolute -top-1 -left-1 rounded-full text-[9px] font-bold px-1 py-0.5 shadow leading-none ${
+        secret ? 'bg-fuchsia-500 text-white' : 'bg-amber-400 text-ink'
+      }`}
+      title={secret ? 'Secret rare' : 'Holo rare'}
+    >
+      {secret ? '★' : '✦'}
+    </span>
+  )
+}
+
 const SHELF_OPTIONS: { value: string; label: string }[] = [
   { value: 'oak', label: 'Oak' },
   { value: 'walnut', label: 'Walnut' },
@@ -274,12 +297,20 @@ export default function ShowcasePanel({
                         onClick={() => place(picking, c)}
                         disabled={busy}
                         className="block w-full relative rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal disabled:opacity-40"
-                        aria-label={`Put ${c.name} in slot ${picking + 1}`}
+                        // The badge is no help to a screen reader, which would
+                        // otherwise hear two identical "Put Haunter" buttons.
+                        aria-label={
+                          `Put ${c.name}` +
+                          (c.rarity === 'S' ? ', secret rare' : c.rarity === 'H' ? ', holo' : '') +
+                          (c.grade != null ? `, graded ${c.grade}` : '') +
+                          `, in slot ${picking + 1}`
+                        }
                       >
                         <ConditionedCard
                           src={c.image_url} alt={c.name} condition={c} rarity={c.rarity}
                           className={`w-full aspect-[245/342] rounded ${already ? 'opacity-45' : ''}`}
                         />
+                        <HoloMark rarity={c.rarity} />
                         {c.grade != null && (
                           <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
                             {c.grade}
