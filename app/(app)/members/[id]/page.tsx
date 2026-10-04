@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import ShowcaseRoom, { type ShowcaseItem } from '../../vending/ShowcaseRoom'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,14 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+
+  const [{ data: showcaseRows }, { data: showcaseCfgRow }] = await Promise.all([
+    supabase.rpc('get_showcase', { p_user: id }),
+    supabase.from('showcase_settings')
+      .select('warmth, brightness, shelf').eq('user_id', id).maybeSingle(),
+  ])
+  const showcase = (showcaseRows as ShowcaseItem[] | null) ?? []
+  const showcaseCfg = showcaseCfgRow
 
   const [{ data: profile }, { data: earned }, { data: interests }] = await Promise.all([
     supabase
@@ -160,6 +169,17 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           </div>
         )}
       </section>
+
+      {/* Their display room. Read-only: arrangement and lighting are theirs. */}
+      {showcase.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display font-semibold text-base">Showcase</h2>
+          <ShowcaseRoom
+            items={showcase}
+            lighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}
+          />
+        </section>
+      )}
     </div>
   )
 }

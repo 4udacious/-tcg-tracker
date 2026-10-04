@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import VendingClient, { type RecentBuy, type TicketStockRow } from './VendingClient'
 import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket } from './CollectionPanel'
+import type { ShowcaseItem } from './ShowcaseRoom'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,12 @@ export default async function VendingPage() {
     { total: number; allowance: number; earned: number } | null
 
   const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
+
+  const [{ data: showcaseRows }, { data: showcaseCfg }] = await Promise.all([
+    supabase.rpc('get_showcase', { p_user: userId }),
+    supabase.from('showcase_settings')
+      .select('warmth, brightness, shelf').eq('user_id', userId).maybeSingle(),
+  ])
 
   const { data: gradingRows } = await supabase.rpc('grading_settings')
   const grading = (Array.isArray(gradingRows) ? gradingRows[0] : gradingRows) as
@@ -182,6 +189,8 @@ export default async function VendingPage() {
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
       gradingCost={grading?.cost ?? 3}
       gradingDays={Number(grading?.days ?? 7)}
+      showcaseItems={(showcaseRows as ShowcaseItem[] | null) ?? []}
+      showcaseLighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}
     />
   )
 }

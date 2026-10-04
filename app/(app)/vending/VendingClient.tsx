@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal, type OwnedTicket } from './CollectionPanel'
+import ShowcasePanel from './ShowcasePanel'
+import type { ShowcaseItem, Lighting } from './ShowcaseRoom'
 
 /**
  * Colours inside the machine screen are deliberately fixed rather than theme
@@ -124,6 +126,8 @@ interface Props {
   recentBuys: RecentBuy[]
   gradingCost: number
   gradingDays: number
+  showcaseItems: ShowcaseItem[]
+  showcaseLighting: Lighting
 }
 
 function mmss(total: number): string {
@@ -143,11 +147,12 @@ function untilLabel(iso: string): string {
 export default function VendingClient({
   initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
   packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays,
+  showcaseItems, showcaseLighting,
 }: Props) {
   const [split, setSplit] = useState({ allowance, earned })
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [view, setView] = useState<'machine' | 'collection'>('machine')
+  const [view, setView] = useState<'machine' | 'collection' | 'showcase'>('machine')
   const [buys, setBuys] = useState<RecentBuy[]>(recentBuys)
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
@@ -440,7 +445,7 @@ export default function VendingClient({
       </div>
 
       <div className="flex gap-1">
-        {(['machine', 'collection'] as const).map((v) => (
+        {(['machine', 'collection', 'showcase'] as const).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -458,7 +463,10 @@ export default function VendingClient({
         ))}
       </div>
 
-      {view === 'collection' ? (
+      {view === 'showcase' ? (
+        <ShowcasePanel initialItems={showcaseItems} initialLighting={showcaseLighting}
+          collection={collection} />
+      ) : view === 'collection' ? (
         <CollectionPanel packs={packs} collection={collection} setTotals={setTotals}
           tickets={ownedTickets} gradingCost={gradingCost} gradingDays={gradingDays} />
       ) : (
