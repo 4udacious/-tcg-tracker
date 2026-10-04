@@ -46,9 +46,24 @@ export default function Slab({
     <div
       className={`relative aspect-[100/161] rounded-[6%] overflow-hidden select-none ${className}`}
       style={{
-        // Acrylic: a cool cast with the light coming from the top left.
-        background: 'linear-gradient(145deg, #eef2f6 0%, #dde3ea 38%, #e8edf2 68%, #cfd6de 100%)',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.75), 0 2px 10px rgba(15,23,42,0.35)',
+        // Clear acrylic: barely any body of its own, so whatever sits behind
+        // the slab shows through the plastic around the card. What makes it
+        // read as a case is the edge - a bright rim where light catches the
+        // bevel, a darker outer line, and the drop shadow lifting it off the
+        // shelf - rather than any fill.
+        background:
+          'linear-gradient(145deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 38%, ' +
+          'rgba(255,255,255,0.12) 68%, rgba(255,255,255,0.03) 100%)',
+        // Slate rather than pure white or black, so the rim holds up on both
+        // the light shelf and the dark overlay.
+        boxShadow:
+          'inset 0 0 0 1px rgba(255,255,255,0.55), ' +
+          'inset 0 1.5px 0 rgba(255,255,255,0.7), ' +
+          'inset 0 -1px 0 rgba(255,255,255,0.3), ' +
+          '0 0 0 1px rgba(100,116,139,0.35), ' +
+          '0 6px 18px rgba(15,23,42,0.3)',
+        backdropFilter: 'blur(1.5px) saturate(1.06)',
+        WebkitBackdropFilter: 'blur(1.5px) saturate(1.06)',
         // The label text sizes off the slab's own width, so one component
         // serves both the shelf thumbnail and the enlarged view.
         containerType: 'inline-size',
@@ -98,7 +113,10 @@ export default function Slab({
         <div className="flex-1 min-h-0 flex items-center justify-center">
           <div
             className="h-full aspect-[245/342] rounded-[2%] overflow-hidden"
-            style={{ boxShadow: '0 0 0 1px rgba(15,23,42,0.1), 0 1px 4px rgba(15,23,42,0.22)' }}
+            // A touch more shadow than before: with the case now clear, this
+            // is what tells you the card is suspended behind plastic rather
+            // than lying on top of it.
+            style={{ boxShadow: '0 0 0 1px rgba(15,23,42,0.14), 0 2px 7px rgba(15,23,42,0.3)' }}
           >
             <ConditionedCard
               src={src} alt={alt} condition={condition} detail="full"
