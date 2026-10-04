@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import InterestTracker from './InterestTracker'
+import InterestReward, { type RewardStatus } from './InterestReward'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,14 +122,20 @@ export default async function InterestPage() {
       rows: v.rows.sort((a, b) => b.count - a.count),
     }))
 
+  const { data: rewardRows } = await supabase.rpc('interest_reward_status')
+  const reward = (Array.isArray(rewardRows) ? rewardRows[0] : rewardRows) as RewardStatus | null
+
   return (
-    <InterestTracker
+    <>
+      {reward && <div className="mb-4"><InterestReward status={reward} /></div>}
+      <InterestTracker
       sets={sets ?? []}
       myInterests={myInterests ?? []}
       peopleList={peopleList}
       interestsByPerson={interestsByPerson}
       interestBoard={interestBoard}
       userId={user!.id}
-    />
+      />
+    </>
   )
 }

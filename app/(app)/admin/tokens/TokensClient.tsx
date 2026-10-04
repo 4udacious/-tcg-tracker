@@ -14,6 +14,7 @@ interface Settings {
   grading_cost: number
   grading_days: number
   market_fee_percent: number
+  interest_reward_tokens: number
 }
 
 /** Presets for the post-purchase cooldown, in hours. */
@@ -92,6 +93,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
   const [gradeCost, setGradeCost] = useState(String(settings.grading_cost ?? 3))
   const [gradeDays, setGradeDays] = useState(String(settings.grading_days ?? 7))
   const [marketFee, setMarketFee] = useState(String(settings.market_fee_percent ?? 10))
+  const [interestReward, setInterestReward] = useState(String(settings.interest_reward_tokens ?? 15))
 
   const [search, setSearch] = useState('')
   const [adjusting, setAdjusting] = useState<string | null>(null)
@@ -132,6 +134,8 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
     if (!Number.isFinite(gd) || gd < 0) { showToast('Grading wait must be 0 days or more.', false); return }
     const mf = Number(marketFee)
     if (!Number.isInteger(mf) || mf < 0 || mf > 50) { showToast('Market fee must be a whole number between 0 and 50.', false); return }
+    const ir = Number(interestReward)
+    if (!Number.isFinite(ir) || ir < 0) { showToast('Interest reward must be 0 or more.', false); return }
     setBusy(true)
     const supabase = createClient()
     const { error } = await supabase.rpc('update_vending_settings', {
@@ -144,6 +148,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
       p_grading_cost: gc,
       p_grading_days: gd,
       p_market_fee_percent: mf,
+      p_interest_reward_tokens: ir,
     })
     setBusy(false)
     if (error) { showToast('Failed to save settings.', false); return }
@@ -264,6 +269,24 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
               {Math.ceil(Number(earnCap) / Number(perReport)) === 1 ? '' : 's'} to reach the cap.
             </p>
           )}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-ink">Interest check reward</label>
+          <p className="text-xs text-muted">
+            Paid once a fortnight - periods run the 1st to the 14th, then the 15th to the end
+            of the month - to any member who has added or refreshed something on their interest
+            list in that window. They collect it themselves from the Interest tab. Set to 0 to
+            turn it off.
+          </p>
+          <div className="flex items-center gap-2 pt-0.5">
+            <input
+              type="number" min={0} step="0.01" value={interestReward}
+              onChange={(e) => setInterestReward(e.target.value)}
+              className="w-24 bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+            />
+            <span className="text-sm text-muted">tokens per fortnight</span>
+          </div>
         </div>
 
         <div className="space-y-1">
