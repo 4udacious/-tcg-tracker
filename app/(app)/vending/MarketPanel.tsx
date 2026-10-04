@@ -587,6 +587,9 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                 </div>
               )}
               <ul className="grid grid-cols-4 gap-2">
+                {/* Selected cards get a white ring with a dark halo: the
+                    white reads against the card's yellow border, the halo
+                    reads against the sheet behind it in either theme. */}
                 {shownCopies.map(({ card, copy }) => {
                   const on = cards.has(copy.id)
                   return (
@@ -594,7 +597,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                       <button
                         onClick={() => toggle(cards, copy.id, setCards)}
                         className={`relative block w-full rounded transition-all ${
-                          on ? 'ring-2 ring-signal scale-95' : ''
+                          on ? 'ring-2 ring-white scale-95 shadow-[0_0_0_4px_rgba(15,23,42,0.45)]' : ''
                         }`}
                         aria-pressed={on}
                         aria-label={`${on ? 'Remove' : 'Add'} ${card.name}` + rarityLabel(card.rarity)
@@ -622,7 +625,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                       <button
                         onClick={() => toggle(chosenPacks, p.id, setChosenPacks)}
                         className={`relative block w-full rounded transition-all ${
-                          on ? 'ring-2 ring-signal scale-95' : ''
+                          on ? 'ring-2 ring-white scale-95 shadow-[0_0_0_4px_rgba(15,23,42,0.45)]' : ''
                         }`}
                         aria-pressed={on}
                         aria-label={`${on ? 'Remove' : 'Add'} sealed ${p.set_name} pack`}
