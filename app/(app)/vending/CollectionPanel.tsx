@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
 import Slab from './Slab'
+import HoloMark, { rarityLabel } from './HoloMark'
 
 export interface UnopenedPack {
   id: number
@@ -623,8 +624,8 @@ export default function CollectionPanel({
                           disabled={c.raw.length === 0}
                           className="block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-default"
                           aria-label={c.raw.length === 0
-                            ? `${c.name}, in the vault`
-                            : `Enlarge ${c.name}`}
+                            ? `${c.name}${rarityLabel(c.rarity)}, in the vault`
+                            : `Enlarge ${c.name}${rarityLabel(c.rarity)}`}
                         >
                           {c.raw.length > 0 ? (
                             /* The first copy stands in for the stack, so the
@@ -653,6 +654,10 @@ export default function CollectionPanel({
                             </div>
                           )}
                         </button>
+                        {/* Also on an "in vault" slot: that placeholder shows
+                            no art and no name, so holo and plain prints of the
+                            same card would otherwise be identical boxes. */}
+                        <HoloMark rarity={c.rarity} />
                         {c.raw.length > 1 && (
                           <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
                             ×{c.raw.length}

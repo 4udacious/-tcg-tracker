@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ConditionedCard from './ConditionedCard'
+import HoloMark, { rarityLabel } from './HoloMark'
 import type { CollectionCard, CardCopy, UnopenedPack } from './CollectionPanel'
 
 export interface MarketListing {
@@ -479,13 +480,15 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                           on ? 'ring-2 ring-signal scale-95' : ''
                         }`}
                         aria-pressed={on}
-                        aria-label={`${on ? 'Remove' : 'Add'} ${card.name}`}
+                        aria-label={`${on ? 'Remove' : 'Add'} ${card.name}` + rarityLabel(card.rarity)
+                          + (copy.graded_at && copy.grade != null ? `, graded ${copy.grade}` : '')}
                       >
                         <ConditionedCard
                           src={card.image_url} alt={card.name} condition={copy}
                           rarity={card.rarity}
                           className="w-full aspect-[245/342] rounded"
                         />
+                        <HoloMark rarity={card.rarity} />
                         {copy.grade != null && copy.graded_at && (
                           <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1 shadow">
                             {copy.grade}
