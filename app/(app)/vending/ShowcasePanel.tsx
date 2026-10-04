@@ -251,12 +251,12 @@ export default function ShowcasePanel({
       {/* ── Picker ── */}
       {picking !== null && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
           onClick={() => setPicking(null)}
           role="dialog" aria-modal="true" aria-label="Choose a card for this slot"
         >
           <div
-            className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 max-h-[80vh] flex flex-col"
+            className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 max-h-[80vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-baseline justify-between gap-2 shrink-0">

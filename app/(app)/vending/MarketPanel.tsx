@@ -319,11 +319,11 @@ function ListingDetail({
   const keep = takeHome(num(l.current_bid ?? l.price), feePercent)
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
          onClick={onClose} role="dialog" aria-modal="true" aria-label="Listing">
-      <div className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[85vh] overflow-y-auto"
+      <div className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
            onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 p-4 pb-2 shrink-0">
           <div className="min-w-0">
             <h3 className="font-display font-semibold text-base truncate">
               {l.preview_name ?? 'Bundle'}
@@ -338,6 +338,7 @@ function ListingDetail({
           <button onClick={onClose} className="text-xs text-muted hover:text-ink shrink-0">Close</button>
         </div>
 
+        <div className="px-4 overflow-y-auto min-h-0 flex-1 space-y-3">
         {/* The actual goods, with their condition, not a flat thumbnail.
             Nobody should bid on a card they cannot look at properly. */}
         {items === null ? (
@@ -384,7 +385,9 @@ function ListingDetail({
         )}
 
         {l.note && <p className="text-sm text-muted leading-snug">{l.note}</p>}
+        </div>
 
+        <div className="shrink-0 border-t border-card-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] space-y-2">
         {!live ? (
           <p className="text-sm text-muted">This listing is {l.status}.</p>
         ) : mine ? (
@@ -461,13 +464,14 @@ function ListingDetail({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Enlarged, over the sheet. A graded card shows its numbers because
           grading is what unseals them; a raw one shows only the card. */}
       {zoom && (
         <div
-          className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 gap-3"
+          className="fixed inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-4 gap-3"
           onClick={(e) => { e.stopPropagation(); setZoom(null) }}
           role="dialog" aria-modal="true" aria-label={`${zoom.name}, enlarged`}
         >
@@ -667,9 +671,9 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
          onClick={onClose} role="dialog" aria-modal="true" aria-label="New listing">
-      <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[88vh] flex flex-col"
+      <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[88vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
