@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import ConditionedCard from './ConditionedCard'
+import ConditionedCard, { type Condition } from './ConditionedCard'
+import Slab from './Slab'
 import HoloMark, { rarityLabel } from './HoloMark'
 import { SET_NAMES } from './ShowcaseRoom'
 import { num, fmt, money, takeHome, CENT } from './tokens'
@@ -29,6 +30,16 @@ export interface MarketListing {
   preview_name: string | null
   preview_grade: number | null
   bid_count: number
+}
+
+interface ListingItem extends Condition {
+  item_kind: 'card' | 'pack'
+  name: string
+  number: string | null
+  rarity: string | null
+  image_url: string
+  set_code: string
+  grade: number | null
 }
 
 const AUCTION_HOURS = [
@@ -293,7 +304,17 @@ function ListingDetail({
   onClose: () => void; onBuy: () => void; onBid: (n: number) => void; onCancel: () => void
 }) {
   const [amount, setAmount] = useState(fmt(minBid(l)))
+  const [items, setItems] = useState<ListingItem[] | null>(null)
+  const [zoom, setZoom] = useState<ListingItem | null>(null)
   const live = l.status === 'active'
+
+  useEffect(() => {
+    let alive = true
+    createClient()
+      .rpc('get_market_listing_items', { p_listing: l.id })
+      .then(({ data }) => { if (alive) setItems((data as ListingItem[] | null) ?? []) })
+    return () => { alive = false }
+  }, [l.id])
   const n = Number(amount)
   const keep = takeHome(num(l.current_bid ?? l.price), feePercent)
 
@@ -317,8 +338,49 @@ function ListingDetail({
           <button onClick={onClose} className="text-xs text-muted hover:text-ink shrink-0">Close</button>
         </div>
 
-        {l.preview_image && (
-          <img src={l.preview_image} alt="" className="w-32 mx-auto aspect-[245/342] object-contain rounded bg-paper" />
+        {/* The actual goods, with their condition, not a flat thumbnail.
+            Nobody should bid on a card they cannot look at properly. */}
+        {items === null ? (
+          <p className="text-xs text-muted text-center py-4">Loading…</p>
+        ) : (
+          <ul className={`grid gap-2 ${items.length === 1 ? 'grid-cols-1 max-w-[9rem] mx-auto' : 'grid-cols-3'}`}>
+            {items.map((it, i) => (
+              <li key={i}>
+                {it.item_kind === 'pack' ? (
+                  <div className="relative">
+                    <img src={it.image_url} alt={it.name}
+                         className="w-full aspect-[245/342] object-contain rounded bg-paper" />
+                    <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[8px] font-mono text-center py-0.5 rounded-b">
+                      sealed
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setZoom(it)}
+                    className="relative block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform hover:-translate-y-0.5"
+                    aria-label={`Look closely at ${it.name}${
+                      it.grade != null ? `, graded ${it.grade}` : ''
+                    }`}
+                  >
+                    <ConditionedCard
+                      src={it.image_url} alt={it.name} condition={it}
+                      rarity={it.rarity ?? undefined}
+                      className="w-full aspect-[245/342] rounded"
+                    />
+                    <HoloMark rarity={it.rarity ?? ''} />
+                    {it.grade != null && (
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+                        {it.grade}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {items !== null && items.some((i) => i.item_kind === 'card') && (
+          <p className="text-[11px] text-muted text-center">Tap a card to inspect its condition.</p>
         )}
 
         {l.note && <p className="text-sm text-muted leading-snug">{l.note}</p>}
@@ -400,6 +462,51 @@ function ListingDetail({
           </div>
         )}
       </div>
+
+      {/* Enlarged, over the sheet. A graded card shows its numbers because
+          grading is what unseals them; a raw one shows only the card. */}
+      {zoom && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 gap-3"
+          onClick={(e) => { e.stopPropagation(); setZoom(null) }}
+          role="dialog" aria-modal="true" aria-label={`${zoom.name}, enlarged`}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-[min(74vw,320px)]">
+            {zoom.grade != null ? (
+              <Slab
+                condition={zoom} grade={zoom.grade} src={zoom.image_url} alt={zoom.name}
+                name={zoom.name} number={zoom.number ?? ''} setCode={zoom.set_code}
+                setName={SET_NAMES[zoom.set_code] ?? zoom.set_code}
+              />
+            ) : (
+              <ConditionedCard
+                src={zoom.image_url} alt={zoom.name} condition={zoom}
+                rarity={zoom.rarity ?? undefined} detail="full"
+                className="w-full aspect-[245/342] rounded-lg"
+              />
+            )}
+          </div>
+          <div className="text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white font-semibold text-sm">{zoom.name}</p>
+            <p className="font-mono text-[10px] text-white/45">
+              {SET_NAMES[zoom.set_code] ?? zoom.set_code}
+              {zoom.number && ` · #${zoom.number}`}
+            </p>
+            {zoom.grade != null ? (
+              <div className="grid grid-cols-4 gap-x-2 font-mono text-[9px] text-white/45 mt-1.5">
+                <span>CEN {100 - Math.max(Math.abs(zoom.center_x), Math.abs(zoom.center_y))}</span>
+                <span>COR {zoom.corners}</span>
+                <span>EDG {zoom.edges}</span>
+                <span>SUR {zoom.surface}</span>
+              </div>
+            ) : (
+              <p className="font-mono text-[9px] text-white/35 mt-1.5">
+                Ungraded — judge the condition by eye
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
