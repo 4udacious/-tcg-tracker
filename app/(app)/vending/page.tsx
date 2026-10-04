@@ -63,7 +63,7 @@ export default async function VendingPage() {
   const [{ data: showcaseRows }, { data: showcaseCfg }] = await Promise.all([
     supabase.rpc('get_showcase', { p_user: userId }),
     supabase.from('showcase_settings')
-      .select('warmth, brightness, shelf').eq('user_id', userId).maybeSingle(),
+      .select('warmth, brightness, shelf, light_mode, hue').eq('user_id', userId).maybeSingle(),
   ])
 
   const { data: marketRows } = await supabase.rpc('get_market_listings', { p_mine: false })

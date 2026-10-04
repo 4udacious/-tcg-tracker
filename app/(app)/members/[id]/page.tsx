@@ -16,7 +16,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   const [{ data: showcaseRows }, { data: showcaseCfgRow }] = await Promise.all([
     supabase.rpc('get_showcase', { p_user: id }),
     supabase.from('showcase_settings')
-      .select('warmth, brightness, shelf').eq('user_id', id).maybeSingle(),
+      .select('warmth, brightness, shelf, light_mode, hue').eq('user_id', id).maybeSingle(),
   ])
   const showcase = (showcaseRows as ShowcaseItem[] | null) ?? []
   const showcaseCfg = showcaseCfgRow

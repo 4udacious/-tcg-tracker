@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS, SET_NAMES } from './ShowcaseRoom'
+import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS, SET_NAMES, lightRgb, hueRgb } from './ShowcaseRoom'
 import ConditionedCard from './ConditionedCard'
 import type { CollectionCard } from './CollectionPanel'
 import HoloMark, { rarityLabel } from './HoloMark'
@@ -86,6 +86,7 @@ export default function ShowcasePanel({
     const supabase = createClient()
     const { error } = await supabase.rpc('update_showcase_lighting', {
       p_warmth: next.warmth, p_brightness: next.brightness, p_shelf: next.shelf,
+      p_mode: next.light_mode ?? 'white', p_hue: next.hue ?? 280,
     })
     if (error) setNote('Could not save the lighting.')
   }
@@ -149,19 +150,68 @@ export default function ShowcasePanel({
       <div className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
         <p className="text-sm font-medium text-ink">Lighting</p>
 
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-muted">
-            <label htmlFor="sc-warmth">Warmth</label>
-            <span className="font-mono">{light.warmth < 35 ? 'cool' : light.warmth > 70 ? 'warm' : 'neutral'}</span>
-          </div>
-          <input
-            id="sc-warmth" type="range" min={0} max={100} value={light.warmth}
-            onChange={(e) => setLight({ ...light, warmth: Number(e.target.value) })}
-            onPointerUp={() => saveLighting(light)}
-            onKeyUp={() => saveLighting(light)}
-            className="w-full accent-signal"
-          />
+        {/* Mode first: it decides which of the two colour controls below is
+            even meaningful. */}
+        <div className="flex gap-1.5">
+          {([['white', 'White'], ['colour', 'Colour'], ['rgb', 'RGB']] as const).map(([k, label]) => {
+            const on = (light.light_mode ?? 'white') === k
+            return (
+              <button
+                key={k}
+                onClick={() => saveLighting({ ...light, light_mode: k })}
+                className={`flex-1 text-xs font-medium rounded-lg px-2 py-1.5 transition-colors ${
+                  on ? 'bg-ink text-white' : 'border border-card-border text-muted hover:text-ink'
+                }`}
+                aria-pressed={on}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
+
+        {(light.light_mode ?? 'white') === 'white' ? (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted">
+              <label htmlFor="sc-warmth">Warmth</label>
+              <span className="font-mono">{light.warmth < 35 ? 'cool' : light.warmth > 70 ? 'warm' : 'neutral'}</span>
+            </div>
+            <input
+              id="sc-warmth" type="range" min={0} max={100} value={light.warmth}
+              onChange={(e) => setLight({ ...light, warmth: Number(e.target.value) })}
+              onPointerUp={() => saveLighting(light)}
+              onKeyUp={() => saveLighting(light)}
+              className="w-full"
+              style={{ accentColor: `rgb(${lightRgb(light.warmth)})` }}
+            />
+          </div>
+        ) : light.light_mode === 'colour' ? (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted">
+              <label htmlFor="sc-hue">Colour</label>
+              <span className="font-mono">{light.hue ?? 280}&deg;</span>
+            </div>
+            {/* The track is the spectrum itself, so the slider shows what it
+                selects rather than needing a swatch beside it. */}
+            <input
+              id="sc-hue" type="range" min={0} max={359} value={light.hue ?? 280}
+              onChange={(e) => setLight({ ...light, hue: Number(e.target.value) })}
+              onPointerUp={() => saveLighting(light)}
+              onKeyUp={() => saveLighting(light)}
+              className="w-full h-2 appearance-none rounded-full cursor-pointer"
+              style={{
+                background:
+                  'linear-gradient(90deg, hsl(0 82% 62%), hsl(60 82% 62%), hsl(120 82% 62%), ' +
+                  'hsl(180 82% 62%), hsl(240 82% 62%), hsl(300 82% 62%), hsl(360 82% 62%))',
+                accentColor: `rgb(${hueRgb(light.hue ?? 280)})`,
+              }}
+            />
+          </div>
+        ) : (
+          <p className="text-xs text-muted leading-snug">
+            The shelf lights cycle through the spectrum. Brightness still applies.
+          </p>
+        )}
 
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted">
