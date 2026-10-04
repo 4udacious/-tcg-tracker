@@ -264,6 +264,9 @@ export default function CollectionPanel({
   const [shelf, setShelf] = useState<'binders' | 'vault'>('binders')
   const [slabIndex, setSlabIndex] = useState<number | null>(null)
   const [gradeReveal, setGradeReveal] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
+  // Submitting is posting the card away: it costs tokens, leaves the binder,
+  // and cannot be recalled. Worth a beat before it happens.
+  const [confirmGrading, setConfirmGrading] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
   const withPatch = useCallback(
     (c: CardCopy): CardCopy => ({ ...c, ...(patch[c.id] ?? {}) }),
     [patch]
@@ -745,14 +748,14 @@ export default function CollectionPanel({
               {/* Each copy is its own object, so switching between them is
                   switching card, not just incrementing a counter. */}
               {c.raw.length > 1 && (
-                <div className="flex items-center justify-center gap-1.5 mt-2">
+                <div className="flex items-center justify-center flex-wrap gap-2 mt-2.5">
                   {c.raw.map((cp, i) => {
                     const g = gradeState(cp)
                     return (
                       <button
                         key={cp.id}
                         onClick={() => setCopyIndex(i)}
-                        className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-colors ${
+                        className={`font-mono text-xs rounded-md px-2.5 py-1 min-w-[30px] transition-colors ${
                           i === ci
                             ? 'bg-white text-ink font-bold'
                             : 'bg-white/10 text-white/60 hover:bg-white/20'
@@ -766,7 +769,7 @@ export default function CollectionPanel({
                         {/* A dot so a graded or waiting copy is findable
                             without opening each one in turn. */}
                         {g !== 'ungraded' && (
-                          <span className={`ml-0.5 inline-block w-1 h-1 rounded-full align-middle ${
+                          <span className={`ml-1 inline-block w-1.5 h-1.5 rounded-full align-middle ${
                             // Amber and signal orange are near-identical at
                             // 4px; ready needs action, so it gets its own hue.
                             g === 'graded' ? 'bg-amber-400'
@@ -790,7 +793,7 @@ export default function CollectionPanel({
                 const st = gradeState(copy)
                 const busy = grading === copy.id
                 return (
-                  <div className="mt-2.5">
+                  <div className="mt-5">
                     {st === 'graded' && copy.grade != null && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-center gap-2">
@@ -816,9 +819,9 @@ export default function CollectionPanel({
 
                     {st === 'ungraded' && (
                       <button
-                        onClick={() => sendForGrading(copy)}
+                        onClick={() => setConfirmGrading({ card: c, copy })}
                         disabled={busy}
-                        className="rounded-lg border border-white/25 text-white/85 text-xs font-medium px-3 py-1.5 hover:bg-white/10 transition-colors disabled:opacity-40"
+                        className="rounded-lg border border-white/25 text-white/85 text-sm font-medium px-4 py-2 hover:bg-white/10 transition-colors disabled:opacity-40"
                       >
                         {busy ? 'Sending…' : `Send for grading · ${gradingCost} token${gradingCost === 1 ? '' : 's'}`}
                       </button>
@@ -834,7 +837,7 @@ export default function CollectionPanel({
                       <button
                         onClick={() => collectGrade(c, copy)}
                         disabled={busy}
-                        className="rounded-lg bg-signal text-white text-xs font-semibold px-3 py-1.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+                        className="rounded-lg bg-signal text-white text-sm font-semibold px-4 py-2 hover:bg-signal/90 transition-colors disabled:opacity-40"
                       >
                         {busy ? 'Opening…' : 'Grade is back — reveal'}
                       </button>
@@ -899,6 +902,71 @@ export default function CollectionPanel({
               <p className="font-mono text-[10px] text-white/35 mt-1.5">
                 {slabIndex + 1} of {slabs.length}
               </p>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Confirm before posting a card off ── */}
+      {confirmGrading && (() => {
+        const { card, copy } = confirmGrading
+        const busy = grading === copy.id
+        return (
+          <div
+            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-5"
+            role="dialog" aria-modal="true" aria-labelledby="grading-confirm-title"
+          >
+            <div className="bg-card border border-card-border rounded-2xl p-5 max-w-sm w-full space-y-3">
+              <h3 id="grading-confirm-title" className="font-display font-semibold text-base">
+                Send {card.name} for grading?
+              </h3>
+
+              <p className="text-sm text-muted leading-snug">
+                This is like dropping the card in a mailbox. Once it is posted you cannot cancel,
+                recall it, or change your mind.
+              </p>
+
+              <ul className="text-sm text-muted space-y-1.5">
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">{gradingCost}</span>
+                  <span>token{gradingCost === 1 ? '' : 's'} charged now, and not refunded.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">{gradingDays}</span>
+                  <span>
+                    day{gradingDays === 1 ? '' : 's'} away. It leaves your binder for the whole
+                    wait and you cannot open or trade it.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">★</span>
+                  <span>
+                    The grade is whatever the card already is — grading reveals its condition, it
+                    does not improve it.
+                  </span>
+                </li>
+              </ul>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setConfirmGrading(null)}
+                  disabled={busy}
+                  className="flex-1 rounded-xl border border-card-border text-sm font-medium py-2.5 text-muted hover:text-ink transition-colors disabled:opacity-40"
+                >
+                  Keep it
+                </button>
+                <button
+                  onClick={async () => {
+                    const target = confirmGrading
+                    setConfirmGrading(null)
+                    await sendForGrading(target.copy)
+                  }}
+                  disabled={busy}
+                  className="flex-1 rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+                >
+                  {busy ? 'Posting…' : 'Post it'}
+                </button>
+              </div>
             </div>
           </div>
         )
