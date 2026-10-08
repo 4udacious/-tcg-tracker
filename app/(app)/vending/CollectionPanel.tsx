@@ -14,6 +14,7 @@ export interface UnopenedPack {
   set_name: string
   pack_name: string
   image_url: string
+  acquired_at: string
 }
 
 /** One pulled copy, with its own condition. */
@@ -52,6 +53,15 @@ function waitLabel(iso: string): string {
   const hours = Math.round(mins / 60)
   if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`
   return `${Math.round(hours / 24)} days`
+}
+
+/** "just now", "4h", "6d" - how long a sealed pack has been sitting there. */
+function heldFor(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 60) return 'just now'
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  return `${Math.floor(hours / 24)}d`
 }
 
 /** Gem mint down to played, for the badge. */
@@ -266,6 +276,32 @@ export default function CollectionPanel({
     [packs, openedIds]
   )
 
+  /**
+   * Sealed packs collapse to one tile per wrapper with a count on it. Twelve
+   * Jungle packs are twelve identical pictures otherwise, and the shelf
+   * scrolls for a screen before you reach anything you own only one of.
+   *
+   * Keyed on the art, which is what the tile shows and what the grouping is
+   * meant to read as. Packs stay in acquisition order inside their stack.
+   */
+  const packStacks = useMemo(() => {
+    const map = new Map<string, { art: string; set_name: string; pack_name: string; packs: UnopenedPack[] }>()
+    for (const p of visiblePacks) {
+      const got = map.get(p.image_url)
+      if (got) got.packs.push(p)
+      else map.set(p.image_url, {
+        art: p.image_url, set_name: p.set_name, pack_name: p.pack_name, packs: [p],
+      })
+    }
+    return [...map.values()].sort((a, b) =>
+      a.set_name.localeCompare(b.set_name) || a.pack_name.localeCompare(b.pack_name))
+  }, [visiblePacks])
+
+  // Which stack is open in the picker, by art. Held as the key rather than
+  // the stack so it survives a pack being opened out from under it.
+  const [openStack, setOpenStack] = useState<string | null>(null)
+  const pickingFrom = packStacks.find((s) => s.art === openStack) ?? null
+
   const [grading, setGrading] = useState<number | null>(null)
   const [gradeNote, setGradeNote] = useState<string | null>(null)
   const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
@@ -442,16 +478,42 @@ export default function CollectionPanel({
           </p>
         ) : (
           <ul className="grid grid-cols-3 gap-2">
-            {visiblePacks.map((p) => (
-              <li key={p.id} className="bg-card border border-card-border rounded-xl p-2 flex flex-col gap-1.5">
-                <img src={p.image_url} alt={`${p.set_name} — ${p.pack_name}`} className="w-full aspect-[2/3] object-contain" loading="lazy" />
-                <p className="text-[10px] text-muted text-center truncate">{p.set_name}</p>
+            {packStacks.map((s) => (
+              <li key={s.art}>
                 <button
-                  onClick={() => openPack(p.id)}
-                  disabled={opening}
-                  className="bg-signal hover:bg-signal/90 disabled:opacity-50 text-white text-xs font-semibold rounded-lg py-1.5 transition-colors"
+                  onClick={() => setOpenStack(s.art)}
+                  className="w-full bg-card border border-card-border rounded-xl p-2 flex flex-col gap-1.5 transition-transform hover:-translate-y-0.5"
+                  aria-label={`${s.set_name} ${s.pack_name}, ${s.packs.length} sealed pack${
+                    s.packs.length === 1 ? '' : 's'}. Opens the stack.`}
                 >
-                  {opening ? '…' : 'Open'}
+                  {/* The pile is drawn inside one fixed box: the leaves peek
+                      down and right, and the top pack is inset by exactly as
+                      much, so nothing escapes the tile and lands on the label
+                      underneath. A lone pack uses the whole box. */}
+                  <div className="relative w-full aspect-[2/3]">
+                    {s.packs.length > 2 && (
+                      <div className="absolute left-2 top-2 right-0 bottom-0 rounded bg-paper border border-card-border" />
+                    )}
+                    {s.packs.length > 1 && (
+                      <div className="absolute left-1 top-1 right-1 bottom-1 rounded bg-paper border border-card-border" />
+                    )}
+                    {/* The inset goes on a wrapper, not the image. An img is
+                        a replaced element with height:auto from preflight, so
+                        insetting it directly sizes it from its own ratio and
+                        it runs past the box onto the label. */}
+                    <div className={`absolute inset-0 ${s.packs.length > 1 ? 'pr-2 pb-2' : ''}`}>
+                      <img
+                        src={s.art} alt="" loading="lazy"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    {s.packs.length > 1 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[1.25rem] rounded-full bg-signal text-white text-[10px] font-bold text-center px-1 py-0.5 shadow">
+                        {s.packs.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted text-center truncate">{s.set_name}</p>
                 </button>
               </li>
             ))}
@@ -919,6 +981,70 @@ export default function CollectionPanel({
           </div>
         )
       })()}
+
+      {/* ── Pick a pack out of the stack ──
+          The packs in a stack are interchangeable, so the thing that makes
+          choosing one meaningful is how long it has been sitting sealed.
+          Oldest first, which is the order they were bought in. */}
+      {/* Stands down while a pack is being revealed - it sits above the
+          reveal, and coming back to the stack afterwards is what you want
+          when you are opening several. */}
+      {pickingFrom && !reveal && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
+          onClick={() => setOpenStack(null)}
+          role="dialog" aria-modal="true" aria-labelledby="pack-stack-title"
+        >
+          <div
+            className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2 p-4 pb-2 shrink-0">
+              <div className="min-w-0">
+                <h3 id="pack-stack-title" className="font-display font-semibold text-base truncate">
+                  {pickingFrom.set_name}
+                </h3>
+                <p className="font-mono text-[10px] text-muted">
+                  {pickingFrom.pack_name} · {pickingFrom.packs.length} sealed
+                </p>
+              </div>
+              <button
+                onClick={() => setOpenStack(null)}
+                className="text-xs text-muted hover:text-ink shrink-0"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="px-4 pb-2 overflow-y-auto min-h-0 flex-1">
+              <ul className="grid grid-cols-3 gap-2">
+                {pickingFrom.packs.map((p, i) => (
+                  <li key={p.id}>
+                    <button
+                      onClick={() => openPack(p.id)}
+                      disabled={opening}
+                      className="w-full rounded-lg border border-card-border p-1.5 space-y-1 transition-transform hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+                      aria-label={`Open pack ${i + 1} of ${pickingFrom.packs.length}, held ${heldFor(p.acquired_at)}`}
+                    >
+                      <img
+                        src={p.image_url} alt="" loading="lazy"
+                        className="w-full aspect-[2/3] object-contain"
+                      />
+                      <p className="font-mono text-[9px] text-muted text-center truncate">
+                        {heldFor(p.acquired_at)}
+                      </p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p className="shrink-0 border-t border-card-border px-4 py-3 text-[11px] text-muted leading-snug pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+              {opening ? 'Opening…' : 'Tap a pack to open it. Sealed packs can be sold; opened ones cannot.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Confirm before posting a card off ── */}
       {confirmGrading && (() => {

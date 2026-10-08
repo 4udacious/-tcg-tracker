@@ -39,7 +39,7 @@ export default async function VendingPage() {
       supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
       supabase
         .from('user_packs')
-        .select('id, vending_packs(set_name, pack_name, image_url)')
+        .select('id, acquired_at, vending_packs(set_name, pack_name, image_url)')
         .eq('user_id', userId)
         .is('opened_at', null)
         .is('market_listing_id', null)
@@ -116,6 +116,7 @@ export default async function VendingPage() {
 
   type PackRow = {
     id: number
+    acquired_at: string
     vending_packs:
       | { set_name: string; pack_name: string; image_url: string }
       | { set_name: string; pack_name: string; image_url: string }[]
@@ -129,6 +130,7 @@ export default async function VendingPage() {
       set_name: p?.set_name ?? '',
       pack_name: p?.pack_name ?? '',
       image_url: p?.image_url ?? '',
+      acquired_at: r.acquired_at,
     }
   })
 
