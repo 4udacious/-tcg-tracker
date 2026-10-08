@@ -724,24 +724,27 @@ export default function VendingClient({
 
 /* ────────────────────────────── screens ────────────────────────────── */
 
-// The two rows are split in the middle, so these are ordered to put a Gym
-// wrapper in each: the Gym sets are not in the machine yet, and the idle
-// screen is where they get seen before they are.
+const ATTRACT_ROWS = 4
+
+// Every wrapper the machine has art for, minus Base Set. Dealt round-robin
+// across the rows below, so these are ordered to put one of each set near the
+// front and keep a row from reading as all one expansion.
 const ATTRACT_PACKS = [
-  'base-set-charizard', 'jungle-scyther', 'gym-heroes-brock', 'fossil-lapras',
-  'team-rocket-giovanni', 'gym-challenge-koga', 'base-set-venusaur', 'gym-heroes-misty',
-  'fossil-zapdos', 'gym-challenge-blaine',
-  'jungle-flareon', 'team-rocket-dark-gyarados', 'gym-heroes-lt-surge', 'base-set-blastoise',
-  'gym-challenge-sabrina', 'jungle-wigglytuff', 'fossil-aerodactyl', 'gym-heroes-erika',
-  'team-rocket-jessie-james', 'gym-challenge-giovanni',
+  'jungle-scyther', 'gym-heroes-brock', 'fossil-lapras', 'team-rocket-giovanni',
+  'gym-challenge-koga', 'jungle-flareon', 'gym-heroes-misty', 'fossil-zapdos',
+  'team-rocket-dark-gyarados', 'gym-challenge-blaine', 'jungle-wigglytuff',
+  'gym-heroes-lt-surge', 'fossil-aerodactyl', 'team-rocket-jessie-james',
+  'gym-challenge-sabrina', 'gym-heroes-erika', 'team-rocket-rocket-gang',
+  'gym-challenge-giovanni',
 ]
 
 function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy: boolean; lockedBy: string | null }) {
-  // Two rows drifting opposite ways, so the tall screen reads as full of
-  // product rather than mostly empty sky.
-  const half = Math.ceil(ATTRACT_PACKS.length / 2)
-  const rowA = ATTRACT_PACKS.slice(0, half)
-  const rowB = ATTRACT_PACKS.slice(half)
+  // Rows drifting alternate ways, so the tall screen reads as full of product
+  // rather than mostly empty sky. Dealt round-robin rather than sliced into
+  // blocks: consecutive entries land in different rows, which is what keeps
+  // each row mixed without hand-ordering four separate lists.
+  const rows: string[][] = Array.from({ length: ATTRACT_ROWS }, () => [])
+  ATTRACT_PACKS.forEach((f, i) => rows[i % ATTRACT_ROWS].push(f))
   return (
     <button
       onClick={onStart}
@@ -755,9 +758,15 @@ function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy:
         </p>
       </div>
 
-      <div className="relative flex-1 overflow-hidden flex flex-col justify-center gap-2 py-2">
-        <DriftRow files={rowA} seconds={22} />
-        <DriftRow files={rowB} seconds={28} reverse />
+      {/* The rows split whatever height is left and the wrappers are sized to
+          their row, so the screen fills exactly at any size. Fixing a pack
+          height instead just let the flex children squash and crop the art. */}
+      <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col gap-1.5 py-2">
+        {rows.map((files, i) => (
+          // Speeds are deliberately uneven so the rows never line up into one
+          // block sliding together.
+          <DriftRow key={i} files={files} seconds={21 + i * 5} reverse={i % 2 === 1} />
+        ))}
       </div>
 
       <div className={`m-2 rounded py-2.5 text-center font-extrabold text-sm tracking-wide shadow shrink-0 ${
@@ -778,15 +787,21 @@ function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy:
 }
 
 function DriftRow({ files, seconds, reverse }: { files: string[]; seconds: number; reverse?: boolean }) {
-  const doubled = [...files, ...files]
+  // The animation slides the strip by half its width and restarts, so one
+  // half has to be wider than the screen or the wrap shows a bare patch.
+  // Four rows means only four or five wrappers each, which is not wide
+  // enough on its own, so the row repeats until it is and that gets doubled.
+  const reps = Math.max(1, Math.ceil(10 / files.length))
+  const base = Array.from({ length: reps }, () => files).flat()
+  const doubled = [...base, ...base]
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative flex-1 min-h-0 overflow-hidden">
       <div
-        className="vm-drift flex items-center gap-2 w-max will-change-transform"
+        className="vm-drift flex items-center gap-1.5 w-max h-full will-change-transform"
         style={{ animation: `${reverse ? 'driftR' : 'driftL'} ${seconds}s linear infinite` }}
       >
         {doubled.map((f, i) => (
-          <img key={i} src={`/packs/${f}.webp`} alt="" className="h-28 w-auto shrink-0 drop-shadow-md" />
+          <img key={i} src={`/packs/${f}.webp`} alt="" className="h-full w-auto shrink-0 drop-shadow-md" />
         ))}
       </div>
     </div>
