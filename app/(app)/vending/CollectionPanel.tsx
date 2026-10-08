@@ -148,6 +148,9 @@ const BINDERS: Record<string, Binder> = {
   // artwork exactly.
   base3: { cover: '/binders/fossil.webp',             spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'cover' },
   base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
+  // No period binder photo for the Gym sets, so this one shows a wrapper in
+  // the cover sleeve instead - which is the other thing the window is for.
+  gym1:  { cover: '/packs/gym-heroes-brock.webp',     spine: '#7c2d12', body: '#9a3412', foil: '#fcd34d', fit: 'contain' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
