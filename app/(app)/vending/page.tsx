@@ -71,6 +71,12 @@ export default async function VendingPage() {
 
   const { data: feeRow } = await supabase.rpc('market_fee_percent')
 
+  // Only the count, for the badge on the Market tab. The notices themselves
+  // are fetched by the panel that shows them.
+  const { data: noticeRows } = await supabase.rpc('get_market_notices', { p_limit: 50 })
+  const marketUnread = ((noticeRows as { unread: boolean }[] | null) ?? [])
+    .filter((n) => n.unread).length
+
   const { data: gradingRows } = await supabase.rpc('grading_settings')
   const grading = (Array.isArray(gradingRows) ? gradingRows[0] : gradingRows) as
     { cost: number; days: number } | null
@@ -202,6 +208,7 @@ export default async function VendingPage() {
       listings={(marketRows as MarketListing[] | null) ?? []}
       myListings={(myListingRows as MarketListing[] | null) ?? []}
       feePercent={Number(feeRow ?? 10)}
+      marketUnread={marketUnread}
     />
   )
 }

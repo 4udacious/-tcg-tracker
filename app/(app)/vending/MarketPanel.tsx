@@ -8,6 +8,7 @@ import Slab from './Slab'
 import HoloMark, { rarityLabel } from './HoloMark'
 import { SET_NAMES } from './ShowcaseRoom'
 import { num, fmt, money, takeHome, CENT } from './tokens'
+import { MarketNotices, MarketFeed } from './MarketActivity'
 import type { CollectionCard, CardCopy, UnopenedPack } from './CollectionPanel'
 
 export interface MarketListing {
@@ -30,6 +31,12 @@ export interface MarketListing {
   preview_name: string | null
   preview_grade: number | null
   bid_count: number
+  /** Up to five item images, best-graded first, for the fanned tile. */
+  preview_images: string[] | null
+  sold_price: number | null
+  fee: number | null
+  sold_to_name: string | null
+  settled_at: string | null
 }
 
 interface ListingItem extends Condition {
@@ -67,7 +74,7 @@ function minBid(l: MarketListing): number {
 }
 
 export default function MarketPanel({
-  listings, myListings, collection, packs, balance, feePercent, userId,
+  listings, myListings, collection, packs, balance, feePercent, userId, onNoticesRead,
 }: {
   listings: MarketListing[]
   myListings: MarketListing[]
@@ -76,6 +83,7 @@ export default function MarketPanel({
   balance: number
   feePercent: number
   userId: string
+  onNoticesRead?: () => void
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -181,13 +189,17 @@ export default function MarketPanel({
         ))}
       </div>
 
+      {/* Your own market mail sits above both tabs: a sale is worth seeing
+          whether you came here to browse or to manage your stand. */}
+      <MarketNotices onRead={onNoticesRead} />
+
       {tab === 'browse' ? (
         board.length === 0 ? (
           <p className="text-sm text-muted">
             Nothing for sale right now. Open a stand and be the first.
           </p>
         ) : (
-          <ul className="grid grid-cols-2 gap-2.5">
+          <ul className="grid grid-cols-3 gap-2">
             {board.map((l) => (
               <li key={l.id}>
                 <ListingTile listing={l} onOpen={() => setOpen(l)} />
@@ -211,7 +223,7 @@ export default function MarketPanel({
           {myListings.length === 0 ? (
             <p className="text-sm text-muted">Your stand is empty.</p>
           ) : (
-            <ul className="grid grid-cols-2 gap-2.5">
+            <ul className="grid grid-cols-3 gap-2">
               {myListings.map((l) => (
                 <li key={l.id}>
                   <ListingTile listing={l} mine onOpen={() => setOpen(l)} />
@@ -221,6 +233,8 @@ export default function MarketPanel({
           )}
         </div>
       )}
+
+      <MarketFeed />
 
       {open && (
         <ListingDetail
@@ -243,10 +257,43 @@ export default function MarketPanel({
   )
 }
 
+/**
+ * A bundle, shown as a hand of cards rather than one thumbnail with a count
+ * badge: at a glance you can tell a seven-card lot from a single, and roughly
+ * what is in it.
+ *
+ * Each card pivots about a point below its own bottom edge, which is what
+ * makes a fan look like a fan instead of a pile of rotated rectangles. The
+ * spread tightens as the hand grows so five cards still fit the tile.
+ */
+function Fan({ images }: { images: string[] }) {
+  const n = images.length
+  const spread = Math.min(14, 44 / n)
+  return (
+    <div className="relative w-full aspect-[245/342]">
+      {images.map((src, i) => (
+        <img
+          key={i}
+          src={src}
+          alt=""
+          loading="lazy"
+          className="absolute left-1/2 top-1/2 w-[64%] aspect-[245/342] object-contain rounded-[2px] bg-paper shadow-[0_1px_4px_rgba(0,0,0,0.35)]"
+          style={{
+            transform: `translate(-50%, -46%) rotate(${(i - (n - 1) / 2) * spread}deg)`,
+            transformOrigin: '50% 125%',
+            zIndex: i,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function ListingTile({ listing: l, mine, onOpen }: {
   listing: MarketListing; mine?: boolean; onOpen: () => void
 }) {
   const live = l.status === 'active'
+  const fan = (l.preview_images ?? []).filter(Boolean)
   return (
     <button
       onClick={onOpen}
@@ -255,18 +302,20 @@ function ListingTile({ listing: l, mine, onOpen }: {
       }`}
     >
       <div className="relative">
-        {l.preview_image ? (
+        {fan.length > 1 ? (
+          <Fan images={fan} />
+        ) : l.preview_image ? (
           <img src={l.preview_image} alt="" className="w-full aspect-[245/342] object-contain rounded bg-paper" loading="lazy" />
         ) : (
           <div className="w-full aspect-[245/342] rounded bg-paper" />
         )}
         {l.item_count > 1 && (
-          <span className="absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+          <span className="absolute -top-1 -right-1 z-10 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
             {l.item_count} items
           </span>
         )}
         {l.preview_grade != null && (
-          <span className="absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+          <span className="absolute -bottom-1 -right-1 z-10 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
             {l.preview_grade}
           </span>
         )}
@@ -274,25 +323,37 @@ function ListingTile({ listing: l, mine, onOpen }: {
 
       <p className="text-xs font-semibold truncate">{l.preview_name ?? 'Bundle'}</p>
 
-      <div className="flex items-baseline justify-between gap-1">
-        <span className="font-display font-bold text-sm">
-          {fmt(l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price)}
-          <span className="font-mono text-[9px] text-muted font-normal"> tokens</span>
-        </span>
-        {l.kind === 'auction' && live && l.ends_at && (
-          <span className={`font-mono text-[9px] ${l.is_leading ? 'text-emerald-500' : 'text-muted'}`}>
-            {timeLeft(l.ends_at)}
-          </span>
-        )}
-      </div>
+      {/* Three to a row leaves about a hundred pixels, so the price gets the
+          line to itself and everything else goes underneath, ordered so that
+          what matters survives the truncation. */}
+      <p className="font-display font-bold text-sm leading-none">
+        {fmt(l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price)}
+        <span className="font-mono text-[9px] text-muted font-normal"> tk</span>
+      </p>
 
       <p className="font-mono text-[9px] text-muted truncate">
-        {!live ? l.status
-          : l.kind === 'auction'
-            ? `${l.bid_count} bid${l.bid_count === 1 ? '' : 's'}${l.is_leading ? ' · yours' : ''}`
-            : 'buy now'}
-        {!mine && ` · ${l.seller_display ?? l.seller_name}`}
+        {!live ? (
+          l.status
+        ) : l.kind === 'auction' ? (
+          <>
+            {l.ends_at && (
+              <span className={l.is_leading ? 'text-emerald-500' : undefined}>
+                {timeLeft(l.ends_at)}{' · '}
+              </span>
+            )}
+            {l.bid_count} bid{l.bid_count === 1 ? '' : 's'}
+            {l.is_leading && ' · yours'}
+          </>
+        ) : (
+          'buy now'
+        )}
       </p>
+
+      {!mine && (
+        <p className="font-mono text-[9px] text-muted truncate">
+          {l.seller_display ?? l.seller_name}
+        </p>
+      )}
     </button>
   )
 }
@@ -389,7 +450,7 @@ function ListingDetail({
 
         <div className="shrink-0 border-t border-card-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] space-y-2">
         {!live ? (
-          <p className="text-sm text-muted">This listing is {l.status}.</p>
+          <Settled listing={l} mine={mine} feePercent={feePercent} />
         ) : mine ? (
           <div className="space-y-2">
             <p className="text-sm text-muted">
@@ -511,6 +572,72 @@ function ListingDetail({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * The receipt on a finished listing.
+ *
+ * The fee is shown to both sides. It is a published market-wide percentage,
+ * not private, and a seller looking at a sale wants the arithmetic rather
+ * than a number that is quietly smaller than the price they set.
+ */
+function Settled({ listing: l, mine, feePercent }: {
+  listing: MarketListing; mine: boolean; feePercent: number
+}) {
+  const when = l.settled_at
+    ? new Date(l.settled_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : null
+
+  if (l.status !== 'sold' || l.sold_price == null) {
+    return (
+      <p className="text-sm text-muted">
+        {l.status === 'expired'
+          ? `This auction ended without a bid${when ? ` on ${when}` : ''}.`
+          : `This listing was pulled${when ? ` on ${when}` : ''}.`}
+      </p>
+    )
+  }
+
+  const price = num(l.sold_price)
+  const fee = num(l.fee ?? 0)
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm">
+        <span className="font-semibold text-emerald-600">Sold</span>
+        {' '}for {fmt(price)} tokens
+        {mine
+          ? l.sold_to_name && <> to <span className="font-medium">{l.sold_to_name}</span></>
+          : <> — you bought this one</>}
+        {when && <span className="text-muted"> · {when}</span>}
+      </p>
+
+      <dl className="rounded-xl border border-card-border divide-y divide-card-border font-mono text-[11px]">
+        <div className="flex justify-between px-2.5 py-1.5">
+          <dt className="text-muted">{l.kind === 'auction' ? 'Winning bid' : 'Price'}</dt>
+          <dd>{fmt(price)}</dd>
+        </div>
+        <div className="flex justify-between px-2.5 py-1.5">
+          <dt className="text-muted">Market fee ({feePercent}%)</dt>
+          <dd className="text-amber-600">−{fmt(fee)}</dd>
+        </div>
+        <div className="flex justify-between px-2.5 py-1.5">
+          <dt className="text-muted">{mine ? 'You kept' : 'Seller kept'}</dt>
+          <dd className="font-semibold">{fmt(money(price - fee))}</dd>
+        </div>
+        {l.kind === 'auction' && (
+          <div className="flex justify-between px-2.5 py-1.5">
+            <dt className="text-muted">Bids</dt>
+            <dd>{l.bid_count}</dd>
+          </div>
+        )}
+      </dl>
+
+      <p className="text-[11px] text-muted leading-snug">
+        The fee is taken out of circulation rather than paid to anyone.
+      </p>
     </div>
   )
 }

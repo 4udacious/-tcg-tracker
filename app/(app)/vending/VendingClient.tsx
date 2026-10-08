@@ -134,6 +134,7 @@ interface Props {
   listings: MarketListing[]
   myListings: MarketListing[]
   feePercent: number
+  marketUnread: number
 }
 
 const VIEW_LABEL: Record<string, string> = {
@@ -157,8 +158,11 @@ function untilLabel(iso: string): string {
 export default function VendingClient({
   initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
   packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays,
-  showcaseItems, showcaseLighting, listings, myListings, feePercent,
+  showcaseItems, showcaseLighting, listings, myListings, feePercent, marketUnread,
 }: Props) {
+  // Cleared the moment the market panel marks them read, so the badge does
+  // not sit there until the next server render.
+  const [unread, setUnread] = useState(marketUnread)
   const [split, setSplit] = useState({ allowance, earned })
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -469,13 +473,22 @@ export default function VendingClient({
                 {packs.length}
               </span>
             )}
+            {v === 'market' && unread > 0 && (
+              <span
+                className="ml-1.5 font-mono text-[10px] rounded-full bg-signal text-white px-1.5 py-0.5"
+                aria-label={`${unread} market update${unread === 1 ? '' : 's'}`}
+              >
+                {unread}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {view === 'market' ? (
         <MarketPanel listings={listings} myListings={myListings} collection={collection}
-          packs={packs} balance={tokens} feePercent={feePercent} userId={userId} />
+          packs={packs} balance={tokens} feePercent={feePercent} userId={userId}
+          onNoticesRead={() => setUnread(0)} />
       ) : view === 'showcase' ? (
         <ShowcasePanel initialItems={showcaseItems} initialLighting={showcaseLighting}
           collection={collection} />
