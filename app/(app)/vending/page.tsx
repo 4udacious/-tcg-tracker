@@ -12,6 +12,7 @@ const SET_NAMES: Record<string, string> = {
   base3: 'Fossil',
   base5: 'Team Rocket',
   gym1: 'Gym Heroes',
+  gym2: 'Gym Challenge',
 }
 
 export default async function VendingPage() {

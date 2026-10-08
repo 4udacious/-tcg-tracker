@@ -724,17 +724,24 @@ export default function VendingClient({
 
 /* ────────────────────────────── screens ────────────────────────────── */
 
+// The two rows are split in the middle, so these are ordered to put a Gym
+// wrapper in each: the Gym sets are not in the machine yet, and the idle
+// screen is where they get seen before they are.
 const ATTRACT_PACKS = [
-  'base-set-charizard', 'jungle-scyther', 'fossil-lapras', 'team-rocket-giovanni',
-  'base-set-venusaur', 'fossil-zapdos', 'jungle-flareon', 'team-rocket-dark-gyarados',
-  'base-set-blastoise', 'jungle-wigglytuff', 'fossil-aerodactyl', 'team-rocket-jessie-james',
+  'base-set-charizard', 'jungle-scyther', 'gym-heroes-brock', 'fossil-lapras',
+  'team-rocket-giovanni', 'gym-challenge-koga', 'base-set-venusaur', 'gym-heroes-misty',
+  'fossil-zapdos', 'gym-challenge-blaine',
+  'jungle-flareon', 'team-rocket-dark-gyarados', 'gym-heroes-lt-surge', 'base-set-blastoise',
+  'gym-challenge-sabrina', 'jungle-wigglytuff', 'fossil-aerodactyl', 'gym-heroes-erika',
+  'team-rocket-jessie-james', 'gym-challenge-giovanni',
 ]
 
 function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy: boolean; lockedBy: string | null }) {
   // Two rows drifting opposite ways, so the tall screen reads as full of
   // product rather than mostly empty sky.
-  const rowA = ATTRACT_PACKS.slice(0, 6)
-  const rowB = ATTRACT_PACKS.slice(6)
+  const half = Math.ceil(ATTRACT_PACKS.length / 2)
+  const rowA = ATTRACT_PACKS.slice(0, half)
+  const rowB = ATTRACT_PACKS.slice(half)
   return (
     <button
       onClick={onStart}

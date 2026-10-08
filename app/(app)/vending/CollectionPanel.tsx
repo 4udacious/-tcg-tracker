@@ -151,6 +151,10 @@ const BINDERS: Record<string, Binder> = {
   // Vivid orange rather than Fossil's brown-amber: the two covers are both
   // warm, and the binder bodies are what tells them apart down the shelf.
   gym1:  { cover: '/binders/gym-heroes.webp',         spine: '#c2410c', body: '#ea580c', foil: '#fde68a', fit: 'cover' },
+  // No binder photo for Gym Challenge yet, so this one shows a wrapper in the
+  // cover sleeve instead - the other thing the window is for. Violet and lime
+  // off the Koga wrapper, which keeps it clear of Jungle's green.
+  gym2:  { cover: '/packs/gym-challenge-koga.webp',   spine: '#4c1d95', body: '#5b21b6', foil: '#a3e635', fit: 'contain' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
