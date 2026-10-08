@@ -3,10 +3,10 @@
 -- Cards are the 1st Edition printing, same as gym1 - pokemontcg.io's gym2
 -- art carries the EDITION 1 stamp under the art box.
 --
--- The wrappers are NOT. The only Gym Challenge pack art available to scan was
--- the Unlimited print, which has no edition stamp above "11 ADDITIONAL GAME
--- CARDS" the way the Gym Heroes wrappers do. Swapping them is one run of
--- scripts/import-pack-art.mjs if 1st Edition photos turn up.
+-- The wrappers are 1st Edition too. This migration first went in pointing at
+-- Unlimited art, the only Gym Challenge pack scans going at the time; the
+-- files behind these paths were replaced with photographed 1st Edition packs
+-- shortly after. The paths did not change, so nothing here needed reapplying.
 --
 -- Not stocked, like gym1: the packs are active so the set shows up in
 -- /admin/vvm, and vending_set_info starts at 0 of 0 to keep it out of the
