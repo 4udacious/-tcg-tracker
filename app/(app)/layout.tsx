@@ -10,11 +10,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, display_name, username, name_color, trainer_icons(file)')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { count: gradesReady }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('role, display_name, username, name_color, trainer_icons(file)')
+      .eq('id', user.id)
+      .single(),
+    // Grades back from WAPC and not yet opened, for the badge on the VVM tab.
+    // Head-only count: no rows come back, just the number.
+    supabase
+      .from('user_cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .not('grading_started_at', 'is', null)
+      .is('graded_at', null)
+      .lte('grading_ready_at', new Date().toISOString()),
+  ])
 
   const role = profile?.role ?? 'member'
 
@@ -52,7 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      <BottomTabNav role={role} />
+      <BottomTabNav role={role} badges={{ '/vending': gradesReady ?? 0 }} />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
 import Slab from './Slab'
+import MysteryPackReveal from './MysteryPackReveal'
 import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
 
@@ -62,6 +63,62 @@ function heldFor(iso: string): string {
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h`
   return `${Math.floor(hours / 24)}d`
+}
+
+/** Mounts its children after a delay, so a celebration can wait for a flip. */
+function Delayed({ ms, children }: { ms: number; children: React.ReactNode }) {
+  const [on, setOn] = useState(ms <= 0)
+  useEffect(() => {
+    if (ms <= 0) return
+    const t = setTimeout(() => setOn(true), ms)
+    return () => clearTimeout(t)
+  }, [ms])
+  return on ? <>{children}</> : null
+}
+
+/**
+ * The face-down side of the last card in a pack. This app's own design, not
+ * the printed card back - the real one is somebody else's artwork. Neutral
+ * on purpose: nothing about it hints at what is underneath.
+ */
+function CardBack() {
+  return (
+    <div
+      className="absolute inset-0 rounded-lg overflow-hidden vm-back-glow"
+      style={{
+        background: 'radial-gradient(circle at 50% 42%, #1e3a8a 0%, #172554 38%, #0b1020 100%)',
+        boxShadow: 'inset 0 0 0 3px #cbd5e1, inset 0 0 0 6px #1e293b, inset 0 0 0 7px rgba(203,213,225,0.5)',
+        containerType: 'inline-size',
+      }}
+    >
+      <div className="absolute inset-0"
+           style={{ background: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 6px, transparent 6px 12px)' }} />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[4%]">
+        <div className="rounded-full flex items-center justify-center"
+             style={{
+               width: '46%', aspectRatio: '1',
+               background: 'radial-gradient(circle at 40% 35%, #fef3c7 0%, #fbbf24 45%, #b45309 100%)',
+               boxShadow: '0 0 0 4px #0b1020, 0 0 0 6px #fbbf24, 0 0 28px rgba(251,191,36,0.45)',
+             }}>
+          <span className="font-display font-black text-[#0b1020]" style={{ fontSize: '26cqw', lineHeight: 1 }}>?</span>
+        </div>
+        <span className="font-mono font-bold tracking-[0.35em] text-amber-200/90" style={{ fontSize: '6cqw' }}>
+          VVM
+        </span>
+      </div>
+      {/* A sheen passing across it while it waits to be turned. */}
+      <div className="absolute inset-0 vm-back-sheen"
+           style={{ background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.22) 50%, transparent 65%)' }} />
+    </div>
+  )
+}
+
+/** How far through its wait a card at the graders is, 0 to 1. */
+function gradingProgress(c: CardCopy, now: number): number {
+  if (!c.grading_started_at || !c.grading_ready_at) return 0
+  const a = new Date(c.grading_started_at).getTime()
+  const b = new Date(c.grading_ready_at).getTime()
+  return b <= a ? 1 : Math.min(1, Math.max(0, (now - a) / (b - a)))
 }
 
 /** Gem mint down to played, for the badge. */
@@ -258,6 +315,21 @@ export default function CollectionPanel({
   const [opening, setOpening] = useState(false)
   const [reveal, setReveal] = useState<RevealCard[] | null>(null)
   const [revealed, setRevealed] = useState(0)
+  // The last card lands face down and has to be turned over. A tap turns it;
+  // if nobody taps, it turns itself rather than leaving the pack stalled.
+  const [lastFlipped, setLastFlipped] = useState(false)
+  const onLastCard = reveal != null && revealed === reveal.length - 1
+  useEffect(() => {
+    if (!onLastCard || lastFlipped) return
+    const t = setTimeout(() => setLastFlipped(true), 2600)
+    return () => clearTimeout(t)
+  }, [onLastCard, lastFlipped])
+
+  /** One tap on the reveal: turn the last card over first, otherwise move on. */
+  function advanceReveal() {
+    if (onLastCard && !lastFlipped) { setLastFlipped(true); return }
+    setRevealed((k) => k + 1)
+  }
   const [error, setError] = useState<string | null>(null)
   // null = the shelf; a set_code = that binder is open.
   const [openBinder, setOpenBinder] = useState<string | null>(null)
@@ -308,7 +380,13 @@ export default function CollectionPanel({
   // The vault is a peer of the shelf, not a binder inside it.
   const [shelf, setShelf] = useState<'binders' | 'vault'>('binders')
   const [slabIndex, setSlabIndex] = useState<number | null>(null)
-  const [gradeReveal, setGradeReveal] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
+  // A grade being ripped out of its mystery pack. Opens before the server has
+  // answered, so grade starts null and the pack waits on it.
+  const [mystery, setMystery] = useState<{
+    card: CollectionCard; copy: CardCopy; grade: number | null; error: string | null
+  } | null>(null)
+  // A card still at the graders, opened from the graders shelf to check on.
+  const [checkOn, setCheckOn] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
   // Submitting is posting the card away: it costs tokens, leaves the binder,
   // and cannot be recalled. Worth a beat before it happens.
   const [confirmGrading, setConfirmGrading] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
@@ -355,6 +433,34 @@ export default function CollectionPanel({
     return map
   }, [collection, withPatch])
 
+  // A grade becomes ready on the clock, not on a server event, so the shelf
+  // re-reads the time while it is open. A minute is plenty: grading takes days.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(t)
+  }, [])
+
+  /**
+   * Everything currently away at WAPC. These used to be findable only by
+   * opening the right binder and paging to the right card, which is a lot to
+   * ask of someone who just wants to know if their Charizard is back.
+   * Ready ones first, then whatever is due soonest.
+   */
+  const atGraders = useMemo(() => {
+    const out: { card: CollectionCard; copy: CardCopy; ready: boolean; due: number }[] = []
+    for (const card of collection) {
+      for (const raw of card.copies) {
+        const copy = withPatch(raw)
+        if (!copy.grading_started_at || copy.graded_at) continue
+        const due = copy.grading_ready_at ? new Date(copy.grading_ready_at).getTime() : Infinity
+        out.push({ card, copy, ready: due <= now, due })
+      }
+    }
+    return out.sort((a, b) => Number(b.ready) - Number(a.ready) || a.due - b.due)
+  }, [collection, withPatch, now])
+  const readyCount = atGraders.filter((g) => g.ready).length
+
   const totalCards = collection.reduce((n, c) => n + c.copies.length, 0)
   const uniqueCards = collection.length
   const allTotal = setTotals.reduce((n, s) => n + s.total, 0)
@@ -369,6 +475,7 @@ export default function CollectionPanel({
     const cards = ((data as RevealCard[]) ?? []).sort((a, b) => a.slot - b.slot)
     setReveal(cards)
     setRevealed(0)
+    setLastFlipped(false)
   }
 
   function closeReveal() {
@@ -438,22 +545,32 @@ export default function CollectionPanel({
     startTransition(() => router.refresh())
   }
 
+  /**
+   * The pack goes up the moment the tap lands and the grade is fetched behind
+   * it, so the first thing anyone sees is the thing they tapped for rather
+   * than a dead button. The pack cannot be ripped into a number it does not
+   * have yet - it holds on "?" until the grade arrives.
+   */
   async function collectGrade(card: CollectionCard, copy: CardCopy) {
-    setGrading(copy.id); setGradeNote(null)
+    setGrading(copy.id); setGradeNote(null); setCheckOn(null)
+    setMystery({ card, copy, grade: null, error: null })
     const supabase = createClient()
     const { data, error: err } = await supabase.rpc('collect_grade', { p_user_card_id: copy.id })
     setGrading(null)
     const row = (Array.isArray(data) ? data[0] : data) as
       { ok: boolean; reason: string; grade: number | null } | null
-    if (err || !row?.ok) {
-      setGradeNote(row?.reason === 'not_ready' ? 'Still with the graders.' : 'Could not fetch that grade.')
+    if (err || !row?.ok || row.grade == null) {
+      setMystery((m) => m && {
+        ...m,
+        error: row?.reason === 'not_ready' ? 'Still with the graders.' : 'Could not fetch that grade.',
+      })
       return
     }
     const graded: CardCopy = { ...copy, graded_at: new Date().toISOString(), grade: row.grade }
+    // The copy leaves the binder the moment it is graded; patching it now
+    // means it is already in the vault behind the pack when the pack closes.
     setPatch((p) => ({ ...p, [copy.id]: graded }))
-    // The copy leaves the binder the moment it is graded, so without this the
-    // card would simply vanish under the tap that revealed it.
-    setGradeReveal({ card, copy: graded })
+    setMystery((m) => m && { ...m, copy: graded, grade: row.grade })
     startTransition(() => router.refresh())
   }
 
@@ -520,6 +637,88 @@ export default function CollectionPanel({
           </ul>
         )}
       </section>
+
+      {/* ── At the graders ── */}
+      {atGraders.length > 0 && (
+        <section id="graders" className="space-y-2 scroll-mt-16">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-base">At the graders</h2>
+            <span className="font-mono text-[10px] text-muted">
+              {readyCount > 0
+                ? <span className="text-amber-600 font-semibold">{readyCount} ready to reveal</span>
+                : `${atGraders.length} with WAPC`}
+            </span>
+          </div>
+
+          <ul className="space-y-1.5">
+            {atGraders.map(({ card, copy, ready }) => {
+              const busy = grading === copy.id
+              const pct = Math.round(gradingProgress(copy, now) * 100)
+              return (
+                <li key={copy.id}>
+                  <button
+                    onClick={() => (ready ? collectGrade(card, copy) : setCheckOn({ card, copy }))}
+                    disabled={busy}
+                    className={`w-full flex items-center gap-3 rounded-xl border p-2 text-left transition-colors ${
+                      ready
+                        ? 'border-amber-400/70 bg-amber-400/10 hover:bg-amber-400/15 shadow-[0_0_0_1px_rgba(251,191,36,0.25),0_0_18px_rgba(251,191,36,0.25)]'
+                        : 'border-card-border bg-card hover:border-ink/20'
+                    }`}
+                    aria-label={ready
+                      ? `${card.name} is back from grading. Reveal the grade.`
+                      : `${card.name}, at the graders, back in ${copy.grading_ready_at ? waitLabel(copy.grading_ready_at) : 'a while'}.`}
+                  >
+                    <div className="relative w-11 shrink-0">
+                      <ConditionedCard
+                        src={card.image_url} alt="" condition={copy} rarity={card.rarity}
+                        className={`w-full aspect-[245/342] rounded ${ready ? '' : 'opacity-80'}`}
+                      />
+                      {/* Sealed until it is back: the grade is the surprise. */}
+                      <span className={`absolute -bottom-1 -right-1 rounded-full text-[9px] font-bold px-1.5 py-0.5 shadow ${
+                        ready ? 'bg-amber-400 text-ink gr-ready-pip' : 'bg-ink text-white'
+                      }`}>?</span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{card.name}</p>
+                      {ready ? (
+                        <p className="text-xs text-amber-600 font-medium">Back from WAPC — ready to reveal</p>
+                      ) : (
+                        <>
+                          <p className="font-mono text-[10px] text-muted">
+                            Back in {copy.grading_ready_at ? waitLabel(copy.grading_ready_at) : '…'}
+                          </p>
+                          <div className="mt-1 h-1 rounded-full bg-card-border overflow-hidden">
+                            <div className="h-full rounded-full bg-signal/70" style={{ width: `${pct}%` }} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {ready ? (
+                      <span className="shrink-0 rounded-lg bg-amber-400 text-ink text-xs font-bold px-3 py-1.5 gr-ready-cta">
+                        {busy ? '…' : 'Reveal'}
+                      </span>
+                    ) : (
+                      <svg className="w-4 h-4 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+
+          <style>{`
+            @keyframes grPip { 0%,100% { transform: scale(1) } 50% { transform: scale(1.25) } }
+            @keyframes grCta { 0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.6) } 70% { box-shadow: 0 0 0 7px rgba(251,191,36,0) } }
+            .gr-ready-pip { animation: grPip 1.1s ease-in-out infinite; }
+            .gr-ready-cta { animation: grCta 1.6s ease-out infinite; }
+            @media (prefers-reduced-motion: reduce) { .gr-ready-pip, .gr-ready-cta { animation: none; } }
+          `}</style>
+        </section>
+      )}
 
       {/* ── Raffle tickets ── */}
       {tickets.length > 0 && (
@@ -1112,32 +1311,93 @@ export default function CollectionPanel({
       })()}
 
       {/* ── A grade coming back ── */}
-      {gradeReveal && (() => {
-        const { card, copy } = gradeReveal
-        const setName = setTotals.find((s) => s.set_code === card.set_code)?.set_name ?? card.set_code
+      {/* ── Checking on a card that is not back yet ── */}
+      {checkOn && (() => {
+        const { card, copy } = checkOn
+        const pct = Math.round(gradingProgress(copy, now) * 100)
+        const due = copy.grading_ready_at ? new Date(copy.grading_ready_at) : null
         return (
-          <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 gap-4">
-            {(copy.grade ?? 0) >= 9 && <CardCelebration rarity={copy.grade === 10 ? 'S' : 'H'} />}
-            <p className="relative text-white font-display font-semibold">Back from grading</p>
-            <div className="relative w-[min(70vw,280px)]">
-              <Slab
-                condition={copy} grade={copy.grade!} src={card.image_url} alt={card.name}
-                name={card.name} number={card.number} setCode={card.set_code} setName={setName}
-              />
-            </div>
-            <button
-              onClick={() => { setGradeReveal(null); setZoomIndex(null); setShelf('vault') }}
-              className="relative bg-signal text-white font-semibold rounded-xl px-6 py-2.5 text-sm"
+          <div
+            className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
+            onClick={() => setCheckOn(null)}
+            role="dialog" aria-modal="true" aria-labelledby="check-on-title"
+          >
+            <div
+              className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-4 space-y-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+              onClick={(e) => e.stopPropagation()}
             >
-              Put it in the vault
-            </button>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 id="check-on-title" className="font-display font-semibold text-base truncate">
+                    {card.name}
+                  </h3>
+                  <p className="font-mono text-[10px] text-muted">With WAPC Authentication</p>
+                </div>
+                <button onClick={() => setCheckOn(null)} className="text-xs text-muted hover:text-ink shrink-0">
+                  Close
+                </button>
+              </div>
+
+              <div className="w-[min(46vw,170px)] mx-auto">
+                <ConditionedCard
+                  src={card.image_url} alt={card.name} condition={copy} rarity={card.rarity}
+                  detail="full" className="w-full aspect-[245/342] rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between font-mono text-[10px] text-muted">
+                  <span>Sent {copy.grading_started_at
+                    ? new Date(copy.grading_started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                    : ''}</span>
+                  <span>{pct}%</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-card-border overflow-hidden">
+                  <div className="h-full rounded-full bg-signal" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-sm">
+                  Back in <span className="font-semibold">{copy.grading_ready_at ? waitLabel(copy.grading_ready_at) : '…'}</span>
+                  {due && (
+                    <span className="text-muted">
+                      {' '}· {due.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {' '}{due.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted leading-snug">
+                  It comes back sealed. You will get a notice on the VVM tab when it is ready to rip open.
+                </p>
+              </div>
+            </div>
           </div>
         )
       })()}
 
+      {mystery && (
+        <MysteryPackReveal
+          card={mystery.card}
+          condition={mystery.copy}
+          grade={mystery.grade}
+          error={mystery.error}
+          setName={setTotals.find((s) => s.set_code === mystery.card.set_code)?.set_name
+            ?? mystery.card.set_code}
+          onDone={() => {
+            setMystery(null); setZoomIndex(null); setOpenBinder(null); setShelf('vault')
+          }}
+          onClose={() => setMystery(null)}
+        />
+      )}
+
       {/* ── Reveal overlay ── */}
+      {/* An opaque stage with a spotlight on it. At 85% black the collection
+          showed through behind the first few cards, and the counter sat on
+          top of text from the page underneath. The vignette below closes in
+          around this spotlight as the camera pushes. */}
       {reveal && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/85 flex flex-col items-center justify-center p-4 gap-4">
+        <div
+          className="fixed inset-0 z-50 overflow-hidden flex flex-col items-center justify-center p-4 gap-4"
+          style={{ background: 'radial-gradient(circle at 50% 44%, #1e293b 0%, #0b1220 38%, #03050a 70%)' }}
+        >
           {(() => {
             const idx = Math.min(revealed, reveal.length - 1)
             const card = reveal[idx]
@@ -1148,9 +1408,9 @@ export default function CollectionPanel({
                 <>
                   <p className="text-white font-display font-semibold">Pack opened</p>
                   <div className="grid grid-cols-4 gap-1.5 max-w-sm">
-                    {reveal.map((c) => (
+                    {reveal.map((c, i) => (
                       <ConditionedCard
-                        key={c.card_id}
+                        key={i}
                         src={c.image_url}
                         alt={c.name}
                         condition={c}
@@ -1169,42 +1429,124 @@ export default function CollectionPanel({
               )
             }
             const special = card.rarity === 'H' || card.rarity === 'S'
+            const n = reveal.length
+            const last = idx === n - 1
+            // The camera pushes in a step with every card, so the pack builds
+            // toward its last slot - which is where the rare sits - instead of
+            // eleven reveals all landing at the same distance. The frame
+            // stays the size of the final card; only the subject grows inside
+            // it, so nothing below it ever gets shoved down the screen.
+            const t = n > 1 ? idx / (n - 1) : 1
+            const zoom = 0.72 + 0.28 * t
             return (
               <>
-                {/* Keyed by card so the animation restarts on every hit
-                    rather than only the first one in a pack. */}
-                {special && <CardCelebration key={card.card_id} rarity={card.rarity as 'H' | 'S'} />}
+                {/* The vignette closes in with the camera. */}
+                <div
+                  className="absolute left-1/2 top-[44%] pointer-events-none vm-vig"
+                  style={{
+                    width: '160vmax', height: '160vmax', marginLeft: '-80vmax', marginTop: '-80vmax',
+                    background: 'radial-gradient(circle, transparent 18%, rgba(0,0,0,0.9) 42%)',
+                    transform: `scale(${1.55 - 0.6 * t})`,
+                  }}
+                />
 
-                <p className="relative font-mono text-[10px] text-white/50">
-                  {idx + 1} of {reveal.length}
+                {/* Keyed by position so the animation restarts on every hit,
+                    including two copies of the same holo in one pack. The
+                    last card's waits for it to be turned over and for the
+                    turn to finish - confetti over a face-down card would give
+                    the game away. */}
+                {special && (!last || lastFlipped) && (
+                  <Delayed key={`c${idx}`} ms={last ? 620 : 0}>
+                    <CardCelebration rarity={card.rarity as 'H' | 'S'} />
+                  </Delayed>
+                )}
+
+                <p className={`relative font-mono text-[10px] ${last ? 'text-amber-300 tracking-[0.25em]' : 'text-white/50'}`}>
+                  {last ? 'LAST CARD' : `${idx + 1} of ${n}`}
                 </p>
-                <button onClick={() => setRevealed((n) => n + 1)} className="relative block">
-                  {/* Condition lands with the card, so the first look already
-                      tells you whether the cut was kind to it. */}
-                  <ConditionedCard
-                    src={card.image_url}
-                    alt={card.name}
-                    condition={card}
-                    rarity={card.rarity}
-                    detail="full"
-                    className={`h-[55vh] aspect-[245/342] rounded-lg ${rarityRing(card.rarity)} ${
-                      special ? (card.rarity === 'S' ? 'vm-card-hit vm-card-secret' : 'vm-card-hit vm-card-holo') : ''
-                    }`}
-                  />
+
+                <button
+                  onClick={advanceReveal}
+                  className="relative block w-[min(80vw,46vh)] aspect-[245/342]"
+                  aria-label={last && !lastFlipped ? 'Turn the last card over' : `${card.name}. Next card.`}
+                >
+                  <div className="absolute inset-0 vm-cam" style={{ transform: `scale(${zoom})` }}>
+                    {last ? (
+                      // Lands face down, then turns over. The flip is the
+                      // entry, so the face carries only its glow, not the
+                      // pop-in the other hits get.
+                      <div key={`f${idx}`} className="absolute inset-0 vm-card-deal" style={{ perspective: '1400px' }}>
+                        <div
+                          className="relative w-full h-full vm-flip"
+                          style={{
+                            transformStyle: 'preserve-3d',
+                            transform: lastFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                          }}
+                        >
+                          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
+                            <CardBack />
+                          </div>
+                          <div className="absolute inset-0"
+                               style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                            <ConditionedCard
+                              src={card.image_url}
+                              alt={lastFlipped ? card.name : ''}
+                              condition={card}
+                              rarity={card.rarity}
+                              detail="full"
+                              className={`w-full h-full rounded-lg ${rarityRing(card.rarity)} ${
+                                lastFlipped && card.rarity === 'S' ? 'vm-glow-secret'
+                                  : lastFlipped && card.rarity === 'H' ? 'vm-glow-holo' : ''
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Condition lands with the card, so the first look
+                      // already tells you whether the cut was kind to it.
+                      // Keyed by position so every card deals in, not just
+                      // the hits.
+                      <ConditionedCard
+                        key={idx}
+                        src={card.image_url}
+                        alt={card.name}
+                        condition={card}
+                        rarity={card.rarity}
+                        detail="full"
+                        className={`w-full h-full rounded-lg ${rarityRing(card.rarity)} ${
+                          special ? (card.rarity === 'S' ? 'vm-card-hit vm-card-secret' : 'vm-card-hit vm-card-holo')
+                            : 'vm-card-deal'
+                        }`}
+                      />
+                    )}
+                  </div>
                 </button>
-                <div className="relative text-center">
-                  <p className={`font-semibold ${special ? 'text-base' : 'text-sm'} text-white`}>{card.name}</p>
-                  <p className={`text-xs font-medium ${
-                    card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
-                  }`}>
-                    {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? '✦ HOLO RARE ✦' : RARITY_LABEL[card.rarity] ?? card.rarity}
-                  </p>
+                {/* The caption stays blank until the last card is turned:
+                    its name and rarity are the whole point of the wait. */}
+                <div className="relative text-center min-h-[2.5rem]">
+                  {last && !lastFlipped ? (
+                    <p className="text-sm text-white/45 tracking-[0.3em] font-mono vm-pulse-text">? ? ?</p>
+                  ) : (
+                    <div key={`cap${idx}`} className={last ? 'vm-caption-in' : undefined}>
+                      <p className={`font-semibold ${special ? 'text-base' : 'text-sm'} text-white`}>{card.name}</p>
+                      <p className={`text-xs font-medium ${
+                        card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
+                      }`}>
+                        {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? '✦ HOLO RARE ✦' : RARITY_LABEL[card.rarity] ?? card.rarity}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <button
-                  onClick={() => setRevealed((n) => n + 1)}
-                  className="relative text-white/60 text-xs underline underline-offset-2"
+                  onClick={advanceReveal}
+                  className={`relative text-xs ${
+                    last && !lastFlipped
+                      ? 'rounded-xl bg-amber-400 text-ink font-bold px-5 py-2 no-underline'
+                      : 'text-white/60 underline underline-offset-2'
+                  }`}
                 >
-                  {idx + 1 === reveal.length ? 'Finish' : 'Next card'}
+                  {last && !lastFlipped ? 'Flip it' : last ? 'Finish' : 'Next card'}
                 </button>
 
                 <style>{`
@@ -1213,6 +1555,32 @@ export default function CollectionPanel({
                     55%  { transform: scale(1.06) rotate(1.5deg); opacity: 1; }
                     100% { transform: scale(1) rotate(0deg); opacity: 1; }
                   }
+                  /* Every card deals in, quickly - the hits keep their bigger
+                     pop on top of this. */
+                  @keyframes vmDeal {
+                    0%   { transform: translateY(14%) rotate(-3deg); opacity: 0; }
+                    100% { transform: none; opacity: 1; }
+                  }
+                  .vm-card-deal { animation: vmDeal 340ms cubic-bezier(.2,.8,.3,1) both; }
+                  .vm-glow-holo   { animation: vmGlowHolo 1.9s ease-in-out infinite; }
+                  .vm-glow-secret { animation: vmGlowSecret 2.4s linear infinite; }
+                  @keyframes vmBackGlow {
+                    0%, 100% { box-shadow: 0 0 16px 2px rgba(255,255,255,0.18); }
+                    50%      { box-shadow: 0 0 34px 8px rgba(255,255,255,0.38); }
+                  }
+                  .vm-back-glow { animation: vmBackGlow 1.2s ease-in-out infinite; }
+                  @keyframes vmBackSheen { 0% { transform: translateX(-120%) } 60%, 100% { transform: translateX(120%) } }
+                  .vm-back-sheen { animation: vmBackSheen 1.8s ease-in-out infinite; }
+                  @keyframes vmPulseText { 0%, 100% { opacity: 0.35 } 50% { opacity: 0.9 } }
+                  .vm-pulse-text { animation: vmPulseText 1s ease-in-out infinite; }
+                  @keyframes vmCaptionIn {
+                    0%   { opacity: 0; transform: scale(1.4); letter-spacing: 0.2em; }
+                    100% { opacity: 1; transform: none; letter-spacing: normal; }
+                  }
+                  .vm-caption-in { animation: vmCaptionIn 480ms cubic-bezier(.2,.8,.3,1) 520ms both; }
+                  .vm-cam  { transition: transform 650ms cubic-bezier(.2,.8,.25,1.04); }
+                  .vm-vig  { transition: transform 700ms cubic-bezier(.2,.8,.2,1); }
+                  .vm-flip { transition: transform 620ms cubic-bezier(.3,.7,.25,1.05); }
                   @keyframes vmGlowHolo {
                     0%, 100% { box-shadow: 0 0 18px 2px rgba(251,191,36,0.55); }
                     50%      { box-shadow: 0 0 40px 10px rgba(251,191,36,0.85); }
@@ -1227,9 +1595,12 @@ export default function CollectionPanel({
                   .vm-card-holo   { animation: vmCardIn 620ms cubic-bezier(.2,.8,.3,1.1) both, vmGlowHolo 1.9s ease-in-out 620ms infinite; }
                   .vm-card-secret { animation: vmCardIn 620ms cubic-bezier(.2,.8,.3,1.1) both, vmGlowSecret 2.4s linear 620ms infinite; }
                   @media (prefers-reduced-motion: reduce) {
-                    .vm-card-hit, .vm-card-holo, .vm-card-secret { animation: none; }
-                    .vm-card-holo   { box-shadow: 0 0 20px 4px rgba(251,191,36,0.6); }
-                    .vm-card-secret { box-shadow: 0 0 20px 4px rgba(232,121,249,0.6); }
+                    .vm-card-hit, .vm-card-holo, .vm-card-secret, .vm-card-deal,
+                    .vm-glow-holo, .vm-glow-secret, .vm-back-glow, .vm-back-sheen,
+                    .vm-pulse-text, .vm-caption-in { animation: none; }
+                    .vm-cam, .vm-vig, .vm-flip { transition: none; }
+                    .vm-card-holo, .vm-glow-holo     { box-shadow: 0 0 20px 4px rgba(251,191,36,0.6); }
+                    .vm-card-secret, .vm-glow-secret { box-shadow: 0 0 20px 4px rgba(232,121,249,0.6); }
                   }
                 `}</style>
               </>

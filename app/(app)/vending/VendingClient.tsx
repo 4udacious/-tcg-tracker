@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal, type OwnedTicket } from './CollectionPanel'
@@ -167,6 +167,33 @@ export default function VendingClient({
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [view, setView] = useState<'machine' | 'collection' | 'showcase' | 'market'>('machine')
+
+  // Grades that are back and waiting to be ripped open. Ready-ness is a
+  // matter of the clock, so it is re-read every half minute rather than only
+  // when the server next renders.
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setClock(Date.now()), 30_000)
+    return () => clearInterval(t)
+  }, [])
+  const gradesReady = useMemo(() => {
+    let n = 0
+    for (const c of collection) {
+      for (const copy of c.copies) {
+        if (copy.grading_started_at && !copy.graded_at && copy.grading_ready_at &&
+            new Date(copy.grading_ready_at).getTime() <= clock) n++
+      }
+    }
+    return n
+  }, [collection, clock])
+
+  /** Takes you to the graders shelf from anywhere on the page. */
+  function goToGraders() {
+    setView('collection')
+    // The section only exists once the Cards view has rendered.
+    requestAnimationFrame(() => requestAnimationFrame(() =>
+      document.getElementById('graders')?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+  }
   const [buys, setBuys] = useState<RecentBuy[]>(recentBuys)
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
@@ -458,6 +485,33 @@ export default function VendingClient({
         </div>
       </div>
 
+      {/* A grade coming back is the one thing worth interrupting for, so it
+          gets a banner above the tabs wherever you are on this page. */}
+      {gradesReady > 0 && !(view === 'collection') && (
+        <button
+          onClick={goToGraders}
+          className="w-full flex items-center gap-3 rounded-xl border border-amber-400/70 bg-amber-400/10 px-3 py-2.5 text-left shadow-[0_0_18px_rgba(251,191,36,0.2)] hover:bg-amber-400/15 transition-colors"
+        >
+          <span className="shrink-0 w-8 h-8 rounded-full bg-amber-400 text-ink font-display font-black flex items-center justify-center vm-grade-ping">
+            ?
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">
+              {gradesReady === 1 ? 'A grade is back from WAPC' : `${gradesReady} grades are back from WAPC`}
+            </span>
+            <span className="block text-xs text-muted">Sealed and waiting — tap to rip {gradesReady === 1 ? 'it' : 'them'} open</span>
+          </span>
+          <svg className="w-4 h-4 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <style>{`
+            @keyframes vmGradePing { 0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.55) } 70% { box-shadow: 0 0 0 8px rgba(251,191,36,0) } }
+            .vm-grade-ping { animation: vmGradePing 1.6s ease-out infinite; }
+            @media (prefers-reduced-motion: reduce) { .vm-grade-ping { animation: none; } }
+          `}</style>
+        </button>
+      )}
+
       <div className="flex gap-1">
         {(['machine', 'collection', 'showcase', 'market'] as const).map((v) => (
           <button
@@ -471,6 +525,16 @@ export default function VendingClient({
             {v === 'collection' && packs.length > 0 && (
               <span className="ml-1.5 font-mono text-[10px] rounded-full bg-signal text-white px-1.5 py-0.5">
                 {packs.length}
+              </span>
+            )}
+            {/* A "?" rather than a number, so it never reads as more packs:
+                the grade amber is close to the pack count's orange. */}
+            {v === 'collection' && gradesReady > 0 && (
+              <span
+                className="ml-1 font-mono text-[10px] font-bold rounded-full bg-amber-400 text-ink px-1.5 py-0.5"
+                aria-label={`${gradesReady} grade${gradesReady === 1 ? '' : 's'} ready to reveal`}
+              >
+                ?{gradesReady > 1 ? gradesReady : ''}
               </span>
             )}
             {v === 'market' && unread > 0 && (

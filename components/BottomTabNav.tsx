@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 
 interface Props {
   role: string
+  /** Counts to flag on a tab, keyed by its href. Zero shows nothing. */
+  badges?: Record<string, number>
 }
 
 const tabs = [
@@ -63,7 +65,7 @@ const adminPreviewTabs = [
   },
 ]
 
-export default function BottomTabNav({ role }: Props) {
+export default function BottomTabNav({ role, badges = {} }: Props) {
   const pathname = usePathname()
   const showAdmin = role === 'mod' || role === 'admin'
   const isAdmin = role === 'admin'
@@ -94,6 +96,7 @@ export default function BottomTabNav({ role }: Props) {
       <div className="flex">
         {allTabs.map((tab) => {
           const active = pathname.startsWith(tab.href)
+          const badge = badges[tab.href] ?? 0
           return (
             <Link
               key={tab.href}
@@ -101,8 +104,16 @@ export default function BottomTabNav({ role }: Props) {
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-inset ${
                 active ? 'text-signal' : 'text-muted hover:text-ink'
               }`}
+              aria-label={badge > 0 ? `${tab.label}, ${badge} grade${badge === 1 ? '' : 's'} ready` : undefined}
             >
-              {tab.icon}
+              <span className="relative">
+                {tab.icon}
+                {badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 rounded-full bg-amber-400 text-ink text-[9px] font-bold leading-4 text-center px-1 ring-2 ring-card">
+                    {badge}
+                  </span>
+                )}
+              </span>
               <span className={`font-medium ${active ? 'font-semibold' : ''}`}>
                 {tab.label}
               </span>
