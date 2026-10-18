@@ -37,6 +37,13 @@ export interface MarketListing {
   fee: number | null
   sold_to_name: string | null
   settled_at: string | null
+  /** The seller's own name for it, shown in place of preview_name. */
+  title: string | null
+}
+
+/** What a listing is called: the seller's title, else its best item. */
+function listingName(l: MarketListing): string {
+  return l.title ?? l.preview_name ?? 'Bundle'
 }
 
 interface ListingItem extends Condition {
@@ -242,6 +249,10 @@ export default function MarketPanel({
           feePercent={feePercent}
           onClose={() => setOpen(null)}
           onBuy={() => buy(open)} onBid={(n) => bid(open, n)} onCancel={() => cancel(open)}
+          onRenamed={(title) => {
+            setOpen({ ...open, title })
+            startTransition(() => router.refresh())
+          }}
         />
       )}
 
@@ -321,7 +332,7 @@ function ListingTile({ listing: l, mine, onOpen }: {
         )}
       </div>
 
-      <p className="text-xs font-semibold truncate">{l.preview_name ?? 'Bundle'}</p>
+      <p className="text-xs font-semibold truncate">{listingName(l)}</p>
 
       {/* Three to a row leaves about a hundred pixels, so the price gets the
           line to itself and everything else goes underneath, ordered so that
@@ -359,15 +370,43 @@ function ListingTile({ listing: l, mine, onOpen }: {
 }
 
 function ListingDetail({
-  listing: l, mine, busy, balance, feePercent, onClose, onBuy, onBid, onCancel,
+  listing: l, mine, busy, balance, feePercent, onClose, onBuy, onBid, onCancel, onRenamed,
 }: {
   listing: MarketListing; mine: boolean; busy: boolean; balance: number; feePercent: number
   onClose: () => void; onBuy: () => void; onBid: (n: number) => void; onCancel: () => void
+  onRenamed: (title: string | null) => void
 }) {
   const [amount, setAmount] = useState(fmt(minBid(l)))
   const [items, setItems] = useState<ListingItem[] | null>(null)
   const [zoom, setZoom] = useState<ListingItem | null>(null)
   const live = l.status === 'active'
+
+  // Renaming, for the seller while it is still up. Bids do not lock it: the
+  // title is a label, not a term of the sale.
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [titleError, setTitleError] = useState<string | null>(null)
+
+  async function saveTitle() {
+    setSaving(true)
+    setTitleError(null)
+    const { data, error } = await createClient()
+      .rpc('market_set_title', { p_listing: l.id, p_title: draft })
+    setSaving(false)
+    const row = (Array.isArray(data) ? data[0] : data) as
+      { ok: boolean; reason: string; title: string | null } | null
+    if (error || !row?.ok) {
+      setTitleError(
+        row?.reason === 'too_long' ? 'Titles can be up to 60 characters.'
+        : row?.reason === 'not_active' ? 'This listing has already closed.'
+        : 'Could not rename it.'
+      )
+      return
+    }
+    setEditing(false)
+    onRenamed(row.title)
+  }
 
   useEffect(() => {
     let alive = true
@@ -385,11 +424,62 @@ function ListingDetail({
       <div className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-2 p-4 pb-2 shrink-0">
-          <div className="min-w-0">
-            <h3 className="font-display font-semibold text-base truncate">
-              {l.preview_name ?? 'Bundle'}
-            </h3>
+          <div className="min-w-0 flex-1">
+            {editing ? (
+              <form
+                onSubmit={(e) => { e.preventDefault(); saveTitle() }}
+                className="space-y-1.5 pb-1"
+              >
+                <input
+                  autoFocus value={draft} maxLength={60}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={l.preview_name ?? 'Bundle'}
+                  aria-label="Listing title"
+                  className="w-full bg-paper border border-card-border rounded-lg px-2.5 py-1.5 text-sm font-semibold outline-none focus:border-signal placeholder:text-muted placeholder:font-normal"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit" disabled={saving}
+                    className="text-xs font-semibold rounded-lg bg-signal text-white px-3 py-1.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
+                  >
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditing(false); setTitleError(null) }}
+                    className="text-xs text-muted hover:text-ink"
+                  >
+                    Cancel
+                  </button>
+                  <span className="ml-auto font-mono text-[10px] text-muted">{draft.length}/60</span>
+                </div>
+                <p className={`text-[11px] leading-snug ${titleError ? 'text-amber-600' : 'text-muted'}`}>
+                  {titleError ?? 'Leave it blank to go back to the card’s own name.'}
+                </p>
+              </form>
+            ) : (
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-display font-semibold text-base truncate">
+                  {listingName(l)}
+                </h3>
+                {mine && live && (
+                  <button
+                    onClick={() => { setDraft(l.title ?? ''); setTitleError(null); setEditing(true) }}
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink transition-colors"
+                    aria-label="Rename this listing"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M16.862 4.487a2.1 2.1 0 113 3L8.25 19.1 4 20l.9-4.25L16.862 4.487z" />
+                    </svg>
+                    Rename
+                  </button>
+                )}
+              </div>
+            )}
             <p className="font-mono text-[10px] text-muted">
+              {/* A titled listing still says what its headline item is. */}
+              {l.title && l.preview_name && `${l.preview_name} · `}
               {l.card_count > 0 && `${l.card_count} card${l.card_count === 1 ? '' : 's'}`}
               {l.card_count > 0 && l.pack_count > 0 && ' · '}
               {l.pack_count > 0 && `${l.pack_count} pack${l.pack_count === 1 ? '' : 's'}`}
@@ -662,6 +752,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   const [prices, setPrices] = useState<Record<string, string>>({})
   const [hours, setHours] = useState(24)
   const [note, setNote] = useState('')
+  const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   // Choosing the goods and choosing how they sell are two jobs; a
   // collection runs to hundreds of cards, so doing both on one sheet
@@ -705,6 +796,9 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   )
 
   const total = cards.size + chosenPacks.size
+  // Separate listings only once there is more than one thing to separate; a
+  // lone item with "Price each" left on from earlier is still one listing.
+  const separate = split && total > 1
   const n = Number(price)
   const keep = takeHome(n, feePercent)
 
@@ -741,6 +835,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     : reason === 'bad_packs' ? 'One of those packs is no longer available.'
     : reason === 'empty_listing' ? 'Pick at least one thing to sell.'
     : reason === 'bad_price' ? 'Every price has to be at least 1 token.'
+    : reason === 'bad_title' ? 'Titles can be up to 60 characters.'
     : 'Could not create that listing.'
 
   async function createOne(
@@ -754,6 +849,9 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
       p_pack_ids: packIds,
       p_hours: kind === 'auction' ? hours : null,
       p_note: note.trim() || null,
+      // One title cannot name several listings, so separate ones keep their
+      // card names (and can each be renamed afterwards).
+      p_title: separate ? null : title.trim() || null,
     })
     const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; reason: string } | null
     return { ok: !error && !!row?.ok, reason: row?.reason }
@@ -763,7 +861,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     setBusy(true)
     const supabase = createClient()
 
-    if (!split) {
+    if (!separate) {
       const r = await createOne(supabase, n, [...cards], [...chosenPacks])
       setBusy(false)
       if (!r.ok) { onError(reasonText(r.reason)); return }
@@ -965,7 +1063,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             </div>
           )}
 
-          {split && total > 1 ? (
+          {separate ? (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-ink">
                 {kind === 'auction' ? 'Opening bid each' : 'Price each'}
@@ -1031,6 +1129,20 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             </div>
           )}
 
+          {!separate && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-ink">Title <span className="text-muted">(optional)</span></label>
+              <input
+                value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60}
+                placeholder={total > 1 ? 'e.g. Fossil holo lot' : picked[0]?.label ?? 'Name your listing'}
+                className="w-full bg-paper border border-card-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-signal placeholder:text-muted"
+              />
+              <p className="text-[11px] text-muted">
+                Shown on the board instead of the card name. You can rename it any time while it is up.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-xs font-medium text-ink">Note <span className="text-muted">(optional)</span></label>
             <input
@@ -1047,14 +1159,14 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
           onClick={step === 'pick' ? () => setStep('price') : submit}
           disabled={
             busy || total === 0 ||
-            (step === 'price' && !split && !(n >= CENT))
+            (step === 'price' && !separate && !(n >= CENT))
           }
           className="shrink-0 w-full rounded-xl bg-signal text-white text-sm font-semibold py-2.5 hover:bg-signal/90 transition-colors disabled:opacity-40"
         >
           {busy ? 'Listing…'
             : total === 0 ? 'Pick something to sell'
             : step === 'pick' ? `Continue with ${total} item${total === 1 ? '' : 's'}`
-            : split && total > 1 ? `Put up ${picked.length} listings`
+            : separate ? `Put up ${picked.length} listings`
             : kind === 'auction' ? `Start the auction at ${fmt(n)}` : `List for ${fmt(n)}`}
         </button>
         <p className="shrink-0 text-[11px] text-muted leading-snug">

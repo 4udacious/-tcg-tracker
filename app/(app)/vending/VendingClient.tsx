@@ -135,6 +135,7 @@ interface Props {
   myListings: MarketListing[]
   feePercent: number
   marketUnread: number
+  initialView?: 'machine' | 'collection' | 'showcase' | 'market'
 }
 
 const VIEW_LABEL: Record<string, string> = {
@@ -158,7 +159,7 @@ function untilLabel(iso: string): string {
 export default function VendingClient({
   initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
   packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays,
-  showcaseItems, showcaseLighting, listings, myListings, feePercent, marketUnread,
+  showcaseItems, showcaseLighting, listings, myListings, feePercent, marketUnread, initialView,
 }: Props) {
   // Cleared the moment the market panel marks them read, so the badge does
   // not sit there until the next server render.
@@ -166,7 +167,10 @@ export default function VendingClient({
   const [split, setSplit] = useState({ allowance, earned })
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [view, setView] = useState<'machine' | 'collection' | 'showcase' | 'market'>('machine')
+  const [view, setView] = useState<'machine' | 'collection' | 'showcase' | 'market'>(initialView ?? 'machine')
+  // A link to ?view=... while already on this page re-renders it with the new
+  // param rather than remounting, so the tab follows the prop.
+  useEffect(() => { if (initialView) setView(initialView) }, [initialView])
 
   // Grades that are back and waiting to be ripped open. Ready-ness is a
   // matter of the clock, so it is re-read every half minute rather than only

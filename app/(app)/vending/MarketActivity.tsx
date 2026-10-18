@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { NOTICES_READ_EVENT } from '@/components/MarketAnnouncement'
 import { fmt, money, num } from './tokens'
 
 interface Notice {
   id: number
   listing_id: number | null
-  kind: 'sold' | 'bought' | 'outbid' | 'expired'
+  /** 'announcement' is news about the market itself, with its own message. */
+  kind: 'sold' | 'bought' | 'outbid' | 'expired' | 'announcement'
   amount: number | null
   fee: number | null
   other_name: string | null
@@ -15,6 +17,7 @@ interface Notice {
   preview_image: string | null
   created_at: string
   unread: boolean
+  message: string | null
 }
 
 interface Activity {
@@ -50,6 +53,8 @@ function label(n: Notice): string {
       return `${who} outbid you on ${what} at ${fmt(n.amount ?? 0)}. Your tokens are back.`
     case 'expired':
       return `${what} ended without a sale and is back in your collection.`
+    case 'announcement':
+      return n.message ?? ''
   }
 }
 
@@ -78,7 +83,12 @@ export function MarketNotices({ onRead }: { onRead?: () => void }) {
       setNotices(rows)
       if (rows.some((n) => n.unread) && !marked.current) {
         marked.current = true
-        supabase.rpc('mark_market_notices_read').then(() => cb.current?.())
+        supabase.rpc('mark_market_notices_read').then(() => {
+          cb.current?.()
+          // Takes down the app-wide announcement banner, which is server
+          // rendered and would otherwise linger until the next navigation.
+          window.dispatchEvent(new Event(NOTICES_READ_EVENT))
+        })
       }
     })
     return () => { alive = false }
@@ -97,7 +107,11 @@ export function MarketNotices({ onRead }: { onRead?: () => void }) {
               : 'border-card-border bg-card'
           }`}
         >
-          {n.preview_image ? (
+          {n.kind === 'announcement' ? (
+            <span className="w-7 shrink-0 rounded-md bg-signal text-white text-[8px] font-bold text-center py-0.5">
+              NEW
+            </span>
+          ) : n.preview_image ? (
             <img src={n.preview_image} alt="" loading="lazy"
                  className="w-7 shrink-0 aspect-[245/342] object-contain rounded bg-paper" />
           ) : (

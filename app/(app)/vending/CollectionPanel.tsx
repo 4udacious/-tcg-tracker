@@ -7,6 +7,8 @@ import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
 import Slab from './Slab'
 import MysteryPackReveal from './MysteryPackReveal'
+import SoundToggle from './SoundToggle'
+import { playPackSound } from './packSounds'
 import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
 
@@ -324,6 +326,29 @@ export default function CollectionPanel({
     return () => clearTimeout(t)
   }, [onLastCard, lastFlipped])
 
+  // Sound follows the cards. Each one deals in a little higher than the
+  // last, climbing with the camera; a hit lands with its sparkle on top. The
+  // first waits for the rip to finish.
+  useEffect(() => {
+    if (!reveal || revealed >= reveal.length) return
+    const card = reveal[revealed]
+    const step = reveal.length > 1 ? revealed / (reveal.length - 1) : 1
+    const delayMs = revealed === 0 ? 380 : 0
+    playPackSound('deal', { step, delayMs })
+    const lastOne = revealed === reveal.length - 1
+    if (!lastOne && (card.rarity === 'H' || card.rarity === 'S')) {
+      playPackSound(card.rarity === 'S' ? 'secret' : 'holo', { delayMs: delayMs + 60 })
+    }
+  }, [reveal, revealed])
+  // The last card: the turn, then what it turned out to be, timed to the
+  // flip finishing and the celebration starting.
+  useEffect(() => {
+    if (!lastFlipped || !reveal) return
+    const card = reveal[reveal.length - 1]
+    playPackSound('flip')
+    playPackSound(card.rarity === 'S' ? 'secret' : card.rarity === 'H' ? 'holo' : 'chime', { delayMs: 560 })
+  }, [lastFlipped, reveal])
+
   /** One tap on the reveal: turn the last card over first, otherwise move on. */
   function advanceReveal() {
     if (onLastCard && !lastFlipped) { setLastFlipped(true); return }
@@ -465,6 +490,8 @@ export default function CollectionPanel({
   const allTotal = setTotals.reduce((n, s) => n + s.total, 0)
 
   async function openPack(id: number) {
+    // Before anything is awaited: browsers only start audio inside the tap.
+    playPackSound('rip')
     setOpening(true); setError(null)
     const supabase = createClient()
     const { data, error: err } = await supabase.rpc('open_pack', { p_user_pack_id: id })
@@ -1430,24 +1457,35 @@ export default function CollectionPanel({
             const special = card.rarity === 'H' || card.rarity === 'S'
             const n = reveal.length
             const last = idx === n - 1
-            // The camera pushes in a step with every card, so the pack builds
-            // toward its last slot - which is where the rare sits - instead of
-            // eleven reveals all landing at the same distance. The frame
-            // stays the size of the final card; only the subject grows inside
-            // it, so nothing below it ever gets shoved down the screen.
+            // The camera pushes in with every card, so the pack builds toward
+            // its last slot - which is where the rare sits. The first card is
+            // a quarter size, far off in the dark; each one after is the same
+            // ratio closer (about ×1.14 a card in an eleven-card pack), so the
+            // approach feels steady rather than all happening at the end, and
+            // the last card arrives filling the screen. The frame stays the
+            // size of that final card; only the subject grows inside it, so
+            // nothing below it ever gets shoved down the screen.
             const t = n > 1 ? idx / (n - 1) : 1
-            const zoom = 0.72 + 0.28 * t
+            const FAR = 0.26
+            const zoom = FAR * Math.pow(1 / FAR, t)
             return (
               <>
-                {/* The vignette closes in with the camera. */}
+                {/* A spotlight that tracks the card: a tight pool of light
+                    round the small far-off one, widening as it comes
+                    closer, so the dark is always just past its corners.
+                    It covers the whole screen and only its radius moves
+                    (--vm-r, in final-card heights), because a scaled
+                    square stops covering the edges once it is small.
+                    The card sits 30px above centre: there is more under it
+                    (caption, button) than over it (the counter). */}
                 <div
-                  className="absolute left-1/2 top-[44%] pointer-events-none vm-vig"
+                  className="absolute inset-0 pointer-events-none vm-vig"
                   style={{
-                    width: '160vmax', height: '160vmax', marginLeft: '-80vmax', marginTop: '-80vmax',
-                    background: 'radial-gradient(circle, transparent 18%, rgba(0,0,0,0.9) 42%)',
-                    transform: `scale(${1.55 - 0.6 * t})`,
-                  }}
+                    '--vm-r': `calc(min(128.5vw, 100dvh - 11rem) * ${(1.6 * zoom).toFixed(3)})`,
+                    background: 'radial-gradient(circle at 50% calc(50% - 30px), transparent calc(var(--vm-r) * 0.44), rgba(0,0,0,0.92) var(--vm-r))',
+                  } as React.CSSProperties}
                 />
+                <SoundToggle className="absolute top-3 right-3 z-10" />
 
                 {/* Keyed by position so the animation restarts on every hit,
                     including two copies of the same holo in one pack. The
@@ -1464,9 +1502,14 @@ export default function CollectionPanel({
                   {last ? 'LAST CARD' : `${idx + 1} of ${n}`}
                 </p>
 
+                {/* Sized so the last card nearly fills the screen: as tall as
+                    the viewport allows after the counter, caption and button
+                    (about 11rem between them), and never wider than the
+                    phone. */}
                 <button
                   onClick={advanceReveal}
-                  className="relative block w-[min(80vw,46vh)] aspect-[245/342]"
+                  className="relative block aspect-[245/342]"
+                  style={{ width: 'min(92vw, calc((100dvh - 11rem) * 0.716))' }}
                   aria-label={last && !lastFlipped ? 'Turn the last card over' : `${card.name}. Next card.`}
                 >
                   <div className="absolute inset-0 vm-cam" style={{ transform: `scale(${zoom})` }}>
@@ -1577,8 +1620,11 @@ export default function CollectionPanel({
                     100% { opacity: 1; transform: none; letter-spacing: normal; }
                   }
                   .vm-caption-in { animation: vmCaptionIn 480ms cubic-bezier(.2,.8,.3,1) 520ms both; }
-                  .vm-cam  { transition: transform 650ms cubic-bezier(.2,.8,.25,1.04); }
-                  .vm-vig  { transition: transform 700ms cubic-bezier(.2,.8,.2,1); }
+                  .vm-cam  { transition: transform 750ms cubic-bezier(.2,.8,.25,1.04); }
+                  /* Registered so the radius animates; where @property is
+                     unsupported it simply jumps. */
+                  @property --vm-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
+                  .vm-vig  { transition: --vm-r 800ms cubic-bezier(.2,.8,.2,1); }
                   .vm-flip { transition: transform 620ms cubic-bezier(.3,.7,.25,1.05); }
                   @keyframes vmGlowHolo {
                     0%, 100% { box-shadow: 0 0 18px 2px rgba(251,191,36,0.55); }

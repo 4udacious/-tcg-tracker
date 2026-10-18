@@ -4,13 +4,14 @@ import { redirect } from 'next/navigation'
 import BottomTabNav from '@/components/BottomTabNav'
 import SignOutButton from '@/components/SignOutButton'
 import ThemeToggle from '@/components/ThemeToggle'
+import MarketAnnouncement from '@/components/MarketAnnouncement'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { count: gradesReady }] = await Promise.all([
+  const [{ data: profile }, { count: gradesReady }, { data: announcement }] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, display_name, username, name_color, trainer_icons(file)')
@@ -25,6 +26,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .not('grading_started_at', 'is', null)
       .is('graded_at', null)
       .lte('grading_ready_at', new Date().toISOString()),
+    // The newest market announcement this member has not seen yet, if any.
+    supabase
+      .from('market_notices')
+      .select('id, message')
+      .eq('user_id', user.id)
+      .eq('kind', 'announcement')
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const role = profile?.role ?? 'member'
@@ -58,6 +69,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
+
+      {announcement?.message && (
+        <MarketAnnouncement key={announcement.id} id={announcement.id} message={announcement.message} />
+      )}
 
       <main className="flex-1 max-w-lg mx-auto w-full px-4 pb-24 pt-4">
         {children}

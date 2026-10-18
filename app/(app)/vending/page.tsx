@@ -15,7 +15,19 @@ const SET_NAMES: Record<string, string> = {
   gym2: 'Gym Challenge',
 }
 
-export default async function VendingPage() {
+const VIEWS = ['machine', 'collection', 'showcase', 'market'] as const
+type View = (typeof VIEWS)[number]
+
+export default async function VendingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  // ?view=market and friends open a tab directly, e.g. from the announcement
+  // banner. Anything unrecognised falls back to the machine.
+  const asked = (await searchParams).view
+  const initialView = VIEWS.find((v) => v === asked) as View | undefined
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user!.id
@@ -213,6 +225,7 @@ export default async function VendingPage() {
       myListings={(myListingRows as MarketListing[] | null) ?? []}
       feePercent={Number(feeRow ?? 10)}
       marketUnread={marketUnread}
+      initialView={initialView}
     />
   )
 }

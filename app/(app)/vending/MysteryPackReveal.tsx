@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Slab, { gradeInk, GRADE_LABEL } from './Slab'
 import CardCelebration from './CardCelebration'
+import SoundToggle from './SoundToggle'
+import { playPackSound } from './packSounds'
 import type { Condition } from './ConditionedCard'
 
 /**
@@ -125,8 +127,20 @@ export default function MysteryPackReveal({
     return () => { if (t) clearTimeout(t) }
   }, [phase, grade, reduce])
 
+  // The slab whooshes up out of the pack; the grade thuds onto the label,
+  // with sparkle on top for a 9 and the full works for a 10.
+  useEffect(() => {
+    if (phase === 'rising') playPackSound('rise')
+    if (phase === 'stamped' && grade != null) {
+      playPackSound('stamp')
+      if (grade >= 9) playPackSound(grade === 10 ? 'secret' : 'holo', { delayMs: 120 })
+    }
+  }, [phase, grade])
+
+  // Called from the tap, key or swipe itself, which is what lets the
+  // browser start audio.
   function rip() {
-    if (phase === 'sealed') { setDrag(0); setPhase('tearing') }
+    if (phase === 'sealed') { playPackSound('rip'); setDrag(0); setPhase('tearing') }
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -181,6 +195,8 @@ export default function MysteryPackReveal({
       {landed && !reduce && (
         <div className="absolute inset-0 pointer-events-none mp-flash" style={{ background: ink }} />
       )}
+
+      <SoundToggle className="absolute top-3 left-3 z-10" />
 
       {phase !== 'done' && phase !== 'stamped' && !error && (
         <button
