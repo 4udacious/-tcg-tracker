@@ -207,8 +207,12 @@ const RARITY_LABEL: Record<string, string> = {
  * edge to edge like an actual binder face. `fit: 'contain'` is for the pack
  * wrappers standing in until artwork exists - those are tall and narrow, so
  * cropping them would cut the design apart.
+ *
+ * The shelf's cover window is far narrower than any cover, so `cover` art
+ * loses its sides; `pos` (an object-position) says which part to keep when
+ * the middle is not the part that matters.
  */
-type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain' }
+type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain'; pos?: string }
 
 const BINDERS: Record<string, Binder> = {
   base1: { cover: '/binders/base-set.webp',           spine: '#1e3a8a', body: '#1d4ed8', foil: '#93c5fd', fit: 'cover' },
@@ -226,9 +230,10 @@ const BINDERS: Record<string, Binder> = {
   // The real Gym Challenge binder is purple, so the violet body stays; the
   // foil takes the orange of the cover's spotlight rays.
   gym2:  { cover: '/binders/gym-challenge.webp',      spine: '#4c1d95', body: '#5b21b6', foil: '#fdba74', fit: 'cover' },
-  // No binder art yet, so a wrapper stands in. Teal rather than Jungle's
-  // green, with the silver of the Neo swoosh for foil.
-  neo1:  { cover: '/packs/neo-genesis-typhlosion.webp', spine: '#134e4a', body: '#0f766e', foil: '#e2e8f0', fit: 'contain' },
+  // The real Neo Genesis binder: a silver Lugia cover on deep navy, much
+  // darker than Base Set's royal blue. Held left of centre so the logo and
+  // Lugia's head survive the narrow window.
+  neo1:  { cover: '/binders/neo-genesis.webp',        spine: '#141b4d', body: '#1e2a74', foil: '#e2e8f0', fit: 'cover', pos: '20% 50%' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
@@ -283,6 +288,7 @@ function BinderCover({
             className={`w-full h-full ${
               t.fit === 'cover' ? 'object-cover' : 'object-contain p-1.5'
             } ${empty ? 'grayscale' : ''}`}
+            style={t.pos ? { objectPosition: t.pos } : undefined}
             loading="lazy"
           />
         ) : null}
