@@ -31,8 +31,8 @@ export const PER_SHELF = 3
 export const SLOTS = SHELVES * PER_SHELF
 
 export const SET_NAMES: Record<string, string> = {
-  base1: 'Base Set', base2: 'Jungle', base3: 'Fossil', base5: 'Team Rocket',
-  gym1: 'Gym Heroes', gym2: 'Gym Challenge',
+  base1: 'Base Set', base2: 'Jungle', base3: 'Fossil', base4: 'Base Set 2', base5: 'Team Rocket',
+  gym1: 'Gym Heroes', gym2: 'Gym Challenge', neo1: 'Neo Genesis',
 }
 
 /** Plank face, its lit edge, and the back wall the shelf hangs on. */

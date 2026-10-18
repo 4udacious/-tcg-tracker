@@ -216,6 +216,9 @@ const BINDERS: Record<string, Binder> = {
   // Amber, chosen when Base Set took blue, happens to match the kraft-paper
   // artwork exactly.
   base3: { cover: '/binders/fossil.webp',             spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'cover' },
+  // No binder art yet, so a wrapper stands in. Red for the wrappers' own
+  // red, kept clear of Gym Heroes' orange further down the shelf.
+  base4: { cover: '/packs/base-set-2-mewtwo.webp',    spine: '#7f1d1d', body: '#b91c1c', foil: '#fde68a', fit: 'contain' },
   base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
   // Vivid orange rather than Fossil's brown-amber: the two covers are both
   // warm, and the binder bodies are what tells them apart down the shelf.
@@ -223,6 +226,9 @@ const BINDERS: Record<string, Binder> = {
   // The real Gym Challenge binder is purple, so the violet body stays; the
   // foil takes the orange of the cover's spotlight rays.
   gym2:  { cover: '/binders/gym-challenge.webp',      spine: '#4c1d95', body: '#5b21b6', foil: '#fdba74', fit: 'cover' },
+  // No binder art yet, so a wrapper stands in. Teal rather than Jungle's
+  // green, with the silver of the Neo swoosh for foil.
+  neo1:  { cover: '/packs/neo-genesis-typhlosion.webp', spine: '#134e4a', body: '#0f766e', foil: '#e2e8f0', fit: 'contain' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }

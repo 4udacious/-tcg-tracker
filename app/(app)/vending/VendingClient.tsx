@@ -796,14 +796,20 @@ const ATTRACT_ROWS = 4
 
 // Every wrapper the machine has art for, minus Base Set. Dealt round-robin
 // across the rows below, so these are ordered to put one of each set near the
-// front and keep a row from reading as all one expansion.
+// front and keep a row from reading as all one expansion: the sets take
+// turns in a fixed order of seven, and since seven is not a multiple of the
+// four rows, no row ever gets two of one set side by side.
 const ATTRACT_PACKS = [
-  'jungle-scyther', 'gym-heroes-brock', 'fossil-lapras', 'team-rocket-giovanni',
-  'gym-challenge-koga', 'jungle-flareon', 'gym-heroes-misty', 'fossil-zapdos',
-  'team-rocket-dark-gyarados', 'gym-challenge-blaine', 'jungle-wigglytuff',
-  'gym-heroes-lt-surge', 'fossil-aerodactyl', 'team-rocket-jessie-james',
-  'gym-challenge-sabrina', 'gym-heroes-erika', 'team-rocket-rocket-gang',
-  'gym-challenge-giovanni',
+  'jungle-scyther', 'gym-heroes-brock', 'neo-genesis-lugia', 'fossil-lapras',
+  'base-set-2-raichu', 'team-rocket-giovanni', 'gym-challenge-koga',
+  'jungle-flareon', 'gym-heroes-misty', 'neo-genesis-typhlosion', 'fossil-zapdos',
+  'base-set-2-gyarados', 'team-rocket-dark-gyarados', 'gym-challenge-blaine',
+  'jungle-wigglytuff', 'gym-heroes-lt-surge', 'neo-genesis-meganium', 'fossil-aerodactyl',
+  'base-set-2-mewtwo', 'team-rocket-jessie-james', 'gym-challenge-sabrina',
+  // Feraligatr before Erika rather than after: the rows loop, and the other
+  // way round its row would start and end on Neo.
+  'neo-genesis-feraligatr', 'gym-heroes-erika', 'base-set-2-pidgeot',
+  'team-rocket-rocket-gang', 'gym-challenge-giovanni',
 ]
 
 function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy: boolean; lockedBy: string | null }) {
