@@ -794,22 +794,17 @@ export default function VendingClient({
 
 const ATTRACT_ROWS = 4
 
-// Every wrapper the machine has art for, minus Base Set. Dealt round-robin
-// across the rows below, so these are ordered to put one of each set near the
-// front and keep a row from reading as all one expansion: the sets take
-// turns in a fixed order of seven, and since seven is not a multiple of the
-// four rows, no row ever gets two of one set side by side.
+// The wrappers on the idle screen: Gym Heroes, Gym Challenge, Neo Genesis and
+// Base Set 2, four each. Dealt round-robin across the rows below, so entry
+// 4k + r is row r's k-th wrapper. With four sets and four rows a plain
+// rotation would give every set a row to itself, so the order shifts by one
+// set each round instead: row r's k-th wrapper is set (r + k) mod 4. Every row
+// gets one of each set, never two side by side, round the loop included.
 const ATTRACT_PACKS = [
-  'jungle-scyther', 'gym-heroes-brock', 'neo-genesis-lugia', 'fossil-lapras',
-  'base-set-2-raichu', 'team-rocket-giovanni', 'gym-challenge-koga',
-  'jungle-flareon', 'gym-heroes-misty', 'neo-genesis-typhlosion', 'fossil-zapdos',
-  'base-set-2-gyarados', 'team-rocket-dark-gyarados', 'gym-challenge-blaine',
-  'jungle-wigglytuff', 'gym-heroes-lt-surge', 'neo-genesis-meganium', 'fossil-aerodactyl',
-  'base-set-2-mewtwo', 'team-rocket-jessie-james', 'gym-challenge-sabrina',
-  // Feraligatr before Erika rather than after: the rows loop, and the other
-  // way round its row would start and end on Neo.
-  'neo-genesis-feraligatr', 'gym-heroes-erika', 'base-set-2-pidgeot',
-  'team-rocket-rocket-gang', 'gym-challenge-giovanni',
+  'gym-heroes-brock', 'neo-genesis-lugia', 'gym-challenge-koga', 'base-set-2-raichu',
+  'neo-genesis-typhlosion', 'gym-challenge-blaine', 'base-set-2-gyarados', 'gym-heroes-misty',
+  'gym-challenge-sabrina', 'base-set-2-mewtwo', 'gym-heroes-lt-surge', 'neo-genesis-meganium',
+  'base-set-2-pidgeot', 'gym-heroes-erika', 'neo-genesis-feraligatr', 'gym-challenge-giovanni',
 ]
 
 function AttractScreen({ onStart, busy, lockedBy }: { onStart: () => void; busy: boolean; lockedBy: string | null }) {
