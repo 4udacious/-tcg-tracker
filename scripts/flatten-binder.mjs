@@ -3,6 +3,7 @@
 // next to the scanned ones instead of leaning out of the row.
 //
 //   node scripts/flatten-binder.mjs <photo> <out.webp> [width]
+//   env: ASPECT=0.80  MASK=purple  CORNERS=edges  INSET=0.035  DEBUG=1
 //
 // The panel is found rather than hand-cropped: its outer ring is orange all
 // the way round, so the largest connected run of warm pixels is the cover,
@@ -20,10 +21,15 @@ const { data, info } = await sharp(SRC).removeAlpha().raw().toBuffer({ resolveWi
 const { width: W, height: H, channels: C } = info
 
 // --------------------------------------------------------------- warm mask
+// MASK=purple is for a binder whose whole face is purple-edged (Gym
+// Challenge), shot on a wooden table: there the table is the warm thing in
+// frame, and the binder is the run of purple. Purple means blue and red both
+// clearly above green, which brown wood never is.
+const PURPLE = process.env.MASK === 'purple'
 const warm = new Uint8Array(W * H)
 for (let i = 0, p = 0; p < W * H; p++, i += C) {
   const r = data[i], g = data[i + 1], b = data[i + 2]
-  if (r > 140 && r - b > 55 && g >= b && g <= r) warm[p] = 1
+  if (PURPLE ? b - g > 25 && r - g > 15 : r > 140 && r - b > 55 && g >= b && g <= r) warm[p] = 1
 }
 
 // ------------------------------------------------------ blobs, flood filled
@@ -85,6 +91,53 @@ for (let p = 0; p < W * H; p++) {
   if (diff < minDiff){ minDiff = diff; bl = [x, y] }
 }
 
+// CORNERS=edges: for a binder with rounded corners shot nearly straight on,
+// the extreme points above land somewhere on each corner's curve, and the
+// quad comes out skewed. Instead fit a straight line to each of the four
+// edges (the outermost mask pixel per row or column, over the middle of the
+// span so the curves are left out) and intersect them.
+if (process.env.CORNERS === 'edges') {
+  // Every masked pixel, not just the kept blobs: artwork running into the
+  // border cuts it into pieces the blob filter can drop, and edge mode is only
+  // for photos whose background has none of the mask colour anyway.
+  const inBlob = (p) => warm[p] === 1
+  const ys = [], xs = []
+  let bx0 = W, bx1 = -1, by0 = H, by1 = -1
+  for (let p = 0; p < W * H; p++) if (inBlob(p)) { const x = p % W, y = (p / W) | 0; bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y) }
+  for (let y = Math.round(by0 + (by1 - by0) * 0.15); y <= by0 + (by1 - by0) * 0.85; y++) ys.push(y)
+  for (let x = Math.round(bx0 + (bx1 - bx0) * 0.15); x <= bx0 + (bx1 - bx0) * 0.85; x++) xs.push(x)
+  // A near-straight-on edge sits within a few pixels of one value, so first
+  // keep only hits near the median: where artwork runs into the border (Gym
+  // Challenge's red rays on the right) the outermost purple pixel is far
+  // inside, and those rows would drag the line. Then least squares, and again
+  // without the worst 20%.
+  const fit = (all) => {
+    const med = all.map(([, v]) => v).sort((m, n) => m - n)[all.length >> 1]
+    const pts = all.filter(([, v]) => Math.abs(v - med) < 20)
+    const solve = (q) => { const n = q.length, sx = q.reduce((s, [t]) => s + t, 0), sy = q.reduce((s, [, v]) => s + v, 0)
+      const sxx = q.reduce((s, [t]) => s + t * t, 0), sxy = q.reduce((s, [t, v]) => s + t * v, 0)
+      const a = (n * sxy - sx * sy) / (n * sxx - sx * sx); return [a, (sy - a * sx) / n] }
+    const [a, b] = solve(pts)
+    const kept = pts.map((q) => [q, Math.abs(q[1] - (a * q[0] + b))]).sort((m, n) => m[1] - n[1]).slice(0, Math.ceil(pts.length * 0.8)).map(([q]) => q)
+    return solve(kept)
+  }
+  const edge = (along, outer, first) => {
+    const pts = []
+    for (const t of along) {
+      let hit = -1
+      if (outer === 'x') for (let i = 0; i < W; i++) { const x = first ? i : W - 1 - i; if (inBlob(t * W + x)) { hit = x; break } }
+      else for (let i = 0; i < H; i++) { const y = first ? i : H - 1 - i; if (inBlob(y * W + t)) { hit = y; break } }
+      if (hit >= 0) pts.push([t, hit])
+    }
+    return fit(pts)
+  }
+  const [la, lb] = edge(ys, 'x', true), [ra, rb] = edge(ys, 'x', false)   // x = a*y + b
+  const [ta, tb] = edge(xs, 'y', true), [ba, bb] = edge(xs, 'y', false)   // y = a*x + b
+  // Where x = a1*y + b1 meets y = a2*x + b2.
+  const meet = (a1, b1, a2, b2) => { const y = (a2 * b1 + b2) / (1 - a1 * a2); return [a1 * y + b1, y] }
+  tl = meet(la, lb, ta, tb); tr = meet(ra, rb, ta, tb); br = meet(ra, rb, ba, bb); bl = meet(la, lb, ba, bb)
+}
+
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const projected = ((dist(tl, tr) + dist(bl, br)) / 2) / ((dist(tl, bl) + dist(tr, br)) / 2)
 
@@ -129,12 +182,17 @@ const h = homography(
   [[0, 0], [OUT_W, 0], [OUT_W, OUT_H], [0, OUT_H]]
 )
 
+// INSET trims that fraction off every side of the flattened panel. A binder
+// with rounded corners leaves a sliver of whatever it was shot on in each
+// corner of the straight-edged quad; a few percent clears the curve.
+const INSET = Number(process.env.INSET ?? 0)
 const out = Buffer.alloc(OUT_W * OUT_H * 3)
 for (let y = 0; y < OUT_H; y++) {
   for (let x = 0; x < OUT_W; x++) {
-    const d = h[6] * x + h[7] * y + 1
-    const sx = (h[0] * x + h[1] * y + h[2]) / d
-    const sy = (h[3] * x + h[4] * y + h[5]) / d
+    const qx = OUT_W * INSET + x * (1 - 2 * INSET), qy = OUT_H * INSET + y * (1 - 2 * INSET)
+    const d = h[6] * qx + h[7] * qy + 1
+    const sx = (h[0] * qx + h[1] * qy + h[2]) / d
+    const sy = (h[3] * qx + h[4] * qy + h[5]) / d
 
     // Bilinear, so the flattened panel does not come out jagged.
     const x0 = Math.floor(sx), y0 = Math.floor(sy)
@@ -178,4 +236,4 @@ console.log(`photo    ${W}x${H}`)
 console.log(`panel    ${bestSize} px from ${keep.size} blob(s)`)
 console.log(`corners  tl=${tl} tr=${tr} br=${br} bl=${bl}`)
 console.log(`aspect   ${ASPECT.toFixed(3)} (quad as photographed: ${projected.toFixed(3)})`)
-console.log(`flat     ${OUT_W}x${OUT_H} -> ${OUT}`)
+console.log(`flat     ${OUT_W}x${OUT_H}${INSET ? `, ${(INSET * 100).toFixed(1)}% trimmed each side` : ''} -> ${OUT}`)
