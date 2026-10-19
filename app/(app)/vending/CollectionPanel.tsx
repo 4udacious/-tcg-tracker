@@ -1643,8 +1643,9 @@ export default function CollectionPanel({
                 <li className="flex gap-2">
                   <span className="text-ink font-semibold shrink-0">✦</span>
                   <span>
-                    Takes 10–30% of the wear off its corners, edges, surface and border. Centering,
-                    creases, holes and tears stay as they are.
+                    Takes 10–30% of the wear off its corners, edges, surface and border, and may
+                    press out a light crease or flatten a bad one. Centering, holes and tears stay
+                    as they are.
                   </span>
                 </li>
                 <li className="flex gap-2">

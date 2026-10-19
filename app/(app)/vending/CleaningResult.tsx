@@ -38,7 +38,12 @@ export default function CleaningResult({
     return () => clearTimeout(t)
   }, [after, outcome])
 
-  const creased = outcome === 'damaged' && after && (after.crease ?? 0) > (before.crease ?? 0)
+  const creaseBefore = before.crease ?? 0
+  const creaseAfter = after?.crease ?? creaseBefore
+  const creased = outcome === 'damaged' && creaseAfter > creaseBefore
+  // A good clean can work on a crease: pressed out if it was light,
+  // flattened to light if it was worse.
+  const flattened = outcome === 'cleaned' && creaseAfter < creaseBefore
 
   return (
     <div className="fixed inset-0 z-[70] bg-[#05070d] flex flex-col items-center justify-center p-4 gap-5"
@@ -76,8 +81,13 @@ export default function CleaningResult({
             <p className="text-sm text-white/70">
               About <span className="text-white font-semibold">{improved}%</span> of the wear came off.
             </p>
+            {flattened && (
+              <p className="text-sm text-sky-200 font-medium">
+                {creaseAfter === 0 ? 'And the crease pressed right out.' : 'And the crease flattened down to a light one.'}
+              </p>
+            )}
             <p className="text-[11px] text-white/40">
-              Centering, creases, holes and tears are part of the card - no clean touches those.
+              Centering, holes and tears are part of the card - no clean touches those.
             </p>
           </>
         ) : (
