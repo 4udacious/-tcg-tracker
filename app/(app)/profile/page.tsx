@@ -6,7 +6,7 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user!.id
 
-  const [{ data: profile }, { data: achievements }, { data: progress }, { data: trainerIcons }, { data: tokenBalance }] = await Promise.all([
+  const [{ data: profile }, { data: achievements }, { data: progress }, { data: trainerIcons }, { data: breakdown }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url, role, trainer_icon_id, trainer_icons(id, file, label)')
@@ -28,8 +28,12 @@ export default async function ProfilePage() {
       .from('trainer_icons')
       .select('id, file, label')
       .order('id'),
-    supabase.rpc('token_balance', { target: userId }),
+    // Your own balance only; token_balance takes any user and is internal.
+    supabase.rpc('token_breakdown'),
   ])
+  const tokenBalance = Number(
+    ((Array.isArray(breakdown) ? breakdown[0] : breakdown) as { total: number } | null)?.total ?? 0
+  )
 
   return (
     <ProfileClient
@@ -38,7 +42,7 @@ export default async function ProfilePage() {
       achievements={achievements ?? []}
       progress={progress ?? []}
       trainerIcons={trainerIcons ?? []}
-      tokenBalance={(tokenBalance as number | null) ?? 0}
+      tokenBalance={tokenBalance}
     />
   )
 }

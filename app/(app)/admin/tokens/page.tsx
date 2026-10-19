@@ -15,11 +15,9 @@ export default async function AdminTokensPage() {
 
   const [{ data: settings }, { data: balances }, { data: period }, { data: recent }] = await Promise.all([
     supabase.from('vending_settings').select('monthly_allowance, tokens_expire_monthly, per_cycle_pack_cap, cooldown_hours, tokens_per_timer_report, max_earned_tokens_per_month, grading_cost, grading_days, market_fee_percent, interest_reward_tokens').single(),
-    supabase
-      .from('v_token_balances')
-      .select('user_id, username, display_name, role, effective_allowance, balance, allowance_balance, earned_balance')
-      .neq('role', 'pending')
-      .order('username'),
+    // Admin-checked in the database; already excludes pending accounts and
+    // comes back sorted by username.
+    supabase.rpc('admin_token_balances'),
     supabase.rpc('current_token_period'),
     supabase
       .from('token_ledger')
