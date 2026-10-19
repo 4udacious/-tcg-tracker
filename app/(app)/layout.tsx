@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { count: gradesReady }, { data: announcement }] = await Promise.all([
+  const [{ data: profile }, { count: gradesReady }, { count: cleansReady }, { data: announcement }] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, display_name, username, name_color, trainer_icons(file)')
@@ -26,6 +26,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .not('grading_started_at', 'is', null)
       .is('graded_at', null)
       .lte('grading_ready_at', new Date().toISOString()),
+    // Cleaned cards back and waiting to be picked up, for the same badge.
+    supabase
+      .from('user_cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .not('cleaning_started_at', 'is', null)
+      .lte('cleaning_ready_at', new Date().toISOString()),
     // The newest market announcement this member has not seen yet, if any.
     supabase
       .from('market_notices')
@@ -78,7 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      <BottomTabNav role={role} badges={{ '/vending': gradesReady ?? 0 }} />
+      <BottomTabNav role={role} badges={{ '/vending': (gradesReady ?? 0) + (cleansReady ?? 0) }} />
     </div>
   )
 }

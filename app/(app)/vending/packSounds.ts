@@ -14,6 +14,8 @@ import { useSyncExternalStore } from 'react'
  *   holo    a holo landing
  *   secret  a secret rare landing
  *   stamp   a grade hitting the label
+ *   crack   a slab corner prised open
+ *   slip    the tool skidding off a corner
  *
  * Browsers only allow audio after a tap, so the first sound of a sequence
  * must be played from inside a click or key handler; later ones can come
@@ -21,7 +23,8 @@ import { useSyncExternalStore } from 'react'
  * remembered.
  */
 
-export type PackSound = 'rip' | 'deal' | 'flip' | 'rise' | 'chime' | 'holo' | 'secret' | 'stamp'
+export type PackSound =
+  | 'rip' | 'deal' | 'flip' | 'rise' | 'chime' | 'holo' | 'secret' | 'stamp' | 'crack' | 'slip'
 
 // ─────────────────────────────────────────────────────────────── muting
 const KEY = 'vm-sound'
@@ -267,6 +270,22 @@ const SOUNDS: Record<PackSound, (ac: AudioContext, at: number, step: number) => 
   stamp(ac, at) {
     thump(ac, at, 0.75, 130, 45, 0.28)
     sweep(ac, at, 0.06, 0.4, [[0, 2600]], 0.7, 'lowpass', 0.002)
+  },
+
+  // Hard plastic giving way: a bright snap, the hollow knock of the case,
+  // and a splinter of a tail.
+  crack(ac, at) {
+    sweep(ac, at, 0.03, 0.7, [[0, 3800]], 0.7, 'highpass', 0.001)
+    sweep(ac, at + 0.004, 0.09, 0.45, [[0, 1100], [0.09, 700]], 4, 'bandpass', 0.002)
+    thump(ac, at, 0.3, 240, 90, 0.07)
+    tick(ac, at + 0.05, 0.18)
+    tick(ac, at + 0.085, 0.1)
+  },
+
+  // The tool skating off the edge and the case knocking the table.
+  slip(ac, at) {
+    sweep(ac, at, 0.26, 0.4, [[0, 2600], [0.26, 420]], 1.6, 'bandpass', 0.01)
+    thump(ac, at + 0.22, 0.5, 110, 50, 0.18)
   },
 }
 

@@ -44,6 +44,8 @@ export default function ShowcasePanel({
     const out: ShowcaseItem[] = []
     for (const card of collection) {
       for (const copy of card.copies) {
+        // Away at the cleaners: the shelf cannot hold what is not here.
+        if (copy.cleaning_started_at) continue
         out.push({
           slot: -1,
           user_card_id: copy.id,
@@ -57,6 +59,7 @@ export default function ShowcasePanel({
           corners: copy.corners, edges: copy.edges,
           surface: copy.surface, border_wear: copy.border_wear,
           wear_seed: copy.wear_seed,
+          crease: copy.crease, holes: copy.holes, rips: copy.rips,
           grade: copy.graded_at ? copy.grade : null,
         })
       }

@@ -63,6 +63,7 @@ export default async function VendingPage({
       supabase
         .from('user_cards')
         .select('id, center_x, center_y, corners, edges, surface, border_wear, wear_seed, ' +
+                'crease, holes, rips, cleaning_started_at, cleaning_ready_at, ' +
                 'grading_started_at, grading_ready_at, graded_at, grade, ' +
                 'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
         .eq('user_id', userId)
@@ -93,8 +94,13 @@ export default async function VendingPage({
   const marketUnread = ((noticeRows as { unread: boolean }[] | null) ?? [])
     .filter((n) => n.unread).length
 
-  const { data: gradingRows } = await supabase.rpc('grading_settings')
+  const [{ data: gradingRows }, { data: cleaningRows }] = await Promise.all([
+    supabase.rpc('grading_settings'),
+    supabase.rpc('cleaning_settings'),
+  ])
   const grading = (Array.isArray(gradingRows) ? gradingRows[0] : gradingRows) as
+    { cost: number; days: number } | null
+  const cleaning = (Array.isArray(cleaningRows) ? cleaningRows[0] : cleaningRows) as
     { cost: number; days: number } | null
 
   // Owned raffle tickets, collapsed to one row per ticket with a copy count.
@@ -153,6 +159,8 @@ export default async function VendingPage({
     id: number
     center_x: number; center_y: number
     corners: number; edges: number; surface: number; border_wear: number; wear_seed: number
+    crease: number; holes: number; rips: number
+    cleaning_started_at: string | null; cleaning_ready_at: string | null
     grading_started_at: string | null; grading_ready_at: string | null
     graded_at: string | null; grade: number | null
     vending_cards:
@@ -187,6 +195,11 @@ export default async function VendingPage({
       surface: row.surface,
       border_wear: row.border_wear,
       wear_seed: row.wear_seed,
+      crease: row.crease,
+      holes: row.holes,
+      rips: row.rips,
+      cleaning_started_at: row.cleaning_started_at,
+      cleaning_ready_at: row.cleaning_ready_at,
       grading_started_at: row.grading_started_at,
       grading_ready_at: row.grading_ready_at,
       graded_at: row.graded_at,
@@ -221,6 +234,8 @@ export default async function VendingPage({
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
       gradingCost={Number(grading?.cost ?? 3)}
       gradingDays={Number(grading?.days ?? 7)}
+      cleaningCost={Number(cleaning?.cost ?? 2)}
+      cleaningDays={Number(cleaning?.days ?? 3)}
       showcaseItems={(showcaseRows as ShowcaseItem[] | null) ?? []}
       showcaseLighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}
       listings={(marketRows as MarketListing[] | null) ?? []}

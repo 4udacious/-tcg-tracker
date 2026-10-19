@@ -12,7 +12,22 @@ export interface Condition {
   /** The coloured border going chalky, distinct from the cut itself. */
   border_wear: number
   wear_seed: number
+  /**
+   * Damage that stays put (v50). Optional so a caller that predates it
+   * still draws: missing is undamaged.
+   *
+   * crease: 0 none, 1 light (a corner bend or a short ding), 2 a crease
+   * across the card, 3 heavy (a fold, or several). holes: punctures, 0-3.
+   * rips: corners torn off, a bitmask clockwise from the top left
+   * (1 TL, 2 TR, 4 BR, 8 BL).
+   */
+  crease?: number
+  holes?: number
+  rips?: number
 }
+
+/** Corners in rip-bit order, clockwise from the top left. */
+export const RIP_CORNERS = ['top left', 'top right', 'bottom right', 'bottom left'] as const
 
 /**
  * Centering is the width of the border, not a crop.
@@ -71,6 +86,280 @@ function mulberry32(seed: number) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
+}
+
+/**
+ * A stream of its own for one kind of mark. The original stream is shared by
+ * every wear mark in order, so anything drawn from it moves when the marks
+ * before it change. Structural damage must not: a hole stays where it is when
+ * the card is cleaned, and a second hole does not move the first.
+ */
+function stream(seed: number, salt: number): () => number {
+  return mulberry32((((seed || 1) ^ salt) >>> 0) || salt)
+}
+
+const f1 = (n: number) => n.toFixed(1)
+type Pt = [number, number]
+
+/** n+1 points along a cubic Bézier. */
+function cubic([p0, p1, p2, p3]: Pt[], n: number): Pt[] {
+  const out: Pt[] = []
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t
+    out.push([
+      u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+      u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+    ])
+  }
+  return out
+}
+
+/** Short broken white marks along a fold, where the ink has cracked open. */
+function inkCracks(pts: Pt[], rnd: () => number, density: number): string[] {
+  const out: string[] = []
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (rnd() > density) continue
+    const j = (rnd() - 0.5) * 1.2
+    out.push(`M${f1(pts[i][0] + j)} ${f1(pts[i][1] - j)} L${f1(pts[i + 1][0])} ${f1(pts[i + 1][1])}`)
+  }
+  return out
+}
+
+type Crease = {
+  d: string
+  /** Ridge thickness: a corner bend is slight, a fold is heavy. */
+  weight: number
+  cracks: string[]
+  /** A bent-over corner, shaded as its own facet. */
+  flap?: string
+  /** Where a fold runs off the card and the edge has split white. */
+  ends?: Pt[]
+}
+
+/** The creases a copy's level calls for, each kind drawn its own way. */
+function creaseMarks(level: number, seed: number): Crease[] {
+  if (!level) return []
+  const rnd = stream(seed, 0x2c1b3c6d)
+
+  // A crease that wanders right across the card, edge to edge.
+  const across = (): Crease => {
+    const a = Math.floor(rnd() * 4)
+    let b = Math.floor(rnd() * 4)
+    if (b === a) b = (a + 2) % 4
+    const p0 = edgePoint(rnd, a)
+    const p3 = edgePoint(rnd, b)
+    const p1: Pt = [p0[0] + (p3[0] - p0[0]) * 0.33 + (rnd() - 0.5) * 34,
+                    p0[1] + (p3[1] - p0[1]) * 0.33 + (rnd() - 0.5) * 34]
+    const p2: Pt = [p0[0] + (p3[0] - p0[0]) * 0.66 + (rnd() - 0.5) * 34,
+                    p0[1] + (p3[1] - p0[1]) * 0.66 + (rnd() - 0.5) * 34]
+    return {
+      d: `M${f1(p0[0])} ${f1(p0[1])} C${f1(p1[0])} ${f1(p1[1])} ${f1(p2[0])} ${f1(p2[1])} ${f1(p3[0])} ${f1(p3[1])}`,
+      weight: 1,
+      cracks: inkCracks(cubic([p0, p1, p2, p3], 24), rnd, 0.35),
+    }
+  }
+
+  if (level === 1) {
+    if (rnd() < 0.55) {
+      // A corner bent over and back: a short line cutting the corner off,
+      // and the little triangle beyond it catching the light differently.
+      const c = Math.floor(rnd() * 4)
+      const cx = c === 1 || c === 2 ? W : 0
+      const cy = c >= 2 ? H : 0
+      const sx = cx === 0 ? 1 : -1
+      const sy = cy === 0 ? 1 : -1
+      const p1: Pt = [cx + sx * (12 + rnd() * 22), cy]
+      const p2: Pt = [cx, cy + sy * (14 + rnd() * 26)]
+      const mx = (p1[0] + p2[0]) / 2 - sx * (1 + rnd() * 3)
+      const my = (p1[1] + p2[1]) / 2 - sy * (1 + rnd() * 3)
+      const curve = `Q${f1(mx)} ${f1(my)} ${f1(p2[0])} ${f1(p2[1])}`
+      return [{
+        d: `M${f1(p1[0])} ${f1(p1[1])} ${curve}`,
+        weight: 1,
+        cracks: [],
+        flap: `M${cx} ${cy} L${f1(p1[0])} ${f1(p1[1])} ${curve} Z`,
+      }]
+    }
+    // A short ding: in from an edge and gone again.
+    const side = Math.floor(rnd() * 4)
+    const [x0, y0] = edgePoint(rnd, side)
+    const inward = side === 0 ? Math.PI / 2 : side === 1 ? Math.PI : side === 2 ? -Math.PI / 2 : 0
+    const ang = inward + (rnd() - 0.5) * 1.2
+    const len = 14 + rnd() * 22
+    const x1 = x0 + Math.cos(ang) * len
+    const y1 = y0 + Math.sin(ang) * len
+    const bow = (rnd() - 0.5) * 6
+    const mx = (x0 + x1) / 2 - Math.sin(ang) * bow
+    const my = (y0 + y1) / 2 + Math.cos(ang) * bow
+    return [{ d: `M${f1(x0)} ${f1(y0)} Q${f1(mx)} ${f1(my)} ${f1(x1)} ${f1(y1)}`, weight: 0.8, cracks: [] }]
+  }
+
+  if (level === 2) return [across()]
+
+  // Heavy: either one hard fold straight through, or several creases.
+  if (rnd() < 0.5) {
+    const horizontal = rnd() < 0.55
+    let p0: Pt, p3: Pt
+    if (horizontal) {
+      const y0 = H * (0.35 + rnd() * 0.3)
+      p0 = [0, y0]; p3 = [W, y0 + (rnd() - 0.5) * 30]
+    } else {
+      const x0 = W * (0.35 + rnd() * 0.3)
+      p0 = [x0, 0]; p3 = [x0 + (rnd() - 0.5) * 24, H]
+    }
+    const p1: Pt = [p0[0] + (p3[0] - p0[0]) * 0.33 + (rnd() - 0.5) * 8, p0[1] + (p3[1] - p0[1]) * 0.33 + (rnd() - 0.5) * 8]
+    const p2: Pt = [p0[0] + (p3[0] - p0[0]) * 0.66 + (rnd() - 0.5) * 8, p0[1] + (p3[1] - p0[1]) * 0.66 + (rnd() - 0.5) * 8]
+    return [{
+      d: `M${f1(p0[0])} ${f1(p0[1])} C${f1(p1[0])} ${f1(p1[1])} ${f1(p2[0])} ${f1(p2[1])} ${f1(p3[0])} ${f1(p3[1])}`,
+      weight: 1.6,
+      cracks: inkCracks(cubic([p0, p1, p2, p3], 30), rnd, 0.7),
+      ends: [p0, p3],
+    }]
+  }
+  const out = [across(), across()]
+  if (rnd() < 0.4) out.push(across())
+  return out
+}
+
+type Hole = { x: number; y: number; r: number }
+
+/** Punctures: pinholes or bigger punched-through holes, kept off the edges. */
+function holeMarks(count: number, seed: number): Hole[] {
+  const out: Hole[] = []
+  for (let i = 0; i < Math.min(3, count); i++) {
+    // One stream per hole, so a second hole leaves the first where it was.
+    const rnd = stream(seed, 0x51ed270b + i * 0x9e37)
+    const pin = rnd() < 0.5
+    out.push({
+      x: 24 + rnd() * (W - 48),
+      y: 30 + rnd() * (H - 60),
+      r: pin ? 1.6 + rnd() * 1.4 : 3.8 + rnd() * 3.2,
+    })
+  }
+  return out
+}
+
+type Rip = {
+  /** The missing piece, run slightly past the card so the mask leaves no sliver. */
+  poly: string
+  /** The torn edge itself, where the white core shows. */
+  tear: string
+}
+
+/** Corners torn away along a ragged line, one stream per corner. */
+function ripMarks(bits: number, seed: number): Rip[] {
+  const out: Rip[] = []
+  for (let c = 0; c < 4; c++) {
+    if (!(bits & (1 << c))) continue
+    const rnd = stream(seed, 0x7f4a7c15 + c * 0x3c6e)
+    const cx = c === 1 || c === 2 ? W : 0
+    const cy = c >= 2 ? H : 0
+    const sx = cx === 0 ? 1 : -1
+    const sy = cy === 0 ? 1 : -1
+    const start: Pt = [cx + sx * (16 + rnd() * 24), cy]
+    const end: Pt = [cx, cy + sy * (18 + rnd() * 28)]
+    const pts: Pt[] = [start]
+    const steps = 7 + Math.floor(rnd() * 4)
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps
+      // Bellied in toward the card, and ragged all along.
+      const bow = Math.sin(Math.PI * t) * (3 + rnd() * 5)
+      pts.push([
+        start[0] + (end[0] - start[0]) * t + sx * bow + (rnd() - 0.5) * 4.5,
+        start[1] + (end[1] - start[1]) * t + sy * bow + (rnd() - 0.5) * 4.5,
+      ])
+    }
+    pts.push(end)
+    const line = pts.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L')
+    const o = 4
+    out.push({
+      poly: `M${cx - sx * o} ${cy - sy * o} L${f1(start[0])} ${cy - sy * o} L${line} L${cx - sx * o} ${f1(end[1])} Z`,
+      tear: `M${line}`,
+    })
+  }
+  return out
+}
+
+type Pattern = { d: string; width: number; alpha: number }
+
+/**
+ * Handling marks that come in patterns rather than one at a time: runs of
+ * parallel sleeve scuffs, swirls from being rubbed on something, and long
+ * drags just inside a border. Scaled by surface wear like the rest.
+ */
+function scratchPatterns(sw: number, seed: number): Pattern[] {
+  if (sw < 0.1) return []
+  const rnd = stream(seed, 0x632be5ab)
+  const out: Pattern[] = []
+
+  // Sleeve scuffs: a card slid in and out of a sleeve picks up a run of
+  // fine lines all at one angle.
+  const sleeves = sw > 0.12 ? 1 + (sw > 0.3 ? 1 : 0) + (sw > 0.5 ? 1 : 0) : 0
+  for (let s = 0; s < sleeves; s++) {
+    const x = 20 + rnd() * (W - 40)
+    const y = 20 + rnd() * (H - 40)
+    const ang = (rnd() - 0.5) * Math.PI
+    const n = 4 + Math.floor(rnd() * 6)
+    const gap = 1.2 + rnd() * 1.4
+    const len = 26 + rnd() * 54
+    const dx = Math.cos(ang), dy = Math.sin(ang)
+    for (let i = 0; i < n; i++) {
+      const off = (i - n / 2) * gap
+      const l = len * (0.7 + rnd() * 0.5)
+      const slide = (rnd() - 0.5) * 8
+      const ox = x - dy * off + dx * slide
+      const oy = y + dx * off + dy * slide
+      out.push({
+        d: `M${f1(ox - dx * l / 2)} ${f1(oy - dy * l / 2)} L${f1(ox + dx * l / 2)} ${f1(oy + dy * l / 2)}`,
+        width: 0.3 + rnd() * 0.25,
+        alpha: 0.1 + sw * (0.2 + rnd() * 0.3),
+      })
+    }
+  }
+
+  // Rub swirls: nested partial arcs around one spot.
+  const swirls = sw > 0.25 ? 1 + (sw > 0.45 ? 1 : 0) : 0
+  for (let s = 0; s < swirls; s++) {
+    const cx = 30 + rnd() * (W - 60)
+    const cy = 40 + rnd() * (H - 80)
+    const n = 3 + Math.floor(rnd() * 4)
+    const r0 = 6 + rnd() * 12
+    for (let i = 0; i < n; i++) {
+      const r = r0 + i * (2.4 + rnd() * 2.2)
+      const a0 = rnd() * Math.PI * 2
+      // Short arcs, faint: a swirl is a sheen of rub marks, not drawn rings.
+      const span = 0.5 + rnd() * 1.1
+      const a1 = a0 + span
+      out.push({
+        d: `M${f1(cx + Math.cos(a0) * r)} ${f1(cy + Math.sin(a0) * r)} ` +
+           `A${f1(r)} ${f1(r)} 0 0 1 ${f1(cx + Math.cos(a1) * r)} ${f1(cy + Math.sin(a1) * r)}`,
+        width: 0.3 + rnd() * 0.25,
+        alpha: 0.07 + sw * (0.1 + rnd() * 0.18),
+      })
+    }
+  }
+
+  // Edge drags: long, nearly straight, just inside one border.
+  const drags = sw > 0.18 ? 1 + (rnd() < sw ? 1 : 0) : 0
+  for (let s = 0; s < drags; s++) {
+    const side = Math.floor(rnd() * 4)
+    const inset = 5 + rnd() * 10
+    const along = side % 2 === 0 ? W : H
+    const len = along * (0.35 + rnd() * 0.4)
+    const a = rnd() * (along - len)
+    const wob = (rnd() - 0.5) * 3
+    const at = (p: number, d: number): string =>
+      side === 0 ? `${f1(p)} ${f1(d)}`
+      : side === 1 ? `${f1(W - d)} ${f1(p)}`
+      : side === 2 ? `${f1(p)} ${f1(H - d)}`
+      : `${f1(d)} ${f1(p)}`
+    out.push({
+      d: `M${at(a, inset)} Q${at(a + len / 2, inset + wob)} ${at(a + len, inset + wob * 0.5)}`,
+      width: 0.35 + rnd() * 0.3,
+      alpha: 0.15 + sw * (0.2 + rnd() * 0.25),
+    })
+  }
+  return out
 }
 
 /**
@@ -258,30 +547,21 @@ export default function ConditionedCard({
       }
     }
 
-    // Creases. A real crease is a ridge: it catches light along one side and
-    // shadows along the other, which is why it is drawn as an offset pair
-    // rather than a single line. Severe damage, so only beaten cards get one
-    // - a clean card with a fold through it would make no sense.
-    const creases: string[] = []
+    // Creases used to be decided here, from this stream. They are stored per
+    // copy now (v50, which recorded every crease this drew) and drawn from a
+    // stream of their own below. These draws still happen, unused, so the
+    // grime and dents after them land exactly where they always have.
     if (detailed) {
       const chance = Math.max(0, Math.min(0.8, (68 - surface) / 60))
       if (rnd() < chance) {
-        const make = () => {
+        const burn = () => {
           const a = Math.floor(rnd() * 4)
-          let b = Math.floor(rnd() * 4)
-          if (b === a) b = (b + 1 + Math.floor(rnd() * 3)) % 4
-          const [x1, y1] = edgePoint(rnd, a)
-          const [x2, y2] = edgePoint(rnd, b)
-          // Two control points: a fold wanders rather than arcing cleanly.
-          const c1x = x1 + (x2 - x1) * 0.33 + (rnd() - 0.5) * 34
-          const c1y = y1 + (y2 - y1) * 0.33 + (rnd() - 0.5) * 34
-          const c2x = x1 + (x2 - x1) * 0.66 + (rnd() - 0.5) * 34
-          const c2y = y1 + (y2 - y1) * 0.66 + (rnd() - 0.5) * 34
-          return `M${x1.toFixed(1)} ${y1.toFixed(1)} C${c1x.toFixed(1)} ${c1y.toFixed(1)} ` +
-                 `${c2x.toFixed(1)} ${c2y.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`
+          const b = Math.floor(rnd() * 4)
+          if (b === a) rnd()
+          for (let i = 0; i < 6; i++) rnd() // two edge points, two control points
         }
-        creases.push(make())
-        if (rnd() < 0.22) creases.push(make())
+        burn()
+        if (rnd() < 0.22) burn()
       }
     }
 
@@ -316,12 +596,44 @@ export default function ConditionedCard({
       background: [...corner, ...edge].join(', '),
       whitening,
       scratches,
-      creases,
       smudges,
       dents,
       swirl: rnd() * 360,
     }
   }, [corners, edges, surface, border_wear, wear_seed, detail])
+
+  // Structural damage, each kind from its own stream so none of it moves
+  // when the wear above changes. Holes and tears show at every size - they
+  // are what a card is at a glance - while creases and scratch patterns are
+  // hairlines and wait for the enlarged view like the rest.
+  const crease = condition.crease ?? 0
+  const holes = condition.holes ?? 0
+  const rips = condition.rips ?? 0
+  const damage = useMemo(() => {
+    const full = detail === 'full'
+    return {
+      creases: full ? creaseMarks(crease, wear_seed) : [],
+      patterns: full ? scratchPatterns(Math.max(0, (100 - surface) / 100), wear_seed) : [],
+      holes: holeMarks(holes, wear_seed),
+      rips: ripMarks(rips, wear_seed),
+    }
+  }, [crease, holes, rips, surface, wear_seed, detail])
+
+  // Holes and torn corners are cut out of the card, so whatever is behind it
+  // - a binder page, the slab, the dark of a reveal - shows through. An alpha
+  // mask with the damage as even-odd holes in a full-card rectangle.
+  const mask = useMemo(() => {
+    if (damage.holes.length === 0 && damage.rips.length === 0) return undefined
+    let d = `M0 0H${W}V${H}H0Z`
+    for (const h of damage.holes) {
+      d += ` M${f1(h.x - h.r)} ${f1(h.y)}a${f1(h.r)} ${f1(h.r)} 0 1 0 ${f1(2 * h.r)} 0` +
+           `a${f1(h.r)} ${f1(h.r)} 0 1 0 ${f1(-2 * h.r)} 0Z`
+    }
+    for (const r of damage.rips) d += ` ${r.poly}`
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${W} ${H}' preserveAspectRatio='none'>` +
+                `<path fill-rule='evenodd' d='${d}'/></svg>`
+    return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
+  }, [damage])
 
   const holo = detail === 'full' && (rarity === 'H' || rarity === 'S')
 
@@ -329,13 +641,23 @@ export default function ConditionedCard({
   const dy = (center_y / 100) * MARGIN
 
   return (
-    <div
-      className={`relative overflow-hidden isolate ${className}`}
-      // The frame is the card's border. Painting it the card's own yellow is
-      // what lets the margin and the border in the scan read as one edge.
-      style={{ background: borderColor(src) }}
-    >
-      <div className={`absolute inset-0 ${frameClassName}`}>
+    <div className={`relative overflow-hidden isolate ${className}`}>
+      {/* The frame is the card's border. Painting it the card's own yellow is
+          what lets the margin and the border in the scan read as one edge.
+          It, and the mask that cuts holes and tears out of the card, sit on
+          this inner layer rather than the outer one: a mask there would
+          also cut away a rarity ring or glow drawn around the card. */}
+      <div
+        className={`absolute inset-0 ${frameClassName}`}
+        style={{
+          background: borderColor(src),
+          ...(mask && {
+            maskImage: mask, WebkitMaskImage: mask,
+            maskSize: '100% 100%', WebkitMaskSize: '100% 100%',
+            maskRepeat: 'no-repeat', WebkitMaskRepeat: 'no-repeat',
+          }),
+        }}
+      >
         <div
           className="absolute overflow-hidden"
           style={{
@@ -396,8 +718,9 @@ export default function ConditionedCard({
           />
         ))}
 
-        {(layers.scratches.length > 0 || layers.creases.length > 0 ||
-          layers.whitening.length > 0) && (
+        {(layers.scratches.length > 0 || layers.whitening.length > 0 ||
+          damage.creases.length > 0 || damage.patterns.length > 0 ||
+          damage.holes.length > 0 || damage.rips.length > 0) && (
           <svg
             className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox={`0 0 ${W} ${H}`}
@@ -410,15 +733,32 @@ export default function ConditionedCard({
               <path key={`w${i}`} d={b.d} fill="#fdfcf7" opacity={b.alpha} />
             ))}
 
-            {/* Creases: a scratch can lie across a fold, not under it. */}
-            {layers.creases.map((d, i) => (
+            {/* Patterned handling marks: under the creases, since a fold can
+                cut through a scuffed patch but not the other way round. */}
+            {damage.patterns.map((p, i) => (
+              <path key={`p${i}`} d={p.d} fill="none" strokeLinecap="round"
+                    stroke="rgba(255,255,255,0.95)" strokeWidth={p.width} opacity={p.alpha} />
+            ))}
+
+            {/* Creases. A real crease is a ridge: it catches light along one
+                side and shadows along the other, so it is an offset pair
+                rather than a single line. Heavier ones crack the ink open
+                along their length and split the edge where they run off. */}
+            {damage.creases.map((c, i) => (
               <g key={`c${i}`} fill="none" strokeLinecap="round">
-                {/* The lit side of the ridge and its shadow, offset apart. */}
-                <path d={d} stroke="rgba(255,255,255,0.5)" strokeWidth={1.3}
-                      transform="translate(-0.8,-0.8)" />
-                <path d={d} stroke="rgba(48,38,26,0.38)" strokeWidth={1.3}
-                      transform="translate(0.8,0.8)" />
-                <path d={d} stroke="rgba(255,255,255,0.22)" strokeWidth={2.6} />
+                {c.flap && <path d={c.flap} fill="rgba(255,255,255,0.24)" stroke="none" />}
+                <path d={c.d} stroke="rgba(255,255,255,0.5)" strokeWidth={1.3 * c.weight}
+                      transform={`translate(${-0.8 * c.weight},${-0.8 * c.weight})`} />
+                <path d={c.d} stroke={`rgba(48,38,26,${Math.min(0.6, 0.38 * c.weight).toFixed(2)})`}
+                      strokeWidth={1.3 * c.weight}
+                      transform={`translate(${0.8 * c.weight},${0.8 * c.weight})`} />
+                <path d={c.d} stroke="rgba(255,255,255,0.22)" strokeWidth={2.6 * c.weight} />
+                {c.cracks.map((d, j) => (
+                  <path key={j} d={d} stroke="#fdfcf7" strokeWidth={0.7} opacity={0.75} />
+                ))}
+                {c.ends?.map(([x, y], j) => (
+                  <circle key={`e${j}`} cx={x} cy={y} r={2.6} fill="#fdfcf7" opacity={0.85} />
+                ))}
               </g>
             ))}
 
@@ -432,6 +772,25 @@ export default function ConditionedCard({
                 stroke={s.dark ? 'rgba(46,36,24,0.95)' : 'rgba(255,255,255,0.95)'}
                 opacity={s.alpha}
               />
+            ))}
+
+            {/* The hole itself is cut out by the mask; this is its rim -
+                fibres of white card stock round the edge, and the stock
+                pressed down around it where it was pushed through. */}
+            {damage.holes.map((h, i) => (
+              <g key={`h${i}`} fill="none">
+                <circle cx={h.x} cy={h.y} r={h.r + 1.7} stroke="rgba(60,45,30,0.28)" strokeWidth={1.6} />
+                <circle cx={h.x} cy={h.y} r={h.r + 0.5} stroke="#efe8d8" strokeWidth={1.1} opacity={0.92} />
+              </g>
+            ))}
+
+            {/* Torn corners: the ragged edge shows the white core of the
+                card, with a little shadow just inside where it lifted. */}
+            {damage.rips.map((r, i) => (
+              <g key={`r${i}`} fill="none" strokeLinejoin="round" strokeLinecap="round">
+                <path d={r.tear} stroke="rgba(60,45,30,0.3)" strokeWidth={2.2} />
+                <path d={r.tear} stroke="#f7f2e6" strokeWidth={1.4} />
+              </g>
             ))}
           </svg>
         )}

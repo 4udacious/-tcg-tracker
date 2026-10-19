@@ -18,7 +18,7 @@ const SET_YEAR: Record<string, string> = {
 
 export const GRADE_LABEL: Record<number, string> = {
   10: 'GEM MINT', 9: 'MINT', 8: 'NM-MT', 7: 'NEAR MINT',
-  6: 'EX-MINT', 5: 'EXCELLENT', 4: 'VG-EX',
+  6: 'EX-MINT', 5: 'EXCELLENT', 4: 'VG-EX', 3: 'VG', 2: 'GOOD', 1: 'POOR',
 }
 
 /**

@@ -7,6 +7,9 @@ import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
 import Slab from './Slab'
 import MysteryPackReveal from './MysteryPackReveal'
+import CrackSlab, { type CrackOutcome } from './CrackSlab'
+import CleaningResult from './CleaningResult'
+import { RIP_CORNERS } from './ConditionedCard'
 import SoundToggle from './SoundToggle'
 import { playPackSound } from './packSounds'
 import { fmt } from './tokens'
@@ -36,6 +39,13 @@ export interface CardCopy {
   /** null until the grade has been collected. */
   graded_at: string | null
   grade: number | null
+  /** Structural damage; see Condition in ConditionedCard. */
+  crease: number
+  holes: number
+  rips: number
+  /** null unless away at the cleaners. */
+  cleaning_started_at: string | null
+  cleaning_ready_at: string | null
 }
 
 type GradeState = 'ungraded' | 'waiting' | 'ready' | 'graded'
@@ -135,6 +145,34 @@ function gradeTone(g: number): string {
 const GRADE_LABEL: Record<number, string> = {
   10: 'Gem Mint', 9: 'Mint', 8: 'Near Mint-Mint', 7: 'Near Mint',
   6: 'Excellent-Mint', 5: 'Excellent', 4: 'Very Good-Excellent',
+  3: 'Very Good', 2: 'Good', 1: 'Poor',
+}
+
+/** At the cleaners, and whether it is back. */
+function cleanState(c: CardCopy): 'none' | 'away' | 'back' {
+  if (!c.cleaning_started_at) return 'none'
+  if (c.cleaning_ready_at && new Date(c.cleaning_ready_at).getTime() <= Date.now()) return 'back'
+  return 'away'
+}
+
+/** How far through its wait a card at the cleaners is, 0 to 1. */
+function cleaningProgress(c: CardCopy, now: number): number {
+  if (!c.cleaning_started_at || !c.cleaning_ready_at) return 0
+  const a = new Date(c.cleaning_started_at).getTime()
+  const b = new Date(c.cleaning_ready_at).getTime()
+  return b <= a ? 1 : Math.min(1, Math.max(0, (now - a) / (b - a)))
+}
+
+/** The structural damage on a copy, in words, worst first. */
+function damageNotes(c: { crease?: number; holes?: number; rips?: number }): string[] {
+  const out: string[] = []
+  const holes = c.holes ?? 0
+  if (holes > 0) out.push(holes === 1 ? 'Hole' : `${holes} holes`)
+  const torn = RIP_CORNERS.filter((_, i) => ((c.rips ?? 0) & (1 << i)) !== 0)
+  if (torn.length > 0) out.push(`Torn ${torn.join(', ')} corner${torn.length === 1 ? '' : 's'}`)
+  const crease = c.crease ?? 0
+  if (crease > 0) out.push(crease === 1 ? 'Light crease' : crease === 2 ? 'Crease' : 'Heavy crease')
+  return out
 }
 
 export interface CollectionCard {
@@ -168,6 +206,9 @@ interface RevealCard {
   surface: number
   border_wear: number
   wear_seed: number
+  crease?: number
+  holes?: number
+  rips?: number
 }
 
 export interface OwnedTicket {
@@ -186,6 +227,8 @@ interface Props {
   tickets: OwnedTicket[]
   gradingCost: number
   gradingDays: number
+  cleaningCost: number
+  cleaningDays: number
 }
 
 const TICKET_RARITY_COLOR: Record<string, string> = {
@@ -321,7 +364,7 @@ function rarityRing(r: string): string {
 }
 
 export default function CollectionPanel({
-  packs, collection, setTotals, tickets, gradingCost, gradingDays,
+  packs, collection, setTotals, tickets, gradingCost, gradingDays, cleaningCost, cleaningDays,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -426,6 +469,17 @@ export default function CollectionPanel({
   // Submitting is posting the card away: it costs tokens, leaves the binder,
   // and cannot be recalled. Worth a beat before it happens.
   const [confirmGrading, setConfirmGrading] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
+  // Cleaning mirrors grading: confirm, post it off, pick it up when it is back.
+  const [cleaning, setCleaning] = useState<number | null>(null)
+  const [confirmCleaning, setConfirmCleaning] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
+  const [cleanResult, setCleanResult] = useState<{
+    card: CollectionCard; before: CardCopy; after: CardCopy | null
+    outcome: 'cleaned' | 'damaged' | null; improved: number; error: string | null
+  } | null>(null)
+  // Cracking a slab: a confirm, because the grade and its fee go with it,
+  // then the game itself.
+  const [confirmCrack, setConfirmCrack] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
+  const [cracking, setCracking] = useState<{ card: CollectionCard; copy: CardCopy } | null>(null)
   const withPatch = useCallback(
     (c: CardCopy): CardCopy => ({ ...c, ...(patch[c.id] ?? {}) }),
     [patch]
@@ -496,6 +550,21 @@ export default function CollectionPanel({
     return out.sort((a, b) => Number(b.ready) - Number(a.ready) || a.due - b.due)
   }, [collection, withPatch, now])
   const readyCount = atGraders.filter((g) => g.ready).length
+
+  /** Everything away at the cleaners, back ones first. */
+  const atCleaners = useMemo(() => {
+    const out: { card: CollectionCard; copy: CardCopy; ready: boolean; due: number }[] = []
+    for (const card of collection) {
+      for (const raw of card.copies) {
+        const copy = withPatch(raw)
+        if (!copy.cleaning_started_at) continue
+        const due = copy.cleaning_ready_at ? new Date(copy.cleaning_ready_at).getTime() : Infinity
+        out.push({ card, copy, ready: due <= now, due })
+      }
+    }
+    return out.sort((a, b) => Number(b.ready) - Number(a.ready) || a.due - b.due)
+  }, [collection, withPatch, now])
+  const cleanReadyCount = atCleaners.filter((c) => c.ready).length
 
   const totalCards = collection.reduce((n, c) => n + c.copies.length, 0)
   const uniqueCards = collection.length
@@ -609,6 +678,92 @@ export default function CollectionPanel({
     // means it is already in the vault behind the pack when the pack closes.
     setPatch((p) => ({ ...p, [copy.id]: graded }))
     setMystery((m) => m && { ...m, copy: graded, grade: row.grade })
+    startTransition(() => router.refresh())
+  }
+
+  async function sendForCleaning(copy: CardCopy) {
+    setCleaning(copy.id); setGradeNote(null)
+    const { data, error: err } = await createClient().rpc('submit_for_cleaning', {
+      p_user_card_id: copy.id,
+    })
+    setCleaning(null)
+    const row = (Array.isArray(data) ? data[0] : data) as
+      { ok: boolean; reason: string; ready_at: string | null } | null
+    if (err || !row?.ok) {
+      setGradeNote(
+        row?.reason === 'insufficient_tokens' ? `Not enough tokens — cleaning costs ${cleaningCost}.`
+        : row?.reason === 'already_cleaning' ? 'That copy is already at the cleaners.'
+        : row?.reason === 'not_raw' ? 'Only raw cards can be cleaned.'
+        : 'Could not send that card to be cleaned.'
+      )
+      return
+    }
+    setPatch((p) => ({
+      ...p,
+      [copy.id]: { cleaning_started_at: new Date().toISOString(), cleaning_ready_at: row.ready_at },
+    }))
+    setGradeNote('Sent to the cleaners.')
+    startTransition(() => router.refresh())
+  }
+
+  /** Picks a cleaned card up. The result is rolled now, server side. */
+  async function collectCleaning(card: CollectionCard, copy: CardCopy) {
+    setCleaning(copy.id)
+    setCleanResult({ card, before: copy, after: null, outcome: null, improved: 0, error: null })
+    const { data, error: err } = await createClient().rpc('collect_cleaning', {
+      p_user_card_id: copy.id,
+    })
+    setCleaning(null)
+    const row = (Array.isArray(data) ? data[0] : data) as {
+      ok: boolean; reason: string; outcome: 'cleaned' | 'damaged'; improved: number
+      corners: number; edges: number; surface: number; border_wear: number
+      crease: number; holes: number; rips: number
+    } | null
+    if (err || !row?.ok) {
+      setCleanResult((r) => r && {
+        ...r,
+        error: row?.reason === 'not_ready' ? 'Still at the cleaners.' : 'Could not pick that card up.',
+      })
+      return
+    }
+    const after: CardCopy = {
+      ...copy,
+      corners: row.corners, edges: row.edges, surface: row.surface, border_wear: row.border_wear,
+      crease: row.crease, holes: row.holes, rips: row.rips,
+      cleaning_started_at: null, cleaning_ready_at: null,
+    }
+    setPatch((p) => ({ ...p, [copy.id]: after }))
+    setCleanResult((r) => r && { ...r, after, outcome: row.outcome, improved: row.improved })
+    startTransition(() => router.refresh())
+  }
+
+  /** Sends the four pries; the server says what the slips cost. */
+  async function sendCrack(copy: CardCopy, slips: boolean[]): Promise<CrackOutcome | string> {
+    const { data, error: err } = await createClient().rpc('crack_slab', {
+      p_user_card_id: copy.id, p_slips: slips,
+    })
+    const row = (Array.isArray(data) ? data[0] : data) as
+      (CrackOutcome & { ok: boolean; reason: string }) | null
+    if (err || !row?.ok) {
+      return row?.reason === 'listed' ? 'That slab is listed for sale.'
+        : row?.reason === 'not_graded' ? 'That card is not in a slab any more.'
+        : 'Could not crack that slab.'
+    }
+    return {
+      results: row.results, corners: row.corners, edges: row.edges, surface: row.surface,
+      border_wear: row.border_wear, crease: row.crease, holes: row.holes, rips: row.rips,
+    }
+  }
+
+  /** Out of the case and back into its binder, raw. */
+  function finishCrack(copy: CardCopy, o: CrackOutcome) {
+    const { results: _results, ...condition } = o
+    setPatch((p) => ({
+      ...p,
+      [copy.id]: { ...condition, graded_at: null, grade: null, grading_started_at: null, grading_ready_at: null },
+    }))
+    setCracking(null)
+    setSlabIndex(null)
     startTransition(() => router.refresh())
   }
 
@@ -755,6 +910,75 @@ export default function CollectionPanel({
             .gr-ready-cta { animation: grCta 1.6s ease-out infinite; }
             @media (prefers-reduced-motion: reduce) { .gr-ready-pip, .gr-ready-cta { animation: none; } }
           `}</style>
+        </section>
+      )}
+
+      {/* ── At the cleaners ── */}
+      {atCleaners.length > 0 && (
+        <section id="cleaners" className="space-y-2 scroll-mt-16">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-base">At the cleaners</h2>
+            <span className="font-mono text-[10px] text-muted">
+              {cleanReadyCount > 0
+                ? <span className="text-sky-600 font-semibold">{cleanReadyCount} ready to pick up</span>
+                : `${atCleaners.length} away`}
+            </span>
+          </div>
+
+          <ul className="space-y-1.5">
+            {atCleaners.map(({ card, copy, ready }) => {
+              const busy = cleaning === copy.id
+              const pct = Math.round(cleaningProgress(copy, now) * 100)
+              const body = (
+                <>
+                  <div className="relative w-11 shrink-0">
+                    <ConditionedCard
+                      src={card.image_url} alt="" condition={copy} rarity={card.rarity}
+                      className={`w-full aspect-[245/342] rounded ${ready ? '' : 'opacity-70'}`}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">{card.name}</p>
+                    {ready ? (
+                      <p className="text-xs text-sky-600 font-medium">Back from the cleaners</p>
+                    ) : (
+                      <>
+                        <p className="font-mono text-[10px] text-muted">
+                          Back in {copy.cleaning_ready_at ? waitLabel(copy.cleaning_ready_at) : '…'}
+                        </p>
+                        <div className="mt-1 h-1 rounded-full bg-card-border overflow-hidden">
+                          <div className="h-full rounded-full bg-sky-400/80" style={{ width: `${pct}%` }} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {ready && (
+                    <span className="shrink-0 rounded-lg bg-sky-400 text-ink text-xs font-bold px-3 py-1.5">
+                      {busy ? '…' : 'Pick up'}
+                    </span>
+                  )}
+                </>
+              )
+              return (
+                <li key={copy.id}>
+                  {ready ? (
+                    <button
+                      onClick={() => collectCleaning(card, copy)}
+                      disabled={busy}
+                      className="w-full flex items-center gap-3 rounded-xl border border-sky-400/60 bg-sky-400/10 hover:bg-sky-400/15 p-2 text-left transition-colors"
+                      aria-label={`${card.name} is back from the cleaners. See how it came out.`}
+                    >
+                      {body}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-2">
+                      {body}
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         </section>
       )}
 
@@ -1056,6 +1280,11 @@ export default function CollectionPanel({
               }`}>
                 {RARITY_LABEL[c.rarity] ?? c.rarity} · #{c.number}
               </p>
+              {/* Damage you can see is said in words - the numbers behind
+                  ordinary wear stay sealed until grading. */}
+              {damageNotes(copy).length > 0 && (
+                <p className="font-mono text-[10px] text-red-300/80 mt-0.5">{damageNotes(copy).join(' · ')}</p>
+              )}
 
               {/* Each copy is its own object, so switching between them is
                   switching card, not just incrementing a counter. */}
@@ -1080,13 +1309,17 @@ export default function CollectionPanel({
                         {i + 1}
                         {/* A dot so a graded or waiting copy is findable
                             without opening each one in turn. */}
-                        {g !== 'ungraded' && (
+                        {g !== 'ungraded' ? (
                           <span className={`ml-1 inline-block w-1.5 h-1.5 rounded-full align-middle ${
                             // Amber and signal orange are near-identical at
                             // 4px; ready needs action, so it gets its own hue.
                             g === 'graded' ? 'bg-amber-400'
                             : g === 'ready' ? 'bg-emerald-400'
                             : 'bg-white/40'
+                          }`} />
+                        ) : cleanState(cp) !== 'none' && (
+                          <span className={`ml-1 inline-block w-1.5 h-1.5 rounded-full align-middle ${
+                            cleanState(cp) === 'back' ? 'bg-sky-300' : 'bg-sky-300/40'
                           }`} />
                         )}
                       </button>
@@ -1129,13 +1362,38 @@ export default function CollectionPanel({
                       </div>
                     )}
 
-                    {st === 'ungraded' && (
+                    {st === 'ungraded' && cleanState(copy) === 'none' && (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <button
+                          onClick={() => setConfirmGrading({ card: c, copy })}
+                          disabled={busy || cleaning === copy.id}
+                          className="rounded-lg border border-white/25 text-white/85 text-sm font-medium px-4 py-2 hover:bg-white/10 transition-colors disabled:opacity-40"
+                        >
+                          {busy ? 'Sending…' : `Send for grading · ${fmt(gradingCost)} token${gradingCost === 1 ? '' : 's'}`}
+                        </button>
+                        <button
+                          onClick={() => setConfirmCleaning({ card: c, copy })}
+                          disabled={busy || cleaning === copy.id}
+                          className="rounded-lg border border-sky-300/30 text-sky-100/85 text-xs font-medium px-3.5 py-1.5 hover:bg-sky-300/10 transition-colors disabled:opacity-40"
+                        >
+                          {cleaning === copy.id ? 'Sending…' : `Get it cleaned · ${fmt(cleaningCost)} token${cleaningCost === 1 ? '' : 's'}`}
+                        </button>
+                      </div>
+                    )}
+
+                    {cleanState(copy) === 'away' && copy.cleaning_ready_at && (
+                      <p className="font-mono text-[10px] text-sky-200/60">
+                        At the cleaners · back in {waitLabel(copy.cleaning_ready_at)}
+                      </p>
+                    )}
+
+                    {cleanState(copy) === 'back' && (
                       <button
-                        onClick={() => setConfirmGrading({ card: c, copy })}
-                        disabled={busy}
-                        className="rounded-lg border border-white/25 text-white/85 text-sm font-medium px-4 py-2 hover:bg-white/10 transition-colors disabled:opacity-40"
+                        onClick={() => collectCleaning(c, copy)}
+                        disabled={cleaning === copy.id}
+                        className="rounded-lg bg-sky-400 text-ink text-sm font-semibold px-4 py-2 hover:bg-sky-300 transition-colors disabled:opacity-40"
                       >
-                        {busy ? 'Sending…' : `Send for grading · ${fmt(gradingCost)} token${gradingCost === 1 ? '' : 's'}`}
+                        {cleaning === copy.id ? 'Unwrapping…' : 'Back from the cleaners — see it'}
                       </button>
                     )}
 
@@ -1155,9 +1413,9 @@ export default function CollectionPanel({
                       </button>
                     )}
 
-                    {st === 'ungraded' && (
+                    {st === 'ungraded' && cleanState(copy) === 'none' && (
                       <p className="font-mono text-[9px] text-white/30 mt-1">
-                        Takes {gradingDays} day{gradingDays === 1 ? '' : 's'}
+                        Grading takes {gradingDays} day{gradingDays === 1 ? '' : 's'} · cleaning {cleaningDays}
                       </p>
                     )}
 
@@ -1211,6 +1469,15 @@ export default function CollectionPanel({
                 <span>SUR {copy.surface}</span>
               </div>
               <p className="font-mono text-[9px] text-white/45 mt-0.5">BORDER {copy.border_wear}</p>
+              {damageNotes(copy).length > 0 && (
+                <p className="font-mono text-[9px] text-red-300/80 mt-0.5 uppercase">{damageNotes(copy).join(' · ')}</p>
+              )}
+              <button
+                onClick={() => setConfirmCrack({ card, copy })}
+                className="mt-3 rounded-lg border border-white/20 text-white/70 text-xs font-medium px-3.5 py-1.5 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Crack the slab
+              </button>
               <p className="font-mono text-[10px] text-white/35 mt-1.5">
                 {slabIndex + 1} of {slabs.length}
               </p>
@@ -1347,6 +1614,141 @@ export default function CollectionPanel({
           </div>
         )
       })()}
+
+      {/* ── Confirm before sending a card to be cleaned ── */}
+      {confirmCleaning && (() => {
+        const { card, copy } = confirmCleaning
+        const busy = cleaning === copy.id
+        return (
+          <div
+            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-5"
+            role="dialog" aria-modal="true" aria-labelledby="cleaning-confirm-title"
+          >
+            <div className="bg-card border border-card-border rounded-2xl p-5 max-w-sm w-full space-y-3">
+              <h3 id="cleaning-confirm-title" className="font-display font-semibold text-base">
+                Get {card.name} cleaned?
+              </h3>
+              <ul className="text-sm text-muted space-y-1.5">
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">{fmt(cleaningCost)}</span>
+                  <span>token{cleaningCost === 1 ? '' : 's'} charged now, and not refunded.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">{cleaningDays}</span>
+                  <span>
+                    day{cleaningDays === 1 ? '' : 's'} away. You cannot trade, list, grade or
+                    shelve it until it is back.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">✦</span>
+                  <span>
+                    Takes 10–30% of the wear off its corners, edges, surface and border. Centering,
+                    creases, holes and tears stay as they are.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-500 font-semibold shrink-0">!</span>
+                  <span>About one clean in 33 goes wrong and scratches the card up instead.</span>
+                </li>
+              </ul>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setConfirmCleaning(null)}
+                  disabled={busy}
+                  className="flex-1 rounded-xl border border-card-border text-sm font-medium py-2.5 text-muted hover:text-ink transition-colors disabled:opacity-40"
+                >
+                  Keep it
+                </button>
+                <button
+                  onClick={async () => {
+                    const target = confirmCleaning
+                    setConfirmCleaning(null)
+                    await sendForCleaning(target.copy)
+                  }}
+                  disabled={busy}
+                  className="flex-1 rounded-xl bg-sky-500 text-white text-sm font-semibold py-2.5 hover:bg-sky-500/90 transition-colors disabled:opacity-40"
+                >
+                  {busy ? 'Sending…' : 'Send it'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Confirm before cracking a slab ── */}
+      {confirmCrack && (() => {
+        const { card, copy } = confirmCrack
+        return (
+          <div
+            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-5"
+            role="dialog" aria-modal="true" aria-labelledby="crack-confirm-title"
+          >
+            <div className="bg-card border border-card-border rounded-2xl p-5 max-w-sm w-full space-y-3">
+              <h3 id="crack-confirm-title" className="font-display font-semibold text-base">
+                Crack open the {copy.grade} {card.name}?
+              </h3>
+              <ul className="text-sm text-muted space-y-1.5">
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">★</span>
+                  <span>The grade is gone for good, and so is the grading fee. It goes back in the binder raw.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">4</span>
+                  <span>corners to pry, one at a time. Tap when the needle is in the green.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-500 font-semibold shrink-0">!</span>
+                  <span>
+                    A slip can ding a corner, tear it off, or put the tool through the card.
+                    Often it does nothing at all.
+                  </span>
+                </li>
+              </ul>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setConfirmCrack(null)}
+                  className="flex-1 rounded-xl border border-card-border text-sm font-medium py-2.5 text-muted hover:text-ink transition-colors"
+                >
+                  Leave it slabbed
+                </button>
+                <button
+                  onClick={() => { setCracking(confirmCrack); setConfirmCrack(null) }}
+                  className="flex-1 rounded-xl bg-amber-400 text-ink text-sm font-bold py-2.5 hover:bg-amber-300 transition-colors"
+                >
+                  Crack it
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {cracking && (
+        <CrackSlab
+          card={cracking.card}
+          condition={cracking.copy}
+          grade={cracking.copy.grade ?? 0}
+          setName={setTotals.find((s) => s.set_code === cracking.card.set_code)?.set_name ?? cracking.card.set_code}
+          onCrack={(slips) => sendCrack(cracking.copy, slips)}
+          onDone={(o) => finishCrack(cracking.copy, o)}
+          onClose={() => setCracking(null)}
+        />
+      )}
+
+      {cleanResult && (
+        <CleaningResult
+          card={cleanResult.card}
+          before={cleanResult.before}
+          after={cleanResult.after}
+          outcome={cleanResult.outcome}
+          improved={cleanResult.improved}
+          pending={cleaning === cleanResult.before.id}
+          error={cleanResult.error}
+          onDone={() => setCleanResult(null)}
+        />
+      )}
 
       {/* ── A grade coming back ── */}
       {/* ── Checking on a card that is not back yet ── */}

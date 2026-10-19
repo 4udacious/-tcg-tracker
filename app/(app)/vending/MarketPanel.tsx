@@ -763,8 +763,10 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     const out: { card: CollectionCard; copy: CardCopy }[] = []
     for (const card of collection) {
       for (const copy of card.copies) {
-        // A card away at the graders cannot be sold out from under the grade.
+        // A card away at the graders cannot be sold out from under the grade,
+        // and one at the cleaners is not here to sell.
         if (copy.grading_started_at && !copy.graded_at) continue
+        if (copy.cleaning_started_at) continue
         out.push({ card, copy })
       }
     }

@@ -129,6 +129,8 @@ interface Props {
   recentBuys: RecentBuy[]
   gradingCost: number
   gradingDays: number
+  cleaningCost: number
+  cleaningDays: number
   showcaseItems: ShowcaseItem[]
   showcaseLighting: Lighting
   listings: MarketListing[]
@@ -158,7 +160,7 @@ function untilLabel(iso: string): string {
 
 export default function VendingClient({
   initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
-  packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays,
+  packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays, cleaningCost, cleaningDays,
   showcaseItems, showcaseLighting, listings, myListings, feePercent, marketUnread, initialView,
 }: Props) {
   // Cleared the moment the market panel marks them read, so the badge does
@@ -190,14 +192,26 @@ export default function VendingClient({
     }
     return n
   }, [collection, clock])
+  // Cleaned cards waiting to be picked up, on the same clock.
+  const cleansReady = useMemo(() => {
+    let n = 0
+    for (const c of collection) {
+      for (const copy of c.copies) {
+        if (copy.cleaning_started_at && copy.cleaning_ready_at &&
+            new Date(copy.cleaning_ready_at).getTime() <= clock) n++
+      }
+    }
+    return n
+  }, [collection, clock])
 
-  /** Takes you to the graders shelf from anywhere on the page. */
-  function goToGraders() {
+  /** Takes you to a shelf in the Cards view from anywhere on the page. */
+  function goToSection(id: 'graders' | 'cleaners') {
     setView('collection')
     // The section only exists once the Cards view has rendered.
     requestAnimationFrame(() => requestAnimationFrame(() =>
-      document.getElementById('graders')?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
   }
+  const goToGraders = () => goToSection('graders')
   const [buys, setBuys] = useState<RecentBuy[]>(recentBuys)
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
@@ -516,6 +530,28 @@ export default function VendingClient({
         </button>
       )}
 
+      {/* Cleaned cards back, in the cleaners' sky blue rather than the
+          graders' amber, so the two never read as the same news. */}
+      {cleansReady > 0 && !(view === 'collection') && (
+        <button
+          onClick={() => goToSection('cleaners')}
+          className="w-full flex items-center gap-3 rounded-xl border border-sky-400/60 bg-sky-400/10 px-3 py-2.5 text-left hover:bg-sky-400/15 transition-colors"
+        >
+          <span className="shrink-0 w-8 h-8 rounded-full bg-sky-400 text-ink font-bold flex items-center justify-center">
+            ✦
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">
+              {cleansReady === 1 ? 'A card is back from the cleaners' : `${cleansReady} cards are back from the cleaners`}
+            </span>
+            <span className="block text-xs text-muted">Tap to see how {cleansReady === 1 ? 'it' : 'they'} came out</span>
+          </span>
+          <svg className="w-4 h-4 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
       <div className="flex gap-1">
         {(['machine', 'collection', 'showcase', 'market'] as const).map((v) => (
           <button
@@ -562,7 +598,8 @@ export default function VendingClient({
           collection={collection} />
       ) : view === 'collection' ? (
         <CollectionPanel packs={packs} collection={collection} setTotals={setTotals}
-          tickets={ownedTickets} gradingCost={gradingCost} gradingDays={gradingDays} />
+          tickets={ownedTickets} gradingCost={gradingCost} gradingDays={gradingDays}
+          cleaningCost={cleaningCost} cleaningDays={cleaningDays} />
       ) : (
       <>
 
