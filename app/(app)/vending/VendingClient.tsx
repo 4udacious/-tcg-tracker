@@ -7,8 +7,10 @@ import CollectionPanel, { type UnopenedPack, type CollectionCard, type SetTotal,
 import ShowcasePanel from './ShowcasePanel'
 import MarketPanel, { type MarketListing } from './MarketPanel'
 import LobbyChat from './LobbyChat'
-import { fmt, num } from './tokens'
+import SupplyIcon from '@/components/SupplyIcon'
+import { fmt, money, num } from './tokens'
 import type { ShowcaseItem, Lighting } from './ShowcaseRoom'
+import type { OwnedItem } from './CollectionPanel'
 
 /**
  * Colours inside the machine screen are deliberately fixed rather than theme
@@ -48,6 +50,8 @@ type ItemDetail = {
   subtitle: string
   description: string | null
   image: string | null
+  /** Drawn art, for things without an uploaded image (battle supplies). */
+  icon?: React.ReactNode
   accent: string
   fit: 'contain' | 'cover'
 }
@@ -90,6 +94,33 @@ const TICKET_RARITY_COLOR: Record<string, string> = {
   legendary: '#F6A609',
 }
 
+/**
+ * Battle supplies share the shelf too: single items, and bundles of items
+ * that land in the bag as the separate items. Rolled into a cycle by their
+ * appearance rate. A supply on the shelf has no count, so the cart line is
+ * capped instead, at the same limit checkout enforces.
+ */
+export interface SupplyStockRow {
+  key: string
+  kind: 'item' | 'bundle'
+  name: string
+  description: string | null
+  /** Bundles only: what is inside, with each item's own price. */
+  contents: { key: string; name: string; qty: number; token_price: number }[] | null
+  token_price: number
+}
+
+const SUPPLY_LINE_MAX = 20
+
+function bundleSize(s: SupplyStockRow): number {
+  return (s.contents ?? []).reduce((n, c) => n + c.qty, 0)
+}
+
+/** What a bundle's contents would cost bought one by one. */
+function bundleWorth(s: SupplyStockRow): number {
+  return money((s.contents ?? []).reduce((sum, c) => sum + c.qty * num(c.token_price), 0))
+}
+
 interface Watcher {
   watcher_id: string
   name: string
@@ -117,6 +148,7 @@ interface Props {
   initialState: MachineState | null
   initialStock: StockRow[]
   initialTickets: TicketStockRow[]
+  initialSupplies: SupplyStockRow[]
   balance: number
   allowance: number
   earned: number
@@ -126,6 +158,7 @@ interface Props {
   collection: CollectionCard[]
   setTotals: SetTotal[]
   ownedTickets: OwnedTicket[]
+  ownedItems: OwnedItem[]
   recentBuys: RecentBuy[]
   gradingCost: number
   gradingDays: number
@@ -159,8 +192,8 @@ function untilLabel(iso: string): string {
 }
 
 export default function VendingClient({
-  initialState, initialStock, initialTickets, balance, allowance, earned, userId, cooldownUntil,
-  packs, collection, setTotals, ownedTickets, recentBuys, gradingCost, gradingDays, cleaningCost, cleaningDays,
+  initialState, initialStock, initialTickets, initialSupplies, balance, allowance, earned, userId, cooldownUntil,
+  packs, collection, setTotals, ownedTickets, ownedItems, recentBuys, gradingCost, gradingDays, cleaningCost, cleaningDays,
   showcaseItems, showcaseLighting, listings, myListings, feePercent, marketUnread, initialView,
 }: Props) {
   // Cleared the moment the market panel marks them read, so the badge does
@@ -216,6 +249,7 @@ export default function VendingClient({
   const [state, setState] = useState<MachineState | null>(initialState)
   const [stock, setStock] = useState<StockRow[]>(initialStock)
   const [tickets, setTickets] = useState<TicketStockRow[]>(initialTickets)
+  const [supplies, setSupplies] = useState<SupplyStockRow[]>(initialSupplies)
   const [tokens, setTokens] = useState(balance)
   const [cooldown, setCooldown] = useState<string | null>(cooldownUntil)
   const [secondsLeft, setSecondsLeft] = useState(initialState?.seconds_left ?? 0)
@@ -223,12 +257,14 @@ export default function VendingClient({
   const [cart, setCart] = useState<Record<string, number>>({})
   // Tickets are priced per item, so they are carted separately from packs.
   const [ticketCart, setTicketCart] = useState<Record<number, number>>({})
+  // Supplies likewise, keyed by supply key.
+  const [supplyCart, setSupplyCart] = useState<Record<string, number>>({})
   const [holdLeft, setHoldLeft] = useState(0)
   // Tapping an item on the shelf opens this; browsing is allowed even when
   // you are not the one holding the machine.
   const [detail, setDetail] = useState<ItemDetail | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; restocked: boolean } | null>(null)
+  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; restocked: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
   const [watchers, setWatchers] = useState<Watcher[]>([])
   const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
@@ -242,13 +278,19 @@ export default function VendingClient({
   const status = state?.status ?? 'maintenance'
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
   const ticketCount = Object.values(ticketCart).reduce((a, b) => a + b, 0)
-  // Packs are always one token; tickets carry their own price.
+  const supplyCount = Object.values(supplyCart).reduce((a, b) => a + b, 0)
+  // Packs are always one token; tickets and supplies carry their own price.
   const ticketCost = Object.entries(ticketCart).reduce((sum, [id, qty]) => {
     const t = tickets.find((x) => x.ticket_id === Number(id))
     return sum + (t ? t.token_price * qty : 0)
   }, 0)
-  const totalCost = cartCount + ticketCost
-  const totalItems = cartCount + ticketCount
+  const supplyCost = Object.entries(supplyCart).reduce((sum, [key, qty]) => {
+    const s = supplies.find((x) => x.key === key)
+    return sum + (s ? num(s.token_price) * qty : 0)
+  }, 0)
+  // Supplies are priced in cents, so round away the float drift.
+  const totalCost = money(cartCount + ticketCost + supplyCost)
+  const totalItems = cartCount + ticketCount + supplyCount
   const others = watchers.filter((w) => w.watcher_id !== userId)
   const lurkers = others.filter((w) => !w.is_holder)
 
@@ -268,17 +310,20 @@ export default function VendingClient({
       setState(next)
       setSecondsLeft(next.seconds_left)
       if (next.status === 'in_stock' || next.status === 'out_of_stock') {
-        const [{ data: s }, { data: t }] = await Promise.all([
+        const [{ data: s }, { data: t }, { data: sup }] = await Promise.all([
           supabase.rpc('get_vending_stock', { p_cycle: next.cycle_no }),
           supabase.rpc('get_vending_ticket_stock', { p_cycle: next.cycle_no }),
+          supabase.rpc('get_vending_supply_stock', { p_cycle: next.cycle_no }),
         ])
         setStock((s as StockRow[]) ?? [])
         setTickets((t as TicketStockRow[]) ?? [])
+        setSupplies((sup as SupplyStockRow[]) ?? [])
       } else {
         setStock([])
         setTickets([])
+        setSupplies([])
       }
-      if (next.holder_id !== userId) { setCart({}); setTicketCart({}) }
+      if (next.holder_id !== userId) { setCart({}); setTicketCart({}); setSupplyCart({}) }
     }
     const { data: b } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
     if (b) setBuys(b as RecentBuy[])
@@ -435,21 +480,65 @@ export default function VendingClient({
     beat()
   }
 
+  function addSupplyToCart(s: SupplyStockRow, delta: number) {
+    setSupplyCart((c) => {
+      const cur = c[s.key] ?? 0
+      const next = Math.min(SUPPLY_LINE_MAX, Math.max(0, cur + delta))
+      const copy = { ...c }
+      if (next === 0) delete copy[s.key]
+      else copy[s.key] = next
+      return copy
+    })
+    beat()
+  }
+
+  function showSupplyDetail(s: SupplyStockRow) {
+    const price = num(s.token_price)
+    const priceLabel = `${fmt(price)} token${price === 1 ? '' : 's'}`
+    let description = s.description
+    if (s.kind === 'bundle') {
+      const lines = (s.contents ?? []).map((c) => `${c.qty} × ${c.name}`)
+      const worth = bundleWorth(s)
+      if (worth > price) lines.push('', `${fmt(worth)} tokens bought separately.`)
+      lines.push('', 'The items go into your bag separately.')
+      description = lines.join('\n')
+    }
+    setDetail({
+      title: s.name,
+      subtitle: `${s.kind === 'bundle' ? `bundle · ${bundleSize(s)} items` : 'battle item'} · ${priceLabel}`,
+      description,
+      image: null,
+      icon: <SupplyIcon supplyKey={s.kind === 'bundle' ? 'bundle' : s.key} className="w-12 h-12" />,
+      accent: s.kind === 'bundle' ? '#F59E0B' : '#0E1726',
+      fit: 'contain',
+    })
+  }
+
   async function checkout() {
     if (totalItems === 0) return
     setBusy(true); setMessage(null)
     const supabase = createClient()
     const items = Object.entries(cart).map(([set_code, qty]) => ({ set_code, qty }))
     const ticketItems = Object.entries(ticketCart).map(([id, qty]) => ({ ticket_id: Number(id), qty }))
-    const { data } = await supabase.rpc('vending_checkout', { p_items: items, p_tickets: ticketItems })
+    const supplyItems = Object.entries(supplyCart).map(([key, qty]) => ({ key, qty }))
+    // p_supplies only when there are some, so pack and ticket checkouts keep
+    // working against a database that predates v56.
+    const { data } = await supabase.rpc('vending_checkout', {
+      p_items: items, p_tickets: ticketItems,
+      ...(supplyItems.length > 0 ? { p_supplies: supplyItems } : {}),
+    })
     const r = (Array.isArray(data) ? data[0] : data) as
-      | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; balance: number; restocked: boolean }
+      | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; balance: number; restocked: boolean }
       | null
     if (r?.ok) {
       setTokens(num(r.balance))
       setCart({})
       setTicketCart({})
-      setReceipt({ packs: r.packs_bought, tickets: r.tickets_bought ?? 0, restocked: r.restocked })
+      setSupplyCart({})
+      setReceipt({
+        packs: r.packs_bought, tickets: r.tickets_bought ?? 0,
+        supplies: r.supplies_bought ?? 0, restocked: r.restocked,
+      })
       // Read the real cooldown back rather than assuming a duration - it is
       // an admin setting and can be anything.
       const { data: me } = await supabase
@@ -472,6 +561,8 @@ export default function VendingClient({
         case 'ticket_sold_out': setMessage('That raffle ticket just ran out.'); break
         case 'ticket_limit_reached': setMessage('You already hold the maximum of that ticket.'); break
         case 'ticket_unavailable': setMessage('That raffle ticket is no longer available.'); break
+        case 'supply_not_stocked': setMessage('That supply is no longer on the shelf.'); break
+        case 'supply_unavailable': setMessage('That supply is no longer sold.'); break
         default: setMessage('Checkout failed.')
       }
     }
@@ -598,7 +689,7 @@ export default function VendingClient({
           collection={collection} />
       ) : view === 'collection' ? (
         <CollectionPanel packs={packs} collection={collection} setTotals={setTotals}
-          tickets={ownedTickets} gradingCost={gradingCost} gradingDays={gradingDays}
+          tickets={ownedTickets} items={ownedItems} gradingCost={gradingCost} gradingDays={gradingDays}
           cleaningCost={cleaningCost} cleaningDays={cleaningDays} />
       ) : (
       <>
@@ -620,12 +711,12 @@ export default function VendingClient({
 
           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border-2 border-black">
             {receipt ? (
-              <DispensingScreen packs={receipt.packs} restocked={receipt.restocked} />
+              <DispensingScreen items={receipt.packs + receipt.tickets + receipt.supplies} restocked={receipt.restocked} />
             ) : status === 'out_of_stock' ? (
-              <StockScreen stock={stock} tickets={tickets} soldOut cart={{}} ticketCart={{}} onAdd={() => {}} onAddTicket={() => {}} onInspect={showPackDetail} onInspectTicket={showTicketDetail} interactive={false} />
+              <StockScreen stock={stock} tickets={tickets} supplies={supplies} soldOut cart={{}} ticketCart={{}} supplyCart={{}} onAdd={() => {}} onAddTicket={() => {}} onAddSupply={() => {}} onInspect={showPackDetail} onInspectTicket={showTicketDetail} onInspectSupply={showSupplyDetail} interactive={false} />
             ) : status === 'in_stock' ? (
               iAmHolder ? (
-                <StockScreen stock={stock} tickets={tickets} soldOut={false} cart={cart} ticketCart={ticketCart} onAdd={addToCart} onAddTicket={addTicketToCart} onInspect={showPackDetail} onInspectTicket={showTicketDetail} interactive />
+                <StockScreen stock={stock} tickets={tickets} supplies={supplies} soldOut={false} cart={cart} ticketCart={ticketCart} supplyCart={supplyCart} onAdd={addToCart} onAddTicket={addTicketToCart} onAddSupply={addSupplyToCart} onInspect={showPackDetail} onInspectTicket={showTicketDetail} onInspectSupply={showSupplyDetail} interactive />
               ) : (
                 <AttractScreen onStart={claim} busy={busy} lockedBy={someoneElse ? state!.holder_name : null} />
               )
@@ -686,11 +777,12 @@ export default function VendingClient({
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium">
               {totalItems === 0
-                ? 'Pick your packs'
+                ? supplies.length > 0 ? 'Pick your packs and supplies' : 'Pick your packs'
                 : [
                     cartCount > 0 ? `${cartCount} pack${cartCount === 1 ? '' : 's'}` : null,
                     ticketCount > 0 ? `${ticketCount} ticket${ticketCount === 1 ? '' : 's'}` : null,
-                  ].filter(Boolean).join(' + ') + ` · ${totalCost} token${totalCost === 1 ? '' : 's'}`}
+                    supplyCount > 0 ? `${supplyCount} suppl${supplyCount === 1 ? 'y' : 'ies'}` : null,
+                  ].filter(Boolean).join(' + ') + ` · ${fmt(totalCost)} token${totalCost === 1 ? '' : 's'}`}
             </p>
             <span className={`font-mono text-xs ${holdLeft <= 15 ? 'text-red-500' : 'text-muted'}`}>
               {mmss(holdLeft)} left
@@ -707,6 +799,12 @@ export default function VendingClient({
 
           {totalCost > tokens && <p className="text-xs text-red-500">That is more than you can afford.</p>}
 
+          {/* Only packs and tickets start the cooldown (v56), and people
+              should know that before they decide what to buy. */}
+          {supplyCount > 0 && cartCount + ticketCount === 0 && (
+            <p className="text-xs text-muted">Supplies on their own don&apos;t start your cooldown.</p>
+          )}
+
           <div className="flex gap-2">
             <button
               onClick={checkout}
@@ -716,7 +814,7 @@ export default function VendingClient({
               Check out
             </button>
             <button
-              onClick={async () => { const s = createClient(); await s.rpc('vending_release'); setCart({}); setTicketCart({}); refresh() }}
+              onClick={async () => { const s = createClient(); await s.rpc('vending_release'); setCart({}); setTicketCart({}); setSupplyCart({}); refresh() }}
               className="px-4 border border-card-border rounded-xl text-sm font-medium text-muted hover:text-ink transition-colors"
             >
               Leave
@@ -735,6 +833,7 @@ export default function VendingClient({
             {[
               receipt.packs > 0 ? `${receipt.packs} pack${receipt.packs === 1 ? '' : 's'}` : null,
               receipt.tickets > 0 ? `${receipt.tickets} raffle ticket${receipt.tickets === 1 ? '' : 's'}` : null,
+              receipt.supplies > 0 ? `${receipt.supplies} battle suppl${receipt.supplies === 1 ? 'y' : 'ies'}` : null,
             ].filter(Boolean).join(' and ')}.
           </p>
           {receipt.restocked && <p className="text-xs text-signal font-medium">The machine restocked behind you.</p>}
@@ -748,7 +847,7 @@ export default function VendingClient({
               onClick={() => { setReceipt(null); setView('collection') }}
               className="flex-1 bg-signal hover:bg-signal/90 text-white font-semibold rounded-xl py-2 text-sm transition-colors"
             >
-              Open them
+              {receipt.packs > 0 ? 'Open them' : 'See them'}
             </button>
             <button
               onClick={() => setReceipt(null)}
@@ -766,7 +865,8 @@ export default function VendingClient({
             <p className="text-sm font-medium truncate">
               {someoneElse
                 ? `${state!.holder_name} is at the machine`
-                : status === 'in_stock' ? `Stocked — ${stock.reduce((n, s) => n + s.quantity, 0)} packs`
+                : status === 'in_stock' ? `Stocked — ${stock.reduce((n, s) => n + s.quantity, 0)} packs` +
+                    (supplies.length > 0 ? ` · ${supplies.length} suppl${supplies.length === 1 ? 'y' : 'ies'}` : '')
                 : status === 'out_of_stock' ? 'Sold out'
                 : 'Under maintenance'}
             </p>
@@ -944,6 +1044,13 @@ function ItemDetailDialog({ detail, onClose }: { detail: ItemDetail; onClose: ()
                 alt=""
                 className={`w-20 h-28 rounded-lg bg-paper shrink-0 ${detail.fit === 'cover' ? 'object-cover' : 'object-contain'}`}
               />
+            ) : detail.icon ? (
+              <div
+                className="w-20 h-28 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${detail.accent}22` }}
+              >
+                {detail.icon}
+              </div>
             ) : (
               <div
                 className="w-20 h-28 rounded-lg flex items-center justify-center text-3xl shrink-0"
@@ -979,20 +1086,25 @@ function ItemDetailDialog({ detail, onClose }: { detail: ItemDetail; onClose: ()
 }
 
 function StockScreen({
-  stock, tickets, soldOut, cart, ticketCart, onAdd, onAddTicket, onInspect, onInspectTicket, interactive,
+  stock, tickets, supplies, soldOut, cart, ticketCart, supplyCart,
+  onAdd, onAddTicket, onAddSupply, onInspect, onInspectTicket, onInspectSupply, interactive,
 }: {
   stock: StockRow[]
   tickets: TicketStockRow[]
+  supplies: SupplyStockRow[]
   soldOut: boolean
   cart: Record<string, number>
   ticketCart: Record<number, number>
+  supplyCart: Record<string, number>
   onAdd: (s: StockRow, delta: number) => void
   onAddTicket: (t: TicketStockRow, delta: number) => void
+  onAddSupply: (s: SupplyStockRow, delta: number) => void
   onInspect: (s: StockRow) => void
   onInspectTicket: (t: TicketStockRow) => void
+  onInspectSupply: (s: SupplyStockRow) => void
   interactive: boolean
 }) {
-  if (stock.length === 0 && tickets.length === 0) {
+  if (stock.length === 0 && tickets.length === 0 && supplies.length === 0) {
     return (
       <div className="absolute inset-0 bg-[#eaf4fb] flex items-center justify-center p-4">
         <p className="text-xs text-center" style={{ color: `${SCREEN_INK}99` }}>Cleared out.</p>
@@ -1167,16 +1279,101 @@ function StockScreen({
             </div>
           )
         })}
+
+        {/* Battle supplies after the packs and tickets. No count badge: a
+            supply on the shelf does not run out. */}
+        {supplies.map((s) => {
+          const taken = supplyCart[s.key] ?? 0
+          const bundle = s.kind === 'bundle'
+          const price = num(s.token_price)
+          return (
+            <div key={`supply-${s.key}`} className="relative rounded bg-white border border-black/10 p-1">
+              <span className="absolute top-0.5 left-0.5 z-10 rounded-sm bg-[#0E1726] text-[#fde68a] text-[6px] font-extrabold tracking-wider px-1">
+                {bundle ? 'BUNDLE' : 'ITEM'}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => onInspectSupply(s)}
+                className="block w-full cursor-pointer"
+                aria-label={`About ${s.name}`}
+              >
+                <div
+                  className={`w-full aspect-[2/3] rounded-sm flex flex-col items-center justify-center gap-1.5 ${soldOut ? 'opacity-60 grayscale-[35%]' : ''}`}
+                  style={{
+                    background: bundle
+                      ? 'radial-gradient(circle at 50% 35%, #fff7d6, #fde68a)'
+                      : 'radial-gradient(circle at 50% 40%, #ffffff, #dbeafe)',
+                  }}
+                >
+                  {bundle ? (
+                    (s.contents ?? []).map((c) => (
+                      <span key={c.key} className="flex items-center gap-1 text-[11px] font-extrabold" style={{ color: SCREEN_INK }}>
+                        <SupplyIcon supplyKey={c.key} className="w-7 h-7" />
+                        ×{c.qty}
+                      </span>
+                    ))
+                  ) : (
+                    <SupplyIcon supplyKey={s.key} className="w-1/2 h-auto drop-shadow" />
+                  )}
+                </div>
+              </button>
+
+              <p className="mt-0.5 text-[9px] font-semibold leading-tight text-center truncate uppercase" style={{ color: SCREEN_INK }}>
+                {s.name}
+              </p>
+              <p className="text-[6px] leading-tight text-center truncate" style={{ color: `${SCREEN_INK}99` }}>
+                {fmt(price)} token{price === 1 ? '' : 's'} · {bundle ? `${bundleSize(s)} items` : s.description}
+              </p>
+
+              {soldOut && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="rotate-[-8deg] bg-black/80 text-white text-[7px] font-extrabold tracking-wider px-2 py-0.5 shadow">
+                    SOLD OUT
+                  </span>
+                </div>
+              )}
+
+              {interactive && !soldOut && (
+                <div className="mt-0.5 flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => onAddSupply(s, -1)}
+                    disabled={taken === 0}
+                    className="w-5 h-5 rounded bg-black/75 text-white flex items-center justify-center disabled:opacity-25"
+                    aria-label={`Remove one ${s.name}`}
+                  >
+                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" aria-hidden>
+                      <path d="M2 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  <span className="font-mono text-[9px] w-3 text-center font-bold" style={{ color: SCREEN_INK }}>
+                    {taken}
+                  </span>
+                  <button
+                    onClick={() => onAddSupply(s, 1)}
+                    disabled={taken >= SUPPLY_LINE_MAX}
+                    className="w-5 h-5 rounded bg-[#c82030] text-white flex items-center justify-center disabled:opacity-25"
+                    aria-label={`Add one ${s.name}`}
+                  >
+                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" aria-hidden>
+                      <path d="M5 2v6M2 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function DispensingScreen({ packs, restocked }: { packs: number; restocked: boolean }) {
+function DispensingScreen({ items, restocked }: { items: number; restocked: boolean }) {
   return (
     <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 p-4 text-center">
       <p className="text-[10px] font-semibold tracking-wide" style={{ color: `${SCREEN_INK}b3` }}>COLLECTING</p>
-      <p className="text-sm font-bold" style={{ color: SCREEN_INK }}>{packs} OF {packs} TOTAL ITEMS</p>
+      <p className="text-sm font-bold" style={{ color: SCREEN_INK }}>{items} OF {items} TOTAL ITEMS</p>
       <div className="my-2 h-px w-3/4 bg-black/20" />
       <p className="text-[10px]" style={{ color: `${SCREEN_INK}80` }}>PLEASE WAIT</p>
       {restocked && <p className="mt-2 text-[9px] font-semibold text-[#c82030]">RESTOCKING…</p>}
