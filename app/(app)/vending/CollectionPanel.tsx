@@ -377,6 +377,9 @@ export default function CollectionPanel({
   // if nobody taps, it turns itself rather than leaving the pack stalled.
   const [lastFlipped, setLastFlipped] = useState(false)
   const onLastCard = reveal != null && revealed === reveal.length - 1
+  // A god pack is a pack of nothing but holos (v55). An ordinary pack has
+  // one rare slot, so a full pack of them can only be one.
+  const godPack = reveal != null && reveal.length >= 11 && reveal.every((c) => c.rarity === 'H')
   useEffect(() => {
     if (!onLastCard || lastFlipped) return
     const t = setTimeout(() => setLastFlipped(true), 2600)
@@ -393,10 +396,13 @@ export default function CollectionPanel({
     const delayMs = revealed === 0 ? 380 : 0
     playPackSound('deal', { step, delayMs })
     const lastOne = revealed === reveal.length - 1
+    // The first card of a god pack gets the full fanfare: it is the moment
+    // the pack gives itself away.
+    const fanfare = godPack && revealed === 0
     if (!lastOne && (card.rarity === 'H' || card.rarity === 'S')) {
-      playPackSound(card.rarity === 'S' ? 'secret' : 'holo', { delayMs: delayMs + 60 })
+      playPackSound(card.rarity === 'S' || fanfare ? 'secret' : 'holo', { delayMs: delayMs + 60 })
     }
-  }, [reveal, revealed])
+  }, [reveal, revealed, godPack])
   // The last card: the turn, then what it turned out to be, timed to the
   // flip finishing and the celebration starting.
   useEffect(() => {
@@ -1851,8 +1857,25 @@ export default function CollectionPanel({
       {reveal && (
         <div
           className="fixed inset-0 z-50 overflow-hidden flex flex-col items-center justify-center p-4 gap-4"
-          style={{ background: 'radial-gradient(circle at 50% 44%, #1e293b 0%, #0b1220 38%, #03050a 70%)' }}
+          // A god pack opens in gold rather than the usual night blue.
+          style={{
+            background: godPack
+              ? 'radial-gradient(circle at 50% 44%, #4a3407 0%, #1c1404 40%, #060401 72%)'
+              : 'radial-gradient(circle at 50% 44%, #1e293b 0%, #0b1220 38%, #03050a 70%)',
+          }}
         >
+          {godPack && (
+            <style>{`
+              @keyframes vmGod { 0% { background-position: 0% 50% } 100% { background-position: 200% 50% } }
+              .vm-god {
+                background: linear-gradient(90deg, #fde68a, #fff7d6, #f59e0b, #fde68a, #fff7d6);
+                background-size: 200% 100%;
+                -webkit-background-clip: text; background-clip: text; color: transparent;
+                animation: vmGod 2.4s linear infinite;
+              }
+              @media (prefers-reduced-motion: reduce) { .vm-god { animation: none; } }
+            `}</style>
+          )}
           {(() => {
             const idx = Math.min(revealed, reveal.length - 1)
             const card = reveal[idx]
@@ -1861,8 +1884,18 @@ export default function CollectionPanel({
               const best = [...reveal].sort((a, b) => 'CURHS'.indexOf(b.rarity) - 'CURHS'.indexOf(a.rarity))[0]
               return (
                 <>
-                  <p className="text-white font-display font-semibold">Pack opened</p>
-                  <div className="grid grid-cols-4 gap-1.5 max-w-sm">
+                  {godPack ? (
+                    <div className="text-center">
+                      <p className="font-display font-black tracking-[0.3em] text-2xl vm-god">GOD PACK</p>
+                      <p className="text-amber-100/70 text-xs mt-1">Eleven holos, every one of them sharp.</p>
+                    </div>
+                  ) : (
+                    <p className="text-white font-display font-semibold">Pack opened</p>
+                  )}
+                  {/* w-full: the cards have no size of their own (the art is
+                      absolutely placed), so in this centred column the grid
+                      would otherwise shrink to nothing. */}
+                  <div className="grid grid-cols-4 gap-1.5 w-full max-w-sm">
                     {reveal.map((c, i) => (
                       <ConditionedCard
                         key={i}
@@ -1874,9 +1907,12 @@ export default function CollectionPanel({
                       />
                     ))}
                   </div>
-                  <p className="text-white/70 text-xs">
-                    Best pull: <span className="font-semibold text-white">{best.name}</span> · {RARITY_LABEL[best.rarity]}
-                  </p>
+                  {/* Every card is the best pull in a god pack. */}
+                  {!godPack && (
+                    <p className="text-white/70 text-xs">
+                      Best pull: <span className="font-semibold text-white">{best.name}</span> · {RARITY_LABEL[best.rarity]}
+                    </p>
+                  )}
                   <button onClick={closeReveal} className="bg-signal text-white font-semibold rounded-xl px-6 py-2.5 text-sm">
                     Add to collection
                   </button>
@@ -1896,7 +1932,9 @@ export default function CollectionPanel({
             // nothing below it ever gets shoved down the screen.
             const t = n > 1 ? idx / (n - 1) : 1
             const FAR = 0.26
-            const zoom = FAR * Math.pow(1 / FAR, t)
+            // A god pack has nothing to build up to - every card is the hit -
+            // so each one arrives at full size from the first.
+            const zoom = godPack ? 1 : FAR * Math.pow(1 / FAR, t)
             return (
               <>
                 {/* A spotlight that tracks the card: a tight pool of light
@@ -1927,8 +1965,13 @@ export default function CollectionPanel({
                   </Delayed>
                 )}
 
-                <p className={`relative font-mono text-[10px] ${last ? 'text-amber-300 tracking-[0.25em]' : 'text-white/50'}`}>
-                  {last ? 'LAST CARD' : `${idx + 1} of ${n}`}
+                {/* One line either way, so a god pack does not take room the
+                    card's size was worked out without. */}
+                <p className={`relative font-mono text-[10px] ${
+                  godPack ? 'font-bold tracking-[0.25em] vm-god'
+                  : last ? 'text-amber-300 tracking-[0.25em]' : 'text-white/50'
+                }`}>
+                  {godPack && 'GOD PACK · '}{last ? 'LAST CARD' : `${idx + 1} of ${n}`}
                 </p>
 
                 {/* Sized so the last card nearly fills the screen: as tall as
