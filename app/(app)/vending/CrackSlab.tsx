@@ -34,8 +34,12 @@ export interface CrackOutcome {
 }
 
 const ZONE = [0.24, 0.21, 0.18, 0.15]
-/** Seconds for the needle to cross the gauge once. */
-const SWEEP = [1.05, 0.9, 0.78, 0.66]
+/**
+ * Seconds for the needle to cross the gauge once. Eased by a fifth after
+ * launch: the needle is about 17% slower, so every corner gives 20% longer
+ * in the green (0.30s on the first corner, 0.12s on the last).
+ */
+const SWEEP = [1.26, 1.08, 0.94, 0.79]
 
 /** Where each corner sits on the slab, as fractions of its box. */
 const CORNER_AT: [number, number][] = [[0.08, 0.05], [0.92, 0.05], [0.92, 0.95], [0.08, 0.95]]
