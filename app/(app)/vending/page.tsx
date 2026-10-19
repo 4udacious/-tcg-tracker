@@ -63,7 +63,7 @@ export default async function VendingPage({
       supabase
         .from('user_cards')
         .select('id, center_x, center_y, corners, edges, surface, border_wear, wear_seed, ' +
-                'crease, holes, rips, cleaning_started_at, cleaning_ready_at, ' +
+                'crease, holes, rips, cleaning_started_at, cleaning_ready_at, times_cleaned, ' +
                 'grading_started_at, grading_ready_at, graded_at, grade, ' +
                 'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
         .eq('user_id', userId)
@@ -160,7 +160,7 @@ export default async function VendingPage({
     center_x: number; center_y: number
     corners: number; edges: number; surface: number; border_wear: number; wear_seed: number
     crease: number; holes: number; rips: number
-    cleaning_started_at: string | null; cleaning_ready_at: string | null
+    cleaning_started_at: string | null; cleaning_ready_at: string | null; times_cleaned: number
     grading_started_at: string | null; grading_ready_at: string | null
     graded_at: string | null; grade: number | null
     vending_cards:
@@ -200,6 +200,7 @@ export default async function VendingPage({
       rips: row.rips,
       cleaning_started_at: row.cleaning_started_at,
       cleaning_ready_at: row.cleaning_ready_at,
+      times_cleaned: row.times_cleaned,
       grading_started_at: row.grading_started_at,
       grading_ready_at: row.grading_ready_at,
       graded_at: row.graded_at,

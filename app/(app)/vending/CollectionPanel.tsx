@@ -46,6 +46,8 @@ export interface CardCopy {
   /** null unless away at the cleaners. */
   cleaning_started_at: string | null
   cleaning_ready_at: string | null
+  /** A copy can be cleaned once, ever - this follows it to new owners. */
+  times_cleaned: number
 }
 
 type GradeState = 'ungraded' | 'waiting' | 'ready' | 'graded'
@@ -693,6 +695,7 @@ export default function CollectionPanel({
       setGradeNote(
         row?.reason === 'insufficient_tokens' ? `Not enough tokens — cleaning costs ${cleaningCost}.`
         : row?.reason === 'already_cleaning' ? 'That copy is already at the cleaners.'
+        : row?.reason === 'already_cleaned' ? 'That copy has already been cleaned — each card gets one.'
         : row?.reason === 'not_raw' ? 'Only raw cards can be cleaned.'
         : 'Could not send that card to be cleaned.'
       )
@@ -700,7 +703,10 @@ export default function CollectionPanel({
     }
     setPatch((p) => ({
       ...p,
-      [copy.id]: { cleaning_started_at: new Date().toISOString(), cleaning_ready_at: row.ready_at },
+      [copy.id]: {
+        cleaning_started_at: new Date().toISOString(), cleaning_ready_at: row.ready_at,
+        times_cleaned: (copy.times_cleaned ?? 0) + 1,
+      },
     }))
     setGradeNote('Sent to the cleaners.')
     startTransition(() => router.refresh())
@@ -1371,13 +1377,17 @@ export default function CollectionPanel({
                         >
                           {busy ? 'Sending…' : `Send for grading · ${fmt(gradingCost)} token${gradingCost === 1 ? '' : 's'}`}
                         </button>
-                        <button
-                          onClick={() => setConfirmCleaning({ card: c, copy })}
-                          disabled={busy || cleaning === copy.id}
-                          className="rounded-lg border border-sky-300/30 text-sky-100/85 text-xs font-medium px-3.5 py-1.5 hover:bg-sky-300/10 transition-colors disabled:opacity-40"
-                        >
-                          {cleaning === copy.id ? 'Sending…' : `Get it cleaned · ${fmt(cleaningCost)} token${cleaningCost === 1 ? '' : 's'}`}
-                        </button>
+                        {(copy.times_cleaned ?? 0) > 0 ? (
+                          <p className="font-mono text-[10px] text-sky-200/50">Cleaned once already</p>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmCleaning({ card: c, copy })}
+                            disabled={busy || cleaning === copy.id}
+                            className="rounded-lg border border-sky-300/30 text-sky-100/85 text-xs font-medium px-3.5 py-1.5 hover:bg-sky-300/10 transition-colors disabled:opacity-40"
+                          >
+                            {cleaning === copy.id ? 'Sending…' : `Get it cleaned · ${fmt(cleaningCost)} token${cleaningCost === 1 ? '' : 's'}`}
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -1647,6 +1657,10 @@ export default function CollectionPanel({
                     press out a light crease or flatten a bad one. Centering, holes and tears stay
                     as they are.
                   </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-ink font-semibold shrink-0">1</span>
+                  <span>clean per card, ever. It stays with the card if you sell or trade it.</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-500 font-semibold shrink-0">!</span>
