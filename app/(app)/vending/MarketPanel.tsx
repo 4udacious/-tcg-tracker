@@ -80,6 +80,15 @@ function minBid(l: MarketListing): number {
   return l.current_bid == null ? num(l.price) : money(num(l.current_bid) + CENT)
 }
 
+/**
+ * An auction the seller opened at the smallest unit there is: no minimum,
+ * bidding starts wherever members take it. The database needs nothing
+ * special for this, a 0.01 opening price is all it is.
+ */
+function noMinimum(l: MarketListing): boolean {
+  return l.kind === 'auction' && num(l.price) <= CENT
+}
+
 export default function MarketPanel({
   listings, myListings, collection, packs, balance, feePercent, userId, onNoticesRead,
 }: {
@@ -338,8 +347,12 @@ function ListingTile({ listing: l, mine, onOpen }: {
           line to itself and everything else goes underneath, ordered so that
           what matters survives the truncation. */}
       <p className="font-display font-bold text-sm leading-none">
-        {fmt(l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price)}
-        <span className="font-mono text-[9px] text-muted font-normal"> tk</span>
+        {noMinimum(l) && l.current_bid == null ? 'No min' : (
+          <>
+            {fmt(l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price)}
+            <span className="font-mono text-[9px] text-muted font-normal"> tk</span>
+          </>
+        )}
       </p>
 
       <p className="font-mono text-[9px] text-muted truncate">
@@ -546,7 +559,7 @@ function ListingDetail({
             <p className="text-sm text-muted">
               {l.kind === 'auction'
                 ? l.current_bid == null
-                  ? `No bids yet. Opening at ${fmt(l.price)}.`
+                  ? noMinimum(l) ? 'No bids yet. No minimum.' : `No bids yet. Opening at ${fmt(l.price)}.`
                   : `Leading bid ${fmt(l.current_bid)}. You would take home about ${fmt(keep)}.`
                 : `Listed at ${fmt(l.price)}. You would take home ${fmt(keep)} after the ${feePercent}% fee.`}
             </p>
@@ -588,7 +601,9 @@ function ListingDetail({
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-muted">
-              {l.current_bid == null ? `Opening bid ${l.price}.` : `Leading bid ${fmt(l.current_bid)}.`}
+              {l.current_bid == null
+                ? noMinimum(l) ? 'No minimum: bid whatever you like.' : `Opening bid ${fmt(l.price)}.`
+                : `Leading bid ${fmt(l.current_bid)}.`}
               {l.ends_at && ` Ends in ${timeLeft(l.ends_at)}.`}
             </p>
             {l.is_leading ? (
@@ -745,6 +760,8 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   const [chosenPacks, setChosenPacks] = useState<Set<number>>(new Set())
   const [kind, setKind] = useState<'fixed' | 'auction'>('fixed')
   const [price, setPrice] = useState('10')
+  // An auction with no minimum opens at the smallest unit, 0.01.
+  const [noMin, setNoMin] = useState(false)
   // null = everything. 'sealed' = unopened packs. Otherwise a set code.
   const [filter, setFilter] = useState<string | null>(null)
   // One price for the lot, or a price each.
@@ -801,7 +818,8 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   // Separate listings only once there is more than one thing to separate; a
   // lone item with "Price each" left on from earlier is still one listing.
   const separate = split && total > 1
-  const n = Number(price)
+  const open = kind === 'auction' && noMin
+  const n = open ? CENT : Number(price)
   const keep = takeHome(n, feePercent)
 
   /** Everything picked, in the order it will be listed. */
@@ -824,7 +842,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     return out
   }, [copies, packs, cards, chosenPacks])
 
-  const priceFor = (key: string) => prices[key] ?? price
+  const priceFor = (key: string) => (open ? String(CENT) : prices[key] ?? price)
 
   function toggle<T>(set: Set<T>, v: T, apply: (s: Set<T>) => void) {
     const next = new Set(set)
@@ -836,7 +854,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     reason === 'bad_cards' ? 'One of those cards is no longer available.'
     : reason === 'bad_packs' ? 'One of those packs is no longer available.'
     : reason === 'empty_listing' ? 'Pick at least one thing to sell.'
-    : reason === 'bad_price' ? 'Every price has to be at least 1 token.'
+    : reason === 'bad_price' ? `Every price has to be at least ${CENT} tokens.`
     : reason === 'bad_title' ? 'Titles can be up to 60 characters.'
     : 'Could not create that listing.'
 
@@ -1065,7 +1083,23 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             </div>
           )}
 
-          {separate ? (
+          {kind === 'auction' && (
+            <label className="flex items-start gap-2.5 rounded-xl border border-card-border bg-paper px-3 py-2.5 cursor-pointer">
+              <input
+                type="checkbox" checked={noMin} onChange={(e) => setNoMin(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-signal shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-ink">No minimum</span>
+                <span className="block text-[11px] text-muted leading-snug">
+                  Bidding opens at {CENT} and goes wherever members take it. It sells to
+                  the top bid when the time is up, however low.
+                </span>
+              </span>
+            </label>
+          )}
+
+          {open ? null : separate ? (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-ink">
                 {kind === 'auction' ? 'Opening bid each' : 'Price each'}
@@ -1168,7 +1202,8 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
           {busy ? 'Listing…'
             : total === 0 ? 'Pick something to sell'
             : step === 'pick' ? `Continue with ${total} item${total === 1 ? '' : 's'}`
-            : separate ? `Put up ${picked.length} listings`
+            : separate ? `Put up ${picked.length} ${open ? 'no-minimum auctions' : 'listings'}`
+            : open ? 'Start the auction, no minimum'
             : kind === 'auction' ? `Start the auction at ${fmt(n)}` : `List for ${fmt(n)}`}
         </button>
         <p className="shrink-0 text-[11px] text-muted leading-snug">
