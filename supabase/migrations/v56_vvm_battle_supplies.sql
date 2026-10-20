@@ -2,10 +2,12 @@
 -- bundles, bought with tokens off the same shelf as the packs and raffle
 -- tickets.
 --
--- NOT YET APPLIED to the live database. Either order is safe: the app as
--- deployed today keeps working against this (the new checkout defaults
+-- Applied to the live database with every supply switched off: nothing
+-- reaches the shelf until an admin turns it on in Machine Items, and there
+-- is nothing to use them on until the battle game is ported. The app as
+-- deployed before this keeps working against it (the new checkout defaults
 -- p_supplies to an empty list), and the new app only sends p_supplies when
--- supplies are in the cart, which cannot happen until this is applied.
+-- supplies are in the cart.
 --
 -- Shaped like the raffle tickets (v10):
 --   vvm_supplies      the catalog: items, and bundles of items
@@ -98,21 +100,23 @@ create trigger vvm_supplies_guard before insert or update on public.vvm_supplies
   for each row execute function public.vvm_supplies_guard();
 
 -- Items first, in their own statement, so the bundles below can name them.
+-- Everything starts switched off (see the header); prices and rates are
+-- ready for when an admin turns them on.
 insert into public.vvm_supplies
   (key, kind, name, description, token_price, appearance_rate, is_active, sort_order)
 values
-  ('potion',       'item', 'Potion',       'Heals 30% HP',                   0.25, 40, true,  10),
-  ('super_potion', 'item', 'Super Potion', 'Heals 60% HP',                   0.50, 15, true,  20),
-  ('revive',       'item', 'Revive',       'Revives a fainted Pokémon at 50% HP', 0.60, 15, true, 30),
-  ('poke_ball',    'item', 'Poké Ball',    'Catch rate ×1',                  0.20, 35, true,  40),
+  ('potion',       'item', 'Potion',       'Heals 30% HP',                   0.25, 40, false, 10),
+  ('super_potion', 'item', 'Super Potion', 'Heals 60% HP',                   0.50, 15, false, 20),
+  ('revive',       'item', 'Revive',       'Revives a fainted Pokémon at 50% HP', 0.60, 15, false, 30),
+  ('poke_ball',    'item', 'Poké Ball',    'Catch rate ×1',                  0.20, 35, false, 40),
   ('great_ball',   'item', 'Great Ball',   'Catch rate ×1.5',                0.40, 10, false, 50)
 on conflict (key) do nothing;
 
 insert into public.vvm_supplies
   (key, kind, name, contents, token_price, appearance_rate, is_active, sort_order)
 values
-  ('healing_bundle', 'bundle', 'Healing Bundle', '{"potion": 3, "revive": 1}',     1.10, 35, true, 110),
-  ('catch_bundle',   'bundle', 'Catch Bundle',   '{"poke_ball": 5, "great_ball": 1}', 1.20, 25, true, 120)
+  ('healing_bundle', 'bundle', 'Healing Bundle', '{"potion": 3, "revive": 1}',     1.10, 35, false, 110),
+  ('catch_bundle',   'bundle', 'Catch Bundle',   '{"poke_ball": 5, "great_ball": 1}', 1.20, 25, false, 120)
 on conflict (key) do nothing;
 
 -- -------------------------------------------------------- stock, inventory
