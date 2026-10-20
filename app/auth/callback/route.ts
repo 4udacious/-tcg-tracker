@@ -10,7 +10,12 @@ function safeNext(raw: string, origin: string): string {
   if (raw.startsWith('//') || raw.startsWith('/\\') || raw.startsWith('/%2f')) return '/'
   try {
     const url = new URL(raw, origin)
-    return url.origin === origin ? url.pathname + url.search + url.hash : '/'
+    if (url.origin !== origin) return '/'
+    // Check what it resolved to as well as what came in: `/..//evil.com`
+    // passes the checks above but normalises to the path `//evil.com`, which
+    // the redirect would then read as another site.
+    const path = url.pathname + url.search + url.hash
+    return /^\/[/\\]/.test(path) ? '/' : path
   } catch {
     return '/'
   }
