@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import VendingClient, { type RecentBuy, type TicketStockRow } from './VendingClient'
-import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket } from './CollectionPanel'
+import VendingClient, { type RecentBuy, type TicketStockRow, type SupplyStockRow } from './VendingClient'
+import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket, OwnedItem } from './CollectionPanel'
 import type { ShowcaseItem } from './ShowcaseRoom'
 import type { MarketListing } from './MarketPanel'
 
@@ -41,13 +41,16 @@ export default async function VendingPage({
 
   const showStock = state && (state.status === 'in_stock' || state.status === 'out_of_stock')
 
-  const [{ data: stock }, { data: ticketStock }, { data: balance }, { data: me }, { data: packRows }, { data: collection }, { data: catalog }] =
+  const [{ data: stock }, { data: ticketStock }, { data: supplyStock }, { data: balance }, { data: me }, { data: packRows }, { data: collection }, { data: catalog }] =
     await Promise.all([
       showStock
         ? supabase.rpc('get_vending_stock', { p_cycle: state.cycle_no })
         : Promise.resolve({ data: [] }),
       showStock
         ? supabase.rpc('get_vending_ticket_stock', { p_cycle: state.cycle_no })
+        : Promise.resolve({ data: [] }),
+      showStock
+        ? supabase.rpc('get_vending_supply_stock', { p_cycle: state.cycle_no })
         : Promise.resolve({ data: [] }),
       supabase.rpc('token_breakdown'),
       supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
@@ -133,6 +136,23 @@ export default async function VendingPage({
     })
   }
   const ownedTickets = [...ticketMap.values()].sort((a, b) => a.name.localeCompare(b.name))
+
+  // Battle items, already one row per item with a count.
+  const { data: itemRows } = await supabase
+    .from('user_items')
+    .select('item_key, qty, vvm_supplies(name, description, sort_order)')
+    .eq('user_id', userId)
+    .gt('qty', 0)
+
+  type ItemSupply = { name: string; description: string | null; sort_order: number }
+  type ItemRow = { item_key: string; qty: number; vvm_supplies: ItemSupply | ItemSupply[] | null }
+
+  const ownedItems: OwnedItem[] = ((itemRows as ItemRow[] | null) ?? [])
+    .map((r) => ({ r, s: Array.isArray(r.vvm_supplies) ? r.vvm_supplies[0] : r.vvm_supplies }))
+    .sort((a, b) => (a.s?.sort_order ?? 0) - (b.s?.sort_order ?? 0))
+    .map(({ r, s }) => ({
+      key: r.item_key, name: s?.name ?? r.item_key, description: s?.description ?? null, qty: r.qty,
+    }))
 
   type PackRow = {
     id: number
@@ -223,6 +243,7 @@ export default async function VendingPage({
       initialState={state}
       initialStock={stock ?? []}
       initialTickets={(ticketStock as TicketStockRow[] | null) ?? []}
+      initialSupplies={(supplyStock as SupplyStockRow[] | null) ?? []}
       balance={Number(bd?.total ?? 0)}
       allowance={Number(bd?.allowance ?? 0)}
       earned={Number(bd?.earned ?? 0)}
@@ -232,6 +253,7 @@ export default async function VendingPage({
       collection={cards}
       setTotals={setTotals}
       ownedTickets={ownedTickets}
+      ownedItems={ownedItems}
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
       gradingCost={Number(grading?.cost ?? 3)}
       gradingDays={Number(grading?.days ?? 7)}

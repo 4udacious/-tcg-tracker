@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import VvmItemsClient, { type SetItem } from './VvmItemsClient'
+import VvmSuppliesClient, { type SupplyRow } from './VvmSuppliesClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,13 +12,17 @@ export default async function AdminVvmPage() {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
       .eq('is_active', true)
       .order('sort_order'),
     supabase.from('vending_set_info').select('set_code, description, total_quantity, claimed_quantity'),
+    supabase
+      .from('vvm_supplies')
+      .select('key, kind, name, description, contents, token_price, appearance_rate, is_active, sort_order, updated_at')
+      .order('sort_order'),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -53,5 +58,10 @@ export default async function AdminVvmPage() {
     }
   }
 
-  return <VvmItemsClient sets={[...bySet.values()]} />
+  return (
+    <div className="space-y-8">
+      <VvmItemsClient sets={[...bySet.values()]} />
+      <VvmSuppliesClient supplies={(supplies as SupplyRow[] | null) ?? []} />
+    </div>
+  )
 }

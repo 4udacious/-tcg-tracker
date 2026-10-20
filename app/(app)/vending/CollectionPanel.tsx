@@ -14,6 +14,7 @@ import SoundToggle from './SoundToggle'
 import { playPackSound } from './packSounds'
 import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
+import SupplyIcon from '@/components/SupplyIcon'
 
 export interface UnopenedPack {
   id: number
@@ -222,11 +223,20 @@ export interface OwnedTicket {
   copies: number
 }
 
+/** A battle item the member holds, bought from the machine (v56). */
+export interface OwnedItem {
+  key: string
+  name: string
+  description: string | null
+  qty: number
+}
+
 interface Props {
   packs: UnopenedPack[]
   collection: CollectionCard[]
   setTotals: SetTotal[]
   tickets: OwnedTicket[]
+  items: OwnedItem[]
   gradingCost: number
   gradingDays: number
   cleaningCost: number
@@ -366,7 +376,7 @@ function rarityRing(r: string): string {
 }
 
 export default function CollectionPanel({
-  packs, collection, setTotals, tickets, gradingCost, gradingDays, cleaningCost, cleaningDays,
+  packs, collection, setTotals, tickets, items, gradingCost, gradingDays, cleaningCost, cleaningDays,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -1040,6 +1050,31 @@ export default function CollectionPanel({
               )
             })}
           </ul>
+        </section>
+      )}
+
+      {/* ── Battle bag ── Held for the battle game; nothing uses them yet. */}
+      {items.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-base">Battle Bag</h2>
+            <span className="font-mono text-[10px] text-muted">
+              {items.reduce((n, i) => n + i.qty, 0)} items
+            </span>
+          </div>
+          <ul className="grid grid-cols-2 gap-2">
+            {items.map((i) => (
+              <li key={i.key} className="bg-card border border-card-border rounded-xl p-2 flex gap-2 items-center">
+                <SupplyIcon supplyKey={i.key} className="w-9 h-9 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold truncate">{i.name}</p>
+                  {i.description && <p className="text-[10px] text-muted truncate">{i.description}</p>}
+                </div>
+                <span className="shrink-0 font-mono text-xs font-bold">×{i.qty}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-muted">For battles, coming soon. Bundles land here as their separate items.</p>
         </section>
       )}
 
