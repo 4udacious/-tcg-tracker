@@ -2795,7 +2795,9 @@ async function run(id) {
       <div class="svitems"><div class="lbl">Use an item</div>${itemButtons(m)}</div>`
   }
   function bagList() {
-    return Object.entries(ITEMS).filter(([k, it]) => k !== 'summon' && k !== 'elite' && ((!it.disc && it.summon == null && !it.key && !it.evo && !it.held) || bag[k])).map(([k, it]) => {
+    // Only what you actually have: an item at 0 drops out of the list.
+    const held = Object.entries(ITEMS).filter(([k]) => k !== 'summon' && k !== 'elite' && bag[k] > 0)
+    return (held.length ? '' : `<p class="note">Your Bag is empty.</p>`) + held.map(([k, it]) => {
       if (it.key) return `<div class="irow key"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · always on: Pokémon that sit out a battle still get half its EXP</span></span></div>`
       if (it.summon === 'elite') {
         const L = ELITE[eliteStep], ok = badges.length >= 8 && !champion
