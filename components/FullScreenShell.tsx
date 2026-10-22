@@ -13,12 +13,14 @@ import { Button } from '@/components/ui/Button'
  * With `guard` on (mid-battle), leaving asks first, however it's attempted:
  * the exit button, the phone's Back button, or closing/reloading the tab.
  */
-export default function FullScreenShell({ title, exitHref = '/vending', guard = false, guardText, children }: {
+export default function FullScreenShell({ title, exitHref = '/vending', guard = false, guardText, onLeave, children }: {
   title: string
   exitHref?: string
   guard?: boolean
   /** What leaving costs, for the "Leave?" question. */
   guardText?: string
+  /** Runs just before leaving (a game saving, say). */
+  onLeave?: () => void
   children: ReactNode
 }) {
   const router = useRouter()
@@ -42,6 +44,7 @@ export default function FullScreenShell({ title, exitHref = '/vending', guard = 
   }, [guard])
 
   function leave() {
+    try { onLeave?.() } catch {}
     guarding.current = false
     setAsking(false)
     router.push(exitHref)

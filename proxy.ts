@@ -74,6 +74,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // The battle game stays admin-only while it's built out, like the stock
+  // check-in: the /play page and the game's own files (page, script, cries)
+  // alike. Its images skip this proxy (see the matcher) and are just sprites.
+  if ((pathname === '/play' || pathname.startsWith('/play/') || pathname.startsWith('/rpg/')) && role !== 'admin') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/timers'
+    return NextResponse.redirect(url)
+  }
+
   if (pathname.startsWith('/admin') && role !== 'mod' && role !== 'admin') {
     const url = request.nextUrl.clone()
     url.pathname = '/'
