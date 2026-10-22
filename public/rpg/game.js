@@ -329,7 +329,7 @@ const WILD_MOVES = {
   flying:   [S_('GUST', 'flying', 40, 'spec', 'whoosh', { ranged: true }), S_('WING ATTACK', 'flying', 50, 'phys', 'whoosh')],
   bug:      [S_('BUG BITE', 'bug', 50, 'phys', 'crunch'), S_('STRUGGLE BUG', 'bug', 40, 'spec', 'whoosh', { ranged: true })],
   dark:     [S_('BITE', 'dark', 40, 'phys', 'crunch'), S_('SNARL', 'dark', 40, 'spec', 'shadow', { ranged: true })],
-  fairy:    [S_('FAIRY WIND', 'fairy', 40, 'spec', 'whoosh', { ranged: true }), S_('DRAINING KISS', 'fairy', 40, 'spec', 'whoosh')],
+  fairy:    [S_('FAIRY WIND', 'fairy', 40, 'spec', 'whoosh', { ranged: true }), S_('DRAINING KISS', 'fairy', 40, 'spec', 'whoosh', { drain: 0.75 })],
 }
 const MAGIKARP = [{ name: 'SPLASH', splash: true }, S_('TACKLE', 'normal', 40, 'phys', 'thud')]
 
@@ -1180,13 +1180,15 @@ const moveCost = (name) => (SUPPORT[name] ?? MOVEDEX[name]).cost ?? 0
  * Moves are learned gradually. Each Pokémon has a level schedule, built
  * from its type: its basic 0-PP move at Lv 1, its type move at 3, Quick
  * Attack at 6, the multi-hit at 9, a support move at 12, the spread move at
- * 15, a second support move at 18. It appears knowing only what its level
+ * 15, a second support move at 18, then its type's later moves at 30, 45
+ * and 60 (LATE_MOVES). It appears knowing only what its level
  * allows, so a Lv 5 starter knows two moves. Move Discs teach anything else.
  */
 function levelMoves(m) {
   const t = m.types[0], basic = NORMAL_MOVE[m.name] ?? 'TACKLE', own = OWN_MOVE[t], sup = SUPPORT_BY_TYPE[t] ?? 'HELPING HAND'
   const list = [[1, basic], [3, own ?? 'QUICK ATTACK'], ...(own ? [[6, 'QUICK ATTACK']] : []), [7, statusOf(m)], [9, multiMoveOf(m)], [10, 'REFRESH'], [12, sup],
-    [15, SPREAD_BY_TYPE[t] ?? 'HYPER VOICE'], [18, sup === 'HELPING HAND' ? 'AFTER YOU' : 'HELPING HAND'], ...(basic !== 'TACKLE' ? [[21, 'TACKLE']] : [])]
+    [15, SPREAD_BY_TYPE[t] ?? 'HYPER VOICE'], [18, sup === 'HELPING HAND' ? 'AFTER YOU' : 'HELPING HAND'], ...(basic !== 'TACKLE' ? [[21, 'TACKLE']] : []),
+    ...(t === 'grass' ? [[24, 'ABSORB']] : []), ...(LATE_MOVES[t] ?? []).map((n, i) => [30 + 15 * i, n])]
   const seen = new Set()
   return list.filter(([, n]) => !seen.has(n) && seen.add(n))
 }
@@ -1533,6 +1535,95 @@ Object.assign(MOVEDEX, {
   'ANCIENT POWER': { type: 'rock', power: 60, cat: 'spec', cost: 2, fx: 'rock', snd: 'thud' },
 })
 MULTI_BY_SPECIES.AIPOM = 'FURY SWIPES'
+
+/*
+ * The later moves: every type learns three more, at Lv 30, 45 and 60, and
+ * Grass learns ABSORB at 24. PP follows total power (up to 50: 1 PP,
+ * 55-75: 2, 80 and up: 3). `drain` heals the user that share of the damage
+ * dealt. Each is also a Move Disc for its own type; the Lv 30 ones (and
+ * Absorb) can drop from battles.
+ */
+Object.assign(MOVEDEX, {
+  ABSORB:         { type: 'grass', power: 40, cat: 'spec', cost: 1, fx: 'seed', snd: 'whoosh', drain: 0.5 },
+  'FIRE FANG':    { type: 'fire', power: 65, cat: 'phys', cost: 2, fx: 'ember', snd: 'crunch' },
+  FLAMETHROWER:   { type: 'fire', power: 75, cat: 'spec', cost: 2, fx: 'ember', snd: 'whoosh' },
+  'FIRE BLAST':   { type: 'fire', power: 90, cat: 'spec', cost: 3, fx: 'ember', snd: 'whoosh' },
+  'WATER PULSE':  { type: 'water', power: 60, cat: 'spec', cost: 2, fx: 'water', snd: 'whoosh' },
+  WATERFALL:      { type: 'water', power: 75, cat: 'phys', cost: 2, fx: 'water', snd: 'whoosh' },
+  'HYDRO PUMP':   { type: 'water', power: 90, cat: 'spec', cost: 3, fx: 'water', snd: 'whoosh' },
+  'SEED BOMB':    { type: 'grass', power: 60, cat: 'phys', cost: 2, fx: 'seed', snd: 'thud' },
+  'ENERGY BALL':  { type: 'grass', power: 75, cat: 'spec', cost: 2, fx: 'seed', snd: 'whoosh' },
+  'GIGA DRAIN':   { type: 'grass', power: 80, cat: 'spec', cost: 3, fx: 'seed', snd: 'whoosh', drain: 0.5 },
+  SPARK:          { type: 'electric', power: 60, cat: 'phys', cost: 2, fx: 'spray', snd: 'zap' },
+  THUNDERBOLT:    { type: 'electric', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'zap' },
+  THUNDER:        { type: 'electric', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'zap' },
+  'AURORA BEAM':  { type: 'ice', power: 60, cat: 'spec', cost: 2, fx: 'icicle', snd: 'whoosh' },
+  'ICE BEAM':     { type: 'ice', power: 75, cat: 'spec', cost: 2, fx: 'icicle', snd: 'whoosh' },
+  BLIZZARD:       { type: 'ice', power: 90, cat: 'spec', cost: 3, fx: 'icicle', snd: 'whoosh' },
+  'BRICK BREAK':  { type: 'fighting', power: 60, cat: 'phys', cost: 2, fx: 'slash', snd: 'thud' },
+  'DYNAMIC PUNCH':{ type: 'fighting', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
+  'CROSS CHOP':   { type: 'fighting', power: 90, cat: 'phys', cost: 3, fx: 'slash', snd: 'thud' },
+  'POISON JAB':   { type: 'poison', power: 65, cat: 'phys', cost: 2, fx: 'needle', snd: 'whoosh' },
+  'SLUDGE BOMB':  { type: 'poison', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'whoosh' },
+  'GUNK SHOT':    { type: 'poison', power: 90, cat: 'phys', cost: 3, fx: 'spray', snd: 'thud' },
+  'MUD SHOT':     { type: 'ground', power: 60, cat: 'spec', cost: 2, fx: 'spray', snd: 'thud' },
+  DIG:            { type: 'ground', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
+  'EARTH POWER':  { type: 'ground', power: 90, cat: 'spec', cost: 3, fx: 'rock', snd: 'thud' },
+  'WING ATTACK':  { type: 'flying', power: 60, cat: 'phys', cost: 2, fx: 'slash', snd: 'whoosh' },
+  'AIR SLASH':    { type: 'flying', power: 75, cat: 'spec', cost: 2, fx: 'slash', snd: 'whoosh' },
+  'BRAVE BIRD':   { type: 'flying', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'whoosh' },
+  EXTRASENSORY:   { type: 'psychic', power: 65, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  PSYCHIC:        { type: 'psychic', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  'ZEN HEADBUTT': { type: 'psychic', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'shadow' },
+  'X-SCISSOR':    { type: 'bug', power: 65, cat: 'phys', cost: 2, fx: 'slash', snd: 'whoosh' },
+  'BUG BUZZ':     { type: 'bug', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'whoosh' },
+  MEGAHORN:       { type: 'bug', power: 90, cat: 'phys', cost: 3, fx: 'needle', snd: 'thud' },
+  'ROCK TOMB':    { type: 'rock', power: 60, cat: 'phys', cost: 2, fx: 'rock', snd: 'thud' },
+  'POWER GEM':    { type: 'rock', power: 75, cat: 'spec', cost: 2, fx: 'rock', snd: 'whoosh' },
+  'STONE EDGE':   { type: 'rock', power: 90, cat: 'phys', cost: 3, fx: 'rock', snd: 'thud' },
+  HEX:            { type: 'ghost', power: 65, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  'SHADOW BALL':  { type: 'ghost', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  'PHANTOM FORCE':{ type: 'ghost', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'shadow' },
+  'DRAGON CLAW':  { type: 'dragon', power: 65, cat: 'phys', cost: 2, fx: 'slash', snd: 'crunch' },
+  'DRAGON PULSE': { type: 'dragon', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  OUTRAGE:        { type: 'dragon', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud' },
+  'FEINT ATTACK': { type: 'dark', power: 60, cat: 'phys', cost: 2, fx: 'dash', snd: 'crunch' },
+  CRUNCH:         { type: 'dark', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'crunch' },
+  'DARK PULSE':   { type: 'dark', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'shadow' },
+  'IRON HEAD':    { type: 'steel', power: 65, cat: 'phys', cost: 2, fx: 'dash', snd: 'crunch' },
+  'FLASH CANNON': { type: 'steel', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'zap' },
+  'IRON TAIL':    { type: 'steel', power: 90, cat: 'phys', cost: 3, fx: 'slash', snd: 'thud' },
+  'DRAINING KISS':{ type: 'fairy', power: 50, cat: 'spec', cost: 1, fx: 'spray', snd: 'whoosh', drain: 0.75 },
+  'PLAY ROUGH':   { type: 'fairy', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'whoosh' },
+  MOONBLAST:      { type: 'fairy', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'whoosh' },
+  HEADBUTT:       { type: 'normal', power: 60, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
+  'BODY SLAM':    { type: 'normal', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
+  'HYPER BEAM':   { type: 'normal', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'zap' },
+})
+const LATE_MOVES = {
+  fire: ['FIRE FANG', 'FLAMETHROWER', 'FIRE BLAST'],
+  water: ['WATER PULSE', 'WATERFALL', 'HYDRO PUMP'],
+  grass: ['SEED BOMB', 'ENERGY BALL', 'GIGA DRAIN'],
+  electric: ['SPARK', 'THUNDERBOLT', 'THUNDER'],
+  ice: ['AURORA BEAM', 'ICE BEAM', 'BLIZZARD'],
+  fighting: ['BRICK BREAK', 'DYNAMIC PUNCH', 'CROSS CHOP'],
+  poison: ['POISON JAB', 'SLUDGE BOMB', 'GUNK SHOT'],
+  ground: ['MUD SHOT', 'DIG', 'EARTH POWER'],
+  flying: ['WING ATTACK', 'AIR SLASH', 'BRAVE BIRD'],
+  psychic: ['EXTRASENSORY', 'PSYCHIC', 'ZEN HEADBUTT'],
+  bug: ['X-SCISSOR', 'BUG BUZZ', 'MEGAHORN'],
+  rock: ['ROCK TOMB', 'POWER GEM', 'STONE EDGE'],
+  ghost: ['HEX', 'SHADOW BALL', 'PHANTOM FORCE'],
+  dragon: ['DRAGON CLAW', 'DRAGON PULSE', 'OUTRAGE'],
+  dark: ['FEINT ATTACK', 'CRUNCH', 'DARK PULSE'],
+  steel: ['IRON HEAD', 'FLASH CANNON', 'IRON TAIL'],
+  fairy: ['DRAINING KISS', 'PLAY ROUGH', 'MOONBLAST'],
+  normal: ['HEADBUTT', 'BODY SLAM', 'HYPER BEAM'],
+}
+Object.assign(STATUS_ON_HIT, { 'FIRE BLAST': ['brn', 0.1], THUNDER: ['par', 0.3], 'GUNK SHOT': ['psn', 0.3], 'BODY SLAM': ['par', 0.3] })
+for (const [t, names] of Object.entries(LATE_MOVES)) for (const n of names) DISC_RULES[n] = { types: [t] }
+DISC_RULES.ABSORB = { types: ['grass'] }
+DISC_POOL.push('ABSORB', ...Object.values(LATE_MOVES).map((l) => l[0]))
 const EVO_MOVES = { AIPOM: [32, 'DOUBLE HIT'], LICKITUNG: [33, 'ROLLOUT'], PILOSWINE: [40, 'ANCIENT POWER'] }
 {
   const base = levelMoves
@@ -1568,7 +1659,7 @@ const TRAINER_MOVES = {
   // Brian's: whatever was cheapest.
   MAGIKARP,
   BIDOOF: [S_('TACKLE', 'normal', 40, 'phys', 'thud'), L_('ROLLOUT', 'rock', 25, 'phys', 'roll', 'thud', { hits: 2 }), S_('HEADBUTT', 'normal', 45, 'phys', 'thud')],
-  SUNKERN: [S_('ABSORB', 'grass', 30, 'spec', 'whoosh', { ranged: true }), S_('RAZOR LEAF', 'grass', 40, 'phys', 'whoosh', { ranged: true })],
+  SUNKERN: [S_('ABSORB', 'grass', 30, 'spec', 'whoosh', { ranged: true, drain: 0.5 }), S_('RAZOR LEAF', 'grass', 40, 'phys', 'whoosh', { ranged: true })],
   PSYDUCK: [S_('WATER GUN', 'water', 40, 'spec', 'whoosh', { ranged: true }), S_('SCRATCH', 'normal', 40, 'phys', 'whoosh'), S_('CONFUSION', 'psychic', 40, 'spec', 'shadow', { ranged: true })],
 }
 
@@ -2452,7 +2543,7 @@ const STRONG_MOVES = {
   ice:      [S_('ICE BEAM', 'ice', 70, 'spec', 'whoosh', { ranged: true }), S_('ICE SHARD', 'ice', 40, 'phys', 'whoosh', { fast: true }), L_('BULLDOZE', 'ground', 50, 'phys', 'quake', 'quake')],
   dragon:   [S_('DRAGON PULSE', 'dragon', 70, 'spec', 'shadow', { ranged: true }), S_('DRAGON CLAW', 'dragon', 70, 'phys', 'whoosh'), L_('TWISTER', 'dragon', 45, 'spec', 'wave', 'whoosh')],
   dark:     [S_('CRUNCH', 'dark', 70, 'phys', 'crunch'), S_('FEINT ATTACK', 'dark', 55, 'phys', 'whoosh'), L_('SUCKER PUNCH', 'dark', 45, 'phys', 'shadow', 'shadow', { fast: true })],
-  fairy:    [S_('MOONBLAST', 'fairy', 70, 'spec', 'whoosh', { ranged: true }), S_('DAZZLING GLEAM', 'fairy', 60, 'spec', 'whoosh', { ranged: true }), L_('DRAINING KISS', 'fairy', 45, 'spec', 'wave', 'whoosh')],
+  fairy:    [S_('MOONBLAST', 'fairy', 70, 'spec', 'whoosh', { ranged: true }), S_('DAZZLING GLEAM', 'fairy', 60, 'spec', 'whoosh', { ranged: true }), L_('DRAINING KISS', 'fairy', 45, 'spec', 'wave', 'whoosh', { drain: 0.75 })],
 }
 /** A Kanto leader's Pokémon's moves (not their ace's: that's the leader's `sig`). */
 const strongMoves = (m) => STRONG_MOVES[m.types[0]] ?? STRONG_MOVES.normal
@@ -3607,6 +3698,13 @@ async function run(id) {
      * the damage. Returns { eff, crit }, or null when a multi-hit move's ring
      * was missed (that hit whiffs).
      */
+    /** A draining move in a 2v2: the slot that used it gets back `amt` HP. */
+    async function sapSlot(s, amt) {
+      const from = s.mon.hp; if (amt <= 0 || from <= 0 || from >= s.mon.stats.hp) return
+      sfx('heal'); rise(s.c, '#86efac', 'dot')
+      await hpTo(s, Math.min(s.mon.stats.hp, from + amt)); pop(`+${s.mon.hp - from}`, s.c.x + 30, s.c.y - 40, 'green')
+      await say(`${s.mon.name} drained`, 'some HP!', 200)
+    }
     async function hitOnce(actor, T, mv, planned, label, approach, mult, whiffOnMiss) {
       let acc
       const sr = strikeRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); approach = Math.round(approach * sr.speed)
@@ -3626,6 +3724,7 @@ async function run(id) {
       sparks(T.c.x, T.c.y, mv.type === 'fire' ? '#fb923c' : TYPE_COL[mv.type] ?? '#e2e8f0', 8)
       await Promise.all([blink(T.el, 2), hpTo(T, from - dmg)])
       pop(`-${from - T.mon.hp}`, T.c.x + 30, T.c.y - 30, acc.crit ? 'gold' : '')
+      if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
       if (T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
       if (T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
       if (mv.accDown && acc.label !== 'MISS' && T.mon.hp > 0) { const t = S(T.mon); if (t.acc > -STAGE_MAX) { t.acc--; tags(T); await say(`${T.mon.name}'s accuracy`, 'fell!', 250) } }
@@ -3728,6 +3827,7 @@ async function run(id) {
         const from = T.mon.hp
         await Promise.all([hit ? blink(T.el, 2) : null, hpTo(T, Math.max(demo ? 1 : 0, from - dmg))])
         pop(`-${from - T.mon.hp}`, T.c.x + 36, T.c.y - 40, hit ? 'red' : 'red small')
+        if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
         if (hit && ownPartner) await say(`${T.mon.name} got caught in it!`, '', 200)
         if (hit && T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
         if (hit && T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
@@ -4728,6 +4828,13 @@ async function run(id) {
     }
     await sendOut(me); setPP(startPP(me)); showTags()   // PP: 1, or 2 for a quick nature
 
+    /** A draining move: the user (its HUD `side` and spot `at`) gets back `amt` HP. */
+    async function sapHP(mon, side, at, amt) {
+      const max = mon.stats?.hp ?? mon.max, from = mon.hp; if (amt <= 0 || from <= 0 || from >= max) return
+      mon.hp = Math.min(max, from + amt); sfx('heal'); rise(at, '#86efac', 'dot')
+      await drain(side, from, mon.hp, max); pop(`+${mon.hp - from}`, at.x + 34, at.y - 40, 'green'); renderTools()
+      await say(`${who(mon)} drained`, 'some HP!', 200)
+    }
     function damage(att, def, mv, mult) {
       const A = (mv.cat === 'spec' ? att.stats.spa : att.stats.atk) * stageMult(ST(att)[mv.cat === 'spec' ? 'spa' : 'atk']), D = mv.cat === 'spec' ? def.stats.spd : def.stats.def
       const base = Math.floor(Math.floor(Math.floor(2 * att.level / 5 + 2) * mv.power * A / D) / 50) + 2
@@ -4824,6 +4931,7 @@ async function run(id) {
         sparks(C.e.x, C.e.y, mv.type === 'fire' ? '#fb923c' : '#e2e8f0', 9)
         pop(`-${from - foe.hp}`, C.e.x + 34, C.e.y - 30, acc.crit ? 'gold' : '')
         await Promise.all([blink($('enemy'), hits > 1 ? 2 : 3), drain('e', from, foe.hp, foe.max)])
+        if (mv.drain) await sapHP(me, 'p', C.p, Math.round((from - foe.hp) * mv.drain))
         if (acc.crit) addBond(me, 2)
         landed++; crit ||= acc.crit; eff = r.eff; if (acc.label !== 'MISS') clean = true
         if (foe.hp > 0 && foe.status === 'frz' && mv.type === 'fire') { foe.status = null; showTags(); await say(who(foe), STATUS_TEXT.thaw, 300) }
@@ -5139,6 +5247,7 @@ async function run(id) {
           sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .25 : .12, 160); buzz(hit ? (eff > 1 ? 60 : 30) : 15)
           pop(`-${dmg}`, C.p.x + 40, C.p.y - 40, hit ? 'red' : 'red small')
           await Promise.all([hit ? blink($('player')) : null, drain('p', from, me.hp, me.stats.hp)])
+          if (mv.drain) await sapHP(foe, 'e', C.e, Math.round((from - me.hp) * mv.drain))
           renderTools()
           if (me.hp <= 0) { panel(null); return }
           if (hit && me.status === 'frz' && mv.type === 'fire') { me.status = null; showTags(); await say(who(me), STATUS_TEXT.thaw, 300) }
