@@ -4269,7 +4269,7 @@ async function run(id) {
           // No fleeing a trainer battle: a flash that lowers the other side's accuracy, then it switches out.
           sfx('zap'); flash('#fff', .85, 280)
           for (const x of alive(mine ? 'e' : 'p')) { const xt = S(x.mon); if (xt.acc > -STAGE_MAX) { xt.acc--; tags(x) } }
-          await say(`A flash! ${mine ? 'The foes' : 'Your Pokémon'}'`, 'accuracy fell!', 300)
+          await say('A flash!', `${mine ? "The foes'" : "Your Pokémon's"} accuracy fell!`, 300)
           if (mine && !actor.ally) { const next = await pickIncoming(bench()); if (next) await switchDuo({ actor, to: next }) }
           else if (!mine) {
             const j = foeBench.findIndex((b) => trainers.length === 1 || b.owner === actor.owner); if (j < 0) return true
