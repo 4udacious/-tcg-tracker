@@ -22,6 +22,8 @@ interface Machine {
   venue: string
   address: string | null
   nickname: string | null
+  latitude: number | null
+  longitude: number | null
 }
 
 interface FavoriteRow {
@@ -82,6 +84,23 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v
 }
 
+// Straight-line distance in miles between two lat/long points (haversine).
+function milesBetween(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const rad = Math.PI / 180
+  const dLat = (lat2 - lat1) * rad
+  const dLon = (lon2 - lon1) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2
+  return 3958.8 * 2 * Math.asin(Math.sqrt(a))
+}
+
+function formatMiles(mi: number): string {
+  if (mi < 0.1) return `${Math.max(10, Math.round((mi * 5280) / 10) * 10)} ft`
+  return `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`
+}
+
+// Past this, the closest mapped machine probably isn't the one they're at.
+const NEAR_ENOUGH_MILES = 0.5
+
 export default function TimersClient({ machines, favorites, conditionTypes, todayReports, todayConditions, userId, role, reward }: Props) {
   const [rewardState, setRewardState] = useState<RewardStatus | null>(reward)
   const router = useRouter()
@@ -136,6 +155,46 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   }, [])
   const toast = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // "Near me": the closest machines that have a map location, nearest first.
+  const [locating, setLocating] = useState(false)
+  const [nearby, setNearby] = useState<{ machine: Machine; miles: number }[] | null>(null)
+  const [locateError, setLocateError] = useState<string | null>(null)
+  const mapped = useMemo(() => machines.filter((m) => m.latitude != null && m.longitude != null), [machines])
+
+  // Shows a machine in whichever picker holds it: favorites if it's starred, else search.
+  function pickMachine(id: string) {
+    setLogTab(favoriteIds.has(id) && !removedFavIds.has(id) ? 'favorites' : 'search')
+    setSelectedMachineId(id)
+  }
+
+  function findNearMe() {
+    setLocateError(null)
+    if (!('geolocation' in navigator)) {
+      setLocateError("This browser can't share your location. Use Search instead.")
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false)
+        const ranked = mapped
+          .map((m) => ({ machine: m, miles: milesBetween(coords.latitude, coords.longitude, Number(m.latitude), Number(m.longitude)) }))
+          .sort((a, b) => a.miles - b.miles)
+          .slice(0, 3)
+        if (ranked.length === 0) { setLocateError('No machines have a map location yet. Use Search instead.'); return }
+        setNearby(ranked)
+        pickMachine(ranked[0].machine.id)
+      },
+      (err) => {
+        setLocating(false)
+        setLocateError(err.code === err.PERMISSION_DENIED
+          ? 'Location is blocked for this site. Allow it in your browser settings, or use Search.'
+          : "Couldn't find your location. Try again, or use Search.")
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    )
+  }
 
   const machineItems: LocationItem[] = useMemo(
     () =>
@@ -453,6 +512,60 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
               Search
             </button>
           </div>
+
+          {/* Near me: picks the closest machine, for ones you haven't starred. */}
+          {nearby ? (
+            <div className="rounded-xl border border-card-border bg-paper p-2 space-y-1">
+              <div className="flex items-center justify-between px-1">
+                <p className="text-xs font-semibold text-ink">Closest to you</p>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={findNearMe} disabled={locating}
+                    className="min-h-8 px-2 rounded-lg text-xs font-medium text-signal hover:bg-signal/10 disabled:opacity-50">
+                    {locating ? 'Locating…' : 'Refresh'}
+                  </button>
+                  <button type="button" onClick={() => setNearby(null)} aria-label="Close nearby list"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-ink hover:bg-card">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <ul className="space-y-1">
+                {nearby.map(({ machine: m, miles }) => {
+                  const on = m.id === selectedMachineId
+                  return (
+                    <li key={m.id}>
+                      <button type="button" onClick={() => pickMachine(m.id)} aria-pressed={on}
+                        className={`w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors ${on ? 'bg-signal/10' : 'hover:bg-card'}`}>
+                        <span className="flex-1 min-w-0">
+                          <span className={`block text-sm truncate ${on ? 'text-signal font-medium' : 'text-ink'}`}>
+                            {m.machine_code} — {m.nickname ?? m.venue}
+                          </span>
+                          {m.address && <span className="block font-mono text-[10px] text-muted truncate">{m.address}</span>}
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-muted">{formatMiles(miles)}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="px-1 pt-1 text-[11px] text-muted leading-snug">
+                {nearby[0].miles > NEAR_ENOUGH_MILES ? 'None of these close by? ' : 'Not here? '}
+                {`Only ${mapped.length} of ${machines.length} machines have a map location so far. If yours isn't listed, use Search.`}
+              </p>
+            </div>
+          ) : (
+            <button type="button" onClick={findNearMe} disabled={locating}
+              className="w-full flex items-center justify-center gap-1.5 min-h-10 rounded-xl border border-signal/30 bg-signal/5 hover:bg-signal/10 text-signal text-sm font-semibold transition-colors disabled:opacity-60">
+              <svg className={`w-4 h-4 ${locating ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              </svg>
+              {locating ? 'Finding your location…' : 'Find the machine near me'}
+            </button>
+          )}
+          {locateError && <p role="alert" className="text-xs text-red-600 -mt-2">{locateError}</p>}
 
           {logTab === 'favorites' ? (
             favoriteMachines.length === 0 ? (

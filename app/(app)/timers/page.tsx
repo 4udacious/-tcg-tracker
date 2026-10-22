@@ -19,7 +19,7 @@ export default async function TimersPage() {
     supabase.from('profiles').select('role').eq('id', userId).single(),
     supabase
       .from('machines')
-      .select('id, machine_code, region, city, neighborhood, venue, address, nickname')
+      .select('id, machine_code, region, city, neighborhood, venue, address, nickname, latitude, longitude')
       .eq('is_active', true),
     supabase
       .from('machine_favorites')
