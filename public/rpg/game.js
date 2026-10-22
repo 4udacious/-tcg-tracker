@@ -1485,7 +1485,10 @@ DISC_POOL.push('SWORDS DANCE', 'NASTY PLOT', 'CALM MIND', 'PROTECT', 'RAIN DANCE
  *  · PERISH SONG: every Pokémon on the field faints in 3 turns unless it switches out.
  *  · BATON PASS: switches out, and the next one keeps the stat changes.
  *  · CONVERSION: the user's type becomes its first move's, for the battle.
- *  · TELEPORT: escapes a wild battle.
+ *  · TELEPORT: escapes a wild battle (a wild Abra, Kadabra or Alakazam may
+ *    teleport away on any turn, unless Mean Look holds it). In a trainer
+ *    battle it's a flash that lowers the other side's accuracy, then the
+ *    user switches out for a teammate.
  *  · FLAIL: stronger the lower the user's HP. VOLT TACKLE: a third of the
  *    damage dealt comes back as recoil. KNOCK OFF: ×1.5 on a trainer's
  *    Pokémon, and it knocks a Gym Leader's FULL RESTORE away. FURY CUTTER:
@@ -1507,7 +1510,7 @@ Object.assign(SUPPORT, {
   'FEATHER DANCE': { type: 'flying', target: 'foe', effect: 'stat', stages: { atk: -2 }, prio: 0, cost: 1, sub: "foe's ATK ▼2", solo: "foe's ATK ▼2" },
   'BATON PASS':    { type: 'normal', target: 'self', effect: 'baton', prio: 0, cost: 1, sub: 'switch, keeping stat changes', solo: 'switch + keep stats' },
   CONVERSION:      { type: 'normal', target: 'self', effect: 'conversion', prio: 0, cost: 0, sub: "type → its first move's", solo: 'changes its type' },
-  TELEPORT:        { type: 'psychic', target: 'self', effect: 'teleport', prio: -1, cost: 0, sub: 'escape a wild battle', solo: 'escape (wild)' },
+  TELEPORT:        { type: 'psychic', target: 'self', effect: 'teleport', prio: -1, cost: 0, sub: 'wild: escape · else flash, ACC ▼, switch', solo: 'escape / flash + switch' },
 })
 SUPPORT.RECOVER.solo = 'heal 50%'; SUPPORT['SLACK OFF'].solo = 'heal 50%'
 Object.assign(MOVEDEX, {
@@ -1535,12 +1538,15 @@ const SPECIES_MOVES = {
   PSYDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']], GOLDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']],
   SABLEYE: [[15, 'MEAN LOOK'], [30, 'KNOCK OFF']], MISDREAVUS: [[14, 'CONFUSE RAY'], [40, 'PERISH SONG']],
   MURKROW: [[11, 'TAUNT'], [25, 'FEATHER DANCE']], SCYTHER: [[12, 'FURY CUTTER'], [24, 'SWORDS DANCE']],
-  EEVEE: [[20, 'BATON PASS']], PORYGON: [[1, 'CONVERSION']], KADABRA: [[16, 'TELEPORT']], ALAKAZAM: [[16, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
+  EEVEE: [[20, 'BATON PASS']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
 }
 Object.assign(DISC_RULES, { 'KNOCK OFF': { types: ['dark', 'fighting', 'ghost'] }, CURSE: { types: ['ghost'] }, REST: { all: true }, 'MEAN LOOK': { types: ['ghost', 'dark'] } })
 DISC_POOL.push('REST', 'KNOCK OFF')
 /* Foes' own setup or tricks, by species. */
-Object.assign(FOE_STATUS_BY_SPECIES, { SABLEYE: 'MEAN LOOK', MURKROW: 'TAUNT', GENGAR: 'CURSE', GYARADOS: 'DRAGON DANCE', SCYTHER: 'SWORDS DANCE', PSYDUCK: 'AMNESIA', GHOLDENGO: 'NASTY PLOT' })
+/** Wild ones that teleport away: a chance each turn they're free to. */
+const TELEPORTERS = new Set(['ABRA', 'KADABRA', 'ALAKAZAM'])
+const TELEPORT_CHANCE = 0.35
+Object.assign(FOE_STATUS_BY_SPECIES, { KADABRA: 'TELEPORT', ALAKAZAM: 'TELEPORT', SABLEYE: 'MEAN LOOK', MURKROW: 'TAUNT', GENGAR: 'CURSE', GYARADOS: 'DRAGON DANCE', SCYTHER: 'SWORDS DANCE', PSYDUCK: 'AMNESIA', GHOLDENGO: 'NASTY PLOT' })
 /** "ATK▲2", "DEF▼" and the rest, for the HUD. */
 const statTags = (t) => [['atk', 'ATK'], ['spa', 'SP.A'], ['def', 'DEF'], ['spd', 'SP.D'], ['spe', 'SPE']].filter(([k]) => t[k]).map(([k, l]) => `${l}${t[k] > 0 ? '▲' : '▼'}${Math.abs(t[k]) > 1 ? Math.abs(t[k]) : ''}`)
 /** Weather on a move's damage. */
@@ -4044,7 +4050,7 @@ async function run(id) {
           await defendHit(ally, actor, { ...mv, kind: 'low' }, 0, step, 0.75, true)
         }
       } else {
-        let T = act.target && act.target.mon.hp > 0 ? act.target : alive('e')[0]
+        let T = act.target && !act.target.gone && act.target.mon.hp > 0 ? act.target : alive('e')[0]
         if (!T) return
         await announce(`${actor.ally ? `${actor.owner.short}'s ` : ''}${actor.mon.name} used`, `${mv.name}!`, 120)
         if (!actor.ally) setDPP(dpp - (mv.cost ?? 0))   // a partner's moves don't spend your PP
@@ -4259,7 +4265,22 @@ async function run(id) {
           m.form ??= { id: m.id, types: m.types, stats: m.stats, moves: m.moves }; m.types = [ty]; sfx('zap')
           await say(`${m.name} became`, `the ${ty.toUpperCase()} type!`, 300); return true
         }
-        default: return false   // Mean Look and Teleport: there's no fleeing a trainer battle
+        case 'teleport': {
+          // No fleeing a trainer battle: a flash that lowers the other side's accuracy, then it switches out.
+          sfx('zap'); flash('#fff', .85, 280)
+          for (const x of alive(mine ? 'e' : 'p')) { const xt = S(x.mon); if (xt.acc > -STAGE_MAX) { xt.acc--; tags(x) } }
+          await say(`A flash! ${mine ? 'The foes' : 'Your Pokémon'}'`, 'accuracy fell!', 300)
+          if (mine && !actor.ally) { const next = await pickIncoming(bench()); if (next) await switchDuo({ actor, to: next }) }
+          else if (!mine) {
+            const j = foeBench.findIndex((b) => trainers.length === 1 || b.owner === actor.owner); if (j < 0) return true
+            const nx = foeBench.splice(j, 1)[0]; foeBench.push({ mon: actor.mon, owner: actor.owner })
+            await anim(actor.el, [{ opacity: 1, filter: 'brightness(1)' }, { opacity: 0, filter: 'brightness(3)' }], { duration: 320 }).finished
+            st.delete(actor.mon); actor.gone = true; actor.el.remove(); actor.hud.remove()
+            await say(...sentOut(nx.owner, nx.mon), 120); await enter('e', actor.i, nx.mon, nx.owner)
+          }
+          return true
+        }
+        default: return false   // Mean Look: there's no fleeing a trainer battle
       }
     }
     async function support(act, queue) {
@@ -4448,7 +4469,7 @@ async function run(id) {
       queue.sort((a, b) => (b.move.prio ?? (b.move.fast ? 1 : 0)) - (a.move.prio ?? (a.move.fast ? 1 : 0)) || speed(b.actor) - speed(a.actor) || a.roll - b.roll)
       while (queue.length) {
         const act = queue.shift()
-        if (act.actor.mon.hp <= 0) continue
+        if (act.actor.mon.hp <= 0 || act.actor.gone) continue   // fainted, or switched out (Teleport) before its turn
         if (step?.capAt?.[act.move.name]) cap(...step.capAt[act.move.name])
         if (act.move.kind === 'blunder') await blunderLine(act.actor.owner, act.actor.mon)
         else if (act.move.kind === 'item') await useItemDuo(act)
@@ -5520,7 +5541,25 @@ async function run(id) {
           user.form ??= { id: user.id, types: user.types, stats: user.stats, moves: user.moves }; user.types = [ty]; sfx('zap')
           await say(`${who(user)} became`, `the ${ty.toUpperCase()} type!`, 350); return true
         }
-        case 'teleport': if (kind !== 'wild') return false; sfx('run'); await say(`${who(user)} teleported away!`, '', 350); escaped = true; return true
+        case 'teleport': {
+          if (kind === 'wild') {
+            if (t.trapped) return false   // Mean Look holds it
+            sfx('run'); await anim(user === me ? $('player') : $('enemy'), [{ opacity: 1, filter: 'brightness(1)' }, { opacity: 0, filter: 'brightness(3)' }], { duration: 360 }).finished
+            if (user === me) { escaped = true; await say(`${me.name} teleported away!`, '', 350) }
+            else { $('enemy').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'; fled = true; await say(`${who(foe)} teleported away!`, '', 500) }
+            return true
+          }
+          // A trainer battle: a flash that lowers the other side's accuracy, then it switches out.
+          sfx('zap'); flash('#fff', .85, 280); await stage(other, 'acc', -1, other === foe)
+          if (user === me) {
+            const others = party.filter((m) => m.hp > 0 && m !== me)
+            if (!others.length || t.trapped) return true
+            let next = others[0]
+            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && c?.hp > 0 && c !== me) next = c }
+            await switchTo(next)
+          } else if (roster.length) await foeSwap()
+          return true
+        }
       }
       return false
     }
@@ -5829,8 +5868,20 @@ async function run(id) {
       if (kind === 'trainer' && !roster.length) return { result: 'won', exp: winExp }
       await winExp()
       if (kind !== 'trainer' || !roster.length) return { result: kind === 'wild' ? 'fainted' : 'won' }
-      foe = roster.shift(); foe.max = foe.stats.hp; foe.turn = 0; foeMoves = movesFor(foe); showTags()   // the new one starts with no stage changes
-      if (trainer.hard && !roster.length) { await trainerOn(trainer); await talk(trainer, [pickOf(LAST_MON).replaceAll('{mon}', foe.name)]); await trainerOff() }
+      if (trainer.hard && roster.length === 1) { await trainerOn(trainer); await talk(trainer, [pickOf(LAST_MON).replaceAll('{mon}', roster[0].name)]); await trainerOff() }
+      await sendInFoe(roster.shift())
+      return null
+    }
+    /** Teleport in a trainer battle: the foe flashes out, and the trainer sends in their next one (it goes to the back of the line). */
+    async function foeSwap() {
+      await anim($('enemy'), [{ opacity: 1, filter: 'brightness(1)' }, { opacity: 0, filter: 'brightness(3)' }], { duration: 320 }).finished
+      $('enemy').style.visibility = 'hidden'; stg.delete(foe); foe.charged = null; roster.push(foe)
+      await say(`${trainer.short} called back`, `${foe.name}!`, 200)
+      await sendInFoe(roster.shift())
+    }
+    /** A trainer's next Pokémon comes out. */
+    async function sendInFoe(next) {
+      foe = next; foe.max = foe.stats.hp; foe.turn = 0; foeMoves = movesFor(foe); showTags()   // the new one starts with no stage changes
       await say(...sentOut(trainer, foe), 200)
       $('ename').textContent = foe.name; $('elv').textContent = foe.level; setHP('e', foe.hp, foe.max)
       $('enemy').getAnimations().forEach((a) => a.cancel())
@@ -5839,7 +5890,6 @@ async function run(id) {
       $('enemy').style.visibility = 'visible'; sfx('ball'); flash('#fff', .5, 180)
       cry(foe); await anim($('enemy'), [{ transform: 'scale(.1)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: .7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 380 }).finished
       $('ehud').style.visibility = 'visible'; anim($('ehud'), [{ transform: 'translateX(-180px)' }, { transform: 'none' }], { duration: 280 })
-      return null
     }
 
     async function switchTo(m) {
@@ -5918,6 +5968,11 @@ async function run(id) {
       }
       if (kind === 'trainer' && !demoNoBlunder && (await blunder(trainer, foe))) return
       if (await blockedByStatus(foe)) return
+      // A wild Abra, Kadabra or Alakazam may just teleport away (not if Mean Look holds it).
+      if (kind === 'wild' && TELEPORTERS.has(foe.name) && !ST(foe).trapped && chance() < TELEPORT_CHANCE) {
+        await announce(`${who(foe)} used`, 'TELEPORT!', 300); foeLast = 'TELEPORT'
+        await specialMove(SUPPORT.TELEPORT, foe, { label: 'GOOD', mult: 1 }); return
+      }
       // A Gym Leader keeps a Full Restore for their last Pokémon.
       if (trainer?.hard && !roster.length && !restored && foe.hp < foe.max * 0.35) {
         restored = true
