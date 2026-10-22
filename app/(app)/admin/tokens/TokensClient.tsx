@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
+import BonusCard from './BonusCard'
 
 interface Settings {
   monthly_allowance: number
@@ -207,6 +208,9 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
 
   return (
     <div className="space-y-6">
+
+      {/* ── A one-off bonus: first, since it's what this page is most often for ── */}
+      <BonusCard members={balances} />
 
       {/* ── Settings ── */}
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
@@ -513,8 +517,9 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
                   <div className="min-w-0">
                     <p className="text-sm truncate">{who?.display_name ?? who?.username ?? 'Unknown'}</p>
                     <p className="font-mono text-[10px] text-muted truncate">
-                      {REASON_LABEL[r.reason] ?? r.reason}
-                      {r.note ? ` · ${r.note}` : ''}
+                      {r.reason === 'admin_adjustment' && r.note?.startsWith('Bonus')
+                        ? `Bonus${r.note.length > 5 ? ` · ${r.note.replace(/^Bonus — /, '')}` : ''}`
+                        : `${REASON_LABEL[r.reason] ?? r.reason}${r.note ? ` · ${r.note}` : ''}`}
                     </p>
                   </div>
                   <span className={`font-mono text-sm font-semibold shrink-0 ${r.delta > 0 ? 'text-ok' : 'text-muted'}`}>
