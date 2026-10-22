@@ -1047,21 +1047,23 @@ const LEAGUE_INTRO = { will: 'e4Will', koga: 'e4Koga', bruno: 'e4Bruno', karen: 
 /*
  * Multi-hit moves. Each hit gets its own STRIKE ring, and a missed ring is a
  * missed hit: only landing every ring deals the move's full damage. `power`
- * is per hit. Everyone gets one, picked by species where it's a real
- * signature (Froakie's Water Shuriken), otherwise by type.
+ * is per hit. PP cost goes by total power (power × hits): up to 50 costs
+ * 1 PP, 55–75 costs 2, 80 and up costs 3. Everyone gets one, picked by
+ * species where it's a real signature (Froakie's Water Shuriken), otherwise
+ * by type.
  */
 Object.assign(MOVEDEX, {
-  'DOUBLE HIT':     { type: 'normal', power: 35, cat: 'phys', cost: 1, hits: 2, fx: 'dash', snd: 'thud' },
-  'FURY SWIPES':    { type: 'normal', power: 20, cat: 'phys', cost: 1, hits: 3, fx: 'slash', snd: 'whoosh' },
-  'DOUBLE KICK':    { type: 'fighting', power: 30, cat: 'phys', cost: 1, hits: 2, fx: 'dash', snd: 'thud' },
-  'BULLET SEED':    { type: 'grass', power: 25, cat: 'phys', cost: 1, hits: 3, fx: 'seed', snd: 'whoosh' },
-  'WATER SHURIKEN': { type: 'water', power: 20, cat: 'spec', cost: 1, hits: 3, fx: 'shuriken', snd: 'whoosh' },
-  'DUAL CHOP':      { type: 'dragon', power: 40, cat: 'phys', cost: 1, hits: 2, fx: 'slash', snd: 'thud' },
-  'ROCK BLAST':     { type: 'rock', power: 25, cat: 'phys', cost: 1, hits: 3, fx: 'rock', snd: 'thud' },
-  'BONE RUSH':      { type: 'ground', power: 25, cat: 'phys', cost: 1, hits: 3, fx: 'dash', snd: 'thud' },
-  'ICICLE SPEAR':   { type: 'ice', power: 25, cat: 'phys', cost: 1, hits: 3, fx: 'icicle', snd: 'whoosh' },
+  'DOUBLE HIT':     { type: 'normal', power: 35, cat: 'phys', cost: 2, hits: 2, fx: 'dash', snd: 'thud' },
+  'FURY SWIPES':    { type: 'normal', power: 20, cat: 'phys', cost: 2, hits: 3, fx: 'slash', snd: 'whoosh' },
+  'DOUBLE KICK':    { type: 'fighting', power: 30, cat: 'phys', cost: 2, hits: 2, fx: 'dash', snd: 'thud' },
+  'BULLET SEED':    { type: 'grass', power: 25, cat: 'phys', cost: 2, hits: 3, fx: 'seed', snd: 'whoosh' },
+  'WATER SHURIKEN': { type: 'water', power: 20, cat: 'spec', cost: 2, hits: 3, fx: 'shuriken', snd: 'whoosh' },
+  'DUAL CHOP':      { type: 'dragon', power: 40, cat: 'phys', cost: 3, hits: 2, fx: 'slash', snd: 'thud' },
+  'ROCK BLAST':     { type: 'rock', power: 25, cat: 'phys', cost: 2, hits: 3, fx: 'rock', snd: 'thud' },
+  'BONE RUSH':      { type: 'ground', power: 25, cat: 'phys', cost: 2, hits: 3, fx: 'dash', snd: 'thud' },
+  'ICICLE SPEAR':   { type: 'ice', power: 25, cat: 'phys', cost: 2, hits: 3, fx: 'icicle', snd: 'whoosh' },
   TWINEEDLE:        { type: 'bug', power: 25, cat: 'phys', cost: 1, hits: 2, fx: 'needle', snd: 'whoosh' },
-  'DUAL WINGBEAT':  { type: 'flying', power: 40, cat: 'phys', cost: 1, hits: 2, fx: 'dash', snd: 'whoosh' },
+  'DUAL WINGBEAT':  { type: 'flying', power: 40, cat: 'phys', cost: 3, hits: 2, fx: 'dash', snd: 'whoosh' },
 })
 const MULTI_BY_SPECIES = { TORCHIC: 'DOUBLE KICK', CHIMCHAR: 'FURY SWIPES', FROAKIE: 'WATER SHURIKEN', TREECKO: 'BULLET SEED', CHESPIN: 'BULLET SEED', RIOLU: 'DOUBLE KICK', GIBLE: 'DUAL CHOP', LARVITAR: 'ROCK BLAST' }
 const MULTI_BY_TYPE = { grass: 'BULLET SEED', water: 'WATER SHURIKEN', fighting: 'DOUBLE KICK', dragon: 'DUAL CHOP', rock: 'ROCK BLAST', ground: 'BONE RUSH', ice: 'ICICLE SPEAR', bug: 'TWINEEDLE', flying: 'DUAL WINGBEAT' }
@@ -1510,8 +1512,8 @@ function evoByItem(m, key, bag) {
    learns Rollout at 33, Piloswine Ancient Power at 40; Move Discs teach them
    sooner. Eevee needs a disc for a Fairy move (Fairy Wind). */
 Object.assign(MOVEDEX, {
-  ROLLOUT:         { type: 'rock', power: 30, cat: 'phys', cost: 1, hits: 3, fx: 'dash', snd: 'thud' },
-  'ANCIENT POWER': { type: 'rock', power: 60, cat: 'spec', cost: 1, fx: 'rock', snd: 'thud' },
+  ROLLOUT:         { type: 'rock', power: 30, cat: 'phys', cost: 3, hits: 3, fx: 'dash', snd: 'thud' },
+  'ANCIENT POWER': { type: 'rock', power: 60, cat: 'spec', cost: 2, fx: 'rock', snd: 'thud' },
 })
 MULTI_BY_SPECIES.AIPOM = 'FURY SWIPES'
 const EVO_MOVES = { AIPOM: [32, 'DOUBLE HIT'], LICKITUNG: [33, 'ROLLOUT'], PILOSWINE: [40, 'ANCIENT POWER'] }
