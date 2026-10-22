@@ -12,6 +12,10 @@ export interface LocationItem {
   city: string
   /** All text fields this item should be searchable by */
   searchText: string
+  /** How far it is from the user, already formatted (e.g. "0.4 mi"), when their location is known */
+  distance?: string
+  /** Miles from the user, for nearestFirst ordering */
+  miles?: number
 }
 
 interface Props {
@@ -20,9 +24,11 @@ interface Props {
   onChange: (value: string | null) => void
   placeholder?: string
   label?: string
+  /** Order cities, and the items in each, by `miles` (nearest first) instead of alphabetically */
+  nearestFirst?: boolean
 }
 
-export default function LocationSearch({ items, value, onChange, placeholder = 'Search by city, store, address…', label }: Props) {
+export default function LocationSearch({ items, value, onChange, placeholder = 'Search by city, store, address…', label, nearestFirst = false }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -46,8 +52,13 @@ export default function LocationSearch({ items, value, onChange, placeholder = '
       }
       byCity.get(key)!.items.push(item)
     }
-    return [...byCity.values()].sort((a, b) => a.region.localeCompare(b.region) || a.city.localeCompare(b.city))
-  }, [filtered])
+    const groups = [...byCity.values()]
+    if (!nearestFirst) return groups.sort((a, b) => a.region.localeCompare(b.region) || a.city.localeCompare(b.city))
+    // Nearest first; anything without a distance goes last, as before.
+    const mi = (i: LocationItem) => i.miles ?? Infinity
+    for (const g of groups) g.items.sort((a, b) => mi(a) - mi(b))
+    return groups.sort((a, b) => mi(a.items[0]) - mi(b.items[0]) || a.region.localeCompare(b.region) || a.city.localeCompare(b.city))
+  }, [filtered, nearestFirst])
 
   function handleSelect(item: LocationItem) {
     onChange(item.id)
@@ -146,7 +157,10 @@ export default function LocationSearch({ items, value, onChange, placeholder = '
                             item.id === value ? 'bg-signal/10' : 'hover:bg-paper'
                           }`}
                         >
-                          <p className={`text-sm ${item.id === value ? 'text-signal font-medium' : 'text-ink'}`}>{item.primary}</p>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className={`text-sm min-w-0 ${item.id === value ? 'text-signal font-medium' : 'text-ink'}`}>{item.primary}</p>
+                            {item.distance && <span className="shrink-0 font-mono text-[10px] text-muted">{item.distance}</span>}
+                          </div>
                           {item.secondary && <p className="font-mono text-xs text-muted">{item.secondary}</p>}
                         </li>
                       ))}
