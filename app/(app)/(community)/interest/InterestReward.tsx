@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { fmt } from '../vending/tokens'
+import { fmt } from '@/app/(app)/vending/tokens'
 
 export interface RewardStatus {
   amount: number

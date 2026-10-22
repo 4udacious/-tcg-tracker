@@ -11,6 +11,7 @@ import TimerCard from '@/components/TimerCard'
 import MachineComments from '@/components/MachineComments'
 import TimerAnalytics from './TimerAnalytics'
 import { checkAchievements } from '@/lib/checkAchievements'
+import { useToast } from '@/components/ui/Toast'
 
 interface Machine {
   id: string
@@ -133,7 +134,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const machineItems: LocationItem[] = useMemo(
@@ -171,10 +172,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [favoriteMachines])
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   async function handleRemoveFavorite(machineId: string, label: string) {
     const supabase = createClient()
@@ -396,11 +394,6 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg ${toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
 
       {/* Main tabs */}
       <div className="flex gap-1">

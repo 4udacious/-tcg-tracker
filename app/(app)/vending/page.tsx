@@ -1,34 +1,20 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import VendingClient, { type RecentBuy, type TicketStockRow, type SupplyStockRow } from './VendingClient'
-import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket, OwnedItem } from './CollectionPanel'
-import type { ShowcaseItem } from './ShowcaseRoom'
-import type { MarketListing } from './MarketPanel'
+import { loadBalance } from '@/lib/vending/data'
 
 export const dynamic = 'force-dynamic'
 
-const SET_NAMES: Record<string, string> = {
-  base1: 'Base Set',
-  base2: 'Jungle',
-  base3: 'Fossil',
-  base4: 'Base Set 2',
-  base5: 'Team Rocket',
-  gym1: 'Gym Heroes',
-  gym2: 'Gym Challenge',
-  neo1: 'Neo Genesis',
-}
-
-const VIEWS = ['machine', 'collection', 'showcase', 'market'] as const
-type View = (typeof VIEWS)[number]
+// The VVM's other views are pages of their own now; old links still land.
+const MOVED: Record<string, string> = { collection: '/collection', showcase: '/showcase', market: '/market' }
 
 export default async function VendingPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  // ?view=market and friends open a tab directly, e.g. from the announcement
-  // banner. Anything unrecognised falls back to the machine.
   const asked = (await searchParams).view
-  const initialView = VIEWS.find((v) => v === asked) as View | undefined
+  if (typeof asked === 'string' && MOVED[asked]) redirect(MOVED[asked])
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -41,7 +27,7 @@ export default async function VendingPage({
 
   const showStock = state && (state.status === 'in_stock' || state.status === 'out_of_stock')
 
-  const [{ data: stock }, { data: ticketStock }, { data: supplyStock }, { data: balance }, { data: me }, { data: packRows }, { data: collection }, { data: catalog }] =
+  const [{ data: stock }, { data: ticketStock }, { data: supplyStock }, balance, { data: me }, { data: recentBuys }] =
     await Promise.all([
       showStock
         ? supabase.rpc('get_vending_stock', { p_cycle: state.cycle_no })
@@ -52,191 +38,10 @@ export default async function VendingPage({
       showStock
         ? supabase.rpc('get_vending_supply_stock', { p_cycle: state.cycle_no })
         : Promise.resolve({ data: [] }),
-      supabase.rpc('token_breakdown'),
+      loadBalance(supabase),
       supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
-      supabase
-        .from('user_packs')
-        .select('id, acquired_at, vending_packs(set_name, pack_name, image_url)')
-        .eq('user_id', userId)
-        .is('opened_at', null)
-        .is('market_listing_id', null)
-        .order('acquired_at'),
-      // Per copy, not per card: two copies of one card have different
-      // condition, so they cannot be collapsed before they reach the client.
-      supabase
-        .from('user_cards')
-        .select('id, center_x, center_y, corners, edges, surface, border_wear, wear_seed, ' +
-                'crease, holes, rips, cleaning_started_at, cleaning_ready_at, times_cleaned, ' +
-                'grading_started_at, grading_ready_at, graded_at, grade, ' +
-                'vending_cards!inner(id, set_code, number, name, rarity, image_url)')
-        .eq('user_id', userId)
-        .is('market_listing_id', null)
-        .order('acquired_at'),
-      supabase.from('vending_cards').select('set_code'),
+      supabase.rpc('vending_recent_buys', { p_limit: 6 }),
     ])
-
-  const bd = (Array.isArray(balance) ? balance[0] : balance) as
-    { total: number; allowance: number; earned: number } | null
-
-  const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
-
-  const [{ data: showcaseRows }, { data: showcaseCfg }] = await Promise.all([
-    supabase.rpc('get_showcase', { p_user: userId }),
-    supabase.from('showcase_settings')
-      .select('warmth, brightness, shelf, light_mode, hue').eq('user_id', userId).maybeSingle(),
-  ])
-
-  const { data: marketRows } = await supabase.rpc('get_market_listings', { p_mine: false })
-  const { data: myListingRows } = await supabase.rpc('get_market_listings', { p_mine: true })
-
-  const { data: feeRow } = await supabase.rpc('market_fee_percent')
-
-  // Only the count, for the badge on the Market tab. The notices themselves
-  // are fetched by the panel that shows them.
-  const { data: noticeRows } = await supabase.rpc('get_market_notices', { p_limit: 50 })
-  const marketUnread = ((noticeRows as { unread: boolean }[] | null) ?? [])
-    .filter((n) => n.unread).length
-
-  const [{ data: gradingRows }, { data: cleaningRows }] = await Promise.all([
-    supabase.rpc('grading_settings'),
-    supabase.rpc('cleaning_settings'),
-  ])
-  const grading = (Array.isArray(gradingRows) ? gradingRows[0] : gradingRows) as
-    { cost: number; days: number } | null
-  const cleaning = (Array.isArray(cleaningRows) ? cleaningRows[0] : cleaningRows) as
-    { cost: number; days: number } | null
-
-  // Owned raffle tickets, collapsed to one row per ticket with a copy count.
-  const { data: ticketRows } = await supabase
-    .from('user_raffle_tickets')
-    .select('ticket_id, raffle_tickets(name, description, rarity, image_url)')
-    .eq('user_id', userId)
-
-  type OwnedRow = {
-    ticket_id: number
-    raffle_tickets:
-      | { name: string; description: string | null; rarity: string; image_url: string | null }
-      | { name: string; description: string | null; rarity: string; image_url: string | null }[]
-      | null
-  }
-
-  const ticketMap = new Map<number, OwnedTicket>()
-  for (const row of (ticketRows as OwnedRow[] | null) ?? []) {
-    const t = Array.isArray(row.raffle_tickets) ? row.raffle_tickets[0] : row.raffle_tickets
-    if (!t) continue
-    const existing = ticketMap.get(row.ticket_id)
-    if (existing) existing.copies += 1
-    else ticketMap.set(row.ticket_id, {
-      ticket_id: row.ticket_id,
-      name: t.name,
-      description: t.description,
-      rarity: t.rarity,
-      image_url: t.image_url,
-      copies: 1,
-    })
-  }
-  const ownedTickets = [...ticketMap.values()].sort((a, b) => a.name.localeCompare(b.name))
-
-  // Battle items, already one row per item with a count.
-  const { data: itemRows } = await supabase
-    .from('user_items')
-    .select('item_key, qty, vvm_supplies(name, description, sort_order)')
-    .eq('user_id', userId)
-    .gt('qty', 0)
-
-  type ItemSupply = { name: string; description: string | null; sort_order: number }
-  type ItemRow = { item_key: string; qty: number; vvm_supplies: ItemSupply | ItemSupply[] | null }
-
-  const ownedItems: OwnedItem[] = ((itemRows as ItemRow[] | null) ?? [])
-    .map((r) => ({ r, s: Array.isArray(r.vvm_supplies) ? r.vvm_supplies[0] : r.vvm_supplies }))
-    .sort((a, b) => (a.s?.sort_order ?? 0) - (b.s?.sort_order ?? 0))
-    .map(({ r, s }) => ({
-      key: r.item_key, name: s?.name ?? r.item_key, description: s?.description ?? null, qty: r.qty,
-    }))
-
-  type PackRow = {
-    id: number
-    acquired_at: string
-    vending_packs:
-      | { set_name: string; pack_name: string; image_url: string }
-      | { set_name: string; pack_name: string; image_url: string }[]
-      | null
-  }
-
-  const packs: UnopenedPack[] = ((packRows as PackRow[] | null) ?? []).map((r) => {
-    const p = Array.isArray(r.vending_packs) ? r.vending_packs[0] : r.vending_packs
-    return {
-      id: r.id,
-      set_name: p?.set_name ?? '',
-      pack_name: p?.pack_name ?? '',
-      image_url: p?.image_url ?? '',
-      acquired_at: r.acquired_at,
-    }
-  })
-
-  // Group the copies under their card, keeping each copy's own condition.
-  type CopyRow = {
-    id: number
-    center_x: number; center_y: number
-    corners: number; edges: number; surface: number; border_wear: number; wear_seed: number
-    crease: number; holes: number; rips: number
-    cleaning_started_at: string | null; cleaning_ready_at: string | null; times_cleaned: number
-    grading_started_at: string | null; grading_ready_at: string | null
-    graded_at: string | null; grade: number | null
-    vending_cards:
-      | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }
-      | { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }[]
-      | null
-  }
-
-  const cardMap = new Map<number, CollectionCard>()
-  for (const row of (collection as CopyRow[] | null) ?? []) {
-    const c = Array.isArray(row.vending_cards) ? row.vending_cards[0] : row.vending_cards
-    if (!c) continue
-    let entry = cardMap.get(c.id)
-    if (!entry) {
-      entry = {
-        card_id: c.id,
-        set_code: c.set_code,
-        number: c.number,
-        name: c.name,
-        rarity: c.rarity,
-        image_url: c.image_url,
-        copies: [],
-      }
-      cardMap.set(c.id, entry)
-    }
-    entry.copies.push({
-      id: row.id,
-      center_x: row.center_x,
-      center_y: row.center_y,
-      corners: row.corners,
-      edges: row.edges,
-      surface: row.surface,
-      border_wear: row.border_wear,
-      wear_seed: row.wear_seed,
-      crease: row.crease,
-      holes: row.holes,
-      rips: row.rips,
-      cleaning_started_at: row.cleaning_started_at,
-      cleaning_ready_at: row.cleaning_ready_at,
-      times_cleaned: row.times_cleaned,
-      grading_started_at: row.grading_started_at,
-      grading_ready_at: row.grading_ready_at,
-      graded_at: row.graded_at,
-      grade: row.grade,
-    })
-  }
-  const cards = [...cardMap.values()]
-
-  // Totals per set, for the "12/102" completion counters.
-  const counts = new Map<string, number>()
-  for (const c of (catalog as { set_code: string }[] | null) ?? []) {
-    counts.set(c.set_code, (counts.get(c.set_code) ?? 0) + 1)
-  }
-  const setTotals: SetTotal[] = [...counts.entries()]
-    .map(([set_code, total]) => ({ set_code, set_name: SET_NAMES[set_code] ?? set_code, total }))
-    .sort((a, b) => a.set_code.localeCompare(b.set_code))
 
   return (
     <VendingClient
@@ -244,28 +49,12 @@ export default async function VendingPage({
       initialStock={stock ?? []}
       initialTickets={(ticketStock as TicketStockRow[] | null) ?? []}
       initialSupplies={(supplyStock as SupplyStockRow[] | null) ?? []}
-      balance={Number(bd?.total ?? 0)}
-      allowance={Number(bd?.allowance ?? 0)}
-      earned={Number(bd?.earned ?? 0)}
+      balance={balance.total}
+      allowance={balance.allowance}
+      earned={balance.earned}
       userId={userId}
       cooldownUntil={me?.vending_cooldown_until ?? null}
-      packs={packs}
-      collection={cards}
-      setTotals={setTotals}
-      ownedTickets={ownedTickets}
-      ownedItems={ownedItems}
       recentBuys={(recentBuys as RecentBuy[] | null) ?? []}
-      gradingCost={Number(grading?.cost ?? 3)}
-      gradingDays={Number(grading?.days ?? 7)}
-      cleaningCost={Number(cleaning?.cost ?? 2)}
-      cleaningDays={Number(cleaning?.days ?? 3)}
-      showcaseItems={(showcaseRows as ShowcaseItem[] | null) ?? []}
-      showcaseLighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}
-      listings={(marketRows as MarketListing[] | null) ?? []}
-      myListings={(myListingRows as MarketListing[] | null) ?? []}
-      feePercent={Number(feeRow ?? 10)}
-      marketUnread={marketUnread}
-      initialView={initialView}
     />
   )
 }

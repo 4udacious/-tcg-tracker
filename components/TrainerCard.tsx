@@ -1,16 +1,19 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ButtonLink } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { createClient } from '@/lib/supabase/server'
-import ShowcaseRoom, { type ShowcaseItem } from '../../vending/ShowcaseRoom'
-
-export const dynamic = 'force-dynamic'
+import ShowcaseRoom, { type ShowcaseItem } from '@/app/(app)/vending/ShowcaseRoom'
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? v[0] ?? null : v ?? null
 }
 
-export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+/**
+ * A trainer's card: who they are, their badge case, what they're hunting
+ * for, and their showcase. The same card on a member's page and on your own
+ * profile (`self`), where it also has the buttons to edit it.
+ */
+export default async function TrainerCard({ id, self = false }: { id: string; self?: boolean }) {
   const supabase = await createClient()
 
   const [{ data: showcaseRows }, { data: showcaseCfgRow }] = await Promise.all([
@@ -86,13 +89,6 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <Link href="/members" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink transition-colors">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        All members
-      </Link>
-
       {/* Header */}
       <div className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-4">
         {ti?.file ? (
@@ -117,11 +113,18 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
+      {self && (
+        <div className="flex gap-2">
+          <ButtonLink href="/profile/edit" variant="outline" size="sm" full>Edit profile</ButtonLink>
+          <ButtonLink href="/profile/edit?tab=achievements" variant="outline" size="sm" full>Achievement progress</ButtonLink>
+        </div>
+      )}
+
       {/* Achievements */}
       <section className="space-y-3">
         <h2 className="font-display font-semibold text-base">Achievements ({badges.length})</h2>
         {badges.length === 0 ? (
-          <p className="text-sm text-muted">No achievements earned yet.</p>
+          <EmptyState title="No badges yet" icon="🏅">{self ? 'Earn achievements and they land here.' : 'Nothing earned yet.'}</EmptyState>
         ) : (
           /* Icons only, four across. The names and descriptions were taking
              six rows to say what the sprites already say, and a trainer's
@@ -151,9 +154,9 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
       {/* Interest checklist */}
       <section className="space-y-3">
-        <h2 className="font-display font-semibold text-base">Interest List</h2>
+        <h2 className="font-display font-semibold text-base">Interest list</h2>
         {interestList.length === 0 ? (
-          <p className="text-sm text-muted">No items on their interest list.</p>
+          <p className="text-sm text-muted">{self ? 'Nothing on your interest list.' : 'No items on their interest list.'}</p>
         ) : (
           <div className="space-y-3">
             {interestList.map(([setName, items]) => (

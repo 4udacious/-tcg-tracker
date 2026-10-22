@@ -7,6 +7,7 @@ import SearchableSelect, { type SelectOption } from '@/components/SearchableSele
 import LocationSearch, { type LocationItem } from '@/components/LocationSearch'
 import StoreFavoriteToggle from '@/components/StoreFavoriteToggle'
 import { checkAchievements } from '@/lib/checkAchievements'
+import { useToast } from '@/components/ui/Toast'
 
 interface Store {
   id: string
@@ -58,7 +59,7 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, fav
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null)
   const [hasStock, setHasStock] = useState<boolean | null>(null)
   const [note, setNote] = useState('')
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const storeItems: LocationItem[] = useMemo(
@@ -98,10 +99,7 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, fav
 
   const typeOptions: SelectOption[] = productTypes.map((t) => ({ id: t.id, label: t.name }))
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   async function handleDelete(id: string) {
     if (!window.confirm('Delete this check-in?')) return
@@ -138,11 +136,6 @@ export default function StockCheckForm({ stores, productTypes, recentChecks, fav
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg ${toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
 
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-4">
         <h2 className="font-display font-semibold text-base">Report stock</h2>

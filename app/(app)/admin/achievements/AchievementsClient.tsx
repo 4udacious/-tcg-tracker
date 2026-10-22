@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 const ACTIONS = [
   { value: 'timer_report', label: 'Log timers' },
@@ -72,7 +73,7 @@ const EMPTY_FORM = {
 export default function AchievementsClient({ achievements, badgeIcons, members }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -89,10 +90,7 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
     )
   }
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   function openCreate() {
     setForm({ ...EMPTY_FORM })
@@ -254,11 +252,6 @@ export default function AchievementsClient({ achievements, badgeIcons, members }
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg ${toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
 
       {/* ── Grant panel ── */}
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-3">

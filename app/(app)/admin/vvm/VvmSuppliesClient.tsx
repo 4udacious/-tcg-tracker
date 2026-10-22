@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SupplyIcon from '@/components/SupplyIcon'
 import { fmt, money, num } from '../../vending/tokens'
+import { useToast } from '@/components/ui/Toast'
 
 /**
  * A row of vvm_supplies (v56). Items are fixed - the battle game knows them
@@ -33,17 +34,14 @@ type Toast = (msg: string) => void
 export default function VvmSuppliesClient({ supplies }: { supplies: SupplyRow[] }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
   // A bundle being made, before it exists in the database.
   const [draft, setDraft] = useState<SupplyRow | null>(null)
 
   const items = supplies.filter((s) => s.kind === 'item')
   const bundles = supplies.filter((s) => s.kind === 'bundle')
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string) => toast.show(msg)
 
   function refresh() {
     startTransition(() => router.refresh())
@@ -68,11 +66,6 @@ export default function VvmSuppliesClient({ supplies }: { supplies: SupplyRow[] 
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg bg-ink text-white">
-          {toast}
-        </div>
-      )}
 
       <section className="space-y-2">
         <div className="space-y-1">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Sheet } from '@/components/ui/Sheet'
 import { createClient } from '@/lib/supabase/client'
 import CardCelebration from './CardCelebration'
 import ConditionedCard from './ConditionedCard'
@@ -353,7 +354,7 @@ function BinderCover({
       <div className="absolute inset-x-8 bottom-2 rounded-sm px-1.5 py-1 text-center"
            style={{ background: 'rgba(0,0,0,0.55)' }}>
         <p className="text-[10px] font-semibold leading-tight truncate text-white">{setName}</p>
-        <p className="font-mono text-[9px] leading-tight" style={{ color: t.foil }}>
+        <p className="font-mono text-[10px] leading-tight" style={{ color: t.foil }}>
           {owned}/{total}
         </p>
         <div className="mt-1 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.18)' }}>
@@ -889,7 +890,7 @@ export default function CollectionPanel({
                         className={`w-full aspect-[245/342] rounded ${ready ? '' : 'opacity-80'}`}
                       />
                       {/* Sealed until it is back: the grade is the surprise. */}
-                      <span className={`absolute -bottom-1 -right-1 rounded-full text-[9px] font-bold px-1.5 py-0.5 shadow ${
+                      <span className={`absolute -bottom-1 -right-1 rounded-full text-[10px] font-bold px-1.5 py-0.5 shadow ${
                         ready ? 'bg-amber-400 text-ink gr-ready-pip' : 'bg-ink text-white'
                       }`}>?</span>
                     </div>
@@ -1226,7 +1227,7 @@ export default function CollectionPanel({
                                 <rect x="5" y="3" width="14" height="18" rx="2" />
                                 <path d="M8 7h8" strokeLinecap="round" />
                               </svg>
-                              <span className="font-mono text-[8px] text-muted text-center leading-tight">
+                              <span className="font-mono text-[10px] text-muted text-center leading-tight">
                                 in vault
                               </span>
                             </div>
@@ -1237,12 +1238,12 @@ export default function CollectionPanel({
                             same card would otherwise be identical boxes. */}
                         <HoloMark rarity={c.rarity} />
                         {c.raw.length > 1 && (
-                          <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+                          <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[10px] font-bold px-1.5 py-0.5 shadow">
                             ×{c.raw.length}
                           </span>
                         )}
                         {c.slabbed > 0 && c.raw.length > 0 && (
-                          <span className="pointer-events-none absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+                          <span className="pointer-events-none absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1.5 py-0.5 shadow">
                             {c.slabbed}★
                           </span>
                         )}
@@ -1397,13 +1398,13 @@ export default function CollectionPanel({
                           </span>
                         </div>
                         {/* Unsealed: the numbers behind the wear. */}
-                        <div className="grid grid-cols-4 gap-x-2 font-mono text-[9px] text-white/45">
+                        <div className="grid grid-cols-4 gap-x-2 font-mono text-[10px] text-white/45">
                           <span>CEN {100 - Math.max(Math.abs(copy.center_x), Math.abs(copy.center_y))}</span>
                           <span>COR {copy.corners}</span>
                           <span>EDG {copy.edges}</span>
                           <span>SUR {copy.surface}</span>
                         </div>
-                        <div className="font-mono text-[9px] text-white/45">
+                        <div className="font-mono text-[10px] text-white/45">
                           BORDER {copy.border_wear}
                         </div>
                       </div>
@@ -1465,7 +1466,7 @@ export default function CollectionPanel({
                     )}
 
                     {st === 'ungraded' && cleanState(copy) === 'none' && (
-                      <p className="font-mono text-[9px] text-white/30 mt-1">
+                      <p className="font-mono text-[10px] text-white/30 mt-1">
                         Grading takes {gradingDays} day{gradingDays === 1 ? '' : 's'} · cleaning {cleaningDays}
                       </p>
                     )}
@@ -1513,15 +1514,15 @@ export default function CollectionPanel({
             </div>
 
             <div className="text-center" onClick={(e) => e.stopPropagation()}>
-              <div className="grid grid-cols-4 gap-x-2 font-mono text-[9px] text-white/45">
+              <div className="grid grid-cols-4 gap-x-2 font-mono text-[10px] text-white/45">
                 <span>CEN {100 - Math.max(Math.abs(copy.center_x), Math.abs(copy.center_y))}</span>
                 <span>COR {copy.corners}</span>
                 <span>EDG {copy.edges}</span>
                 <span>SUR {copy.surface}</span>
               </div>
-              <p className="font-mono text-[9px] text-white/45 mt-0.5">BORDER {copy.border_wear}</p>
+              <p className="font-mono text-[10px] text-white/45 mt-0.5">BORDER {copy.border_wear}</p>
               {damageNotes(copy).length > 0 && (
-                <p className="font-mono text-[9px] text-red-300/80 mt-0.5 uppercase">{damageNotes(copy).join(' · ')}</p>
+                <p className="font-mono text-[10px] text-red-300/80 mt-0.5 uppercase">{damageNotes(copy).join(' · ')}</p>
               )}
               <button
                 onClick={() => setConfirmCrack({ card, copy })}
@@ -1544,34 +1545,16 @@ export default function CollectionPanel({
       {/* Stands down while a pack is being revealed - it sits above the
           reveal, and coming back to the stack afterwards is what you want
           when you are opening several. */}
-      {pickingFrom && !reveal && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
-          onClick={() => setOpenStack(null)}
-          role="dialog" aria-modal="true" aria-labelledby="pack-stack-title"
-        >
-          <div
-            className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-2 p-4 pb-2 shrink-0">
-              <div className="min-w-0">
-                <h3 id="pack-stack-title" className="font-display font-semibold text-base truncate">
-                  {pickingFrom.set_name}
-                </h3>
-                <p className="font-mono text-[10px] text-muted">
-                  {pickingFrom.pack_name} · {pickingFrom.packs.length} sealed
-                </p>
-              </div>
-              <button
-                onClick={() => setOpenStack(null)}
-                className="text-xs text-muted hover:text-ink shrink-0"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="px-4 pb-2 overflow-y-auto min-h-0 flex-1">
+      <Sheet open={!!pickingFrom && !reveal} onClose={() => setOpenStack(null)} title={pickingFrom?.set_name ?? ''}
+        header={pickingFrom && (
+          <div className="min-w-0">
+            <p className="font-display font-bold text-base truncate">{pickingFrom.set_name}</p>
+            <p className="font-mono text-[11px] text-muted">{pickingFrom.pack_name} · {pickingFrom.packs.length} sealed</p>
+          </div>
+        )}
+        footer={<p className="text-xs text-muted leading-snug">{opening ? 'Opening…' : 'Tap a pack to open it. Sealed packs can be sold; opened ones cannot.'}</p>}>
+        {pickingFrom && (
+            <div>
               <ul className="grid grid-cols-3 gap-2">
                 {pickingFrom.packs.map((p, i) => (
                   <li key={p.id}>
@@ -1585,7 +1568,7 @@ export default function CollectionPanel({
                         src={p.image_url} alt="" loading="lazy"
                         className="w-full aspect-[2/3] object-contain"
                       />
-                      <p className="font-mono text-[9px] text-muted text-center truncate">
+                      <p className="font-mono text-[10px] text-muted text-center truncate">
                         {heldFor(p.acquired_at)}
                       </p>
                     </button>
@@ -1593,27 +1576,16 @@ export default function CollectionPanel({
                 ))}
               </ul>
             </div>
-
-            <p className="shrink-0 border-t border-card-border px-4 py-3 text-[11px] text-muted leading-snug pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
-              {opening ? 'Opening…' : 'Tap a pack to open it. Sealed packs can be sold; opened ones cannot.'}
-            </p>
-          </div>
-        </div>
-      )}
+        )}
+      </Sheet>
 
       {/* ── Confirm before posting a card off ── */}
       {confirmGrading && (() => {
         const { card, copy } = confirmGrading
         const busy = grading === copy.id
         return (
-          <div
-            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-5"
-            role="dialog" aria-modal="true" aria-labelledby="grading-confirm-title"
-          >
-            <div className="bg-card border border-card-border rounded-2xl p-5 max-w-sm w-full space-y-3">
-              <h3 id="grading-confirm-title" className="font-display font-semibold text-base">
-                Send {card.name} for grading?
-              </h3>
+          <Sheet open onClose={() => { if (!busy) setConfirmGrading(null) }} title={`Send ${card.name} for grading?`}>
+            <div className="space-y-3">
 
               <p className="text-sm text-muted leading-snug">
                 This is like dropping the card in a mailbox. Once it is posted you cannot cancel,
@@ -1662,7 +1634,7 @@ export default function CollectionPanel({
                 </button>
               </div>
             </div>
-          </div>
+          </Sheet>
         )
       })()}
 
@@ -1671,14 +1643,8 @@ export default function CollectionPanel({
         const { card, copy } = confirmCleaning
         const busy = cleaning === copy.id
         return (
-          <div
-            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-5"
-            role="dialog" aria-modal="true" aria-labelledby="cleaning-confirm-title"
-          >
-            <div className="bg-card border border-card-border rounded-2xl p-5 max-w-sm w-full space-y-3">
-              <h3 id="cleaning-confirm-title" className="font-display font-semibold text-base">
-                Get {card.name} cleaned?
-              </h3>
+          <Sheet open onClose={() => { if (!busy) setConfirmCleaning(null) }} title={`Get ${card.name} cleaned?`}>
+            <div className="space-y-3">
               <ul className="text-sm text-muted space-y-1.5">
                 <li className="flex gap-2">
                   <span className="text-ink font-semibold shrink-0">{fmt(cleaningCost)}</span>
@@ -1729,7 +1695,7 @@ export default function CollectionPanel({
                 </button>
               </div>
             </div>
-          </div>
+          </Sheet>
         )
       })()}
 
@@ -1737,14 +1703,8 @@ export default function CollectionPanel({
       {confirmCrack && (() => {
         const { card, copy } = confirmCrack
         return (
-          <div
-            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-5"
-            role="dialog" aria-modal="true" aria-labelledby="crack-confirm-title"
-          >
-            <div className="bg-card border border-card-border rounded-2xl p-5 max-w-sm w-full space-y-3">
-              <h3 id="crack-confirm-title" className="font-display font-semibold text-base">
-                Crack open the {copy.grade} {card.name}?
-              </h3>
+          <Sheet open onClose={() => setConfirmCrack(null)} title={`Crack open the ${copy.grade} ${card.name}?`}>
+            <div className="space-y-3">
               <ul className="text-sm text-muted space-y-1.5">
                 <li className="flex gap-2">
                   <span className="text-ink font-semibold shrink-0">★</span>
@@ -1777,7 +1737,7 @@ export default function CollectionPanel({
                 </button>
               </div>
             </div>
-          </div>
+          </Sheet>
         )
       })()}
 
@@ -1813,26 +1773,14 @@ export default function CollectionPanel({
         const pct = Math.round(gradingProgress(copy, now) * 100)
         const due = copy.grading_ready_at ? new Date(copy.grading_ready_at) : null
         return (
-          <div
-            className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
-            onClick={() => setCheckOn(null)}
-            role="dialog" aria-modal="true" aria-labelledby="check-on-title"
-          >
-            <div
-              className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-4 space-y-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 id="check-on-title" className="font-display font-semibold text-base truncate">
-                    {card.name}
-                  </h3>
-                  <p className="font-mono text-[10px] text-muted">With WAPC Authentication</p>
-                </div>
-                <button onClick={() => setCheckOn(null)} className="text-xs text-muted hover:text-ink shrink-0">
-                  Close
-                </button>
+          <Sheet open onClose={() => setCheckOn(null)} title={card.name}
+            header={(
+              <div className="min-w-0">
+                <p className="font-display font-bold text-base truncate">{card.name}</p>
+                <p className="font-mono text-[11px] text-muted">With WAPC Authentication</p>
               </div>
+            )}>
+            <div className="space-y-3">
 
               <div className="w-[min(46vw,170px)] mx-auto">
                 <ConditionedCard
@@ -1861,11 +1809,11 @@ export default function CollectionPanel({
                   )}
                 </p>
                 <p className="text-xs text-muted leading-snug">
-                  It comes back sealed. You will get a notice on the VVM tab when it is ready to rip open.
+                  It comes back sealed. The bell lights up when it is ready to rip open.
                 </p>
               </div>
             </div>
-          </div>
+          </Sheet>
         )
       })()}
 

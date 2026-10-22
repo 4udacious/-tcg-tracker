@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { NOTICES_READ_EVENT } from '@/components/MarketAnnouncement'
+import { NOTICES_READ_EVENT } from '@/lib/events'
 import { fmt, money, num } from './tokens'
 
 interface Notice {
@@ -108,7 +108,7 @@ export function MarketNotices({ onRead }: { onRead?: () => void }) {
           }`}
         >
           {n.kind === 'announcement' ? (
-            <span className="w-7 shrink-0 rounded-md bg-signal text-white text-[8px] font-bold text-center py-0.5">
+            <span className="w-7 shrink-0 rounded-md bg-signal text-white text-[10px] font-bold text-center py-0.5">
               NEW
             </span>
           ) : n.preview_image ? (
@@ -127,7 +127,7 @@ export function MarketNotices({ onRead }: { onRead?: () => void }) {
               </p>
             )}
           </div>
-          <span className="font-mono text-[9px] text-muted shrink-0">{ago(n.created_at)}</span>
+          <span className="font-mono text-[10px] text-muted shrink-0">{ago(n.created_at)}</span>
         </li>
       ))}
     </ul>
@@ -189,7 +189,7 @@ export function MarketFeed() {
                   {fmt(a.amount)}
                 </span>
               )}
-              <span className="font-mono text-[9px] text-muted shrink-0 w-7 text-right">
+              <span className="font-mono text-[10px] text-muted shrink-0 w-7 text-right">
                 {ago(a.at)}
               </span>
             </li>

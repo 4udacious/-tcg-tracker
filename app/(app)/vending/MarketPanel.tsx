@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Sheet } from '@/components/ui/Sheet'
+import { useToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import ConditionedCard, { type Condition } from './ConditionedCard'
 import Slab from './Slab'
@@ -107,14 +109,14 @@ export default function MarketPanel({
   const [open, setOpen] = useState<MarketListing | null>(null)
   const [composing, setComposing] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
+  const toast = useToast()
 
   const board = useMemo(
     () => listings.filter((l) => l.status === 'active' && l.seller_id !== userId),
     [listings, userId]
   )
 
-  function fail(msg: string) { setNote(msg); setTimeout(() => setNote(null), 4000) }
+  const fail = (msg: string) => toast.error(msg)
 
   async function buy(l: MarketListing) {
     setBusy(true)
@@ -178,12 +180,6 @@ export default function MarketPanel({
         <h2 className="font-display font-semibold text-base">Market</h2>
         <span className="font-mono text-[10px] text-muted">{fmt(balance)} tokens</span>
       </div>
-
-      {note && (
-        <p className="text-sm text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
-          {note}
-        </p>
-      )}
 
       <div className="flex gap-1.5">
         {([['browse', 'Browse'], ['stand', 'My stand']] as const).map(([k, label]) => (
@@ -330,12 +326,12 @@ function ListingTile({ listing: l, mine, onOpen }: {
           <div className="w-full aspect-[245/342] rounded bg-paper" />
         )}
         {l.item_count > 1 && (
-          <span className="absolute -top-1 -right-1 z-10 rounded-full bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+          <span className="absolute -top-1 -right-1 z-10 rounded-full bg-ink text-white text-[10px] font-bold px-1.5 py-0.5 shadow">
             {l.item_count} items
           </span>
         )}
         {l.preview_grade != null && (
-          <span className="absolute -bottom-1 -right-1 z-10 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+          <span className="absolute -bottom-1 -right-1 z-10 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1.5 py-0.5 shadow">
             {l.preview_grade}
           </span>
         )}
@@ -350,12 +346,12 @@ function ListingTile({ listing: l, mine, onOpen }: {
         {noMinimum(l) && l.current_bid == null ? 'No min' : (
           <>
             {fmt(l.kind === 'auction' ? (l.current_bid ?? l.price) : l.price)}
-            <span className="font-mono text-[9px] text-muted font-normal"> tk</span>
+            <span className="font-mono text-[10px] text-muted font-normal"> tk</span>
           </>
         )}
       </p>
 
-      <p className="font-mono text-[9px] text-muted truncate">
+      <p className="font-mono text-[10px] text-muted truncate">
         {!live ? (
           l.status
         ) : l.kind === 'auction' ? (
@@ -374,7 +370,7 @@ function ListingTile({ listing: l, mine, onOpen }: {
       </p>
 
       {!mine && (
-        <p className="font-mono text-[9px] text-muted truncate">
+        <p className="font-mono text-[10px] text-muted truncate">
           {l.seller_display ?? l.seller_name}
         </p>
       )}
@@ -432,11 +428,8 @@ function ListingDetail({
   const keep = takeHome(num(l.current_bid ?? l.price), feePercent)
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
-         onClick={onClose} role="dialog" aria-modal="true" aria-label="Listing">
-      <div className="bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
-           onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-2 p-4 pb-2 shrink-0">
+    <>
+    <Sheet open onClose={onClose} title={listingName(l)} header={(
           <div className="min-w-0 flex-1">
             {editing ? (
               <form
@@ -499,10 +492,8 @@ function ListingDetail({
               {' · '}{l.seller_display ?? l.seller_name}
             </p>
           </div>
-          <button onClick={onClose} className="text-xs text-muted hover:text-ink shrink-0">Close</button>
-        </div>
-
-        <div className="px-4 overflow-y-auto min-h-0 flex-1 space-y-3">
+    )}>
+        <div className="space-y-3">
         {/* The actual goods, with their condition, not a flat thumbnail.
             Nobody should bid on a card they cannot look at properly. */}
         {items === null ? (
@@ -515,7 +506,7 @@ function ListingDetail({
                   <div className="relative">
                     <img src={it.image_url} alt={it.name}
                          className="w-full aspect-[245/342] object-contain rounded bg-paper" />
-                    <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[8px] font-mono text-center py-0.5 rounded-b">
+                    <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
                       sealed
                     </span>
                   </div>
@@ -534,7 +525,7 @@ function ListingDetail({
                     />
                     <HoloMark rarity={it.rarity ?? ''} />
                     {it.grade != null && (
-                      <span className="absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1.5 py-0.5 shadow">
                         {it.grade}
                       </span>
                     )}
@@ -631,13 +622,13 @@ function ListingDetail({
           </div>
         )}
         </div>
-      </div>
+    </Sheet>
 
       {/* Enlarged, over the sheet. A graded card shows its numbers because
           grading is what unseals them; a raw one shows only the card. */}
       {zoom && (
         <div
-          className="fixed inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-4 gap-3"
+          className="fixed inset-0 z-[75] bg-black/90 flex flex-col items-center justify-center p-4 gap-3"
           onClick={(e) => { e.stopPropagation(); setZoom(null) }}
           role="dialog" aria-modal="true" aria-label={`${zoom.name}, enlarged`}
         >
@@ -663,21 +654,21 @@ function ListingDetail({
               {zoom.number && ` · #${zoom.number}`}
             </p>
             {zoom.grade != null ? (
-              <div className="grid grid-cols-4 gap-x-2 font-mono text-[9px] text-white/45 mt-1.5">
+              <div className="grid grid-cols-4 gap-x-2 font-mono text-[10px] text-white/45 mt-1.5">
                 <span>CEN {100 - Math.max(Math.abs(zoom.center_x), Math.abs(zoom.center_y))}</span>
                 <span>COR {zoom.corners}</span>
                 <span>EDG {zoom.edges}</span>
                 <span>SUR {zoom.surface}</span>
               </div>
             ) : (
-              <p className="font-mono text-[9px] text-white/35 mt-1.5">
+              <p className="font-mono text-[10px] text-white/35 mt-1.5">
                 Ungraded — judge the condition by eye
               </p>
             )}
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -916,16 +907,12 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
-         onClick={onClose} role="dialog" aria-modal="true" aria-label="New listing">
-      <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[88vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
-           onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-2 shrink-0">
+    <Sheet open onClose={onClose} wide title={step === 'pick' ? 'What are you selling?' : 'How does it sell?'} header={(
           <div className="flex items-center gap-2 min-w-0">
             {step === 'price' && (
               <button
                 onClick={() => setStep('pick')}
-                className="text-muted hover:text-ink transition-colors"
+                className="-ml-2 w-10 h-10 rounded-xl flex items-center justify-center text-muted hover:text-ink transition-colors"
                 aria-label="Back to choosing items"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -937,10 +924,9 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
               {step === 'pick' ? 'What are you selling?' : 'How does it sell?'}
             </h3>
           </div>
-          <button onClick={onClose} className="text-xs text-muted hover:text-ink shrink-0">Close</button>
-        </div>
-
-        <div className="overflow-y-auto space-y-3 min-h-0">
+    )}>
+      <div className="space-y-3">
+        <div className="space-y-3">
         {step === 'pick' ? (
           <>
           <div className="space-y-1.5">
@@ -1006,7 +992,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                         />
                         <HoloMark rarity={card.rarity} />
                         {copy.grade != null && copy.graded_at && (
-                          <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1 shadow">
+                          <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1 shadow">
                             {copy.grade}
                           </span>
                         )}
@@ -1027,7 +1013,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                         aria-label={`${on ? 'Remove' : 'Add'} sealed ${p.set_name} pack`}
                       >
                         <img src={p.image_url} alt="" className="w-full aspect-[245/342] object-contain rounded bg-paper" />
-                        <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[8px] font-mono text-center py-0.5 rounded-b">
+                        <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
                           sealed
                         </span>
                       </button>
@@ -1211,6 +1197,6 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
           listing is pulled or ends without a sale.
         </p>
       </div>
-    </div>
+    </Sheet>
   )
 }

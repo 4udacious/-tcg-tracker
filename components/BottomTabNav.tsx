@@ -3,120 +3,74 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-interface Props {
-  role: string
-  /** Counts to flag on a tab, keyed by its href. Zero shows nothing. */
-  badges?: Record<string, number>
-}
-
+/*
+ * Four sections. Two of them group several pages under one tab, with their
+ * own strip of sub-tabs at the top of the page:
+ *
+ *   Timers     /timers
+ *   VVM        /vending                  the machine itself
+ *   Trainer    /collection, /showcase    what you own (and, next, your party)
+ *   Community  /members, /interest, /market
+ *
+ * Admin and the stock check-in preview live in the account menu (UserMenu).
+ * What needs your attention is in the bell, not on the tabs.
+ */
 const tabs = [
   {
     href: '/timers',
+    match: ['/timers'],
     label: 'Timers',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/interest',
-    label: 'Interest',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6" />
-      </svg>
-    ),
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />,
   },
   {
     href: '/vending',
+    match: ['/vending'],
     label: 'VVM',
     icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 3.75h14a1 1 0 011 1v14.5a1 1 0 01-1 1H5a1 1 0 01-1-1V4.75a1 1 0 011-1z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h5v5H7zM15 7h2M15 10h2M7 16h10" />
-      </svg>
+      </>
+    ),
+  },
+  {
+    href: '/collection',
+    match: ['/collection', '/showcase'],
+    label: 'Trainer',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path strokeLinecap="round" d="M3 12h6m6 0h6" />
+        <circle cx="12" cy="12" r="3" />
+      </>
     ),
   },
   {
     href: '/members',
-    label: 'Members',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-      </svg>
-    ),
+    match: ['/members', '/interest', '/market'],
+    label: 'Community',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />,
   },
 ]
 
-/**
- * Still admin-only: stock check-in, while it is reworked. The route itself is
- * gated in proxy.ts - this only controls whether the tab is shown.
- */
-const adminPreviewTabs = [
-  {
-    href: '/stock',
-    label: 'Stock',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-      </svg>
-    ),
-  },
-]
-
-export default function BottomTabNav({ role, badges = {} }: Props) {
+export default function BottomTabNav() {
   const pathname = usePathname()
-  const showAdmin = role === 'mod' || role === 'admin'
-  const isAdmin = role === 'admin'
-
-  // Slot the admin-only previews in after Interest, without depending on the
-  // index of anything after them.
-  const baseTabs = isAdmin
-    ? tabs.flatMap((t) => (t.href === '/interest' ? [t, ...adminPreviewTabs] : [t]))
-    : tabs
-
-  const allTabs = showAdmin
-    ? [
-        ...baseTabs,
-        {
-          href: '/admin',
-          label: 'Admin',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-            </svg>
-          ),
-        },
-      ]
-    : baseTabs
-
   return (
-    <nav className="fixed bottom-0 inset-x-0 bg-card border-t border-card-border safe-area-inset-bottom z-50">
-      <div className="flex">
-        {allTabs.map((tab) => {
-          const active = pathname.startsWith(tab.href)
-          const badge = badges[tab.href] ?? 0
+    <nav aria-label="Sections" className="fixed bottom-0 inset-x-0 bg-card border-t border-card-border safe-area-inset-bottom z-50">
+      <div className="max-w-lg mx-auto flex">
+        {tabs.map((tab) => {
+          const active = tab.match.some((m) => pathname === m || pathname.startsWith(m + '/'))
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-inset ${
+              aria-current={active ? 'page' : undefined}
+              className={`flex-1 flex flex-col items-center gap-1 min-h-14 py-2.5 px-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-inset ${
                 active ? 'text-signal' : 'text-muted hover:text-ink'
               }`}
-              aria-label={badge > 0 ? `${tab.label}, ${badge} grade${badge === 1 ? '' : 's'} ready` : undefined}
             >
-              <span className="relative">
-                {tab.icon}
-                {badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 rounded-full bg-amber-400 text-ink text-[9px] font-bold leading-4 text-center px-1 ring-2 ring-card">
-                    {badge}
-                  </span>
-                )}
-              </span>
-              <span className={`font-medium ${active ? 'font-semibold' : ''}`}>
-                {tab.label}
-              </span>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>{tab.icon}</svg>
+              <span className={active ? 'font-semibold' : 'font-medium'}>{tab.label}</span>
             </Link>
           )
         })}
