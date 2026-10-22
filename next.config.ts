@@ -23,6 +23,12 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: SECURITY_HEADERS,
       },
+      {
+        // The battle game is a static page that /play shows in a frame, so our
+        // own pages may frame it. Comes after the rule above, so it wins.
+        source: "/rpg/:path*",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
     ];
   },
 };
