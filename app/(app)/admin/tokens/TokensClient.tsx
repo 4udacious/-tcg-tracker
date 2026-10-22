@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 interface Settings {
   monthly_allowance: number
@@ -81,7 +82,7 @@ function periodLabel(period: string): string {
 export default function TokensClient({ settings, balances, period, recent }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
   const [busy, setBusy] = useState(false)
 
   const [allowance, setAllowance] = useState(String(settings.monthly_allowance))
@@ -100,10 +101,7 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustNote, setAdjustNote] = useState('')
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 4000)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -209,11 +207,6 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg max-w-[90vw] text-center ${toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
 
       {/* ── Settings ── */}
       <section className="bg-card border border-card-border rounded-2xl p-4 space-y-3">

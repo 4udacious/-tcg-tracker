@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 export interface RaffleTicket {
   id: number
@@ -60,7 +61,7 @@ function rarityMeta(r: string) {
 export default function RaffleClient({ tickets, holders }: { tickets: RaffleTicket[]; holders: TicketHolder[] }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
   const [view, setView] = useState<'list' | 'form'>('list')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -69,10 +70,7 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
   const [expandedHolders, setExpandedHolders] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 3500)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   function openCreate() {
     setForm({ ...EMPTY_FORM })
@@ -194,11 +192,6 @@ export default function RaffleClient({ tickets, holders }: { tickets: RaffleTick
 
   return (
     <div className="space-y-5">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg ${toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
 
       {view === 'list' ? (
         <>

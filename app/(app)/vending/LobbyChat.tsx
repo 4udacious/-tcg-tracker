@@ -116,7 +116,7 @@ export default function LobbyChat({ watching }: { watching: number }) {
               >
                 {m.display_name ?? m.username}
               </span>
-              <span className="font-mono text-[9px] text-muted ml-1.5">{ago(m.created_at)}</span>
+              <span className="font-mono text-[10px] text-muted ml-1.5">{ago(m.created_at)}</span>
               {/* Rendered as text, never as markup. */}
               <span className="block break-words">{m.body}</span>
             </div>

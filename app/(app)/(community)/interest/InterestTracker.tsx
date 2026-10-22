@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
 import ProductThumb from '@/components/ProductThumb'
 import { checkAchievements } from '@/lib/checkAchievements'
+import { useToast } from '@/components/ui/Toast'
 
 interface Set {
   id: string
@@ -107,7 +108,7 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
   const [productFilter, setProductFilter] = useState('')
   const [note, setNote] = useState('')
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
 
   function toggleProduct(id: string) {
     setSelectedProductIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -146,10 +147,7 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
     setLoadingProducts(false)
   }
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   async function handleTrack() {
     if (selectedProductIds.length === 0) return
@@ -253,15 +251,6 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div
-          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition-all ${
-            toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
 
       <div className="flex gap-1">
         {tabs.map((t) => (

@@ -32,6 +32,8 @@ const THEME_INIT = `(function(){try{
 var c=localStorage.getItem('theme');
 var d=c==='dark'||(c===null&&window.matchMedia('(prefers-color-scheme: dark)').matches);
 document.documentElement.setAttribute('data-theme',d?'dark':'light');
+var s=JSON.parse(localStorage.getItem('tcg-settings')||'{}');
+if(s.reduceMotion==='on')document.documentElement.setAttribute('data-motion','reduce');
 }catch(e){}})();`
 
 export default function RootLayout({

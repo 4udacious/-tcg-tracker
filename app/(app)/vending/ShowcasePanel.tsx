@@ -7,6 +7,7 @@ import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS, SET_NAMES, light
 import ConditionedCard from './ConditionedCard'
 import type { CollectionCard } from './CollectionPanel'
 import HoloMark, { rarityLabel } from './HoloMark'
+import { Sheet } from '@/components/ui/Sheet'
 
 const SHELF_OPTIONS: { value: string; label: string }[] = [
   { value: 'oak', label: 'Oak' },
@@ -252,30 +253,16 @@ export default function ShowcasePanel({
       </div>
 
       {/* ── Picker ── */}
-      {picking !== null && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center"
-          onClick={() => setPicking(null)}
-          role="dialog" aria-modal="true" aria-label="Choose a card for this slot"
-        >
-          <div
-            className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 max-h-[80vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-baseline justify-between gap-2 shrink-0">
-              <h3 className="font-display font-semibold text-base">
-                Slot {picking + 1}
-              </h3>
-              <button onClick={() => setPicking(null)} className="text-xs text-muted hover:text-ink">
-                Close
-              </button>
-            </div>
+      <Sheet open={picking !== null} onClose={() => setPicking(null)} wide
+        title={picking !== null ? `Slot ${picking + 1}: choose a card` : ''}>
+        {picking !== null && (
+          <>
 
             {occupant && (
               <button
                 onClick={() => clear(picking)}
                 disabled={busy}
-                className="mt-3 shrink-0 text-xs font-medium text-red-500 border border-red-500/30 rounded-lg px-3 py-2 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                className="w-full min-h-10 shrink-0 text-xs font-medium text-red-500 border border-red-500/30 rounded-lg px-3 py-2 hover:bg-red-500/10 transition-colors disabled:opacity-40"
               >
                 Take {occupant.name} off the shelf
               </button>
@@ -342,12 +329,12 @@ export default function ShowcasePanel({
                         />
                         <HoloMark rarity={c.rarity} />
                         {c.grade != null && (
-                          <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[9px] font-bold px-1.5 py-0.5 shadow">
+                          <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1.5 py-0.5 shadow">
                             {c.grade}
                           </span>
                         )}
                         {already && (
-                          <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[8px] font-mono text-center py-0.5 rounded-b">
+                          <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
                             on shelf
                           </span>
                         )}
@@ -358,9 +345,9 @@ export default function ShowcasePanel({
               </ul>
               </>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Sheet>
     </div>
   )
 }

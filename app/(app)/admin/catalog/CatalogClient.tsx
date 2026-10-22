@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
 import ProductThumb from '@/components/ProductThumb'
+import { useToast } from '@/components/ui/Toast'
 
 type Tab = 'sets' | 'products' | 'retailers' | 'stores'
 
@@ -23,7 +24,7 @@ export default function CatalogClient({
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [tab, setTab] = useState<Tab>('sets')
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
 
   // Set form state
   const [setName, setSetName] = useState('')
@@ -54,10 +55,7 @@ export default function CatalogClient({
   const [storeLng, setStoreLng] = useState('')
   const [storeRetailerId, setStoreRetailerId] = useState<string | null>(null)
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string) => toast.show(msg)
 
   async function addSet() {
     if (!setName.trim()) return
@@ -161,11 +159,6 @@ export default function CatalogClient({
 
   return (
     <div className="space-y-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg bg-ink text-white">
-          {toast}
-        </div>
-      )}
 
       <div className="flex gap-1 overflow-x-auto">
         {tabs.map((t) => (

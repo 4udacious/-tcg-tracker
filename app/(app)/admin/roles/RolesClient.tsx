@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 interface Member {
   id: string
@@ -40,7 +41,7 @@ export default function RolesClient({ members, userRole }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [query, setQuery] = useState('')
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
   // Per-member unsaved title edits, keyed by member id.
   const [titleDrafts, setTitleDrafts] = useState<Record<string, string>>({})
 
@@ -51,10 +52,7 @@ export default function RolesClient({ members, userRole }: Props) {
       )
     : members
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string) => toast.show(msg)
 
   async function handleSetRole(id: string, newRole: string) {
     const supabase = createClient()
@@ -100,11 +98,6 @@ export default function RolesClient({ members, userRole }: Props) {
 
   return (
     <div className="space-y-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg bg-ink text-white">
-          {toast}
-        </div>
-      )}
 
       <input
         type="text"

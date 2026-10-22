@@ -1,6 +1,7 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
+import { getSettings, onSettingsChange } from '@/lib/settings'
 
 /**
  * Sound for opening packs, synthesised on the spot with Web Audio: no files
@@ -69,7 +70,9 @@ function context(): AudioContext | null {
     comp.threshold.value = -12
     comp.ratio.value = 4
     out = ctx.createGain()
-    out.gain.value = 0.7
+    // Scaled by Settings → Effects volume, and kept in step if it changes.
+    out.gain.value = 0.7 * getSettings().effectsVolume
+    onSettingsChange(() => { if (out) out.gain.value = 0.7 * getSettings().effectsVolume })
     out.connect(comp).connect(ctx.destination)
 
     shimmer = ctx.createGain()

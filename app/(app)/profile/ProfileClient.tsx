@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { checkAchievements } from '@/lib/checkAchievements'
 import TrainerIconPicker from '@/components/TrainerIconPicker'
+import { useToast } from '@/components/ui/Toast'
 
 interface TrainerIcon {
   id: number
@@ -65,6 +66,8 @@ interface Props {
   progress: ProgressRow[]
   trainerIcons: TrainerIcon[]
   tokenBalance: number
+  /** Which tab to open on: the card's "Achievement progress" button asks for achievements. */
+  initialTab?: 'profile' | 'achievements'
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -130,20 +133,17 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
-export default function ProfileClient({ userId, profile, achievements, progress, trainerIcons, tokenBalance }: Props) {
+export default function ProfileClient({ userId, profile, achievements, progress, trainerIcons, tokenBalance, initialTab = 'profile' }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<'profile' | 'achievements'>('profile')
+  const [tab, setTab] = useState<'profile' | 'achievements'>(initialTab)
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toast = useToast()
   const initialIcon = one(profile?.trainer_icons ?? null)
   const [trainerIconFile, setTrainerIconFile] = useState<string | null>(initialIcon?.file ?? null)
   const [trainerIconId, setTrainerIconId] = useState<number | null>(profile?.trainer_icon_id ?? null)
 
-  function showToast(msg: string, ok: boolean) {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
   // Safety net: evaluate achievements on profile open so anything already
   // qualified (e.g. via data that predates a trigger) gets granted here.
@@ -199,11 +199,6 @@ export default function ProfileClient({ userId, profile, achievements, progress,
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg ${toast.ok ? 'bg-ok text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-1">

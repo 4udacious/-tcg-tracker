@@ -83,3 +83,23 @@ body {
     animation: none !important;
   }
 }
+
+/* ── shared UI kit (components/ui) ── */
+@keyframes ui-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes ui-sheet-in { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes ui-toast-in { from { transform: translateY(-8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes ui-pop-in { from { transform: translateY(-4px) scale(.98); opacity: 0 } to { transform: none; opacity: 1 } }
+.ui-fade-in { animation: ui-fade-in .18s ease-out }
+.ui-sheet-in { animation: ui-sheet-in .22s cubic-bezier(.2,.8,.3,1) }
+.ui-toast-in { animation: ui-toast-in .2s ease-out }
+.ui-pop-in { animation: ui-pop-in .14s ease-out; transform-origin: top right }
+
+/* Settings → Reduce motion → On: near enough every animation and transition
+   in the app is cut to an instant. "System" leaves it to each component's
+   own prefers-reduced-motion rules. */
+html[data-motion='reduce'] *, html[data-motion='reduce'] *::before, html[data-motion='reduce'] *::after {
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
+  scroll-behavior: auto !important;
+}

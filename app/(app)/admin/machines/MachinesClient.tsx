@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 interface Machine {
   id: string
@@ -37,7 +38,7 @@ interface EditState {
 export default function MachinesClient({ machines }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editState, setEditState] = useState<EditState | null>(null)
@@ -62,10 +63,7 @@ export default function MachinesClient({ machines }: Props) {
       )
     : machines
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string) => toast.show(msg)
 
   async function handleAdd() {
     if (!machineCode.trim() || !region.trim() || !city.trim() || !venue.trim()) return
@@ -144,11 +142,6 @@ export default function MachinesClient({ machines }: Props) {
 
   return (
     <div className="space-y-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg bg-ink text-white">
-          {toast}
-        </div>
-      )}
 
       <div className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
         <h3 className="font-semibold text-sm">Add machine</h3>

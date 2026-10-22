@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 interface PendingUser {
   id: string
@@ -20,7 +21,7 @@ export default function ApprovalsClient({ pendingUsers }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [query, setQuery] = useState('')
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
 
   const filtered = query
     ? pendingUsers.filter((u) =>
@@ -29,10 +30,7 @@ export default function ApprovalsClient({ pendingUsers }: Props) {
       )
     : pendingUsers
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string) => toast.show(msg)
 
   async function handleApprove(id: string, role: 'member' | 'contributor') {
     const supabase = createClient()
@@ -52,11 +50,6 @@ export default function ApprovalsClient({ pendingUsers }: Props) {
 
   return (
     <div className="space-y-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg bg-ink text-white">
-          {toast}
-        </div>
-      )}
 
       <div className="space-y-1">
         <h2 className="font-display font-semibold text-base">Pending Approvals</h2>

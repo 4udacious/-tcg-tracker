@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
 
 export interface SetItem {
   set_code: string
@@ -21,7 +22,7 @@ const DESCRIPTION_MAX = 500
 export default function VvmItemsClient({ sets }: { sets: SetItem[] }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({})
@@ -56,10 +57,7 @@ export default function VvmItemsClient({ sets }: { sets: SetItem[] }) {
     startTransition(() => router.refresh())
   }
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string) => toast.show(msg)
 
   async function handleSave(setCode: string, value: string) {
     setSaving(setCode)
@@ -84,11 +82,6 @@ export default function VvmItemsClient({ sets }: { sets: SetItem[] }) {
 
   return (
     <div className="space-y-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg bg-ink text-white">
-          {toast}
-        </div>
-      )}
 
       <div className="space-y-1">
         <h2 className="font-display font-semibold text-base">Machine Items</h2>
