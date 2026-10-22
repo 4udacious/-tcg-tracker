@@ -9,7 +9,8 @@ const SECURITY_HEADERS = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+    // Location is ours only (Timers' "Near me"); no frame or other site gets it.
+    value: "camera=(), microphone=(), geolocation=(self), interest-cohort=()",
   },
 ];
 
