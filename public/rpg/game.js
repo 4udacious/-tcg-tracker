@@ -1294,6 +1294,23 @@ const ringNet = (acc, eva) => Math.max(-STAGE_MAX, Math.min(0, (acc ?? 0) - (eva
 const strikeRing = (net) => ({ speed: 1 - 0.15 * -net, tight: 1 - 0.2 * -net })   // your ring: faster, tighter
 const defendRing = (net) => ({ speed: 1 + 0.15 * -net, wide: 1 + 0.2 * -net })    // their ring on you: slower, wider windows
 /**
+ * Defending, by how close to the hit you press (ms either side, before
+ * defendRing's `wide`): a PERFECT parry or jump blocks it all, a good one
+ * most of it, a dodge some of it. Parries and jumps earn the PP either way;
+ * only PERFECT parries on every hit earn the counter.
+ */
+const DEFEND_MS = { perfect: 35, parry: 90, dodge: 170, jump: 190 }
+const DEFEND_TAKEN = { miss: 1, dodge: 0.4, parry: 0.2, jump: 0.2, perfect: 0 }
+/** 'parry' / 'jump' / 'dodge' / 'miss' for a press `dt` ms off the hit, and whether it was PERFECT. */
+function defendResult(first, dt, low, wide) {
+  const d = Math.abs(dt), perfect = d <= DEFEND_MS.perfect * wide
+  if (low) return first?.btn === 'up' && d <= DEFEND_MS.jump * wide ? { r: 'jump', perfect } : { r: 'miss' }
+  if (first?.btn === 'a' && d <= DEFEND_MS.parry * wide) return { r: 'parry', perfect }
+  if (first?.btn === 'b' && d <= DEFEND_MS.dodge * wide) return { r: 'dodge' }
+  return { r: 'miss' }
+}
+const takenOf = ({ r, perfect }) => (perfect ? DEFEND_TAKEN.perfect : DEFEND_TAKEN[r])
+/**
  * How a foe paces its attacks, so you have to watch the ring rather than tap
  * from rhythm: each hit's ring closes at a speed picked from `speed`, after a
  * wind-up of up to `wait` ms once the move is announced. `tell` is the chance
@@ -3678,7 +3695,7 @@ async function run(id) {
       const t0 = performance.now(), hitAt = t0 + approach
       if (demo && !auto) {
         const p = ownPartner ? 'jump' : step?.defend?.shift() ?? (mv.kind === 'low' ? 'jump' : 'parry')
-        const at = { parry: approach - 40, dodge: approach - 120, jump: approach - 70, late: approach + 190 }[p]
+        const at = { parry: approach - 10, dodge: approach - 120, jump: approach - 10, late: approach + 190 }[p]
         setTimeout(() => { if (!live()) return; const b = { parry: 'a', dodge: 'b', jump: 'up', late: 'a' }[p]; hot($('pDefend').querySelector(`[data-btn="${b}"]`)); press(b) }, at)
       }
       const rg = mv.kind === 'low' ? groundRing(T.c.x, DUO_AT.p[T.i].y - 4, approach) : ring(T.c.x, T.c.y, approach, '')
@@ -3694,28 +3711,29 @@ async function run(id) {
       off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed')); panel(null)
       if (T.mon.status === 'frz') first = null   // frozen solid: no parry, dodge or jump
       const dt = first ? first.t - hitAt : Infinity
-      let r = 'miss'
-      if (auto) r = flavor() < (mv.kind === 'low' ? 0.8 : 0.65) ? (mv.kind === 'low' ? 'jump' : 'parry') : 'miss'   // good, not perfect
-      else if (mv.kind === 'low') { if (first?.btn === 'up' && Math.abs(dt) <= 260 * dr.wide) r = 'jump' }
-      else if (first?.btn === 'a' && Math.abs(dt) <= 120 * dr.wide) r = 'parry'
-      else if (first?.btn === 'b' && Math.abs(dt) <= 230 * dr.wide) r = 'dodge'
+      // A partner defends their own: usually good, now and then PERFECT.
+      const res = auto ? (flavor() < (mv.kind === 'low' ? 0.8 : 0.65) ? { r: mv.kind === 'low' ? 'jump' : 'parry', perfect: flavor() < 0.3 } : { r: 'miss' })
+        : defendResult(first, dt, mv.kind === 'low', dr.wide)
+      const { r, perfect } = res, taken = takenOf(res)
       if (mv.fx === 'quake' && !ownPartner) { sfx('quake'); shake(8, 420) }
-      if (r === 'parry') { sfx('parry'); pop('PARRY!', T.c.x, T.c.y - 64, 'gold'); sparks(T.c.x + 20, T.c.y - 20) }
+      if (r === 'parry') { sfx('parry'); pop(perfect ? 'PERFECT!' : 'PARRY', T.c.x, T.c.y - 64, perfect ? 'gold' : 'gold small'); if (perfect) sparks(T.c.x + 20, T.c.y - 20) }
       else if (r === 'dodge') { sfx('dodge'); pop('DODGE', T.c.x, T.c.y - 64, 'blue'); anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(-26px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 340 }) }
-      else if (r === 'jump') { sfx('jump'); pop('JUMP!', T.c.x, T.c.y - 76, 'green'); anim(T.el, [{ transform: 'translateY(0)' }, { transform: 'translateY(-50px)', offset: .45 }, { transform: 'translateY(0)' }], { duration: 520 }) }
-      else {
-        if (mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
-        const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, mult)
-        sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', .2, 140); if (!auto) buzz(eff > 1 ? 60 : 30)
+      else if (r === 'jump') { sfx('jump'); pop(perfect ? 'PERFECT JUMP!' : 'JUMP!', T.c.x, T.c.y - 76, 'green'); anim(T.el, [{ transform: 'translateY(0)' }, { transform: 'translateY(-50px)', offset: .45 }, { transform: 'translateY(0)' }], { duration: 520 }) }
+      // A clean hit does it all; a dodge or a good-but-not-PERFECT parry or jump lets some through (DEFEND_TAKEN).
+      if (taken > 0) {
+        const hit = r === 'miss'
+        if (hit && mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
+        const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, mult * taken)
+        sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .2 : .1, 140); if (!auto) buzz(hit ? (eff > 1 ? 60 : 30) : 15)
         const from = T.mon.hp
-        await Promise.all([blink(T.el, 2), hpTo(T, Math.max(demo ? 1 : 0, from - dmg))])
-        pop(`-${from - T.mon.hp}`, T.c.x + 36, T.c.y - 40, 'red')
-        if (ownPartner) await say(`${T.mon.name} got caught in it!`, '', 200)
-        if (T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
-        if (T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
+        await Promise.all([hit ? blink(T.el, 2) : null, hpTo(T, Math.max(demo ? 1 : 0, from - dmg))])
+        pop(`-${from - T.mon.hp}`, T.c.x + 36, T.c.y - 40, hit ? 'red' : 'red small')
+        if (hit && ownPartner) await say(`${T.mon.name} got caught in it!`, '', 200)
+        if (hit && T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
+        if (hit && T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
       }
       await W(mv.hits > 1 ? 70 : 160)
-      return r
+      return res
     }
 
     async function incoming(act, step) {
@@ -3734,11 +3752,11 @@ async function run(id) {
         for (let h = 0; h < (mv.hits ?? 1); h++) {
           if (T.mon.hp <= 0) break
           if (h === 0) await tip(T.ally ? 'partner' : mv.kind === 'low' ? 'jump' : 'defend')
-          const r = await defendHit(T, actor, mv, h, step, spread ? 0.75 : 1)
+          const { r, perfect } = await defendHit(T, actor, mv, h, step, spread ? 0.75 : 1)
           if (!T.ally) { rings++; if (r === 'parry' || r === 'jump') evaded++ }   // PP is yours: only your rings count
-          if (r !== 'parry') allParried = false
+          if (r !== 'parry' || !perfect) allParried = false
         }
-        // A clean parry of every hit earns a counter, as in 1v1.
+        // A PERFECT parry of every hit earns a counter, as in 1v1.
         if (allParried && mv.kind !== 'low' && T.mon.hp > 0 && actor.mon.hp > 0) {
           sfx('counter'); pop('COUNTER!', T.c.x + 40, T.c.y - 90, 'orange'); await W(120)
           await strikeFx({ fx: 'dash' }, T.c, actor.c, T.el)
@@ -5055,9 +5073,9 @@ async function run(id) {
         cap(mv.kind === 'low' ? 'JUMP' : mv.hits > 1 ? 'PARRY THE COMBO' : next === 'dodge' ? 'DODGE' : next === 'late' ? 'MISSED' : 'PARRY',
           mv.kind === 'low' ? `${mv.name} comes along the ground — it can't be parried or dodged. Jump it with ▲ for +1 PP.`
           : mv.hits > 1 ? `${mv.name} hits ${mv.hits} times. The timing ring sits in front of ${me.name} for every hit — parry all of them for a counter.`
-          : next === 'dodge' ? 'Dodge works here too: a wider window, no damage, but no PP.'
+          : next === 'dodge' ? 'Dodge works here too: a wider window and less damage, but no PP.'
           : next === 'late' ? `Too late — ${me.name} takes the hit, and keeps the damage after the battle.`
-          : 'Parry with A: a tight window, no damage, +1 PP, and a counter.')
+          : 'Parry with A: a tight window, +1 PP. Hit it PERFECT for no damage and a counter.')
       }
       panel('pDefend')
       // The move's name stays up long enough to read it and decide.
@@ -5085,7 +5103,7 @@ async function run(id) {
         const t0 = performance.now(), hitAt = t0 + approach + feint
         if (demo) {
           const p = planD.shift() ?? (kind_ === 'low' ? 'jump' : 'parry')
-          const at = feint + { parry: approach - 40, dodge: approach - 120, jump: approach - 70, late: approach + 190 }[p]
+          const at = feint + { parry: approach - 10, dodge: approach - 120, jump: approach - 10, late: approach + 190 }[p]
           setTimeout(() => { if (!live()) return; const b = { parry: 'a', dodge: 'b', jump: 'up', late: 'a' }[p]; hot($('pDefend').querySelector(`[data-btn="${b}"]`)); press(b) }, at)
         }
         const rg = kind_ === 'low' ? groundRing(FOOT.p.x, FOOT.p.y - 4, approach) : ring(C.p.x, C.p.y, approach, '')
@@ -5105,27 +5123,26 @@ async function run(id) {
         off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed'))
         if (me.status === 'frz') first = null   // frozen solid: no parry, dodge or jump
         const dt = first ? first.t - hitAt : Infinity
-        let r = 'miss'
-        if (kind_ === 'low') { if (first?.btn === 'up' && Math.abs(dt) <= 260 * dr.wide) r = 'jump' }
-        else if (first?.btn === 'a' && Math.abs(dt) <= 120 * dr.wide) r = 'parry'
-        else if (first?.btn === 'b' && Math.abs(dt) <= 230 * dr.wide) r = 'dodge'
+        const res = defendResult(first, dt, kind_ === 'low', dr.wide), { r, perfect } = res, taken = takenOf(res)
         if (mv.fx === 'quake') { sfx('quake'); shake(10, 520) }
         if (mv.snd === 'coin') sfx('coin')
-        if (r !== 'parry') allParried = false
-        if (r === 'parry') { addBond(me, 2); sfx('parry'); pop('PARRY!', C.p.x + h * 14, C.p.y - 64 - h * 18, 'gold'); sparks(C.p.x + 30, C.p.y - 26); flash('#fff', .35, 90); evaded++ }
+        if (r !== 'parry' || !perfect) allParried = false   // the counter takes PERFECT parries
+        if (r === 'parry') { addBond(me, perfect ? 2 : 1); sfx('parry'); pop(perfect ? 'PERFECT!' : 'PARRY', C.p.x + h * 14, C.p.y - 64 - h * 18, perfect ? 'gold' : 'gold small'); if (perfect) { sparks(C.p.x + 30, C.p.y - 26); flash('#fff', .35, 90) } evaded++ }
         else if (r === 'dodge') { sfx('dodge'); pop('DODGE', C.p.x, C.p.y - 64, 'blue'); anim($('player'), [{ transform: 'translateX(0)' }, { transform: 'translateX(-34px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 360 }) }
-        else if (r === 'jump') { sfx('jump'); pop('JUMP!', C.p.x, C.p.y - 80, 'green'); anim($('player'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-60px)', offset: .45 }, { transform: 'translateY(0)' }], { duration: 540 }); evaded++ }
-        else {
-          if (mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
-          const { dmg, eff } = damage(foe, me, mv, 1)
+        else if (r === 'jump') { sfx('jump'); pop(perfect ? 'PERFECT JUMP!' : 'JUMP!', C.p.x, C.p.y - 80, 'green'); anim($('player'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-60px)', offset: .45 }, { transform: 'translateY(0)' }], { duration: 540 }); evaded++ }
+        // A clean hit does it all; a dodge or a good-but-not-PERFECT parry or jump lets some through (DEFEND_TAKEN).
+        if (taken > 0) {
+          const hit = r === 'miss'
+          if (hit && mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
+          const { dmg, eff } = damage(foe, me, mv, taken)
           const from = me.hp; me.hp = Math.max(0, me.hp - dmg)
-          sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', .25, 160); buzz(eff > 1 ? 60 : 30)
-          pop(`-${dmg}`, C.p.x + 40, C.p.y - 40, 'red')
-          await Promise.all([blink($('player')), drain('p', from, me.hp, me.stats.hp)])
+          sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .25 : .12, 160); buzz(hit ? (eff > 1 ? 60 : 30) : 15)
+          pop(`-${dmg}`, C.p.x + 40, C.p.y - 40, hit ? 'red' : 'red small')
+          await Promise.all([hit ? blink($('player')) : null, drain('p', from, me.hp, me.stats.hp)])
           renderTools()
           if (me.hp <= 0) { panel(null); return }
-          if (me.status === 'frz' && mv.type === 'fire') { me.status = null; showTags(); await say(who(me), STATUS_TEXT.thaw, 300) }
-          await afflict(me, statusFromHit(me, mv, rand))
+          if (hit && me.status === 'frz' && mv.type === 'fire') { me.status = null; showTags(); await say(who(me), STATUS_TEXT.thaw, 300) }
+          if (hit) await afflict(me, statusFromHit(me, mv, rand))
         }
         await W(hits > 1 ? 80 : 220)
       }
