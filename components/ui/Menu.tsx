@@ -7,16 +7,26 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
  * A button that drops a small panel down from the header (the bell, the
  * account menu). A tap outside, Escape, or picking an item closes it.
  */
-export function Menu({ trigger, label, children, width = 'w-72' }: {
+export function Menu({ trigger, label, children, width = 'w-72', onOpenChange }: {
   /** What the header shows; receives whether the menu is open. */
   trigger: (open: boolean) => ReactNode
   label: string
   /** The panel; gets a `close` to call from its items. */
   children: (close: () => void) => ReactNode
   width?: string
+  /** Called after the menu opens or closes. */
+  onOpenChange?: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
+  // Skip the first render: the menu starts closed, that's not a change.
+  const changed = useRef(onOpenChange)
+  changed.current = onOpenChange
+  const mounted = useRef(false)
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return }
+    changed.current?.(open)
+  }, [open])
 
   useEffect(() => {
     if (!open) return

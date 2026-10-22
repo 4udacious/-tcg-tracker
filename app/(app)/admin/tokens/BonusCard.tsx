@@ -14,10 +14,10 @@ const QUICK = [1, 2, 5, 10, 25]
 
 /**
  * A one-off token bonus, to whoever you choose (or everyone), whenever you
- * like. Each one goes through adjust_tokens, so it's admin-checked in the
- * database, lands in the ledger with your name and the reason, and is kept:
- * bonus tokens go in the earned bucket and don't expire with the monthly
- * allowance.
+ * like. grant_token_bonus is admin-checked in the database and runs as one
+ * transaction: each member gets a ledger row with your name and the reason,
+ * plus a notice in their bell. Bonus tokens are kept: they go in the earned
+ * bucket and don't expire with the monthly allowance.
  */
 export default function BonusCard({ members }: { members: BonusMember[] }) {
   const router = useRouter()
@@ -28,7 +28,7 @@ export default function BonusCard({ members }: { members: BonusMember[] }) {
   const [search, setSearch] = useState('')
   const [reason, setReason] = useState('')
   const [confirming, setConfirming] = useState(false)
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [giving, setGiving] = useState(false)
 
   const name = (m: BonusMember) => m.display_name ?? m.username
   const n = Number(amount)
@@ -44,23 +44,16 @@ export default function BonusCard({ members }: { members: BonusMember[] }) {
   }
 
   async function give() {
-    const list = recipients
-    const note = `Bonus${reason.trim() ? ` — ${reason.trim()}` : ''}`
-    setProgress({ done: 0, total: list.length })
-    const supabase = createClient()
-    let ok = 0
-    const failed: string[] = []
-    // One at a time: each is its own ledger row, and a failure (say, a deleted
-    // account) doesn't stop the rest.
-    for (const m of list) {
-      const { error } = await supabase.rpc('adjust_tokens', { target: m.user_id, amount: n, note })
-      if (error) failed.push(name(m)); else ok++
-      setProgress({ done: ok + failed.length, total: list.length })
-    }
-    setProgress(null); setConfirming(false)
-    if (ok) toast.ok(`Gave ${n} token${n === 1 ? '' : 's'} to ${ok} ${ok === 1 ? 'member' : 'members'}.`)
-    if (failed.length) toast.error(`Couldn't give tokens to ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ` and ${failed.length - 3} more` : ''}.`)
-    if (ok) { setPicked(new Set()); setEveryone(false); setReason(''); router.refresh() }
+    setGiving(true)
+    // All or nothing: one transaction gives everyone their tokens and their notice.
+    const { data, error } = await createClient().rpc('grant_token_bonus', {
+      p_targets: recipients.map((m) => m.user_id), p_amount: n, p_reason: reason.trim(),
+    })
+    setGiving(false); setConfirming(false)
+    if (error) { toast.error(`Couldn't give the bonus: ${error.message}`); return }
+    const ok = Number(data ?? recipients.length)
+    toast.ok(`Gave ${n} token${n === 1 ? '' : 's'} to ${ok} ${ok === 1 ? 'member' : 'members'}.`)
+    setPicked(new Set()); setEveryone(false); setReason(''); router.refresh()
   }
 
   const who = everyone ? `everyone (${members.length})` : recipients.length === 1 ? name(recipients[0]) : `${recipients.length} members`
@@ -136,19 +129,19 @@ export default function BonusCard({ members }: { members: BonusMember[] }) {
         <input id="bonus-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={120}
           placeholder="Thanks for the restock reports"
           className="w-full min-h-10 bg-paper border border-card-border rounded-xl px-3 text-sm outline-none focus:border-signal placeholder:text-muted" />
-        <p className="text-xs text-muted">Shows in the ledger, next to the bonus.</p>
+        <p className="text-xs text-muted">Shows in the ledger and in their notification.</p>
       </div>
 
       <Button full disabled={!amountOk || recipients.length === 0} onClick={() => setConfirming(true)}>
         {recipients.length === 0 ? 'Pick who gets it' : `Give ${n} token${n === 1 ? '' : 's'} to ${who}`}
       </Button>
 
-      <Sheet open={confirming} onClose={() => { if (!progress) setConfirming(false) }} title="Give this bonus?"
+      <Sheet open={confirming} onClose={() => { if (!giving) setConfirming(false) }} title="Give this bonus?"
         footer={(
           <div className="flex gap-2">
-            <Button variant="outline" full disabled={!!progress} onClick={() => setConfirming(false)}>Cancel</Button>
-            <Button full loading={!!progress} onClick={give}>
-              {progress ? `Giving… ${progress.done}/${progress.total}` : 'Give tokens'}
+            <Button variant="outline" full disabled={giving} onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button full loading={giving} onClick={give}>
+              {giving ? 'Giving…' : 'Give tokens'}
             </Button>
           </div>
         )}>
