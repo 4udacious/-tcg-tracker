@@ -146,6 +146,26 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .bDodge { left: 208px; top: 52px; width: 106px; height: 74px; background: linear-gradient(#38bdf8, #1d4ed8); font-size: 18px; }
 .bJump { left: 6px; top: 132px; width: 308px; height: 38px; background: linear-gradient(#4ade80, #15803d); font-size: 16px; text-align: center; padding-top: 6px; }
 .bStrike { left: 6px; top: 52px; width: 308px; height: 118px; background: linear-gradient(#fb7185, #be123c); font-size: 30px; text-align: center; padding-top: 30px; }
+/* Swipe moves (Cross Chop, X-Scissor…): the arrows to enter, and a pad to enter them on. */
+.padcue { position: absolute; left: 6px; right: 6px; top: 50px; height: 34px; display: flex; gap: 6px; justify-content: center; align-items: center; font-weight: 800; font-size: 22px; color: #fff; text-shadow: 0 2px 0 rgb(0 0 0 / .4); }
+.padcue i { font-style: normal; width: 34px; height: 30px; border-radius: 8px; background: rgb(255 255 255 / .14); display: grid; place-items: center; }
+.padcue i.ok { background: #16a34a; } .padcue i.bad { background: #dc2626; }
+.pad { top: 90px; width: 71px; height: 80px; font-size: 26px; text-align: center; padding-top: 22px; background: linear-gradient(#64748b, #334155); }
+.pad.pl { left: 6px; } .pad.pu { left: 83px; } .pad.pd { left: 160px; } .pad.pr { left: 237px; }
+/* Hold-and-release moves (Hyper Beam…): the meter by the target, its sweet spot, and the fill. */
+.meter { position: absolute; width: 16px; height: 96px; border-radius: 8px; background: rgb(15 23 42 / .75); border: 2px solid #fff; overflow: hidden; z-index: 4; }
+.meter .zone { position: absolute; left: 0; right: 0; background: rgb(250 204 21 / .55); }
+.meter .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(#fb7185, #f97316); }
+.meter.over .fill { background: #94a3b8; }
+/* Tracking moves (Psychic, Ice Beam…): hold A while the dot is inside the bright arc. */
+.track { position: absolute; width: 112px; height: 112px; border-radius: 50%; z-index: 4; pointer-events: none; }
+.track .arc { position: absolute; inset: 0; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 46px, #000 47px); mask: radial-gradient(circle, transparent 46px, #000 47px); }
+.track .dot { position: absolute; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
+.track.on .dot { background: #fde047; box-shadow: 0 0 12px #fde047; }
+/* Rhythm moves (Sing): the beats, lit as you hit them. */
+.beats { position: absolute; display: flex; gap: 8px; transform: translateX(-50%); z-index: 4; }
+.beats i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; background: rgb(15 23 42 / .6); }
+.beats i.now { background: #fff; } .beats i.hit { background: #4ade80; } .beats i.miss { background: #f87171; }
 .talk { display: none; position: absolute; inset: 0; padding: 10px; }
 .talk .face { position: absolute; left: 10px; top: 12px; width: 92px; height: 92px; border-radius: 12px; border: 3px solid #f8fafc; box-shadow: 0 3px 0 rgba(0,0,0,.4); object-fit: cover; background: #111; }
 .talk .tag { position: absolute; left: 112px; top: 12px; background: #e11d48; color: #fff; font-weight: 700; font-size: 13px; padding: 2px 9px; border-radius: 6px; letter-spacing: .03em; }
@@ -762,6 +782,17 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .tags .st { color: #fff !important; }
 .tags .st.par { background: #ca8a04 !important; } .tags .st.frz { background: #0891b2 !important; }
 .tags .st.brn { background: #dc2626 !important; } .tags .st.psn { background: #9333ea !important; }
+.tags .st.tox { background: #6b21a8 !important; } .tags .st.slp { background: #64748b !important; }
+/* Weather (Rain Dance, Sunny Day): a tint over the battle screen while it lasts. */
+#battleL[data-wx="rain"]::after, #battleL[data-wx="sun"]::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+#battleL[data-wx="rain"]::after { background: repeating-linear-gradient(105deg, rgb(147 197 253 / .16) 0 2px, transparent 2px 14px), rgb(30 64 175 / .10); animation: rainfall .5s linear infinite; }
+#battleL[data-wx="sun"]::after { background: radial-gradient(circle at 85% 0%, rgb(253 224 71 / .35), transparent 55%), rgb(251 191 36 / .08); }
+@keyframes rainfall { to { background-position: -6px 14px, 0 0; } }
+@media (prefers-reduced-motion: reduce) { #battleL[data-wx="rain"]::after { animation: none; } }
+/* Confused: the strike ring and its target drift around while they close. */
+.wobble { animation: wobble 900ms ease-in-out infinite alternate; }
+@keyframes wobble { 0% { translate: 0 0; } 25% { translate: 9px -5px; } 50% { translate: -7px 6px; } 75% { translate: 6px 7px; } 100% { translate: -9px -4px; } }
+@media (prefers-reduced-motion: reduce) { .wobble { animation-duration: 2400ms; } }
 
 .t-cure { background: linear-gradient(#5eead4, #0f766e); }
 
@@ -984,6 +1015,10 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
               <div class="panel" id="pEvo">
                 <button class="btn bEvoStop" data-btn="b">STOP<small>it will try again in 5 levels</small><span class="key">B</span></button>
               </div>
+              <div class="panel" id="pPad">
+                <div class="padcue" id="padCue">SWIPE!</div>
+                <button class="btn pad pl" data-btn="left">◀</button><button class="btn pad pu" data-btn="up">▲</button><button class="btn pad pd" data-btn="down">▼</button><button class="btn pad pr" data-btn="right">▶</button>
+              </div>
               <div class="panel" id="pStrike">
                 <button class="btn bStrike" id="bStrike" data-btn="a">STRIKE!<small style="font-size:12px;margin-top:6px">tap as the ring closes</small><span class="key">A</span></button>
               </div>
@@ -1026,6 +1061,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=60218affcf"></script>
+<script src="/rpg/game.js?v=46da816608"></script>
 </body>
 </html>
