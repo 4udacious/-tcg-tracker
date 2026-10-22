@@ -1291,6 +1291,21 @@ const STAGE_MAX = 3
 const ringNet = (acc, eva) => Math.max(-STAGE_MAX, Math.min(0, (acc ?? 0) - (eva ?? 0)))
 const strikeRing = (net) => ({ speed: 1 - 0.15 * -net, tight: 1 - 0.2 * -net })   // your ring: faster, tighter
 const defendRing = (net) => ({ speed: 1 + 0.15 * -net, wide: 1 + 0.2 * -net })    // their ring on you: slower, wider windows
+/**
+ * How a foe paces its attacks, so you have to watch the ring rather than tap
+ * from rhythm: each hit's ring closes at a speed picked from `speed`, after a
+ * wind-up of up to `wait` ms once the move is announced. `tell` is the chance
+ * of a feint, ×2 or low → high (Gym Leaders keep their own `tellRate`).
+ * Wild Pokémon and Brian vary a little; scalpers and leaders a lot. Everyday
+ * trainers and the crew start throwing tells once your lead is Lv 15.
+ */
+function attackPace(T, lv) {
+  if (!T || T.easy) return { speed: [0.92, 1.08], wait: 250, tell: 0 }
+  if (T.hard) return { speed: [0.75, 1.15], wait: 550, tell: 0 }
+  if (T === HERB || T === PAUL) return { speed: [0.78, 1.15], wait: 500, tell: lv >= 10 ? 0.25 : 0.12 }
+  return { speed: [0.85, 1.12], wait: 400, tell: lv >= 15 ? 0.12 : 0 }
+}
+const paceRoll = ([lo, hi]) => lo + Math.random() * (hi - lo)
 /** "ACC▼2", "EVA▲" for the HUD tags. */
 const stageTags = (t) => [t.acc && `ACC${t.acc > 0 ? '▲' : '▼'}${Math.abs(t.acc) > 1 ? Math.abs(t.acc) : ''}`, t.eva && `EVA${t.eva > 0 ? '▲' : '▼'}${Math.abs(t.eva) > 1 ? Math.abs(t.eva) : ''}`].filter(Boolean)
 Object.assign(DISC_RULES, { 'SAND ATTACK': { all: true }, SMOKESCREEN: { all: true }, 'DOUBLE TEAM': { all: true }, MINIMIZE: { all: true }, FLASH: { all: true } })
@@ -3647,12 +3662,18 @@ async function run(id) {
      */
     async function defendHit(T, actor, mv, h, step, mult, ownPartner = false) {
       const dr = defendRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); if (T.mon.status === 'par') dr.wide *= 0.8
-      const approach = Math.round((mv.fast ? 640 : h === 0 ? 820 : 560) * dr.speed)
-      const t0 = performance.now(), hitAt = t0 + approach
+      // Every ring closes at its own speed, after a wind-up of its own (see attackPace).
+      const pace = attackPace(ownPartner ? null : actor.owner, leadLevel())
+      const vary = demo ? 1 : paceRoll(pace.speed), windup = demo || ownPartner ? 0 : Math.round(Math.random() * pace.wait)
+      const approach = Math.round((mv.fast ? 640 : h === 0 ? 820 : 560) * dr.speed * vary)
       let first = null
       const auto = T.ally   // a partner's Pokémon: they defend it, and your presses don't count here
-      const off = auto ? () => {} : listen((btn, t) => { if (!first && t >= t0 && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
+      // Armed through the wind-up, so tapping early still counts as your press (and misses).
+      const armed = performance.now()
+      const off = auto ? () => {} : listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
       if (auto) panel(null); else { panel('pDefend'); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed')) }
+      if (windup) await W(windup)
+      const t0 = performance.now(), hitAt = t0 + approach
       if (demo && !auto) {
         const p = ownPartner ? 'jump' : step?.defend?.shift() ?? (mv.kind === 'low' ? 'jump' : 'parry')
         const at = { parry: approach - 40, dodge: approach - 120, jump: approach - 70, late: approach + 190 }[p]
@@ -5039,8 +5060,9 @@ async function run(id) {
       panel('pDefend')
       // The move's name stays up long enough to read it and decide.
       await announce(`${kind === 'trainer' ? '' : 'The wild '}${foe.name} used`, `${mv.name}!`, READ_MS)
-      // A leader's tell, on some attacks: a feint, a second ring, or low-then-high.
-      const tell = trainer?.hard && rand() < (trainer.tellRate ?? 0.4) ? leaderTell(foe) : null
+      // A tell, on some attacks: a feint, a second ring, or low-then-high. Leaders most, scalpers and veterans now and then.
+      const pace = attackPace(kind === 'trainer' ? trainer : null, me.level)
+      const tell = trainer?.hard ? (rand() < (trainer.tellRate ?? 0.4) ? leaderTell(foe) : null) : !demo && Math.random() < pace.tell ? leaderTell(foe) : null
       const hits = tell === 'double' ? (mv.hits ?? 1) + 1 : tell === 'lowHigh' ? 2 : mv.hits
       const kindOf = (h) => (tell === 'lowHigh' ? (h === 0 ? 'low' : 'strike') : mv.kind)
       if (tell) { pop(TELL_LABEL[tell], C.e.x - 10, C.e.y - 86, 'orange'); sfx('blocked'); await W(350) }
@@ -5049,16 +5071,21 @@ async function run(id) {
         const kind_ = kindOf(h), feint = tell === 'feint' && h === 0 ? 450 : 0   // a feint holds the ring still this long
         // Leaders' attacks close faster: less time to react.
         const dr = defendRing(ringNet(ST(foe).acc, ST(me).eva)); if (me.status === 'par') dr.wide *= 0.8
-        const approach = Math.round((mv.fast ? 640 : h === 0 ? 860 : 560) * (trainer?.hard ? trainer.ringFast ?? 0.8 : 1) * dr.speed)
-        const t0 = performance.now(), hitAt = t0 + approach + feint
+        // Every ring closes at its own speed, after a wind-up of its own: no two attacks share a rhythm.
+        const vary = demo ? 1 : paceRoll(pace.speed), windup = demo ? 0 : Math.round(Math.random() * pace.wait)
+        const approach = Math.round((mv.fast ? 640 : h === 0 ? 860 : 560) * (trainer?.hard ? trainer.ringFast ?? 0.8 : 1) * dr.speed * vary)
+        // Armed through the wind-up, so tapping early still counts as your press (and misses).
+        const armed = performance.now()
         let first = null
-        const off = listen((btn, t) => { if (!first && t >= t0 && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
+        const off = listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
+        document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed'))
+        if (windup) await W(windup)
+        const t0 = performance.now(), hitAt = t0 + approach + feint
         if (demo) {
           const p = planD.shift() ?? (kind_ === 'low' ? 'jump' : 'parry')
           const at = feint + { parry: approach - 40, dodge: approach - 120, jump: approach - 70, late: approach + 190 }[p]
           setTimeout(() => { if (!live()) return; const b = { parry: 'a', dodge: 'b', jump: 'up', late: 'a' }[p]; hot($('pDefend').querySelector(`[data-btn="${b}"]`)); press(b) }, at)
         }
-        document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed'))
         const rg = kind_ === 'low' ? groundRing(FOOT.p.x, FOOT.p.y - 4, approach) : ring(C.p.x, C.p.y, approach, '')
         if (feint) setTimeout(() => {   // the feint: the ring stops halfway and flickers, then carries on
           if (!live()) return
