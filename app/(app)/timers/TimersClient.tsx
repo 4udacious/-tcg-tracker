@@ -160,7 +160,14 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [locating, setLocating] = useState(false)
   const [nearby, setNearby] = useState<{ machine: Machine; miles: number }[] | null>(null)
   const [locateError, setLocateError] = useState<string | null>(null)
+  // Where the user is, once known: every list then shows (and sorts by) distance.
+  const [here, setHere] = useState<{ lat: number; lon: number } | null>(null)
   const mapped = useMemo(() => machines.filter((m) => m.latitude != null && m.longitude != null), [machines])
+  const milesTo = useMemo(() => {
+    const byId = new Map<string, number>()
+    if (here) for (const m of mapped) byId.set(m.id, milesBetween(here.lat, here.lon, Number(m.latitude), Number(m.longitude)))
+    return (id: string | undefined) => (id ? byId.get(id) : undefined)
+  }, [here, mapped])
 
   // Shows a machine in whichever picker holds it: favorites if it's starred, else search.
   function pickMachine(id: string) {
@@ -168,26 +175,34 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     setSelectedMachineId(id)
   }
 
-  function findNearMe() {
+  /**
+   * Finds the user and lists the 3 closest machines. Tapped, it selects the
+   * nearest. On opening the page (`auto`), it only selects one they're
+   * standing at (within NEAR_ENOUGH_MILES), keeps quiet about failures, and
+   * otherwise leaves their last machine selected.
+   */
+  function findNearMe(auto = false) {
     setLocateError(null)
     if (!('geolocation' in navigator)) {
-      setLocateError("This browser can't share your location. Use Search instead.")
+      if (!auto) setLocateError("This browser can't share your location. Use Search instead.")
       return
     }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setLocating(false)
+        setHere({ lat: coords.latitude, lon: coords.longitude })
         const ranked = mapped
           .map((m) => ({ machine: m, miles: milesBetween(coords.latitude, coords.longitude, Number(m.latitude), Number(m.longitude)) }))
           .sort((a, b) => a.miles - b.miles)
           .slice(0, 3)
-        if (ranked.length === 0) { setLocateError('No machines have a map location yet. Use Search instead.'); return }
+        if (ranked.length === 0) { if (!auto) setLocateError('No machines have a map location yet. Use Search instead.'); return }
         setNearby(ranked)
-        pickMachine(ranked[0].machine.id)
+        if (!auto || ranked[0].miles <= NEAR_ENOUGH_MILES) pickMachine(ranked[0].machine.id)
       },
       (err) => {
         setLocating(false)
+        if (auto) return
         setLocateError(err.code === err.PERMISSION_DENIED
           ? 'Location is blocked for this site. Allow it in your browser settings, or use Search.'
           : "Couldn't find your location. Try again, or use Search.")
@@ -195,6 +210,17 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     )
   }
+
+  // On opening Timers: find the user straight away, unless they've blocked location for the site.
+  useEffect(() => {
+    let cancelled = false
+    const go = () => { if (!cancelled) findNearMe(true) }
+    const perms = (navigator as Navigator & { permissions?: Permissions }).permissions
+    if (perms?.query) perms.query({ name: 'geolocation' as PermissionName }).then((p) => { if (p.state !== 'denied') go() }, go)
+    else go()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const machineItems: LocationItem[] = useMemo(
     () =>
@@ -205,8 +231,10 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
         region: m.region,
         city: m.city,
         searchText: [m.region, m.city, m.neighborhood, m.venue, m.address, m.nickname, m.machine_code].filter(Boolean).join(' '),
+        miles: milesTo(m.id),
+        distance: milesTo(m.id) != null ? formatMiles(milesTo(m.id)!) : undefined,
       })),
-    [machines]
+    [machines, milesTo]
   )
 
   // Favorites removed in this session drop out immediately, without waiting
@@ -220,7 +248,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     [favorites, removedFavIds]
   )
 
-  // Group favorites by city for the dropdown
+  // Group favorites by city for the dropdown: alphabetical, or nearest first once the user's location is known.
   const favoritesByCity = useMemo(() => {
     const map = new Map<string, FavoriteMachine[]>()
     for (const m of favoriteMachines) {
@@ -228,8 +256,12 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       if (!map.has(city)) map.set(city, [])
       map.get(city)!.push(m)
     }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [favoriteMachines])
+    const groups = [...map.entries()]
+    if (!here) return groups.sort((a, b) => a[0].localeCompare(b[0]))
+    const mi = (m: FavoriteMachine) => milesTo(m.id) ?? Infinity
+    for (const [, list] of groups) list.sort((a, b) => mi(a) - mi(b))
+    return groups.sort((a, b) => mi(a[1][0]) - mi(b[1][0]) || a[0].localeCompare(b[0]))
+  }, [favoriteMachines, here, milesTo])
 
   const showToast = (msg: string, ok: boolean) => toast.show(msg, ok ? 'ok' : 'info')
 
@@ -432,8 +464,11 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
       if (!map.has(city)) map.set(city, [])
       map.get(city)!.push(entry)
     }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [todayByMachine])
+    const groups = [...map.entries()]
+    if (!here) return groups.sort((a, b) => a[0].localeCompare(b[0]))
+    const nearest = (entries: typeof todayByMachine) => Math.min(Infinity, ...entries.map((e) => milesTo(e.machineId) ?? Infinity))
+    return groups.sort((a, b) => nearest(a[1]) - nearest(b[1]) || a[0].localeCompare(b[0]))
+  }, [todayByMachine, here, milesTo])
 
   function toggleCity(city: string) {
     setCollapsedCities((prev) => {
@@ -519,7 +554,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
               <div className="flex items-center justify-between px-1">
                 <p className="text-xs font-semibold text-ink">Closest to you</p>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={findNearMe} disabled={locating}
+                  <button type="button" onClick={() => findNearMe()} disabled={locating}
                     className="min-h-8 px-2 rounded-lg text-xs font-medium text-signal hover:bg-signal/10 disabled:opacity-50">
                     {locating ? 'Locating…' : 'Refresh'}
                   </button>
@@ -556,7 +591,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
               </p>
             </div>
           ) : (
-            <button type="button" onClick={findNearMe} disabled={locating}
+            <button type="button" onClick={() => findNearMe()} disabled={locating}
               className="w-full flex items-center justify-center gap-1.5 min-h-10 rounded-xl border border-signal/30 bg-signal/5 hover:bg-signal/10 text-signal text-sm font-semibold transition-colors disabled:opacity-60">
               <svg className={`w-4 h-4 ${locating ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -640,9 +675,12 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                                   onClick={() => { setSelectedMachineId(m.id); setFavDropdownOpen(false) }}
                                   className="flex-1 min-w-0 px-3 py-2 cursor-pointer"
                                 >
-                                  <p className={`text-sm ${m.id === selectedMachineId ? 'text-signal font-medium' : 'text-ink'}`}>
-                                    {m.machine_code} — {m.nickname ?? m.venue}
-                                  </p>
+                                  <div className="flex items-baseline justify-between gap-2">
+                                    <p className={`text-sm min-w-0 ${m.id === selectedMachineId ? 'text-signal font-medium' : 'text-ink'}`}>
+                                      {m.machine_code} — {m.nickname ?? m.venue}
+                                    </p>
+                                    {milesTo(m.id) != null && <span className="shrink-0 font-mono text-[10px] text-muted">{formatMiles(milesTo(m.id)!)}</span>}
+                                  </div>
                                   {m.address && <p className="font-mono text-xs text-muted">{m.address}</p>}
                                 </div>
                                 <button
@@ -678,6 +716,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                   value={selectedMachineId}
                   onChange={setSelectedMachineId}
                   placeholder="Search by city, venue, address, machine ID…"
+                  nearestFirst={!!here}
                 />
               </div>
               {selectedMachineId && (
@@ -842,10 +881,13 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                       <div className="border-t border-card-border divide-y divide-card-border max-h-80 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:theme(colors.card-border)_transparent]">
                         {entries.map(({ machineId, machine, reports, conditions }) => (
                           <div key={machineId} className="px-4 py-3 space-y-2">
-                            <p className="font-semibold text-sm">
-                              <span className="font-mono text-muted">{machine?.machine_code}</span>
-                              {' — '}{machine?.nickname ?? machine?.venue}
-                            </p>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <p className="font-semibold text-sm min-w-0">
+                                <span className="font-mono text-muted">{machine?.machine_code}</span>
+                                {' — '}{machine?.nickname ?? machine?.venue}
+                              </p>
+                              {milesTo(machineId) != null && <span className="shrink-0 font-mono text-[10px] text-muted">{formatMiles(milesTo(machineId)!)}</span>}
+                            </div>
                             {machine?.address && (
                               <p className="font-mono text-[10px] text-muted -mt-1">{machine.address}</p>
                             )}
