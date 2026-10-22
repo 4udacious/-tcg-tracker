@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   const now = new Date().toISOString()
-  const [{ data: profile }, { count: gradesReady }, { count: cleansReady }, { data: announcement }, { data: balance }, { count: marketUnread }] = await Promise.all([
+  const [{ data: profile }, { count: gradesReady }, { count: cleansReady }, { data: announcement }, { data: balance }, { count: marketUnread }, { data: notices }] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, display_name, username, name_color, trainer_icons(file)')
@@ -54,6 +54,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .eq('user_id', user.id)
       .neq('kind', 'announcement')
       .is('read_at', null),
+    // Unread notes from the admins (token bonuses so far), newest first.
+    supabase
+      .from('member_notices')
+      .select('id, kind, amount, message, created_at')
+      .eq('user_id', user.id)
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+      .limit(5),
   ])
 
   const role = profile?.role ?? 'member'
@@ -80,6 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               cleans={cleansReady ?? 0}
               marketUnread={marketUnread ?? 0}
               announcement={announcement?.message ? { id: announcement.id, message: announcement.message } : null}
+              notices={(notices ?? []).map((n) => ({ ...n, amount: n.amount == null ? null : Number(n.amount) }))}
             />
             <UserMenu
               name={profile?.display_name ?? profile?.username ?? ''}

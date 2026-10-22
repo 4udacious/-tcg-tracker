@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Menu, MenuLink, MenuDivider } from '@/components/ui/Menu'
@@ -8,20 +8,38 @@ import { NOTICES_READ_EVENT } from '@/lib/events'
 
 /**
  * Everything waiting on you, in one place: grades back from WAPC, cards back
- * from the cleaners, market activity, and the latest market announcement.
+ * from the cleaners, market activity, the latest market announcement, and
+ * token bonuses from the admins.
  * Replaces the count on the VVM tab and the announcement banner.
  */
-export default function NotificationBell({ grades, cleans, marketUnread, announcement }: {
+export type MemberNotice = { id: number; kind: string; amount: number | null; message: string | null; created_at: string }
+
+export default function NotificationBell({ grades, cleans, marketUnread, announcement, notices }: {
   grades: number
   cleans: number
   marketUnread: number
   announcement: { id: number; message: string } | null
+  notices: MemberNotice[]
 }) {
   const router = useRouter()
   const [news, setNews] = useState(announcement)
   const [unread, setUnread] = useState(marketUnread)
   useEffect(() => { setNews(announcement) }, [announcement])
   useEffect(() => { setUnread(marketUnread) }, [marketUnread])
+  // Bonuses are marked read as soon as the bell opens, but stay on screen
+  // until it closes; the refresh then drops them.
+  const marked = useRef(false)
+  function onOpenChange(open: boolean) {
+    if (open && notices.length && !marked.current) {
+      marked.current = true
+      createClient().from('member_notices').update({ read_at: new Date().toISOString() })
+        .in('id', notices.map((n) => n.id))
+        .then(() => {})
+    } else if (!open && marked.current) {
+      marked.current = false
+      router.refresh()
+    }
+  }
   // The market panel marks notices read when it's opened.
   useEffect(() => {
     const read = () => { setUnread(0); setNews(null) }
@@ -29,7 +47,7 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
     return () => window.removeEventListener(NOTICES_READ_EVENT, read)
   }, [])
 
-  const total = grades + cleans + unread + (news ? 1 : 0)
+  const total = grades + cleans + unread + (news ? 1 : 0) + notices.length
 
   function markNewsRead() {
     if (!news) return
@@ -40,7 +58,7 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
   }
 
   return (
-    <Menu label={total ? `Notifications, ${total} new` : 'Notifications'}
+    <Menu label={total ? `Notifications, ${total} new` : 'Notifications'} onOpenChange={onOpenChange}
       trigger={() => (
         <>
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -68,6 +86,16 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
               </div>
             </div>
           )}
+          {notices.map((n) => {
+            const amt = n.amount ?? 0
+            const shown = Number.isInteger(amt) ? amt : amt.toFixed(2)
+            return (
+              <MenuLink key={n.id} href="/vending" onSelect={close} icon={<span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-200 to-amber-500 ring-1 ring-amber-600/50" />}>
+                {`You got ${shown} bonus token${amt === 1 ? '' : 's'}`}
+                <span className="block text-xs text-muted">{n.message ?? 'From the admins'}</span>
+              </MenuLink>
+            )
+          })}
           {grades > 0 && (
             <MenuLink href="/collection#graders" onSelect={close} icon={<span className="w-5 h-5 rounded-full bg-amber-400 text-[#0E1726] text-[11px] font-black flex items-center justify-center">?</span>}>
               {grades === 1 ? 'A grade is back from WAPC' : `${grades} grades are back from WAPC`}
@@ -87,7 +115,7 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
             </MenuLink>
           )}
           {total > 0 && <MenuDivider />}
-          <p className="px-3 pb-2 pt-1 text-[11px] text-muted">Grades, cleaning and the market post here as they happen.</p>
+          <p className="px-3 pb-2 pt-1 text-[11px] text-muted">Grades, cleaning, the market and bonuses post here as they happen.</p>
         </>
       )}
     </Menu>
