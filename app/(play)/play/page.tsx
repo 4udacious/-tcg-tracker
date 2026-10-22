@@ -1,16 +1,17 @@
-import FullScreenShell from '@/components/FullScreenShell'
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import PlayFrame from './PlayFrame'
+
+export const dynamic = 'force-dynamic'
 
 /*
- * Where battles will run, full screen. Nothing links here yet: it's the frame
- * the RPG drops into (exit, leave-guard, safe areas), ready ahead of time.
+ * The battle game. Admin-only while it's built out: the proxy turns everyone
+ * else away from /play and the game's files, and this checks again.
  */
-export default function PlayPage() {
-  return (
-    <FullScreenShell title="Battle">
-      <div className="text-center space-y-2 px-6">
-        <p className="font-display font-bold text-lg">Battles are on their way</p>
-        <p className="text-sm text-white/60">This is where they'll play, full screen.</p>
-      </div>
-    </FullScreenShell>
-  )
+export default async function PlayPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
+  if (profile?.role !== 'admin') notFound()
+  return <PlayFrame userId={user!.id} />
 }

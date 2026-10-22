@@ -69,7 +69,10 @@ export default function UserMenu({ name, nameColor, iconFile, role }: {
               <p className="px-3 pt-1 pb-0.5 text-[10px] font-bold tracking-wide text-muted">STAFF</p>
               <MenuLink href="/admin" onSelect={close} icon={<Icon d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />}>Admin</MenuLink>
               {role === 'admin' && (
+                <>
                 <MenuLink href="/stock" onSelect={close} icon={<Icon d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />}>Stock check-in <span className="text-xs text-muted">(preview)</span></MenuLink>
+                <MenuLink href="/play" onSelect={close} icon={<Icon d="M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h6m6 0h6M12 9a3 3 0 100 6 3 3 0 000-6z" />}>Battle <span className="text-xs text-muted">(preview)</span></MenuLink>
+              </>
               )}
             </>
           )}
