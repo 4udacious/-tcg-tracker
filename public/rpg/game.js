@@ -4672,6 +4672,8 @@ async function run(id) {
     }
 
     async function sendOut(m) {
+      // A faint leaves its slide-and-clip held on the sprite (anim fills forwards); clear it or the next one comes out invisible.
+      $('player').getAnimations().forEach((a) => a.cancel())
       const pr = await place($('player'), ART[m.id + 'b'], FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW)
       C.p = { x: pr.x, y: Math.min(pr.y, 200) }
       await say(`Go! ${m.name}!`, '', 100)
