@@ -220,8 +220,25 @@ const ART = {"1":"/rpg/a/1.gif","2":"/rpg/a/2.gif","3":"/rpg/a/3.gif","4":"/rpg/
  */
 DATA.wild.push(...[{"id":10,"name":"CATERPIE","types":["bug"],"base":{"hp":45,"attack":30,"defense":35,"special-attack":20,"special-defense":20,"speed":45},"capture":255},{"id":13,"name":"WEEDLE","types":["bug","poison"],"base":{"hp":40,"attack":35,"defense":30,"special-attack":20,"special-defense":20,"speed":50},"capture":255},{"id":37,"name":"VULPIX","types":["fire"],"base":{"hp":38,"attack":41,"defense":40,"special-attack":50,"special-defense":65,"speed":65},"capture":190},{"id":41,"name":"ZUBAT","types":["poison","flying"],"base":{"hp":40,"attack":45,"defense":35,"special-attack":30,"special-defense":40,"speed":55},"capture":255},{"id":43,"name":"ODDISH","types":["grass","poison"],"base":{"hp":45,"attack":50,"defense":55,"special-attack":75,"special-defense":65,"speed":30},"capture":255},{"id":48,"name":"VENONAT","types":["bug","poison"],"base":{"hp":60,"attack":55,"defense":50,"special-attack":40,"special-defense":55,"speed":45},"capture":190},{"id":56,"name":"MANKEY","types":["fighting"],"base":{"hp":40,"attack":80,"defense":35,"special-attack":35,"special-defense":45,"speed":70},"capture":190},{"id":60,"name":"POLIWAG","types":["water"],"base":{"hp":40,"attack":50,"defense":40,"special-attack":40,"special-defense":40,"speed":90},"capture":255},{"id":63,"name":"ABRA","types":["psychic"],"base":{"hp":25,"attack":20,"defense":15,"special-attack":105,"special-defense":55,"speed":90},"capture":200},{"id":66,"name":"MACHOP","types":["fighting"],"base":{"hp":70,"attack":80,"defense":50,"special-attack":35,"special-defense":35,"speed":35},"capture":180},{"id":69,"name":"BELLSPROUT","types":["grass","poison"],"base":{"hp":50,"attack":75,"defense":35,"special-attack":70,"special-defense":30,"speed":40},"capture":255},{"id":74,"name":"GEODUDE","types":["rock","ground"],"base":{"hp":40,"attack":80,"defense":100,"special-attack":30,"special-defense":30,"speed":20},"capture":255},{"id":77,"name":"PONYTA","types":["fire"],"base":{"hp":50,"attack":85,"defense":55,"special-attack":65,"special-defense":65,"speed":90},"capture":190},{"id":88,"name":"GRIMER","types":["poison"],"base":{"hp":80,"attack":80,"defense":50,"special-attack":40,"special-defense":50,"speed":25},"capture":190},{"id":100,"name":"VOLTORB","types":["electric"],"base":{"hp":40,"attack":30,"defense":50,"special-attack":55,"special-defense":55,"speed":100},"capture":190},{"id":102,"name":"EXEGGCUTE","types":["grass","psychic"],"base":{"hp":60,"attack":40,"defense":80,"special-attack":60,"special-defense":45,"speed":40},"capture":90},{"id":109,"name":"KOFFING","types":["poison"],"base":{"hp":40,"attack":65,"defense":95,"special-attack":60,"special-defense":45,"speed":35},"capture":190},{"id":118,"name":"GOLDEEN","types":["water"],"base":{"hp":45,"attack":67,"defense":60,"special-attack":35,"special-defense":50,"speed":63},"capture":225},{"id":120,"name":"STARYU","types":["water"],"base":{"hp":30,"attack":45,"defense":55,"special-attack":70,"special-defense":55,"speed":85},"capture":225},{"id":147,"name":"DRATINI","types":["dragon"],"base":{"hp":41,"attack":64,"defense":45,"special-attack":50,"special-defense":50,"speed":50},"capture":45},{"id":167,"name":"SPINARAK","types":["bug","poison"],"base":{"hp":40,"attack":60,"defense":40,"special-attack":40,"special-defense":40,"speed":30},"capture":255},{"id":187,"name":"HOPPIP","types":["grass","flying"],"base":{"hp":35,"attack":35,"defense":40,"special-attack":35,"special-defense":55,"speed":50},"capture":255},{"id":204,"name":"PINECO","types":["bug"],"base":{"hp":50,"attack":65,"defense":90,"special-attack":35,"special-defense":35,"speed":15},"capture":190},{"id":218,"name":"SLUGMA","types":["fire"],"base":{"hp":40,"attack":40,"defense":40,"special-attack":70,"special-defense":40,"speed":20},"capture":190},{"id":228,"name":"HOUNDOUR","types":["dark","fire"],"base":{"hp":45,"attack":60,"defense":30,"special-attack":80,"special-defense":50,"speed":65},"capture":120},{"id":449,"name":"HIPPOPOTAS","types":["ground"],"base":{"hp":68,"attack":72,"defense":78,"special-attack":38,"special-defense":42,"speed":32},"capture":140},{"id":568,"name":"TRUBBISH","types":["poison"],"base":{"hp":50,"attack":50,"defense":62,"special-attack":40,"special-defense":62,"speed":65},"capture":190}], ...["DROWZEE","SLAKOTH"].map((n) => DATA.trainer.find((t) => t.name === n)))
 DATA.forms.push(...[{"id":12,"name":"BUTTERFREE","types":["bug","flying"],"base":{"hp":60,"attack":45,"defense":50,"special-attack":90,"special-defense":80,"speed":70},"capture":45},{"id":15,"name":"BEEDRILL","types":["bug","poison"],"base":{"hp":65,"attack":90,"defense":40,"special-attack":45,"special-defense":80,"speed":75},"capture":45},{"id":42,"name":"GOLBAT","types":["poison","flying"],"base":{"hp":75,"attack":80,"defense":70,"special-attack":65,"special-defense":75,"speed":90},"capture":90},{"id":44,"name":"GLOOM","types":["grass","poison"],"base":{"hp":60,"attack":65,"defense":70,"special-attack":85,"special-defense":75,"speed":40},"capture":120},{"id":61,"name":"POLIWHIRL","types":["water"],"base":{"hp":65,"attack":65,"defense":65,"special-attack":50,"special-defense":50,"speed":90},"capture":120},{"id":70,"name":"WEEPINBELL","types":["grass","poison"],"base":{"hp":65,"attack":90,"defense":50,"special-attack":85,"special-defense":45,"speed":55},"capture":120},{"id":97,"name":"HYPNO","types":["psychic"],"base":{"hp":85,"attack":73,"defense":70,"special-attack":73,"special-defense":115,"speed":67},"capture":75},{"id":188,"name":"SKIPLOOM","types":["grass","flying"],"base":{"hp":55,"attack":45,"defense":50,"special-attack":45,"special-defense":65,"speed":80},"capture":120},{"id":288,"name":"VIGOROTH","types":["normal"],"base":{"hp":80,"attack":80,"defense":80,"special-attack":55,"special-defense":55,"speed":90},"capture":120},{"id":289,"name":"SLAKING","types":["normal"],"base":{"hp":150,"attack":160,"defense":100,"special-attack":95,"special-defense":65,"speed":100},"capture":45}])
+/*
+ * How often each wild species turns up, in a machine's weekly pool and then
+ * among the pool: by catch rate, as in the games (easy to catch is common),
+ * with a few set by hand. Rare: the pseudo-legendary lines.
+ */
+const RARITY_WEIGHT = { common: 4, uncommon: 2, rare: 1 }
+const RARITY_SET = { EEVEE: 'uncommon', AIPOM: 'uncommon', LICKITUNG: 'uncommon' }
+const rarityOf = (w) => RARITY_SET[w.name] ?? (w.capture >= 120 ? 'common' : w.capture > 45 ? 'uncommon' : 'rare')
+const rarityWeight = (w) => RARITY_WEIGHT[rarityOf(w)]
+/** One of `list`, each as likely as its weight. */
+function weightedPick(list, weightOf, r) {
+  let t = list.reduce((n, x) => n + weightOf(x), 0) * r()
+  for (const x of list) { t -= weightOf(x); if (t < 0) return x }
+  return list[list.length - 1]
+}
 Object.assign(DATA.evos, {"CATERPIE":[{"to":"METAPOD","level":7}],"METAPOD":[{"to":"BUTTERFREE","level":10}],"WEEDLE":[{"to":"KAKUNA","level":7}],"KAKUNA":[{"to":"BEEDRILL","level":10}],"ZUBAT":[{"to":"GOLBAT","level":22}],"ODDISH":[{"to":"GLOOM","level":21}],"VENONAT":[{"to":"VENOMOTH","level":31}],"MANKEY":[{"to":"PRIMEAPE","level":28}],"POLIWAG":[{"to":"POLIWHIRL","level":25}],"ABRA":[{"to":"KADABRA","level":16}],"MACHOP":[{"to":"MACHOKE","level":28}],"BELLSPROUT":[{"to":"WEEPINBELL","level":21}],"GEODUDE":[{"to":"GRAVELER","level":25}],"PONYTA":[{"to":"RAPIDASH","level":40}],"GRIMER":[{"to":"MUK","level":38}],"DROWZEE":[{"to":"HYPNO","level":26}],"VOLTORB":[{"to":"ELECTRODE","level":30}],"KOFFING":[{"to":"WEEZING","level":35}],"GOLDEEN":[{"to":"SEAKING","level":33}],"DRATINI":[{"to":"DRAGONAIR","level":30}],"DRAGONAIR":[{"to":"DRAGONITE","level":55}],"SPINARAK":[{"to":"ARIADOS","level":22}],"HOPPIP":[{"to":"SKIPLOOM","level":18}],"SKIPLOOM":[{"to":"JUMPLUFF","level":27}],"PINECO":[{"to":"FORRETRESS","level":31}],"SLUGMA":[{"to":"MAGCARGO","level":38}],"HOUNDOUR":[{"to":"HOUNDOOM","level":24}],"SLAKOTH":[{"to":"VIGOROTH","level":18}],"VIGOROTH":[{"to":"SLAKING","level":36}],"HIPPOPOTAS":[{"to":"HIPPOWDON","level":34}],"TRUBBISH":[{"to":"GARBODOR","level":36}]})
 for (const id of [10,13,37,41,43,48,56,60,63,66,69,74,77,88,100,102,109,118,120,147,167,187,204,218,228,449,568,12,15,42,44,61,70,97,188,288,289]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+// Every species has its cry (a few of the trainers' evolved Pokémon didn't, so they came out silent).
+for (const s of [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms]) ART['cry:' + s.id] ??= `/rpg/a/cries/${s.id}.ogg`
 
 Object.assign(SFX, {
   rustle:  { file: null, synth: (ac, o, t) => { for (let i = 0; i < 3; i++) noise(ac, o, t + i * .11, { dur: .09, vol: .22, filter: 'bandpass', f: 2400, q: 1.2 }) } },
@@ -4848,11 +4865,21 @@ async function run(id) {
   let weekShift = 0
   const thisWeek = () => (demo ? 2900 : Math.floor((Date.now() / 864e5 + 3) / 7)) + weekShift
   const nextRotation = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d - Date.now() }
-  /** A machine's six species for a week. */
+  /**
+   * A machine's six species for a week, drawn by rarity (RARITY_WEIGHT): a
+   * rare one is in about 1 machine's pool in 7. The demo keeps its old
+   * even draw, so it plays out the same.
+   */
   function poolFor(code, week = thisWeek()) {
-    const r = rng(hashStr(`${code}:${week}`)), names = DATA.wild.map((w) => w.name)
-    for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [names[i], names[j]] = [names[j], names[i]] }
-    return names.slice(0, POOL_SIZE)
+    const r = rng(hashStr(`${code}:${week}`))
+    if (demo) {
+      const names = DATA.wild.map((w) => w.name)
+      for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [names[i], names[j]] = [names[j], names[i]] }
+      return names.slice(0, POOL_SIZE)
+    }
+    const left = [...DATA.wild], out = []
+    while (out.length < POOL_SIZE && left.length) out.push(left.splice(left.indexOf(weightedPick(left, rarityWeight, r)), 1)[0].name)
+    return out
   }
   /** Each trainer's seed: the machine of their latest report, or a random one for the week. */
   const trainerId = (() => { if (demo) return 'demo-trainer'; try { let id = localStorage.getItem('vvm-trainer-id'); if (!id) { id = Math.random().toString(36).slice(2); localStorage.setItem('vvm-trainer-id', id) } return id } catch { return 'guest' } })()
@@ -4867,12 +4894,16 @@ async function run(id) {
     if (who === YOU) { renderPool(true); feed(`<b>You</b> reported a timer at <b>${code}</b>. Your wild Pokémon now come from its pool.`) }
     else feed(`<b>${who}</b> reported a timer at <b>${code}</b>.`)
   }
-  const wildFrom = (who, roll = Math.random) => { const pool = poolFor(seedOf(who).m.code), name = pool[Math.floor(roll() * pool.length)]; return DATA.wild.find((w) => w.name === name) }
+  /** A wild Pokémon from that trainer's pool: by rarity again, so a rare one in the pool is still a rare find. */
+  const wildFrom = (who, roll = Math.random) => {
+    const pool = poolFor(seedOf(who).m.code).map((n) => DATA.wild.find((w) => w.name === n))
+    return demo ? pool[Math.floor(roll() * pool.length)] : weightedPick(pool, rarityWeight, roll)
+  }
   function renderPool(flash = false) {
     const { m, why } = seedOf(YOU), ms = nextRotation(), dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24
     $('poolWhere').innerHTML = `<b>${m.code}</b> · ${m.venue}, ${m.city}<small>${why === 'report' ? 'from your latest timer report' : 'random machine (no timer reports yet) · report a timer to choose'}</small>`
     $('poolWhen').textContent = demo ? 'changes every Monday' : weekShift ? `week +${weekShift}` : `changes in ${dd}d ${hh}h`
-    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n); return `<span><img src="${ART[w.id]}" alt="">${n}</span>` }).join('')
+    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt="">${n}${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
     if (flash) anim($('poolPanel'), [{ boxShadow: '0 0 0 3px #facc15' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 900 })
   }
 
@@ -5355,8 +5386,12 @@ async function run(id) {
 
   /* ══════════ the battle, wild or trainer ══════════ */
   /** Transform and Conversion only last the battle: put everyone back after it, however it ends. */
-  function restoreForms() {
-    for (const m of party) if (m.form) { Object.assign(m, { id: m.form.id, types: m.form.types, moves: m.form.moves }); m.stats = statsAt(m, m.level); m.hp = Math.min(m.hp, m.stats.hp); delete m.form }
+  function restoreForms() { for (const m of party) if (m.form) { Object.assign(m, unformed(m)); delete m.form } }
+  /** `m` as it really is, without a Transform or Conversion on it (a copy). */
+  function unformed(m) {
+    if (!m.form) return m
+    const r = { ...m, id: m.form.id, types: m.form.types, moves: m.form.moves }; delete r.form
+    r.stats = statsAt(r, r.level); r.hp = Math.min(r.hp, r.stats.hp); return r
   }
   async function battle(o) { try { return await battleCore(o) } finally { restoreForms() } }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
@@ -6582,7 +6617,8 @@ async function run(id) {
   const SAVE_KEY = 'vvm-save' + (APP.uid ? ':' + APP.uid : '')
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
-    const data = { v: 1, at: Date.now(), party, box, bag, wallet, badges, champion, eliteStep, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
+    const data = { v: 1, at: Date.now(), party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, freeHeal, gifted, roam: ROAM, weekShift, reports }
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)) } catch { return false }
     const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     $('saveN').textContent = why === 'manual' ? 'saved!' : t
@@ -6594,6 +6630,7 @@ async function run(id) {
     let s; try { s = JSON.parse(localStorage.getItem(SAVE_KEY)) } catch { return false }
     if (!s?.v || !s.party?.length) return false
     party.splice(0, party.length, ...s.party); box.splice(0, box.length, ...(s.box ?? []))
+    restoreForms()   // a save from before that fix may still have one in it
     for (const k of Object.keys(bag)) delete bag[k]
     for (const [k, n] of Object.entries(s.bag ?? {})) {
       // Discs and summons are registered as items the first time one turns up: do that again.
