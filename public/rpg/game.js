@@ -223,11 +223,14 @@ DATA.forms.push(...[{"id":12,"name":"BUTTERFREE","types":["bug","flying"],"base"
 /*
  * How often each wild species turns up, in a machine's weekly pool and then
  * among the pool: by catch rate, as in the games (easy to catch is common),
- * with a few set by hand. Rare: the pseudo-legendary lines.
+ * except that rare is a short list set by hand: the pseudo-legendary lines,
+ * the fossils, Porygon, Lapras and Unown. Otherwise hard to catch is uncommon.
  */
 const RARITY_WEIGHT = { common: 4, uncommon: 2, rare: 1 }
-const RARITY_SET = { EEVEE: 'uncommon', AIPOM: 'uncommon', LICKITUNG: 'uncommon' }
-const rarityOf = (w) => RARITY_SET[w.name] ?? (w.capture >= 120 ? 'common' : w.capture > 45 ? 'uncommon' : 'rare')
+const RARITY_SET = { EEVEE: 'uncommon', AIPOM: 'uncommon', LICKITUNG: 'uncommon', SMOOCHUM: 'uncommon', ELEKID: 'uncommon', MAGBY: 'uncommon', SCYTHER: 'uncommon',
+  TANGELA: 'uncommon', MURKROW: 'uncommon', MISDREAVUS: 'uncommon' }
+for (const n of ['DRATINI', 'GIBLE', 'LARVITAR', 'DREEPY', 'KABUTO', 'OMANYTE', 'AERODACTYL', 'PORYGON', 'LAPRAS', 'UNOWN']) RARITY_SET[n] = 'rare'
+const rarityOf = (w) => RARITY_SET[w.name] ?? (w.capture >= 120 ? 'common' : 'uncommon')
 const rarityWeight = (w) => RARITY_WEIGHT[rarityOf(w)]
 /** One of `list`, each as likely as its weight. */
 function weightedPick(list, weightOf, r) {
@@ -237,6 +240,41 @@ function weightedPick(list, weightOf, r) {
 }
 Object.assign(DATA.evos, {"CATERPIE":[{"to":"METAPOD","level":7}],"METAPOD":[{"to":"BUTTERFREE","level":10}],"WEEDLE":[{"to":"KAKUNA","level":7}],"KAKUNA":[{"to":"BEEDRILL","level":10}],"ZUBAT":[{"to":"GOLBAT","level":22}],"ODDISH":[{"to":"GLOOM","level":21}],"VENONAT":[{"to":"VENOMOTH","level":31}],"MANKEY":[{"to":"PRIMEAPE","level":28}],"POLIWAG":[{"to":"POLIWHIRL","level":25}],"ABRA":[{"to":"KADABRA","level":16}],"MACHOP":[{"to":"MACHOKE","level":28}],"BELLSPROUT":[{"to":"WEEPINBELL","level":21}],"GEODUDE":[{"to":"GRAVELER","level":25}],"PONYTA":[{"to":"RAPIDASH","level":40}],"GRIMER":[{"to":"MUK","level":38}],"DROWZEE":[{"to":"HYPNO","level":26}],"VOLTORB":[{"to":"ELECTRODE","level":30}],"KOFFING":[{"to":"WEEZING","level":35}],"GOLDEEN":[{"to":"SEAKING","level":33}],"DRATINI":[{"to":"DRAGONAIR","level":30}],"DRAGONAIR":[{"to":"DRAGONITE","level":55}],"SPINARAK":[{"to":"ARIADOS","level":22}],"HOPPIP":[{"to":"SKIPLOOM","level":18}],"SKIPLOOM":[{"to":"JUMPLUFF","level":27}],"PINECO":[{"to":"FORRETRESS","level":31}],"SLUGMA":[{"to":"MAGCARGO","level":38}],"HOUNDOUR":[{"to":"HOUNDOOM","level":24}],"SLAKOTH":[{"to":"VIGOROTH","level":18}],"VIGOROTH":[{"to":"SLAKING","level":36}],"HIPPOPOTAS":[{"to":"HIPPOWDON","level":34}],"TRUBBISH":[{"to":"GARBODOR","level":36}]})
 for (const id of [10,13,37,41,43,48,56,60,63,66,69,74,77,88,100,102,109,118,120,147,167,187,204,218,228,449,568,12,15,42,44,61,70,97,188,288,289]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+/*
+ * The second batch: babies (Cleffa, Igglybuff, Happiny, Munchlax, Smoochum,
+ * Elekid, Magby, Tyrogue, Mime Jr.), Meowth, the Kabuto and Omanyte fossils,
+ * and the stone and trade evolutions the trainers' Pokémon were missing
+ * (Clefable, Wigglytuff, Delcatty, Sunflora, Honchkrow, Mismagius,
+ * Rhyperior, Scizor, Porygon2, Porygon-Z, Electivire, Magmortar, Tangrowth,
+ * Toxicroak). Skitty, Sunkern, Murkrow, Misdreavus, Rhyhorn, Scyther,
+ * Porygon, Tangela and Croagunk, trainer-only before, turn up wild too.
+ */
+DATA.wild.push(...[{"id":52,"name":"MEOWTH","types":["normal"],"base":{"hp":40,"attack":45,"defense":35,"special-attack":40,"special-defense":40,"speed":90},"capture":255},{"id":140,"name":"KABUTO","types":["rock","water"],"base":{"hp":30,"attack":80,"defense":90,"special-attack":55,"special-defense":45,"speed":55},"capture":45},{"id":138,"name":"OMANYTE","types":["rock","water"],"base":{"hp":35,"attack":40,"defense":100,"special-attack":90,"special-defense":55,"speed":35},"capture":45},{"id":173,"name":"CLEFFA","types":["fairy"],"base":{"hp":50,"attack":25,"defense":28,"special-attack":45,"special-defense":55,"speed":15},"capture":150},{"id":174,"name":"IGGLYBUFF","types":["normal","fairy"],"base":{"hp":90,"attack":30,"defense":15,"special-attack":40,"special-defense":20,"speed":15},"capture":170},{"id":440,"name":"HAPPINY","types":["normal"],"base":{"hp":100,"attack":5,"defense":5,"special-attack":15,"special-defense":65,"speed":30},"capture":130},{"id":446,"name":"MUNCHLAX","types":["normal"],"base":{"hp":135,"attack":85,"defense":40,"special-attack":40,"special-defense":85,"speed":5},"capture":50},{"id":238,"name":"SMOOCHUM","types":["ice","psychic"],"base":{"hp":45,"attack":30,"defense":15,"special-attack":85,"special-defense":65,"speed":65},"capture":45},{"id":239,"name":"ELEKID","types":["electric"],"base":{"hp":45,"attack":63,"defense":37,"special-attack":65,"special-defense":55,"speed":95},"capture":45},{"id":240,"name":"MAGBY","types":["fire"],"base":{"hp":45,"attack":75,"defense":37,"special-attack":70,"special-defense":55,"speed":83},"capture":45},{"id":236,"name":"TYROGUE","types":["fighting"],"base":{"hp":35,"attack":35,"defense":35,"special-attack":35,"special-defense":35,"speed":35},"capture":75},{"id":439,"name":"MIME JR.","types":["psychic","fairy"],"base":{"hp":20,"attack":25,"defense":45,"special-attack":70,"special-defense":90,"speed":60},"capture":145}], ...["SKITTY","SUNKERN","MURKROW","MISDREAVUS","RHYHORN","SCYTHER","PORYGON","TANGELA","CROAGUNK"].map((n) => DATA.trainer.find((t) => t.name === n)))
+DATA.forms.push(...[{"id":36,"name":"CLEFABLE","types":["fairy"],"base":{"hp":95,"attack":70,"defense":73,"special-attack":95,"special-defense":90,"speed":60},"capture":25},{"id":40,"name":"WIGGLYTUFF","types":["normal","fairy"],"base":{"hp":140,"attack":70,"defense":45,"special-attack":85,"special-defense":50,"speed":45},"capture":50},{"id":301,"name":"DELCATTY","types":["normal"],"base":{"hp":70,"attack":65,"defense":65,"special-attack":55,"special-defense":55,"speed":90},"capture":60},{"id":192,"name":"SUNFLORA","types":["grass"],"base":{"hp":75,"attack":75,"defense":55,"special-attack":105,"special-defense":85,"speed":30},"capture":120},{"id":430,"name":"HONCHKROW","types":["dark","flying"],"base":{"hp":100,"attack":125,"defense":52,"special-attack":105,"special-defense":52,"speed":71},"capture":30},{"id":429,"name":"MISMAGIUS","types":["ghost"],"base":{"hp":60,"attack":60,"defense":60,"special-attack":105,"special-defense":105,"speed":105},"capture":45},{"id":464,"name":"RHYPERIOR","types":["ground","rock"],"base":{"hp":115,"attack":140,"defense":130,"special-attack":55,"special-defense":55,"speed":40},"capture":30},{"id":212,"name":"SCIZOR","types":["bug","steel"],"base":{"hp":70,"attack":130,"defense":100,"special-attack":55,"special-defense":80,"speed":65},"capture":25},{"id":233,"name":"PORYGON2","types":["normal"],"base":{"hp":85,"attack":80,"defense":90,"special-attack":105,"special-defense":95,"speed":60},"capture":45},{"id":474,"name":"PORYGON-Z","types":["normal"],"base":{"hp":85,"attack":80,"defense":70,"special-attack":135,"special-defense":75,"speed":90},"capture":30},{"id":466,"name":"ELECTIVIRE","types":["electric"],"base":{"hp":75,"attack":123,"defense":67,"special-attack":95,"special-defense":85,"speed":95},"capture":30},{"id":467,"name":"MAGMORTAR","types":["fire"],"base":{"hp":75,"attack":95,"defense":67,"special-attack":125,"special-defense":95,"speed":83},"capture":30},{"id":465,"name":"TANGROWTH","types":["grass"],"base":{"hp":100,"attack":100,"defense":125,"special-attack":110,"special-defense":50,"speed":50},"capture":30},{"id":454,"name":"TOXICROAK","types":["poison","fighting"],"base":{"hp":83,"attack":106,"defense":65,"special-attack":86,"special-defense":65,"speed":85},"capture":75}])
+Object.assign(DATA.evos, {"MEOWTH":[{"to":"PERSIAN","level":28}],"KABUTO":[{"to":"KABUTOPS","level":40}],"OMANYTE":[{"to":"OMASTAR","level":40}],"SMOOCHUM":[{"to":"JYNX","level":30}],"ELEKID":[{"to":"ELECTABUZZ","level":30}],"MAGBY":[{"to":"MAGMAR","level":30}],"TYROGUE":[{"to":"HITMONLEE","level":20},{"to":"HITMONCHAN","level":20},{"to":"HITMONTOP","level":20}],"CROAGUNK":[{"to":"TOXICROAK","level":37}],"RHYHORN":[{"to":"RHYDON","level":42}]})
+for (const id of [52,140,138,173,174,440,446,238,239,240,236,439,36,40,301,192,430,429,464,212,233,474,466,467,465,454]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+Object.assign(ART, { 'item:moonstone': '/rpg/a/items/moonstone.png', 'item:sunstone': '/rpg/a/items/sunstone.png', 'item:duskstone': '/rpg/a/items/duskstone.png' })
+/*
+ * Gen 1 and 2, finished: every non-legendary Kanto and Johto Pokémon is in
+ * the game. The 42 first stages here are wild, and so are ten that were
+ * only trainers' until now (Growlithe, Slowpoke, Onix, Lapras, Ditto,
+ * Aerodactyl, Natu, Smeargle, Miltank, Skarmory). Their evolutions are in
+ * DATA.forms, by level, stone, Linking Cord or Bond.
+ */
+DATA.wild.push(...[{"id":19,"name":"RATTATA","types":["normal"],"base":{"hp":30,"attack":56,"defense":35,"special-attack":25,"special-defense":35,"speed":72},"capture":255},{"id":21,"name":"SPEAROW","types":["normal","flying"],"base":{"hp":40,"attack":60,"defense":30,"special-attack":31,"special-defense":31,"speed":70},"capture":255},{"id":23,"name":"EKANS","types":["poison"],"base":{"hp":35,"attack":60,"defense":44,"special-attack":40,"special-defense":54,"speed":55},"capture":255},{"id":27,"name":"SANDSHREW","types":["ground"],"base":{"hp":50,"attack":75,"defense":85,"special-attack":20,"special-defense":30,"speed":40},"capture":255},{"id":29,"name":"NIDORAN♀","types":["poison"],"base":{"hp":55,"attack":47,"defense":52,"special-attack":40,"special-defense":40,"speed":41},"capture":235},{"id":32,"name":"NIDORAN♂","types":["poison"],"base":{"hp":46,"attack":57,"defense":40,"special-attack":40,"special-defense":40,"speed":50},"capture":235},{"id":46,"name":"PARAS","types":["bug","grass"],"base":{"hp":35,"attack":70,"defense":55,"special-attack":45,"special-defense":55,"speed":25},"capture":190},{"id":50,"name":"DIGLETT","types":["ground"],"base":{"hp":10,"attack":55,"defense":25,"special-attack":35,"special-defense":45,"speed":95},"capture":255},{"id":72,"name":"TENTACOOL","types":["water","poison"],"base":{"hp":40,"attack":40,"defense":35,"special-attack":50,"special-defense":100,"speed":70},"capture":190},{"id":83,"name":"FARFETCH'D","types":["normal","flying"],"base":{"hp":52,"attack":90,"defense":55,"special-attack":58,"special-defense":62,"speed":60},"capture":45},{"id":84,"name":"DODUO","types":["normal","flying"],"base":{"hp":35,"attack":85,"defense":45,"special-attack":35,"special-defense":35,"speed":75},"capture":190},{"id":90,"name":"SHELLDER","types":["water"],"base":{"hp":30,"attack":65,"defense":100,"special-attack":45,"special-defense":25,"speed":40},"capture":190},{"id":98,"name":"KRABBY","types":["water"],"base":{"hp":30,"attack":105,"defense":90,"special-attack":25,"special-defense":25,"speed":50},"capture":225},{"id":104,"name":"CUBONE","types":["ground"],"base":{"hp":50,"attack":50,"defense":95,"special-attack":40,"special-defense":50,"speed":35},"capture":190},{"id":115,"name":"KANGASKHAN","types":["normal"],"base":{"hp":105,"attack":95,"defense":80,"special-attack":40,"special-defense":80,"speed":90},"capture":45},{"id":127,"name":"PINSIR","types":["bug"],"base":{"hp":65,"attack":125,"defense":100,"special-attack":55,"special-defense":70,"speed":85},"capture":45},{"id":128,"name":"TAUROS","types":["normal"],"base":{"hp":75,"attack":100,"defense":95,"special-attack":40,"special-defense":70,"speed":110},"capture":45},{"id":161,"name":"SENTRET","types":["normal"],"base":{"hp":35,"attack":46,"defense":34,"special-attack":35,"special-defense":45,"speed":20},"capture":255},{"id":165,"name":"LEDYBA","types":["bug","flying"],"base":{"hp":40,"attack":20,"defense":30,"special-attack":40,"special-defense":80,"speed":55},"capture":255},{"id":170,"name":"CHINCHOU","types":["water","electric"],"base":{"hp":75,"attack":38,"defense":38,"special-attack":56,"special-defense":56,"speed":67},"capture":190},{"id":175,"name":"TOGEPI","types":["fairy"],"base":{"hp":35,"attack":20,"defense":65,"special-attack":40,"special-defense":65,"speed":20},"capture":190},{"id":179,"name":"MAREEP","types":["electric"],"base":{"hp":55,"attack":40,"defense":40,"special-attack":65,"special-defense":45,"speed":35},"capture":235},{"id":183,"name":"MARILL","types":["water","fairy"],"base":{"hp":70,"attack":20,"defense":50,"special-attack":20,"special-defense":50,"speed":40},"capture":190},{"id":185,"name":"SUDOWOODO","types":["rock"],"base":{"hp":70,"attack":100,"defense":115,"special-attack":30,"special-defense":65,"speed":30},"capture":65},{"id":193,"name":"YANMA","types":["bug","flying"],"base":{"hp":65,"attack":65,"defense":45,"special-attack":75,"special-defense":45,"speed":95},"capture":75},{"id":201,"name":"UNOWN","types":["psychic"],"base":{"hp":48,"attack":72,"defense":48,"special-attack":72,"special-defense":48,"speed":48},"capture":225},{"id":202,"name":"WOBBUFFET","types":["psychic"],"base":{"hp":190,"attack":33,"defense":58,"special-attack":33,"special-defense":58,"speed":33},"capture":45},{"id":203,"name":"GIRAFARIG","types":["normal","psychic"],"base":{"hp":70,"attack":80,"defense":65,"special-attack":90,"special-defense":65,"speed":85},"capture":60},{"id":206,"name":"DUNSPARCE","types":["normal"],"base":{"hp":100,"attack":70,"defense":70,"special-attack":65,"special-defense":65,"speed":45},"capture":190},{"id":207,"name":"GLIGAR","types":["ground","flying"],"base":{"hp":65,"attack":75,"defense":105,"special-attack":35,"special-defense":65,"speed":85},"capture":60},{"id":209,"name":"SNUBBULL","types":["fairy"],"base":{"hp":60,"attack":80,"defense":50,"special-attack":40,"special-defense":40,"speed":30},"capture":190},{"id":211,"name":"QWILFISH","types":["water","poison"],"base":{"hp":65,"attack":95,"defense":85,"special-attack":55,"special-defense":55,"speed":85},"capture":45},{"id":213,"name":"SHUCKLE","types":["bug","rock"],"base":{"hp":20,"attack":10,"defense":230,"special-attack":10,"special-defense":230,"speed":5},"capture":190},{"id":214,"name":"HERACROSS","types":["bug","fighting"],"base":{"hp":80,"attack":125,"defense":75,"special-attack":40,"special-defense":95,"speed":85},"capture":45},{"id":215,"name":"SNEASEL","types":["dark","ice"],"base":{"hp":55,"attack":95,"defense":55,"special-attack":35,"special-defense":75,"speed":115},"capture":60},{"id":216,"name":"TEDDIURSA","types":["normal"],"base":{"hp":60,"attack":80,"defense":50,"special-attack":50,"special-defense":50,"speed":40},"capture":120},{"id":222,"name":"CORSOLA","types":["water","rock"],"base":{"hp":65,"attack":55,"defense":95,"special-attack":65,"special-defense":95,"speed":35},"capture":60},{"id":223,"name":"REMORAID","types":["water"],"base":{"hp":35,"attack":65,"defense":35,"special-attack":65,"special-defense":35,"speed":65},"capture":190},{"id":225,"name":"DELIBIRD","types":["ice","flying"],"base":{"hp":45,"attack":55,"defense":45,"special-attack":65,"special-defense":45,"speed":75},"capture":45},{"id":226,"name":"MANTINE","types":["water","flying"],"base":{"hp":85,"attack":40,"defense":70,"special-attack":80,"special-defense":140,"speed":70},"capture":25},{"id":231,"name":"PHANPY","types":["ground"],"base":{"hp":90,"attack":60,"defense":60,"special-attack":40,"special-defense":40,"speed":40},"capture":120},{"id":234,"name":"STANTLER","types":["normal"],"base":{"hp":73,"attack":95,"defense":62,"special-attack":85,"special-defense":65,"speed":85},"capture":45}], ...['GROWLITHE', 'SLOWPOKE', 'ONIX', 'LAPRAS', 'DITTO', 'AERODACTYL', 'NATU', 'SMEARGLE', 'MILTANK', 'SKARMORY'].map((n) => DATA.trainer.find((t) => t.name === n)))
+DATA.forms.push(...[{"id":20,"name":"RATICATE","types":["normal"],"base":{"hp":55,"attack":81,"defense":60,"special-attack":50,"special-defense":70,"speed":97},"capture":127},{"id":22,"name":"FEAROW","types":["normal","flying"],"base":{"hp":65,"attack":90,"defense":65,"special-attack":61,"special-defense":61,"speed":100},"capture":90},{"id":24,"name":"ARBOK","types":["poison"],"base":{"hp":60,"attack":95,"defense":69,"special-attack":65,"special-defense":79,"speed":80},"capture":90},{"id":28,"name":"SANDSLASH","types":["ground"],"base":{"hp":75,"attack":100,"defense":110,"special-attack":45,"special-defense":55,"speed":65},"capture":90},{"id":30,"name":"NIDORINA","types":["poison"],"base":{"hp":70,"attack":62,"defense":67,"special-attack":55,"special-defense":55,"speed":56},"capture":120},{"id":31,"name":"NIDOQUEEN","types":["poison","ground"],"base":{"hp":90,"attack":92,"defense":87,"special-attack":75,"special-defense":85,"speed":76},"capture":45},{"id":33,"name":"NIDORINO","types":["poison"],"base":{"hp":61,"attack":72,"defense":57,"special-attack":55,"special-defense":55,"speed":65},"capture":120},{"id":34,"name":"NIDOKING","types":["poison","ground"],"base":{"hp":81,"attack":102,"defense":77,"special-attack":85,"special-defense":75,"speed":85},"capture":45},{"id":47,"name":"PARASECT","types":["bug","grass"],"base":{"hp":60,"attack":95,"defense":80,"special-attack":60,"special-defense":80,"speed":30},"capture":75},{"id":51,"name":"DUGTRIO","types":["ground"],"base":{"hp":35,"attack":100,"defense":50,"special-attack":50,"special-defense":70,"speed":120},"capture":50},{"id":73,"name":"TENTACRUEL","types":["water","poison"],"base":{"hp":80,"attack":70,"defense":65,"special-attack":80,"special-defense":120,"speed":100},"capture":60},{"id":85,"name":"DODRIO","types":["normal","flying"],"base":{"hp":60,"attack":110,"defense":70,"special-attack":60,"special-defense":60,"speed":110},"capture":45},{"id":91,"name":"CLOYSTER","types":["water","ice"],"base":{"hp":50,"attack":95,"defense":180,"special-attack":85,"special-defense":45,"speed":70},"capture":60},{"id":99,"name":"KINGLER","types":["water"],"base":{"hp":55,"attack":130,"defense":115,"special-attack":50,"special-defense":50,"speed":75},"capture":60},{"id":105,"name":"MAROWAK","types":["ground"],"base":{"hp":60,"attack":80,"defense":110,"special-attack":50,"special-defense":80,"speed":45},"capture":75},{"id":162,"name":"FURRET","types":["normal"],"base":{"hp":85,"attack":76,"defense":64,"special-attack":45,"special-defense":55,"speed":90},"capture":90},{"id":166,"name":"LEDIAN","types":["bug","flying"],"base":{"hp":55,"attack":35,"defense":50,"special-attack":55,"special-defense":110,"speed":85},"capture":90},{"id":171,"name":"LANTURN","types":["water","electric"],"base":{"hp":125,"attack":58,"defense":58,"special-attack":76,"special-defense":76,"speed":67},"capture":75},{"id":176,"name":"TOGETIC","types":["fairy","flying"],"base":{"hp":55,"attack":40,"defense":85,"special-attack":80,"special-defense":105,"speed":40},"capture":75},{"id":180,"name":"FLAAFFY","types":["electric"],"base":{"hp":70,"attack":55,"defense":55,"special-attack":80,"special-defense":60,"speed":45},"capture":120},{"id":181,"name":"AMPHAROS","types":["electric"],"base":{"hp":90,"attack":75,"defense":85,"special-attack":115,"special-defense":90,"speed":55},"capture":45},{"id":184,"name":"AZUMARILL","types":["water","fairy"],"base":{"hp":100,"attack":50,"defense":80,"special-attack":60,"special-defense":80,"speed":50},"capture":75},{"id":186,"name":"POLITOED","types":["water"],"base":{"hp":90,"attack":75,"defense":75,"special-attack":90,"special-defense":100,"speed":70},"capture":45},{"id":199,"name":"SLOWKING","types":["water","psychic"],"base":{"hp":95,"attack":75,"defense":80,"special-attack":100,"special-defense":110,"speed":30},"capture":70},{"id":210,"name":"GRANBULL","types":["fairy"],"base":{"hp":90,"attack":120,"defense":75,"special-attack":60,"special-defense":60,"speed":45},"capture":75},{"id":217,"name":"URSARING","types":["normal"],"base":{"hp":90,"attack":130,"defense":75,"special-attack":75,"special-defense":75,"speed":55},"capture":60},{"id":224,"name":"OCTILLERY","types":["water"],"base":{"hp":75,"attack":105,"defense":75,"special-attack":105,"special-defense":75,"speed":45},"capture":75},{"id":232,"name":"DONPHAN","types":["ground"],"base":{"hp":90,"attack":120,"defense":120,"special-attack":60,"special-defense":60,"speed":50},"capture":60}])
+Object.assign(DATA.evos, {"RATTATA":[{"to":"RATICATE","level":20}],"SPEAROW":[{"to":"FEAROW","level":20}],"EKANS":[{"to":"ARBOK","level":22}],"SANDSHREW":[{"to":"SANDSLASH","level":22}],"NIDORAN♀":[{"to":"NIDORINA","level":16}],"NIDORAN♂":[{"to":"NIDORINO","level":16}],"PARAS":[{"to":"PARASECT","level":24}],"DIGLETT":[{"to":"DUGTRIO","level":26}],"TENTACOOL":[{"to":"TENTACRUEL","level":30}],"DODUO":[{"to":"DODRIO","level":31}],"KRABBY":[{"to":"KINGLER","level":28}],"CUBONE":[{"to":"MAROWAK","level":28}],"SENTRET":[{"to":"FURRET","level":15}],"LEDYBA":[{"to":"LEDIAN","level":18}],"CHINCHOU":[{"to":"LANTURN","level":27}],"MAREEP":[{"to":"FLAAFFY","level":15}],"FLAAFFY":[{"to":"AMPHAROS","level":30}],"MARILL":[{"to":"AZUMARILL","level":18}],"SNUBBULL":[{"to":"GRANBULL","level":23}],"TEDDIURSA":[{"to":"URSARING","level":30}],"REMORAID":[{"to":"OCTILLERY","level":25}],"PHANPY":[{"to":"DONPHAN","level":25}],"SLOWPOKE":[{"to":"SLOWBRO","level":37}],"NATU":[{"to":"XATU","level":25}],"PATRAT":[{"to":"WATCHOG","level":20}],"PURRLOIN":[{"to":"LIEPARD","level":20}],"SKWOVET":[{"to":"GREEDENT","level":24}]})
+for (const id of [19,21,23,27,29,32,46,50,72,83,84,90,98,104,115,127,128,161,165,170,175,179,183,185,193,201,202,203,206,207,209,211,213,214,215,216,222,223,225,226,231,234,20,22,24,28,30,31,33,34,47,51,73,85,91,99,105,162,166,171,176,180,181,184,186,199,210,217,224,232]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+/*
+ * The Shiny Stone's Pokémon: Togetic → Togekiss, and the Budew, Minccino
+ * and Flabébé families it finishes (Roselia → Roserade, Minccino →
+ * Cinccino, Floette → Florges). Budew evolves at full Bond by day.
+ */
+DATA.wild.push(...[{"id":406,"name":"BUDEW","types":["grass","poison"],"base":{"hp":40,"attack":30,"defense":35,"special-attack":50,"special-defense":70,"speed":55},"capture":255},{"id":572,"name":"MINCCINO","types":["normal"],"base":{"hp":55,"attack":50,"defense":40,"special-attack":40,"special-defense":40,"speed":75},"capture":255},{"id":669,"name":"FLABÉBÉ","types":["fairy"],"base":{"hp":44,"attack":38,"defense":39,"special-attack":61,"special-defense":79,"speed":42},"capture":225}])
+DATA.forms.push(...[{"id":315,"name":"ROSELIA","types":["grass","poison"],"base":{"hp":50,"attack":60,"defense":45,"special-attack":100,"special-defense":80,"speed":65},"capture":150},{"id":407,"name":"ROSERADE","types":["grass","poison"],"base":{"hp":60,"attack":70,"defense":65,"special-attack":125,"special-defense":105,"speed":90},"capture":75},{"id":573,"name":"CINCCINO","types":["normal"],"base":{"hp":75,"attack":95,"defense":60,"special-attack":65,"special-defense":60,"speed":115},"capture":60},{"id":670,"name":"FLOETTE","types":["fairy"],"base":{"hp":54,"attack":45,"defense":47,"special-attack":75,"special-defense":98,"speed":52},"capture":120},{"id":671,"name":"FLORGES","types":["fairy"],"base":{"hp":78,"attack":65,"defense":68,"special-attack":112,"special-defense":154,"speed":75},"capture":45},{"id":468,"name":"TOGEKISS","types":["fairy","flying"],"base":{"hp":85,"attack":50,"defense":95,"special-attack":120,"special-defense":115,"speed":80},"capture":30}])
+Object.assign(DATA.evos, {"FLABÉBÉ":[{"to":"FLOETTE","level":19}]})
+for (const id of [406,572,669,315,407,573,670,671,468]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+ART['item:shinystone'] = '/rpg/a/items/shinystone.png'
 // Every species has its cry (a few of the trainers' evolved Pokémon didn't, so they came out silent).
 for (const s of [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms]) ART['cry:' + s.id] ??= `/rpg/a/cries/${s.id}.ogg`
 
@@ -1438,13 +1476,51 @@ DISC_POOL.push('TOXIC', 'YAWN', 'HYPNOSIS', 'CONFUSE RAY', 'FAKE OUT', 'LEECH SE
 /* What foes use, by species first, then type: their sleep / confusion / poison move (else their type's accuracy or evasion move). */
 const FOE_STATUS_BY_SPECIES = { JIGGLYPUFF: 'SING', WIGGLYTUFF: 'SING', CLEFAIRY: 'SING', LAPRAS: 'SING', GASTLY: 'HYPNOSIS', HAUNTER: 'HYPNOSIS', GENGAR: 'HYPNOSIS',
   HOOTHOOT: 'HYPNOSIS', NOCTOWL: 'HYPNOSIS', KADABRA: 'HYPNOSIS', MISDREAVUS: 'CONFUSE RAY', MURKROW: 'SWAGGER', SUNKERN: 'LEECH SEED', SLAKOTH: 'YAWN', PSYDUCK: 'YAWN', SNORLAX: 'YAWN' }
-function foeStatusMove(m, r, hard = false) {
-  const t = m.types[0]
-  if (FOE_STATUS_BY_SPECIES[m.name]) return FOE_STATUS_BY_SPECIES[m.name]
-  if (hard && STAT_BY_TYPE[t] && r() < 0.5) return STAT_BY_TYPE[t]
-  if (STATUS2_BY_TYPE[t] && r() < 0.5) return STATUS2_BY_TYPE[t]
-  if (t === 'normal' && r() < 0.5) return r() < 0.5 ? 'GROWL' : 'TAIL WHIP'
-  return statusOf(m)
+/**
+ * A foe's status or setup move, or null if none of its choices would do
+ * anything (`works`, see moveWorks): then it just attacks. Its own species'
+ * move comes first; a leader's type stat move, its type's second status
+ * move and a Normal type's Growl or Tail Whip each get a half chance; its
+ * type's accuracy or evasion move is the fallback.
+ */
+function foeStatusMove(m, r, hard = false, works = () => true) {
+  const t = m.types[0], options = []
+  if (FOE_STATUS_BY_SPECIES[m.name]) options.push([FOE_STATUS_BY_SPECIES[m.name], true])
+  if (hard && STAT_BY_TYPE[t]) options.push([STAT_BY_TYPE[t], false])
+  if (STATUS2_BY_TYPE[t]) options.push([STATUS2_BY_TYPE[t], false])
+  if (t === 'normal') options.push([r() < 0.5 ? 'GROWL' : 'TAIL WHIP', false])
+  options.push([statusOf(m), true])
+  const ok = options.filter(([n]) => works(n))
+  return (ok.find(([, sure], i) => sure || i === ok.length - 1 || r() < 0.5) ?? [null])[0]
+}
+/**
+ * Would this status or setup move do anything, from `user` on `target`?
+ * `S` gives a Pokémon's battle stages and extras; `field` the weather. Keeps
+ * foes from wasting a turn: no sleep on the sleeping, no Leech Seed on a
+ * Grass type, no Swords Dance at +4, no Curse they can't pay for.
+ */
+function moveWorks(name, user, target, S, field = {}) {
+  const mv = SUPPORT[name]; if (!mv) return true
+  const ts = S(target), us = S(user)
+  switch (mv.effect) {
+    case 'status': return canTake(target, mv.status)
+    case 'yawn': return canTake(target, 'slp') && !ts.drowsy
+    case 'confuse': case 'swagger': return !ts.conf
+    case 'seed': return !ts.seeded && !target.types.includes('grass')
+    case 'taunt': return !ts.taunt
+    case 'trap': return !ts.trapped
+    case 'curse': return !ts.cursed && user.hp > user.stats.hp / 2
+    case 'accDown': return (ts.acc ?? 0) > -STAGE_MAX
+    case 'evaUp': return (us.eva ?? 0) < STAGE_MAX
+    case 'stat': {
+      const who = mv.target === 'foe' ? ts : us
+      const room = Object.entries(mv.stages).some(([k, by]) => (by > 0 ? (who[k] ?? 0) < 4 : (who[k] ?? 0) > -4))
+      return room && (mv.target === 'foe' || user.hp > user.stats.hp / 2)   // no setting up when it's about to faint
+    }
+    case 'weather': return field.weather !== mv.weather
+    case 'screen': return !field[mv.screen]
+    default: return true
+  }
 }
 /** Does a status move land? Its `chance` on a GOOD, scaled by timing; PERFECT always lands, MISS never. */
 const statusLands = (mv, acc, r) => acc.label !== 'MISS' && (!mv.chance || acc.label === 'PERFECT' || r() < Math.min(1, mv.chance * acc.mult))
@@ -1566,7 +1642,7 @@ const SPECIES_MOVES = {
   PSYDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']], GOLDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']],
   SABLEYE: [[15, 'MEAN LOOK'], [30, 'KNOCK OFF']], MISDREAVUS: [[14, 'CONFUSE RAY'], [40, 'PERISH SONG']],
   MURKROW: [[11, 'TAUNT'], [25, 'FEATHER DANCE']], SCYTHER: [[12, 'FURY CUTTER'], [24, 'SWORDS DANCE']],
-  EEVEE: [[20, 'BATON PASS']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
+  EEVEE: [[20, 'BATON PASS']], TANGELA: [[33, 'ANCIENT POWER']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
 }
 Object.assign(DISC_RULES, { 'KNOCK OFF': { types: ['dark', 'fighting', 'ghost'] }, CURSE: { types: ['ghost'] }, REST: { all: true }, 'MEAN LOOK': { types: ['ghost', 'dark'] } })
 DISC_POOL.push('REST', 'KNOCK OFF')
@@ -1664,7 +1740,9 @@ function evoDue(m) {
   if (how) {
     if (m.evoWait && m.level < m.evoWait) return null
     // At a level-up: knowing the move, or a full Bond (with the time of day or a Fairy move where that picks the form).
-    return how.find((r) => (r.move ? learn(m).learned.includes(r.move) : r.bond ? bondReady(m, r) : false)) ?? null
+    const r = how.find((x) => (x.move ? learn(m).learned.includes(x.move) : x.bond ? bondReady(m, x) : false))
+    // A species that also evolves by level (Slowpoke: Slowbro by level, Slowking by Linking Cord) goes on to check that.
+    if (r || !(DATA.evos?.[m.name] ?? []).some((o) => !o.standIn)) return r ?? null
   }
   const opts = DATA.evos?.[m.name]; if (!opts?.length) return null
   m.evoPick ??= Math.floor(Math.random() * opts.length)
@@ -1674,7 +1752,8 @@ function evoDue(m) {
 /** "Charmeleon at Lv 16", for the stat page. */
 function evoText(m) {
   const how = EVO_HOW[m.name]
-  if (how) return how.map((r) => `${cap1(r.to)} ${howText(r)}`).join('; ') + (m.evoWait ? ` (it was stopped: not before Lv ${m.evoWait})` : '')
+  const byLevel = (DATA.evos?.[m.name] ?? []).filter((o) => !o.standIn).map((o) => `${cap1(o.to)} at Lv ${o.level}`)
+  if (how) return [...byLevel, ...how.map((r) => `${cap1(r.to)} ${howText(r)}`)].join('; ') + (m.evoWait ? ` (it was stopped: not before Lv ${m.evoWait})` : '')
   const opts = DATA.evos?.[m.name]; if (!opts?.length) return ''
   const names = [...new Set(opts.map((o) => o.to))], lv = opts[0].level
   const when = m.evoWait && m.evoWait > lv ? `Lv ${m.evoWait} (it was stopped)` : `Lv ${lv}${opts[0].standIn ? ' (stand-in)' : ''}`
@@ -1730,9 +1809,14 @@ const EVO_HOW = {
   SEADRA: [{ to: 'KINGDRA', item: 'linkcable', needs: 'dragonscale' }],
 }
 // The families added with the new species (see DATA.wild): stones, the Linking Cord for trade evolutions, Bond for friendship ones.
+Object.assign(EVO_HOW, {"CLEFFA":[{"to":"CLEFAIRY","bond":true}],"IGGLYBUFF":[{"to":"JIGGLYPUFF","bond":true}],"HAPPINY":[{"to":"CHANSEY","bond":true}],"MUNCHLAX":[{"to":"SNORLAX","bond":true}],"MIME JR.":[{"to":"MR. MIME","bond":true}],"CHANSEY":[{"to":"BLISSEY","bond":true}],"CLEFAIRY":[{"to":"CLEFABLE","item":"moonstone"}],"JIGGLYPUFF":[{"to":"WIGGLYTUFF","item":"moonstone"}],"SKITTY":[{"to":"DELCATTY","item":"moonstone"}],"SUNKERN":[{"to":"SUNFLORA","item":"sunstone"}],"MURKROW":[{"to":"HONCHKROW","item":"duskstone"}],"MISDREAVUS":[{"to":"MISMAGIUS","item":"duskstone"}],"RHYDON":[{"to":"RHYPERIOR","item":"linkcable"}],"SCYTHER":[{"to":"SCIZOR","item":"linkcable"}],"PORYGON":[{"to":"PORYGON2","item":"linkcable"}],"PORYGON2":[{"to":"PORYGON-Z","item":"linkcable"}],"ELECTABUZZ":[{"to":"ELECTIVIRE","item":"linkcable"}],"MAGMAR":[{"to":"MAGMORTAR","item":"linkcable"}],"TANGELA":[{"to":"TANGROWTH","move":"ANCIENT POWER"}]})
 Object.assign(EVO_HOW, {"VULPIX":[{"to":"NINETALES","item":"firestone"}],"GOLBAT":[{"to":"CROBAT","bond":true}],"GLOOM":[{"to":"VILEPLUME","item":"leafstone"}],"POLIWHIRL":[{"to":"POLIWRATH","item":"waterstone"}],"KADABRA":[{"to":"ALAKAZAM","item":"linkcable"}],"MACHOKE":[{"to":"MACHAMP","item":"linkcable"}],"WEEPINBELL":[{"to":"VICTREEBEL","item":"leafstone"}],"GRAVELER":[{"to":"GOLEM","item":"linkcable"}],"EXEGGCUTE":[{"to":"EXEGGUTOR","item":"leafstone"}],"STARYU":[{"to":"STARMIE","item":"waterstone"}]})
+EVO_HOW.GLOOM.push({ to: 'BELLOSSOM', item: 'sunstone' })
+// Gen 1-2's stone, Linking Cord and Bond evolutions, added to any a species already has (Poliwhirl: Water Stone for Poliwrath, Linking Cord for Politoed).
+for (const [n, rules] of Object.entries({"BUDEW":[{"to":"ROSELIA","bond":true,"time":"day"}],"ROSELIA":[{"to":"ROSERADE","item":"shinystone"}],"MINCCINO":[{"to":"CINCCINO","item":"shinystone"}],"FLOETTE":[{"to":"FLORGES","item":"shinystone"}],"TOGETIC":[{"to":"TOGEKISS","item":"shinystone"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
+for (const [n, rules] of Object.entries({"NIDORINA":[{"to":"NIDOQUEEN","item":"moonstone"}],"NIDORINO":[{"to":"NIDOKING","item":"moonstone"}],"SHELLDER":[{"to":"CLOYSTER","item":"waterstone"}],"TOGEPI":[{"to":"TOGETIC","bond":true}],"POLIWHIRL":[{"to":"POLITOED","item":"linkcable"}],"SLOWPOKE":[{"to":"SLOWKING","item":"linkcable"}],"GROWLITHE":[{"to":"ARCANINE","item":"firestone"}],"ONIX":[{"to":"STEELIX","item":"linkcable"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
 const cap1 = (s) => s[0] + s.slice(1).toLowerCase()
-const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
+const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', moonstone: 'MOON STONE', sunstone: 'SUN STONE', duskstone: 'DUSK STONE', shinystone: 'SHINY STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
 /** "with a THUNDER STONE", "at full Bond, by day", "levelling up knowing ROLLOUT". */
 const howText = (r) => (r.item ? `with a ${EVO_ITEM_NAME[r.item]}${r.needs ? ` (and a ${EVO_ITEM_NAME[r.needs]})` : ''}`
   : r.bond ? `at full Bond${r.fairy ? ', knowing a Fairy move' : r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
@@ -2355,6 +2439,10 @@ const SHOP_DEFAULT = {
   firestone: { on: true, price: 1, rate: 8 },
   leafstone: { on: true, price: 1, rate: 6 },
   icestone: { on: true, price: 1, rate: 6 },
+  moonstone: { on: true, price: 1, rate: 6 },
+  sunstone: { on: true, price: 1, rate: 5 },
+  duskstone: { on: true, price: 1, rate: 5 },
+  shinystone: { on: true, price: 1, rate: 4 },
   linkcable: { on: true, price: 1.5, rate: 8 },
   dragonscale: { on: true, price: 1, rate: 5 },   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
 }
@@ -2392,11 +2480,15 @@ const ITEMS = {
   iceheal:  { name: 'ICE HEAL', sub: 'thaws it out', cls: 't-cure', cure: ['frz'] },
   fullheal: { name: 'FULL HEAL', sub: 'cures any status', cls: 't-cure', cure: ['psn', 'tox', 'par', 'brn', 'frz', 'slp'] },
   thunderstone: { name: 'THUNDER STONE', sub: 'evolves Pikachu, Magneton, Eevee', cls: 't-evo', evo: true },
-  waterstone: { name: 'WATER STONE', sub: 'evolves Eevee into Vaporeon', cls: 't-evo', evo: true },
-  firestone: { name: 'FIRE STONE', sub: 'evolves Eevee into Flareon', cls: 't-evo', evo: true },
-  leafstone: { name: 'LEAF STONE', sub: 'evolves Eevee into Leafeon', cls: 't-evo', evo: true },
+  waterstone: { name: 'WATER STONE', sub: 'evolves Eevee, Poliwhirl, Staryu', cls: 't-evo', evo: true },
+  firestone: { name: 'FIRE STONE', sub: 'evolves Eevee, Vulpix', cls: 't-evo', evo: true },
+  leafstone: { name: 'LEAF STONE', sub: 'evolves Eevee, Gloom, Weepinbell, Exeggcute', cls: 't-evo', evo: true },
   icestone: { name: 'ICE STONE', sub: 'evolves Eevee into Glaceon', cls: 't-evo', evo: true },
-  linkcable: { name: 'LINKING CORD', sub: 'evolves Haunter and Seadra', cls: 't-evo', evo: true },
+  moonstone: { name: 'MOON STONE', sub: 'evolves Clefairy, Jigglypuff, Skitty', cls: 't-evo', evo: true },
+  sunstone: { name: 'SUN STONE', sub: 'evolves Sunkern, Gloom (Bellossom)', cls: 't-evo', evo: true },
+  duskstone: { name: 'DUSK STONE', sub: 'evolves Murkrow, Misdreavus', cls: 't-evo', evo: true },
+  shinystone: { name: 'SHINY STONE', sub: 'evolves Togetic, Roselia, Minccino, Floette', cls: 't-evo', evo: true },
+  linkcable: { name: 'LINKING CORD', sub: 'trade evolutions: Kadabra, Scyther, Porygon…', cls: 't-evo', evo: true },
   dragonscale: { name: 'DRAGON SCALE', sub: 'Seadra needs it with a LINKING CORD', cls: 't-evo', held: true },
   ball: { name: 'POKé BALL', sub: 'catch ×1', cls: 't-ball' },
   great: { name: 'GREAT BALL', sub: 'catch ×1.5', cls: 't-great' },
@@ -2406,7 +2498,7 @@ const ITEMS = {
 }
 /* Item icons: the Scarlet/Violet Bag art, wherever an item is drawn. */
 ;(() => {
-  const css = ['ball', 'great', 'potion', 'super', 'revive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'linkcable', 'dragonscale'].map((k) => {
+  const css = ['ball', 'great', 'potion', 'super', 'revive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale'].map((k) => {
     const u = `url("${ART['item:' + k]}")`
     return `.supic.${k}, .ic.${k} { background: ${u} center / contain no-repeat !important; border: 0 !important; border-radius: 0 !important; transform: none !important; box-shadow: none !important; }
 .supic.${k}::after, .ic.${k}::after { display: none !important; }
@@ -3592,7 +3684,7 @@ async function run(id) {
     if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`a ${ITEMS[k].name}`) }
     if (flavor() < 0.2) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; got.push(`a MOVE DISC (${n})`) }
     // Now and then, an evolution item.
-    if (flavor() < 0.08) { const k = pickOf(['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'linkcable', 'dragonscale']); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
+    if (flavor() < 0.08) { const k = pickOf(['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
     renderTools()
     if (got.length) { sfx('click'); await say(`${T.short} dropped`, `${got.join(' and ')}!`, 700) }
   }
@@ -3988,8 +4080,15 @@ async function run(id) {
         if (!scripted && s.owner?.blunder && flavor() < s.owner.blunder) return { actor: s, move: { name: 'BLUNDER', kind: 'blunder', prio: 0, cost: 0 } }
         if (!scripted && heal && s.mon.hp < s.mon.stats.hp * 0.45 && rand() < 0.7) return { actor: s, move: moveInfo(heal), target: s }
         // Now and then, once per Pokémon: its type's accuracy or evasion move.
-        if (!scripted && !s.usedStatus && !S(s.mon).taunt && (window.__forceStatusMove || rand() < 0.1)) { s.usedStatus = true; const sm = moveInfo(demo ? statusOf(s.mon) : foeStatusMove(s.mon, rand, !!s.owner?.hard)); const up = alive('p')
-          return { actor: s, move: sm, target: sm.target === 'foe' ? up[Math.floor(rand() * up.length)] : s } }
+        if (!scripted && !s.usedStatus && !S(s.mon).taunt && (window.__forceStatusMove || rand() < 0.1)) {
+          // A move that would work on at least one of yours (aimed at one it works on), or on itself; with none, it attacks.
+          const up = alive('p'), works = (n) => (SUPPORT[n]?.target === 'foe' ? up.some((x) => moveWorks(n, s.mon, x.mon, S, { weather: weather?.kind })) : moveWorks(n, s.mon, s.mon, S, { weather: weather?.kind, ...sides.e }))
+          const sn = demo ? statusOf(s.mon) : foeStatusMove(s.mon, rand, !!s.owner?.hard, works)
+          if (sn) {
+            s.usedStatus = true; const sm = moveInfo(sn), fits = up.filter((x) => demo || moveWorks(sn, s.mon, x.mon, S, { weather: weather?.kind }))
+            return { actor: s, move: sm, target: sm.target === 'foe' ? fits[Math.floor(rand() * fits.length)] ?? up[0] : s }
+          }
+        }
         s.turn = (s.turn ?? 0)
         let mv = (scripted?.move && atk.find((m) => m.name === scripted.move)) || atk[s.turn++ % atk.length]
         if (S(s.mon).disabled?.name === mv.name) mv = atk.find((m) => m.name !== mv.name) ?? mv   // Disable: it reaches for something else
@@ -6044,9 +6143,12 @@ async function run(id) {
         return
       }
       // Now and then (more often for leaders), once per Pokémon: its type's accuracy or evasion move.
-      if (!foe.roamer && !foe.usedStatus && !ST(foe).taunt && (window.__forceStatusMove || rand() < (trainer?.hard ? 0.25 : 0.1))) {   // __forceStatusMove: testing only
+      const statusTurn = !foe.roamer && !foe.usedStatus && !ST(foe).taunt && (window.__forceStatusMove || rand() < (trainer?.hard ? 0.25 : 0.1))   // __forceStatusMove: testing only
+      // Only a move that would do something (moveWorks); with none, it attacks instead and may try again later.
+      const sn = !statusTurn ? null : demo ? statusOf(foe) : foeStatusMove(foe, rand, !!trainer?.hard, (n) => moveWorks(n, foe, me, ST, { weather: weather?.kind, ...scr.e }))
+      if (sn) {
         foe.usedStatus = true
-        const sn = demo ? statusOf(foe) : foeStatusMove(foe, rand, !!trainer?.hard), sm = SUPPORT[sn]
+        const sm = SUPPORT[sn]
         await announce(`${kind === 'trainer' ? '' : 'The wild '}${foe.name} used`, `${sn}!`, 300)
         if (FIELD_EFFECTS.includes(sm.effect)) { if (!(await fieldMove(sm, foe, { label: 'GOOD', mult: 1 }))) await say('But it failed!', '', 300); return }
         foeLast = sn
