@@ -683,6 +683,10 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .poolpanel .pmons { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
 .poolpanel .pmons span { display: flex; flex-direction: column; align-items: center; font-size: 7.5px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 .poolpanel .pmons img { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+/* Rarer species in the pool: a tag under the name, and a glow for a rare one. */
+.poolpanel .pmons em { font-style: normal; font-size: 6.5px; letter-spacing: .06em; text-transform: uppercase; color: #2563eb; }
+.poolpanel .pmons .rare em { color: #b45309; }
+.poolpanel .pmons .rare img { filter: drop-shadow(0 0 4px #fbbf24); }
 .feed small { color: var(--muted); }
 
 /* ── team rows: a Poké Ball per Pokémon ── */
@@ -1061,6 +1065,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=2a5436e07e"></script>
+<script src="/rpg/game.js?v=3fca1ec9f8"></script>
 </body>
 </html>
