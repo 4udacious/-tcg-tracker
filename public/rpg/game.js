@@ -1289,8 +1289,9 @@ const learnAtLevel = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv === m.le
 /** What it learns later, for the Box: [[level, name]]. */
 const upcoming = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv > m.level && !m.learned.includes(n))
 
-/* Move Discs: one-use items that teach their move to any Pokémon. The VVM can
-   stock them, and a beaten scalper drops one. */
+/* Move Discs: one-use items that teach their move to any Pokémon. Gym Leaders
+   give one (of their type) when you win, the VVM sometimes stocks one, and a
+   booster pack's rare slot can hold one. */
 const DISC_POOL = ['HELPING HAND', 'TAILWIND', 'AFTER YOU', 'HEAL PULSE', 'HOWL', 'EARTHQUAKE', 'ROCK SLIDE', 'HYPER VOICE']
 const discKey = (n) => 'disc:' + n
 /*
@@ -2444,13 +2445,16 @@ const SHOP_DEFAULT = {
   duskstone: { on: true, price: 1, rate: 5 },
   shinystone: { on: true, price: 1, rate: 4 },
   linkcable: { on: true, price: 1.5, rate: 8 },
-  dragonscale: { on: true, price: 1, rate: 5 },   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
+  dragonscale: { on: true, price: 1, rate: 5 },
+  disc: { on: true, price: 1.5, rate: 12 },   // a Move Disc: a different random one each time it's stocked   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
 }
 const SHOP = (() => {
   const base = structuredClone(SHOP_DEFAULT)
   try { const saved = JSON.parse(localStorage.getItem('vvm-shop')); if (saved) for (const k in base) Object.assign(base[k], saved[k]) } catch {}
   return base
 })()
+/** A shelf key's shop settings: a stocked 'disc:NAME' sells on the MOVE DISC slot's. */
+const shopOf = (k) => SHOP[k.startsWith('disc:') ? 'disc' : k]
 const saveShop = () => { try { localStorage.setItem('vvm-shop', JSON.stringify(SHOP)) } catch {} }
 /*
  * Bundles: several supplies sold together as one thing on the shelf, at
@@ -2495,7 +2499,10 @@ const ITEMS = {
   potion: { name: 'POTION', sub: 'heals 30%', cls: 't-potion', heal: 0.3 },
   super: { name: 'SUPER POTION', sub: 'heals 60%', cls: 't-heal', heal: 0.6 },
   revive: { name: 'REVIVE', sub: 'revives at 50% HP', cls: 't-revive', revive: 0.5 },
+  disc: { name: 'MOVE DISC', sub: 'a random move each restock', cls: 't-disc' },   // the shelf slot; what's bought is a 'disc:NAME'
 }
+/* The evolution items a scalper (or a pack's rare slot) can turn up. */
+const EVO_DROPS = ['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']
 /* Item icons: the Scarlet/Violet Bag art, wherever an item is drawn. */
 ;(() => {
   const css = ['ball', 'great', 'potion', 'super', 'revive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale'].map((k) => {
@@ -3072,6 +3079,32 @@ async function run(id) {
   /* The packs in the stocked grid (the app's real stock: one per set, a token each). */
   const STOCK_PACKS = [{ art: 'jungle-scyther', name: 'Jungle', left: 12 }, { art: 'gym-heroes-brock', name: 'Gym Heroes', left: 7 }, { art: 'fossil-lapras', name: 'Fossil', left: 9 },
     { art: 'team-rocket-giovanni', name: 'Team Rocket', left: 4 }, { art: 'gym-challenge-koga', name: 'Gym Challenge', left: 15 }]
+  /*
+   * Booster packs as a battle award: beaten trainers sometimes leave one, Gym
+   * Leaders half the time and the Elite Four every time. In the Bag, OPEN
+   * rips it for three items: two everyday ones and a rare slot, a Move Disc
+   * or an evolution item.
+   */
+  const packKey = (art) => 'pack:' + art
+  const packItem = (p) => (ITEMS[packKey(p.art)] ??= { name: `${p.name.toUpperCase()} PACK`, sub: 'BOOSTER PACK · open it for 3 items', pack: p.art })
+  /** One random pack into the Bag; returns how to say it ("a JUNGLE PACK"). */
+  function givePack() {
+    const it = packItem(pickOf(STOCK_PACKS)), k = packKey(it.pack)
+    bag[k] = (bag[k] ?? 0) + 1
+    return `a ${it.name}`
+  }
+  const PACK_COMMON = ['potion', 'potion', 'super', 'ball', 'ball', 'great', 'revive', 'antidote', 'parlyz', 'burnheal', 'fullheal']
+  /** Opens a pack from the Bag: what came out, as names. */
+  function openPack(k) {
+    if (!bag[k]) return []
+    bag[k]--
+    const got = []
+    const add = (key, label = ITEMS[key].name) => { bag[key] = (bag[key] ?? 0) + 1; got.push(label) }
+    for (let i = 0; i < 2; i++) add(pickOf(PACK_COMMON))
+    if (flavor() < 0.5) { const n = pickOf(DISC_POOL); discItem(n); add(discKey(n), `MOVE DISC (${n})`) }
+    else add(pickOf(EVO_DROPS))
+    return got
+  }
   /** A battle supply's tile in the grid: an item, a bundle, or your next gym's summon. */
   function supplyTile(k) {
     if (k.startsWith('bundle:')) {
@@ -3081,13 +3114,14 @@ async function run(id) {
     }
     if (k === 'elite') return `<button class="tile summon" data-buy="elite"><span class="art"><img src="${ART[ELITE_CARD.face]}" alt=""></span><i class="kind">LEAGUE</i><b>ELITE FOUR TICKET</b><span class="meta">${SHOP.elite.price.toFixed(2)} tk · all 5 battles</span></button>`
     if (k === 'summon') { const L = GYMS[nextGym()]; return `<button class="tile summon" data-buy="summon"><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b><span class="meta">${SHOP.summon.price.toFixed(2)} tk · ${L.short}</span></button>` }
+    if (k.startsWith('disc:')) return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${ITEMS[k].name}</b><span class="meta">${shopOf(k).price.toFixed(2)} tk · ${moveInfo(ITEMS[k].disc).type.toUpperCase()} · teaches it</span></button>`
     return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic ${k}"></span></span><i class="kind">${ITEMS[k].key ? 'KEY ITEM' : 'ITEM'}</i><b>${ITEMS[k].name}</b><span class="meta">${SHOP[k].price.toFixed(2)} tk · ${ITEMS[k].sub}</span></button>`
   }
   /** Buys one supply off the shelf: tokens out, the item (or a bundle's items) into the Bag. */
   function buySupply(k) {
     const b = k.startsWith('bundle:') ? bundleById(k.slice(7)) : null
     if (k.startsWith('bundle:') && !b) return false
-    const price = b ? b.price : SHOP[k].price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
+    const price = b ? b.price : shopOf(k).price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
     if (wallet + 1e-9 < price) { sfx('blocked'); $('homeSub').textContent = `not enough tokens for ${b ? `the ${b.name}` : `a ${ITEMS[k].name}`}`; return false }
     wallet = Math.round((wallet - price) * 100) / 100
     if (b) {
@@ -3127,8 +3161,8 @@ async function run(id) {
      tokens and the machine dispenses (like the packs in the app), and the
      items land in the Bag. A summon, a ticket or a key item is one at a time. */
   const cartMax = (k) => (k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9)
-  const priceOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : SHOP[k].price)
-  const nameOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.name ?? 'BUNDLE' : k === 'summon' ? `${GYMS[nextGym()]?.badge ?? 'GYM'} SUMMON` : ITEMS[k].name)
+  const priceOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : shopOf(k).price)
+  const nameOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.name ?? 'BUNDLE' : k === 'summon' ? `${GYMS[nextGym()]?.badge ?? 'GYM'} SUMMON` : k.startsWith('disc:') ? `MOVE DISC (${ITEMS[k].disc})` : ITEMS[k].name)
   const cartCount = () => [...cart.values()].reduce((a, b) => a + b, 0)
   const cartTotal = () => Math.round([...cart].reduce((s, [k, n]) => s + priceOf(k) * n, 0) * 100) / 100
   /** The tiles' counts and the bar under them. */
@@ -3154,7 +3188,7 @@ async function run(id) {
   function drawCheckout() {
     const total = cartTotal(), short = wallet + 1e-9 < total
     $('checkout').innerHTML = `<div class="cohd">CHECKOUT</div>
-      <div class="colines">${[...cart].map(([k, n]) => `<div class="coline">${k.startsWith('bundle:') || k === 'summon' || k === 'elite' ? '<span class="coic box"></span>' : `<span class="coic supic ${k}"></span>`}<span class="conm">${nameOf(k)}</span><span class="coqty">×${n}</span><span class="copr">${(priceOf(k) * n).toFixed(2)}</span></div>`).join('')}</div>
+      <div class="colines">${[...cart].map(([k, n]) => `<div class="coline">${k.startsWith('bundle:') || k === 'summon' || k === 'elite' ? '<span class="coic box"></span>' : `<span class="coic supic ${k.startsWith('disc:') ? 'disc' : k}"></span>`}<span class="conm">${nameOf(k)}</span><span class="coqty">×${n}</span><span class="copr">${(priceOf(k) * n).toFixed(2)}</span></div>`).join('')}</div>
       <div class="cotot"><span>TOTAL</span><b>${total.toFixed(2)} tokens</b></div>
       <div class="cobal">Your tokens: ${wallet.toFixed(2)} → <b class="${short ? 'bad' : ''}">${short ? 'not enough' : (wallet - total).toFixed(2)}</b></div>
       <div class="cobtns"><button class="cb back" data-co="back">◀ KEEP SHOPPING</button><button class="cb go" data-co="pay" ${short ? 'disabled' : ''}>PAY ${total.toFixed(2)}</button></div>`
@@ -3292,6 +3326,7 @@ async function run(id) {
         const sub = done ? `you already have the ${L.badge} BADGE` : ready ? `challenge ${L.short} of ${L.city} · tap` : n === 8 && !champion ? 'become Champion first' : `beat ${GYMS[n - 1].short} first`
         return `<button class="irow" data-item="${k}"${ready ? '' : ' disabled'}><img class="ic face" src="${ART[L.face]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${sub}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
+      if (it.pack) return `<button class="irow" data-open="${k}"><img class="ic face" src="${ART['pack:' + it.pack]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">BOOSTER PACK · tap to open: 2 items and a rare (a Move Disc or an evolution item)</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       if (it.disc) { const n = party.filter((m) => canLearnDisc(m, it.disc) && !learn(m).learned.includes(it.disc)).length
         return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic disc"></span><span class="mid"><b>${it.name}</b><span class="sub">MOVE DISC · ${n ? `${n} of your party can learn it · tap to use` : 'nobody in your party can learn it'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       if (it.evo || it.held) { const n = it.evo ? party.filter((m) => evoByItem(m, k, bag).rule).length : 0
@@ -3300,7 +3335,7 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${n && bag[k] ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.sub} · ${n ? `${n === 1 ? '1 Pokémon needs' : `${n} Pokémon need`} it · tap to use` : 'nobody needs it right now'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
-    }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Beaten trainers drop Move Discs too.</p>`
+    }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders, the VVM now and then, and packs; beaten trainers sometimes leave a booster pack.</p>`
   }
   /** A summon's challenge page: who, how many, how strong; then the button. */
   function summonPage(k) {
@@ -3452,6 +3487,7 @@ async function run(id) {
       if (a.up != null && a.up > 0) { [party[a.up - 1], party[a.up]] = [party[a.up], party[a.up - 1]]; sfx('move') }
       if (a.down != null && a.down < party.length - 1) { [party[a.down + 1], party[a.down]] = [party[a.down], party[a.down + 1]]; sfx('move') }
       if (a.use != null) toast = useItem(a.use, view.mon)
+      if (a.open != null) { const name = ITEMS[a.open].name, got = openPack(a.open); if (got.length) { sfx('levelup'); toast = `You opened the ${name}: ${got.join(', ')}!` } }
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: s === 'elite' ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
       // The Elite Four ticket isn't spent here: only a loss, or beating Lance, uses it up.
       if (a.elite != null) { pendingSummon = 'elite'; sfx('select'); sheetCloser?.(); return }
@@ -3481,7 +3517,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'open']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -3677,16 +3713,23 @@ async function run(id) {
   /**
    * What a beaten scalper leaves behind. The tokens are paid by the caller and
    * always come; these are only sometimes there: a Potion (or a Super Potion)
-   * about a third of the time, a Move Disc about one time in five.
+   * about a third of the time, a booster pack about one time in seven, and
+   * now and then an evolution item. Move Discs aren't dropped: they come from
+   * Gym Leaders, the VVM and packs.
    */
   async function loot(T) {
     const got = []
     if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`a ${ITEMS[k].name}`) }
-    if (flavor() < 0.2) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; got.push(`a MOVE DISC (${n})`) }
-    // Now and then, an evolution item.
-    if (flavor() < 0.08) { const k = pickOf(['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
+    if (flavor() < 0.15) got.push(givePack())
+    if (flavor() < 0.08) { const k = pickOf(EVO_DROPS); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
     renderTools()
     if (got.length) { sfx('click'); await say(`${T.short} dropped`, `${got.join(' and ')}!`, 700) }
+  }
+  /** A Move Disc a Gym Leader hands over: one of their type you don't have yet, if there is one. */
+  function gymDisc(L) {
+    const mine = DISC_POOL.filter((n) => moveInfo(n).type === L.type), fresh = mine.filter((n) => !bag[discKey(n)])
+    const n = pickOf(fresh.length ? fresh : mine.length ? mine : DISC_POOL)
+    discItem(n); return n
   }
   /** How long a foe's move name stays up before its attack starts: time to read it and pick parry, dodge or jump. */
   const READ_MS = demo ? 850 : 1150
@@ -4742,6 +4785,11 @@ async function run(id) {
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
       wallet = Math.round((wallet + +L.tokens) * 100) / 100
       sfx('tokens'); await say(`You got ${L.tokens} tokens!`, '', 600)
+      // A Move Disc of the leader's type, and half the time a booster pack.
+      const n = gymDisc(L); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1
+      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${n}!`, 900)
+      if (flavor() < 0.5) { const p = givePack(); await say(`${L.short} also gave you`, `${p}!`, 700) }
+      renderTools()
     } else {
       await trainerOn(L); await talk(L, L.gloat); await trainerOff()
       await say(`${L.short} headed back to the ${L.city} GYM.`, 'The SUMMON was used up.')
@@ -4785,6 +4833,7 @@ async function run(id) {
       await out.exp?.()
       wallet = Math.round((wallet + +L.tokens) * 100) / 100
       sfx('tokens'); await say(`You got ${L.tokens} tokens!`, '', 600)
+      { const p = givePack(); sfx('click'); await say(`${L.short} gave you`, `${p}!`, 700) }
       eliteStep++
       if (eliteStep === ELITE.length) {
         eliteStep = 0; champion = true; bag[key] = Math.max(0, (bag[key] ?? 0) - 1)
@@ -5046,6 +5095,12 @@ async function run(id) {
    * screen, unless another trainer is already on it. `force` pins the
    * encounter (the demo, "Your next tap"); `force.plan` is a demo script.
    */
+  /** This restock's shelf: each enabled supply (and bundle) with its rate as the chance; a MOVE DISC slot becomes one random disc. */
+  function rollShelf() {
+    return [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (badges.length >= 8 && !champion)) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate)
+      .map((k) => { if (k !== 'disc') return k; const n = pickOf(DISC_POOL); discItem(n); return discKey(n) }),
+      ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
+  }
   async function tapMachine(force = {}) {
     const state = machine.state
     tickRest()   // beaten trainers' rest counts down with your taps
@@ -5054,8 +5109,7 @@ async function run(id) {
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
     // Bundles the same way, each with its own rate.
-    if (state === 'in') shelfItems = force.items ?? [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (badges.length >= 8 && !champion)) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate),
-      ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
+    if (state === 'in') shelfItems = force.items ?? rollShelf()
     $('tts').textContent = 'STARTING…'; sfx('select'); await W(450)
     // The purchase screen is one trainer at a time; encounters don't need it.
     const waiting = !enc && state === 'in' && machine.lockedBy && machine.lockedBy !== YOU
@@ -6403,8 +6457,10 @@ async function run(id) {
   /**
    * Evolutions due from this battle, one at a time, on the battle screen: the
    * old and new forms flicker faster and faster to the evolution music, and
-   * STOP (B) cancels it, for another try 5 levels later. The demo lets it run.
+   * holding STOP (B) for 3 seconds cancels it, for another try 5 levels
+   * later. The demo lets it run.
    */
+  const EVO_HOLD_MS = 3000
   async function runEvolutions() {
     for (const m of [...pendingEvos]) {
       pendingEvos.delete(m)
@@ -6418,18 +6474,23 @@ async function run(id) {
       const [a, b] = stage.querySelectorAll('img')
       Sound.music('evolution')
       await say('What?', `${m.name} is evolving!`, 500)
-      $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'it will try again in 5 levels'
+      $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'tries again in 5 levels'
       panel(demo ? null : 'pEvo')
+      // Stopping takes holding B for EVO_HOLD_MS (the button fills as you hold); a tap does nothing.
       let stopped = false
-      const off = listen((btn) => { if (btn === 'b') stopped = true })
+      const shownAt = performance.now(), stopBtn = $('pEvo').querySelector('.bEvoStop')
+      const held = () => (btnDown.b ? performance.now() - Math.max(btnDown.b, shownAt) : 0)
+      const tick = () => { const h = held(); stopBtn.style.setProperty('--hold', Math.min(1, h / EVO_HOLD_MS)); if (h >= EVO_HOLD_MS) stopped = true }
       // The flicker: white silhouettes swapping, faster as it goes (about 6 s).
       a.classList.add('glow'); b.classList.add('glow')
       for (let i = 0, gap = 520; i < 26 && !stopped; i++, gap = Math.max(70, gap * 0.86)) {
         const showNew = i % 2 === 1
         a.style.opacity = showNew ? 0 : 1; b.style.opacity = showNew ? 1 : 0
-        await W(gap)
+        for (const end = performance.now() + gap; performance.now() < end && !stopped;) { tick(); await W(30) }
       }
-      off(); panel(null)
+      // Still holding when the flicker ends: it waits for you to finish the hold or let go.
+      for (let i = 0; btnDown.b && !stopped; i++) { a.style.opacity = i % 6 < 3 ? 0 : 1; b.style.opacity = i % 6 < 3 ? 1 : 0; tick(); await W(30) }
+      stopBtn.style.setProperty('--hold', 0); panel(null)
       a.classList.remove('glow'); b.classList.remove('glow')
       if (stopped) {
         a.style.opacity = 1; b.style.opacity = 0
@@ -6737,6 +6798,7 @@ async function run(id) {
     for (const [k, n] of Object.entries(s.bag ?? {})) {
       // Discs and summons are registered as items the first time one turns up: do that again.
       if (k.startsWith('disc:')) discItem(k.slice(5))
+      if (k.startsWith('pack:')) { const p = STOCK_PACKS.find((x) => x.art === k.slice(5)); if (p) packItem(p) }
       if (k.startsWith('summon:')) summonItem(k === 'summon:elite' ? 'elite' : +k.slice(7))
       if (ITEMS[k]) bag[k] = n
     }
@@ -6782,7 +6844,8 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+    rollShelf, givePack, openPack, gymDisc, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {

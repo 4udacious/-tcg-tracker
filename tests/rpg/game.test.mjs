@@ -104,6 +104,38 @@ test('battle rules', async () => {
   } finally { await g.close() }
 })
 
+test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(1200)
+    // A Lv 16 Charmander evolves; a tap of B doesn't stop it, a 3 s hold does.
+    const evolve = async (holdMs) => {
+      await page.evaluate(() => { const m = individual(speciesByName('CHARMANDER'), 16, Math.random); m.hp = m.stats.hp; window.__vvm.party.splice(0, 9, m); window.__vvm.evolveNow(m) })
+      await page.waitForTimeout(1600)
+      await page.keyboard.down('z'); await page.waitForTimeout(holdMs); await page.keyboard.up('z')
+      for (let i = 0; i < 80 && await page.evaluate(() => !!document.querySelector('.evostage')); i++) { await page.keyboard.press('x'); await page.waitForTimeout(200) }
+      return page.evaluate(() => window.__vvm.party[0].name)
+    }
+    assert.equal(await evolve(300), 'CHARMELEON', 'a short tap of B lets it evolve')
+    assert.equal(await evolve(3300), 'CHARMANDER', 'holding B for 3 s stops it')
+    const r = await page.evaluate(() => {
+      const v = window.__vvm
+      const gymTypes = GYMS.filter((L) => !DISC_POOL.some((n) => moveInfo(n).type === L.type)).map((L) => L.short)
+      const gd = v.gymDisc(GYMS[0])
+      const k = (v.givePack(), Object.keys(v.bag).find((x) => x.startsWith('pack:')))
+      const opened = v.openPack(k)
+      SHOP.disc.on = true; SHOP.disc.rate = 100
+      return { gymTypes, gymDiscType: moveInfo(gd).type, opened, left: v.bag[k], shelf: v.rollShelf().filter((x) => x.startsWith('disc')) }
+    })
+    assert.deepEqual(r.gymTypes, [], 'every Gym Leader has a disc of their type')
+    assert.equal(r.gymDiscType, 'flying')
+    assert.equal(r.opened.length, 3); assert.equal(r.left, 0)
+    assert.equal(r.shelf.length, 1); assert.match(r.shelf[0], /^disc:/)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 for (const [mode, label] of [['demo', 'Watch'], ['duo', 'Watch 2v2'], ['gym', 'Watch gym']]) {
   test(`the ${label} demo plays through`, { skip: quick }, async () => {
     const g = await openGame({ mode })
