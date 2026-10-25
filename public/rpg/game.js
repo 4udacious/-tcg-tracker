@@ -755,6 +755,31 @@ const INST = {
     oscAt(ac, 'square', f, t, end, 3).connect(bp); const o2 = oscAt(ac, 'sawtooth', f * 2, t, end), o2g = ac.createGain(); o2g.gain.value = 0.35; o2.connect(o2g).connect(bp)
     bp.connect(g).connect(ch)
   },
+  /**
+   * Pipe organ: sine "drawbars" (the sub-octave, the fundamental and its
+   * harmonics up to the 8th), a steady level with a breath of air at the
+   * start, and a slow tremulant. Holds as long as the note does.
+   */
+  organ(ac, ch, t, f, dur, v) {
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.1 * v, 0.03, 0.1, 1, 0.12)
+    const trem = ac.createGain(); trem.gain.value = 1
+    const lfo = oscAt(ac, 'sine', 5.6, t, end), lg = ac.createGain(); lg.gain.value = 0.08; lfo.connect(lg).connect(trem.gain)
+    for (const [mul, amp] of [[0.5, 0.6], [1, 1], [2, 0.7], [3, 0.35], [4, 0.4], [6, 0.15], [8, 0.2]]) {
+      const o = oscAt(ac, 'sine', f * mul, t, end), og = ac.createGain(); og.gain.value = amp; o.connect(og).connect(trem)
+    }
+    noiseHit(ac, trem, t, { type: 'bandpass', f: Math.min(6000, f * 4), q: 0.7, len: 0.05, vol: 0.06 })
+    trem.connect(g).connect(ch)
+  },
+  /** Tubular bells: a struck tube's out-of-tune partials (the hum below, the strike tone, and bright ones above), ringing for seconds. */
+  bells(ac, ch, t, f, dur, v) {
+    const len = 2.6, end = t + len + 0.05
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0008, t + len)
+    for (const [mul, amp, decay] of [[0.5, 0.35, 2.4], [1, 1, 2.2], [2.01, 0.55, 1.4], [2.76, 0.4, 1.0], [4.07, 0.25, 0.6], [5.43, 0.15, 0.35]]) {
+      const o = oscAt(ac, 'sine', f * mul, t, end), og = ac.createGain()
+      og.gain.setValueAtTime(amp, t); og.gain.exponentialRampToValueAtTime(amp * 0.003, t + decay); o.connect(og).connect(g)
+    }
+    g.connect(ch)
+  },
   /** Synth bass: saw and sine sub, a resonant filter that snaps shut. */
   bass(ac, ch, t, f, dur, v) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 4
@@ -1402,6 +1427,58 @@ SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8, leadIn
         'Db2 . . . Db2 . Ab1 .', 'Eb2 . . . Eb2 . Bb1 .', 'C2 . . . C2 . G1 .', 'C2 . . . C2 . . .'),
       drums: 'KhhhShhh'.repeat(7) + 'KhhhSSSS' },
     { ...CHAMP_A, leadInst: 'synth', glock: true },
+  ] }
+
+/*
+ * The Champion's battle, second version (the first is SONGS.championClassic).
+ * The last fight in the game, so it's the most restless: the only theme in
+ * an odd meter. In E-flat minor, after the Champion's intro in E-flat, and
+ * built on one four-note motif (Eb Gb F Bb: up, a step back, a leap) that
+ * returns in every section.
+ *   - The verse is in 7/8 (2+2+3), guitar and timpani under the brass with
+ *     violins an octave above, and a pipe organ holding the chords.
+ *   - The second verse rises a half step, to E minor, and slides back down
+ *     (B7 to Bb7) to set up
+ *   - the chorus: E-flat MAJOR, half-time, on borrowed chords (Gb, Db, Cb)
+ *     for a heroic, cinematic lift, with a choir and tubular bells.
+ *   - A four-bar last stand in 4/4 drives back to the top.
+ * It opens with the organ, bells and timpani. Eighth-note grid; 7 steps a
+ * bar in the verses, 8 elsewhere. About 35 s a loop.
+ */
+SONGS.championClassic = SONGS.champion
+/** A 7/8 bar of bass on one note: 2+2+3, the third hit an octave up, and a pickup. */
+const seven = (n) => { const hi = transpose([n], 12)[0]; return `${n} . ${n} . ${hi} . ${n}` }
+const CH2_A = { chordLen: 7, chords: 'Ebm Ebm Cb Cb Abm Abm Bb7 Bb7'.split(' '),
+  lead: bars('Eb5 Gb5 F5 . Bb5 . .', 'Gb5 . Bb5 . Eb6 . .', 'Cb6 Eb6 Db6 . Gb6 . .', 'Cb6 . Gb5 . Eb5 . .',
+    'Ab5 Cb6 Bb5 . Eb6 . .', 'Cb6 . Ab5 . Eb5 . .', 'D5 . F5 . Ab5 . .', 'Bb5~ . . . . . .'),
+  bass: bars(seven('Eb2'), seven('Eb2'), seven('Cb2'), seven('Cb2'), seven('Ab1'), seven('Ab1'), seven('Bb1'), seven('Bb1')),
+  drums: 'K.S.KhS'.repeat(7) + 'SSSSSSS' }
+SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8,
+  leadInst: 'brass', leadDouble: 'violins', leadDoubleOct: 1, leadDoubleVel: 0.4, harmInst: 'strings', padInst: 'organ',
+  power: true, comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chords: 'Ebm Ebm Abm Bb7'.split(' '), leadInst: 'bells', leadDouble: '', power: false,
+    lead: bars('Eb5 . Gb5 . F5 . . .', 'Bb5 . . . . . . .', 'Ab5 . Cb6 . Bb5 . . .', 'D6 . . . F6 . . .'),
+    bass: bars('Eb2 . . . . . . .', 'Eb2 . . . . . . .', 'Ab1 . . . . . . .', 'Bb1 . . . Bb1 . . .'),
+    drums: 'P.......' + 'P.......' + 'P...P...' + 'PPPPSSSS' },
+  sections: [
+    { ...CH2_A },
+    { // The verse a half step up, E minor, sliding back down at the end (B7 to Bb7)
+      ...CH2_A,
+      chords: [...transposeChords(CH2_A.chords.slice(0, 7), 1), 'Bb7'],
+      lead: [...transpose(CH2_A.lead.slice(0, 49), 1), ...bars('Bb5~ . . . . . .')],
+      bass: [...transpose(CH2_A.bass.slice(0, 49), 1), ...bars(seven('Bb1'))] },
+    { // Chorus: E-flat major, half-time, borrowed chords; choir and bells
+      chords: 'Eb Gb Ab Bb Eb Db Cb Bb7'.split(' '), padInst: 'choir', leadDouble: 'bells', leadDoubleOct: 1, leadDoubleVel: 0.5,
+      lead: bars('Eb5^ . . . G5 . Bb5 .', 'Bb5 . . . . . Db6 .', 'C6 . . . Eb6 . Ab5 .', 'D6 . . . . . F6 .',
+        'G6^ . . . Eb6 . Bb5 .', 'Ab5 . . . F5 . Db6 .', 'Eb6 . . . Gb6 . Cb6 .', 'D6~ . . . . . . .'),
+      bass: bars('Eb2 . . . Eb2 . Bb1 .', 'Gb1 . . . Gb1 . Db2 .', 'Ab1 . . . Ab1 . Eb2 .', 'Bb1 . . . Bb1 . F2 .',
+        'Eb2 . . . Eb2 . Bb1 .', 'Db2 . . . Db2 . Ab1 .', 'Cb2 . . . Cb2 . Gb1 .', 'Bb1 . . . Bb1 . D2 .'),
+      drums: 'K.h.S.h.'.repeat(7) + 'K.h.SSSS' },
+    { // The last stand: 4/4, full tilt, the motif climbing
+      chords: 'Ebm Cb Abm Bb7'.split(' '),
+      lead: bars('Eb5 Gb5 F5 . Bb5 . Eb6 .', 'Cb6 Eb6 Db6 . Gb6 . Cb6 .', 'Eb6 . Cb6 . Ab5 . Eb6 .', 'F6 . D6 . Bb5 . Ab5 .'),
+      bass: bars('Eb2 Eb2 Eb3 Eb2 Eb2 Eb3 Eb2 Eb3', 'Cb2 Cb2 Cb3 Cb2 Cb2 Cb3 Cb2 Cb3', 'Ab1 Ab1 Ab2 Ab1 Ab1 Ab2 Ab1 Ab2', 'Bb1 Bb1 Bb2 Bb1 D2 F2 Ab2 Bb2'),
+      drums: 'KhSKKhSh'.repeat(3) + 'SSSSPPPP' },
   ] }
 
 /** Which intro plays under each League member's words. */
