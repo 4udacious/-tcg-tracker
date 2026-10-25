@@ -516,6 +516,11 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .phud .tags { position: absolute; left: 12px; top: -8px; display: flex; gap: 3px; }
 .phud .tags span { font-size: 8px; font-weight: 800; letter-spacing: .04em; padding: 0 4px; border-radius: 3px; background: #f59e0b; color: #1f1300; line-height: 12px; }
 
+/* The Bag's pockets. */
+.bagtabs { display: flex; gap: 4px; margin: 0 0 10px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.bagtabs button { flex: 1; min-width: 0; padding: 7px 2px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
+.bagtabs button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.bagtabs button i { font-style: normal; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); font-size: 9px; }
 /* Move Discs in the Bag, and what's learned later in the Box. */
 .irow .ic.disc, .adm .ic.disc, .supic.disc { border-radius: 50%; background: radial-gradient(circle, #f8fafc 0 18%, #1f2937 19% 24%, transparent 25%), conic-gradient(#a78bfa, #60a5fa, #34d399, #fbbf24, #f472b6, #a78bfa); }
 .irow .ic.disc::after, .adm .ic.disc::after, .supic.disc::after { display: none; }
@@ -1082,6 +1087,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=6829990cb8"></script>
+<script src="/rpg/game.js?v=e684500546"></script>
 </body>
 </html>

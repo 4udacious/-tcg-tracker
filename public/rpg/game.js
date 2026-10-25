@@ -3435,10 +3435,18 @@ async function run(id) {
       <div class="svmoves"><div class="lbl">Moves <span>change them in the Box</span></div>${movesOf(m).map((n) => `<span style="background:${TYPE_COL[moveInfo(n).type]}">${n} · ${moveCost(n)} PP</span>`).join('')}</div>
       <div class="svitems"><div class="lbl">Use an item</div>${itemButtons(m)}</div>`
   }
+  /* The Bag's pockets: each item is in one, by what it is. Other holds evolution items, key items and summons. */
+  const BAG_TABS = [['medicine', 'MEDICINE'], ['balls', 'BALLS'], ['discs', 'MOVE DISCS'], ['other', 'OTHER']]
+  const pocketOf = (k, it) => (it.disc ? 'discs' : k === 'ball' || k === 'great' ? 'balls' : HEALS.includes(k) || it.cure ? 'medicine' : 'other')
+  const POCKET_EMPTY = { medicine: 'No medicine. Potions, Revives and status cures go here.', balls: 'No Poké Balls.', discs: 'No Move Discs. Gym Leaders give them, and the VVM sells them now and then.', other: 'Nothing here. Evolution stones, key items and summons go here.' }
+  let bagTab = 'medicine'   // the pocket you last looked at, for as long as the game is open
   function bagList() {
     // Only what you actually have: an item at 0 drops out of the list.
-    const held = Object.entries(ITEMS).filter(([k]) => k !== 'summon' && k !== 'elite' && bag[k] > 0)
-    return (held.length ? '' : `<p class="note">Your Bag is empty.</p>`) + held.map(([k, it]) => {
+    const all = Object.entries(ITEMS).filter(([k]) => k !== 'summon' && k !== 'elite' && k !== 'disc' && bag[k] > 0)
+    const held = all.filter(([k, it]) => pocketOf(k, it) === bagTab)
+    const tabs = `<div class="bagtabs" role="tablist">${BAG_TABS.map(([t, label]) => { const n = all.filter(([k, it]) => pocketOf(k, it) === t).reduce((a, [k]) => a + bag[k], 0)
+      return `<button role="tab" aria-selected="${t === bagTab}" class="${t === bagTab ? 'on' : ''}" data-tab="${t}">${label}${n ? `<i>${n}</i>` : ''}</button>` }).join('')}</div>`
+    return tabs + (held.length ? '' : `<p class="note">${all.length ? POCKET_EMPTY[bagTab] : 'Your Bag is empty.'}</p>`) + held.map(([k, it]) => {
       if (it.key) return `<div class="irow key"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · always on: Pokémon that sit out a battle still get half its EXP</span></span></div>`
       if (it.summon === 'elite') {
         const L = ELITE[eliteStep], ok = badges.length >= 8 && !champion
@@ -3620,6 +3628,7 @@ async function run(id) {
       if (a.back != null) { view = { page: 'list' }; sfx('move') }
       if (a.up != null && a.up > 0) { [party[a.up - 1], party[a.up]] = [party[a.up], party[a.up - 1]]; sfx('move') }
       if (a.down != null && a.down < party.length - 1) { [party[a.down + 1], party[a.down]] = [party[a.down], party[a.down + 1]]; sfx('move') }
+      if (a.tab != null) { bagTab = a.tab; sfx('move') }
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: s === 'elite' ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
       // The Elite Four ticket isn't spent here: only a loss, or beating Lance, uses it up.
@@ -3662,7 +3671,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -5010,6 +5019,7 @@ async function run(id) {
     cap('BAG', "Summons are used from the Bag. The challenge page shows who you'll face; the summon is spent when the leader arrives, win or lose.")
     hot($('tBag')); sfx('select')
     const sh = openSheet('bag'); await W(1400)
+    await sh.tap('[data-tab="other"]', 700)
     await sh.tap(`[data-item="${summonKey(0)}"]`, 2600)
     await sh.tap('[data-challenge]', 400)
     pendingSummon = null
@@ -5370,6 +5380,7 @@ async function run(id) {
     cap('MOVE DISC', 'Move Discs teach a move straight away. QUAXLY learns HELPING HAND from one, then swaps it in for WATER SHURIKEN.')
     hot($('tBag')); sfx('select')
     sh = openSheet('bag'); await W(1300)
+    await sh.tap('[data-tab="discs"]', 700)
     await sh.tap(`[data-item="${discKey('HELPING HAND')}"]`, 1200)
     await sh.tap('[data-target="1"]', 2200)
     await sh.tap('[data-slot="1"]', 800); await sh.tap('[data-learn="HELPING HAND"]', 1800)
@@ -6884,6 +6895,7 @@ async function run(id) {
     hot($('tBag')); sfx('select')
     let sh = openSheet('bag')
     await W(1700)
+    await sh.tap('[data-tab="medicine"]', 500)
     await sh.tap('[data-item="potion"]', 1500)
     await sh.tap(`[data-target="${party.indexOf(party.find((m) => m.name === 'FUECOCO'))}"]`, 2000)
     hot($('sheetClose')); closeSheetNow(); await W(500)
