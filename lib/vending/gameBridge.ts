@@ -100,6 +100,24 @@ export function makeVvmApi(userId: string) {
       return one(data as { ok: boolean; reason: string; set_name: string | null; pack_name: string | null; image_url: string | null; left_today: number } | null)
         ?? { ok: false, reason: 'error', set_name: null, pack_name: null, image_url: null, left_today: 0 }
     },
+    /** Your account's game save, or null if you have none. Throws if the server can't be reached. */
+    async loadSave() {
+      const { data, error } = await db.rpc('game_save_get')
+      if (error) throw new Error(error.message)
+      const r = one(data as { data: unknown; rev: number } | null)
+      return r ? { data: r.data, rev: r.rev } : null
+    },
+    /**
+     * Writes the save, made from revision `rev` (null if this device has never
+     * synced). A 'conflict' means the account's save moved on elsewhere: the
+     * newer one comes back in `data`.
+     */
+    async putSave(save: unknown, rev: number | null) {
+      const { data, error } = await db.rpc('game_save_put', { p_data: save, p_rev: rev })
+      if (error) return { ok: false, reason: error.message, rev: null, data: null }
+      return one(data as { ok: boolean; reason: string; rev: number | null; data: unknown } | null) ?? { ok: false, reason: 'error', rev: null, data: null }
+    },
+    async deleteSave() { await db.rpc('game_save_delete') },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })

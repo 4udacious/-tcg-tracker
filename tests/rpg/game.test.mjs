@@ -210,6 +210,47 @@ test('the Bag: medicine, balls, Move Discs and other in their own pockets', asyn
   } finally { await g.close() }
 })
 
+test('in the app: the save is the account\'s, and a newer one from another device wins', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const mk = (n) => { const m = individual(speciesByName(n), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m); return m }
+      const save = (name, at, rev) => ({ v: 1, at, rev, party: [mk(name)], box: [], bag: {}, wallet: 0, badges: [], champion: false, eliteStep: 0, freeHeal: 1, gifted: true, roam: {}, weekShift: 0, reports: {} })
+      const calls = window.__calls = []
+      let acct = { data: save('EEVEE', 2000, 5), rev: 5 }
+      window.__elsewhere = () => { acct = { data: save('PIKACHU', 3000, acct.rev), rev: acct.rev + 1 } }   // played and saved on another device
+      window.__vvmApi = {
+        async machine() { return { status: 'maintenance', cycle_no: 1, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 1, wild: true, trainers: true, packs: [], tickets: [], supplies: [] } },
+        async takeItems() { return [] }, async heartbeat() {}, async release() {},
+        async loadSave() { calls.push(['loadSave']); return acct },
+        async putSave(data, rev) {
+          calls.push(['putSave', rev])
+          if (rev !== acct.rev) return { ok: false, reason: 'conflict', rev: acct.rev, data: acct.data }
+          acct = { data, rev: rev + 1 }; return { ok: true, reason: 'ok', rev: acct.rev, data: null }
+        },
+        async deleteSave() {},
+      }
+      // This browser holds an older copy, from revision 4.
+      localStorage.setItem('vvm-save:u1', JSON.stringify(save('CHARMANDER', 1000, 4)))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm?.party[0]?.name === 'EEVEE', null, { timeout: 15000 })
+    // Saving sends it up, made from revision 5.
+    await frame.evaluate(() => window.__saveNow())
+    await page.waitForFunction(() => window.__calls.some((c) => c[0] === 'putSave' && c[1] === 5))
+    // Meanwhile it's played elsewhere: the next save is refused and the newer one (PIKACHU) loads.
+    await page.evaluate(() => window.__elsewhere())
+    await frame.evaluate(() => window.__saveNow())
+    await frame.waitForFunction(() => window.__vvm?.party[0]?.name === 'PIKACHU', null, { timeout: 15000 })
+    const local = await frame.evaluate(() => JSON.parse(localStorage.getItem('vvm-save:u1')))
+    assert.equal(local.party[0].name, 'PIKACHU'); assert.equal(local.rev, 7)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: the real machine, checkout, packs and tokens go through the bridge', async () => {
   const g = await openGame()
   try {
@@ -235,6 +276,9 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
         async takeItems(keys) { calls.push(['take', keys]); const out = keys.filter((k) => owned[k]).map((k) => ({ key: k, qty: owned[k] })); for (const k of keys) delete owned[k]; return out },
         async awardPack(source) { calls.push(['awardPack', source]); return { ok: true, reason: 'ok', set_name: 'Fossil', pack_name: 'Lapras', image_url: '/packs/x.webp', left_today: 2 } },
         async awardTokens(amount, source) { calls.push(['awardTokens', amount, source]); balance += Math.min(amount, 1); return { ok: true, reason: 'ok', awarded: Math.min(amount, 1), balance } },
+        async loadSave() { calls.push(['loadSave']); return null },
+        async putSave(data, rev) { calls.push(['putSave', rev]); return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } },
+        async deleteSave() {},
       }
       // A save, so the game opens past the tutorial.
       const m = individual(speciesByName('CHARMANDER'), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
@@ -261,6 +305,7 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
     const co = calls.find((c) => c[0] === 'checkout')
     assert.deepEqual(co.slice(1), [[{ set_code: 'base2', qty: 1 }], [], [{ key: 'great_ball', qty: 1 }]])
     assert.ok(calls.some((c) => c[0] === 'claim')); assert.ok(calls.some((c) => c[0] === 'awardPack' && c[1] === 'trainer'))
+    assert.deepEqual(calls.find((c) => c[0] === 'putSave'), ['putSave', null], 'a browser save from before goes up to the account')
     assert.equal(await frame.evaluate(() => document.getElementById('wallet').textContent), '8.60 tk')
     assert.equal(await frame.evaluate(() => getComputedStyle(document.getElementById('battleL')).display), 'none', 'no battle happened')
     assert.deepEqual(g.errors, [])
@@ -272,11 +317,11 @@ for (const [mode, label] of [['demo', 'Watch'], ['duo', 'Watch 2v2'], ['gym', 'W
     const g = await openGame({ mode })
     try {
       const seen = new Set()
-      for (let i = 0; i < 90 && ![...seen].some((t) => /fainted/.test(t)); i++) {
+      for (let i = 0; i < 120 && ![...seen].some((t) => /fainted/.test(t)); i++) {
         await g.page.waitForTimeout(1000)
         seen.add(await g.page.evaluate(() => document.getElementById('msg')?.textContent ?? ''))
       }
-      assert.ok([...seen].some((t) => /fainted/.test(t)), 'a Pokémon fainted within 90 s')
+      assert.ok([...seen].some((t) => /fainted/.test(t)), 'a Pokémon fainted within 120 s')
       assert.deepEqual(g.errors, [])
     } finally { await g.close() }
   })

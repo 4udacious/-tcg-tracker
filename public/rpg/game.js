@@ -6942,28 +6942,83 @@ async function run(id) {
     setTimeout(tick, 3000)
   }
   /*
-   * Saving. Play mode keeps one save in this browser: the party and Box (each
-   * Pokémon's level, EXP, moves, HP and status), the Bag, tokens, badges, the
-   * Elite Four ladder and Champion, today's free heal, timer reports and the
-   * roaming legendaries. SAVE under the machine saves now; it also saves on its
-   * own after every battle, purchase or Bag/Party/Box visit, and every 30 s.
-   * In the real app this lives on the server instead.
+   * Saving: the party and Box (each Pokémon's level, EXP, moves, HP and
+   * status), the Bag, tokens, badges, the Elite Four ladder and Champion,
+   * today's free heal, timer reports and the roaming legendaries. SAVE under
+   * the machine saves now; it also saves on its own after every battle,
+   * purchase or Bag/Party/Box visit, and every 30 s.
+   *
+   * Play mode keeps the save in this browser. In the app it's the account's
+   * (game_saves, v60), with the browser copy as a cache and for when the
+   * server can't be reached. Each account save has a revision; a write names
+   * the one it was made from, so a device holding an older copy can't
+   * overwrite newer progress made elsewhere: it loads the newer save instead.
    */
-  // In the app, one save per account on this device.
+  // In the app, the browser copy is per account.
   const SAVE_KEY = 'vvm-save' + (APP.uid ? ':' + APP.uid : '')
+  let saveRev = null          // app: the account save's revision this game is built on (null: never synced here)
+  let cloudReady = !APP.on    // app: the account save has been checked; until then, taps wait
+  let pushing = false, pushNext = null
+  const readLocal = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) } catch { return null } }
+  const writeLocal = (data) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); return true } catch { return false } }
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, freeHeal, gifted, roam: ROAM, weekShift, reports }
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)) } catch { return false }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    const kept = writeLocal(data)
+    if (vvm() && cloudReady) pushSave(data)
+    else if (!kept) return false
     const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     $('saveN').textContent = why === 'manual' ? 'saved!' : t
     if (why === 'manual') { sfx('select'); feed(`<b>You</b> saved the game.`); setTimeout(() => { $('saveN').textContent = t }, 1500) }
     return true
   }
-  /** Puts a save back: true if there was one. */
-  function loadGame() {
-    let s; try { s = JSON.parse(localStorage.getItem(SAVE_KEY)) } catch { return false }
+  /** Sends a save to the account (app). One at a time; a save made meanwhile goes next. */
+  async function pushSave(data) {
+    if (pushing) { pushNext = data; return }
+    pushing = true
+    try {
+      const r = await vvm().putSave(JSON.parse(JSON.stringify({ ...data, rev: saveRev })), saveRev)
+      if (r.ok) { saveRev = r.rev; const l = readLocal(); if (l && l.at === data.at) writeLocal({ ...l, rev: saveRev }) }
+      else if (r.reason === 'conflict' && r.data) return newerElsewhere(r.data, r.rev)
+    } catch {}   // offline: the browser copy has it, and the next save tries again
+    finally { pushing = false }
+    if (pushNext) { const d = pushNext; pushNext = null; pushSave(d) }
+  }
+  /** The account's save moved on (played on another device): that one is the game now. */
+  function newerElsewhere(data, rev) {
+    pushNext = null
+    writeLocal({ ...data, rev })
+    feed('<b>Your game was saved on another device</b>, so that newer save was loaded.')
+    start()
+  }
+  /**
+   * App: which save is the game? The account's, unless this browser holds
+   * progress made on top of it that never reached the server (played offline):
+   * then that goes up. A browser save from before account saves goes up the
+   * first time. Returns the save to load, or null.
+   */
+  async function syncSave() {
+    const local = readLocal(), mine = local?.v && local.party?.length ? local : null
+    let acct
+    try { acct = await vvm().loadSave() } catch { return mine }   // can't reach the server: play on the browser copy
+    if (!acct) {
+      if (mine) { saveRev = null; cloudReady = true; await pushSave(mine) }
+      return mine
+    }
+    saveRev = acct.rev
+    if (mine && mine.rev === acct.rev && (mine.at ?? 0) > (acct.data?.at ?? 0)) { cloudReady = true; await pushSave(mine); return mine }
+    writeLocal({ ...acct.data, rev: acct.rev })
+    return acct.data
+  }
+  /** Back where you were: the toolbar, the feed, the save time. */
+  function resumed(at) {
+    showTools(true); toolsEnabled(true); playCap(); othersLoop()
+    feed(`<b>Welcome back.</b> Loaded your save from ${at.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.`)
+    $('saveN').textContent = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  }
+  /** Puts a save back: the time it was made, or false if there was none. */
+  function loadGame(s = readLocal()) {
     if (!s?.v || !s.party?.length) return false
     party.splice(0, party.length, ...s.party); box.splice(0, box.length, ...(s.box ?? []))
     restoreForms()   // a save from before that fix may still have one in it
@@ -6983,15 +7038,23 @@ async function run(id) {
     return new Date(s.at)
   }
   const first = async () => { await (homeState === 'idle' ? firstRestock() : firstEncounter()); if (tutorialDone) { playCap(); toolsEnabled(true); othersLoop(); saveGame(); collectItems() } }
-  // A save from before: straight back to where you were.
-  const loaded = loadGame()
-  if (!loaded) $('saveN').textContent = '—'
-  if (loaded) { showTools(true); toolsEnabled(true); playCap(); othersLoop(); feed(`<b>Welcome back.</b> Loaded your save from ${loaded.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.`); $('saveN').textContent = loaded.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
+  // A save from before: straight back to where you were. (In the app, once the account's save has been checked, below.)
+  let loaded = APP.on ? false : loadGame()
+  $('saveN').textContent = '—'
+  if (loaded) resumed(loaded)
   setInterval(() => { if (live() && !busy) saveGame() }, 30000)
   // In the app: the real machine. Its state and holder are read now and every few seconds while you're on the idle screen,
   // and supplies you bought (here or on the app's VVM page) come into the Bag when you open the game or come back to it.
   if (APP.on) {
-    ;(async () => { for (let i = 0; i < 50 && !vvm(); i++) await W(100); if (!vvm()) return; await syncMachine(); if (loaded) await collectItems() })().catch(() => {})
+    ;(async () => {
+      for (let i = 0; i < 50 && !vvm(); i++) await W(100)
+      loaded = loadGame(vvm() ? await syncSave() : readLocal())
+      cloudReady = true
+      if (!live()) return
+      if (loaded) resumed(loaded)
+      if (!vvm()) return
+      await syncMachine(); if (loaded) await collectItems()
+    })().catch(() => { cloudReady = true })
     setInterval(() => { if (live() && vvm() && homeState === 'idle' && !busy) syncMachine() }, 8000)
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && live() && vvm() && !busy) { syncMachine(); collectItems() } })
   }
@@ -6999,7 +7062,12 @@ async function run(id) {
   // The app's exit button saves before it leaves.
   window.__saveNow = () => { if (live()) saveGame() }
   $('tSave').onclick = () => { if (!busy) saveGame('manual') }
-  $('bNewGame').onclick = () => { if (!confirm('Delete your save and start a new game?')) return; try { localStorage.removeItem(SAVE_KEY) } catch {} start() }
+  $('bNewGame').onclick = async () => {
+    if (!confirm('Delete your save and start a new game?')) return
+    try { localStorage.removeItem(SAVE_KEY) } catch {}
+    if (vvm()) await vvm().deleteSave().catch(() => {})   // the account's too, or it would just load again
+    start()
+  }
   $('reportAt').innerHTML = MACHINES.map((m) => `<option value="${m.code}">${m.code} · ${m.venue}</option>`).join('')
   $('bReport').onclick = () => { if (tutorialDone) reportTimer(YOU, $('reportAt').value) }
   // Testing: jump to the League (all 8 Johto badges, the party at Lv 45, healed, and 10 more tokens).
@@ -7048,6 +7116,7 @@ async function run(id) {
   }
   paintBattles()
   $('home').onclick = guard(async () => {
+    if (!cloudReady) { $('tts').innerHTML = 'LOADING YOUR SAVE…'; return }   // app: the account save is still being checked
     // Battles off: just the machine. Back to idle from any other screen; from idle, straight to it.
     if (!battlesActive()) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
     if (!tutorialDone) return first()
