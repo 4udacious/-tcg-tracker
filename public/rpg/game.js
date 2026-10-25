@@ -3482,13 +3482,25 @@ async function run(id) {
       }).join('')
   }
   const everyone = () => [...party, ...box]
-  function boxBody() {
-    const row = (m, i, where) => `<button class="prow pmain boxmon" data-mon="${i}"><img src="${ART[m.id]}" alt=""><span class="mid">
-        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · ${where}</span></span>
-        <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span><span class="go">›</span></button>`
-    return `<p class="note" style="margin:0 2px 8px">Tap a Pokémon to choose its four moves.</p>` +
-      everyone().map((m, i) => row(m, i, i < party.length ? 'party' : 'box')).join('') +
-      `<p class="note">Your party holds six. Catches after that land in the Box, and you can swap them in and out between battles.</p>`
+  /**
+   * The Box: your party, then everyone else. Tap a Pokémon for its moves; the
+   * button beside it moves it between party and Box. With a full party, SWAP IN
+   * picks a Box Pokémon and then the party member it replaces (in that slot).
+   * The party always keeps at least one.
+   */
+  function boxBody(pick = null) {
+    const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${ART[m.id]}" alt=""><span class="mid">
+        <span class="nm"><b>${m.name}</b><span>Lv ${m.level}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
+        <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>${side}</div>`
+    const inParty = party.map((m, i) => row(m, i, pick != null
+      ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
+      : `<button class="pbtn" data-deposit="${i}" ${party.length > 1 ? '' : 'disabled'} aria-label="Move ${m.name} to the Box">→ BOX</button>`)).join('')
+    const inBox = box.map((m, j) => row(m, party.length + j, party.length < 6
+      ? `<button class="pbtn" data-withdraw="${j}" aria-label="Move ${m.name} to your party">→ PARTY</button>`
+      : `<button class="pbtn${pick === party.length + j ? ' on' : ''}" data-withdraw="${j}" aria-label="Swap ${m.name} into your party">${pick === party.length + j ? 'CANCEL' : 'SWAP IN'}</button>`)).join('')
+    return `<p class="note" style="margin:0 2px 8px">${pick != null ? `Now tap <b>SWAP</b> on the party Pokémon that ${everyone()[pick].name} replaces.` : 'Tap a Pokémon to choose its four moves. The button beside it moves it between your party and the Box.'}</p>` +
+      `<div class="lbl">Party <span>${party.length}/6 · battle order is set in Party</span></div>${inParty}` +
+      `<div class="lbl">Box <span>${box.length ? `${box.length} Pokémon` : 'empty'}</span></div>${inBox || '<p class="note">Catches land here once your party has six. You can also send party Pokémon here.</p>'}`
   }
   function moveCard(n, attrs, extra = '') {
     const m = moveInfo(n)
@@ -3580,7 +3592,7 @@ async function run(id) {
     const draw = () => {
       $('sheetTitle').textContent = title()
       const body = kind === 'party' ? (view.page === 'stats' ? statPage(view.mon) : partyList())
-        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot) : boxBody()
+        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot) : boxBody(view.pick)
       $('sheetBody').innerHTML = (toast ? `<div class="toast${toastBad ? ' bad' : ''}">${toast}</div>` : '') + body
     }
     const do_ = (a) => {
@@ -3611,6 +3623,17 @@ async function run(id) {
       } else if (a.target != null) { toast = useItem(view.item, party[a.target]); if (!bag[view.item]) view = { page: 'list' } }
       // Box: pick a Pokémon, pick an equipped slot, pick a learned move to put there.
       if (a.mon != null) { view = { page: 'moves', mon: everyone()[a.mon], slot: null }; sfx('select') }
+      // Party ⇄ Box (the Box sheet). The party never goes below one.
+      if (a.deposit != null && party.length > 1) { const [m] = party.splice(a.deposit, 1); box.push(m); view.pick = null; sfx('move'); toast = `${m.name} went to the Box.` }
+      if (a.withdraw != null) {
+        const j = a.withdraw, m = box[j]
+        if (party.length < 6) { box.splice(j, 1); party.push(m); view.pick = null; sfx('select'); toast = `${m.name} joined your party.` }
+        else { view.pick = view.pick === party.length + j ? null : party.length + j; sfx('move') }   // full: pick it, then a party slot
+      }
+      if (a.swapat != null && view.pick != null) {
+        const j = view.pick - party.length, m = box[j], out = party[a.swapat]
+        party[a.swapat] = m; box[j] = out; view.pick = null; sfx('select'); toast = `${m.name} swapped in for ${out.name}, who went to the Box.`
+      }
       if (a.slot != null) { view.slot = view.slot === a.slot ? null : a.slot; sfx('move') }
       if (a.learn != null) {
         if (view.slot == null) { toast = 'First tap the equipped move to swap out.'; toastBad = true }
@@ -3620,7 +3643,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -6969,7 +6992,7 @@ async function run(id) {
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
-    rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+    box, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {

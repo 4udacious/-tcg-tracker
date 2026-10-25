@@ -485,6 +485,13 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 /* ── Box: everyone you have, and each one's four moves ── */
 .boxmon { width: 100%; text-align: left; cursor: pointer; background: transparent; }
 .boxmon .go { font-size: 22px; color: var(--muted); padding: 0 2px; }
+/* The Box: party ⇄ Box, the button beside each Pokémon. */
+.boxrow.picked { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.25); }
+.pbtn { flex: none; align-self: stretch; min-width: 74px; margin: 6px 6px 6px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 11px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
+.pbtn small { display: block; font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.pbtn:hover:not([disabled]), .pbtn.hot { background: color-mix(in srgb, var(--ink) 7%, var(--card)); }
+.pbtn[disabled] { opacity: .4; cursor: default; }
+.pbtn.on, .pbtn.swap { border-color: #2563eb; color: #1d4ed8; }
 .mvchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
 .mvchips i { font: 700 9px system-ui, sans-serif; font-style: normal; color: #fff; padding: 2px 6px; border-radius: 6px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
 .sheet .lbl { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 12px 2px 6px; }
@@ -1073,6 +1080,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=37e927a9c0"></script>
+<script src="/rpg/game.js?v=364c2c47af"></script>
 </body>
 </html>
