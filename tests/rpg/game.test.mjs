@@ -373,6 +373,7 @@ test('play: the tutorial, then wild battles with new moves, then a save', { skip
     g.bot.want = ['TOXIC', 'CROSS CHOP', 'DOUBLE KICK', 'SCRATCH']
     assert.ok(await g.bot.encounter('wild'), 'a wild battle started')
     assert.ok(g.log.some((l) => /used/.test(l)), 'moves were used')
+    assert.deepEqual(g.log.filter((l) => l.startsWith('BUG')), [], 'only the dialogue shows while an attack is announced')
 
     // A save made mid-Transform keeps the Pokémon as it really is.
     const saved = await g.page.evaluate(() => {
