@@ -143,7 +143,7 @@ const Sound = (() => {
     const song = SONGS[name]; if (!song || !on) return
     ensure()
     musGain = ac.createGain(); musGain.connect(musBus)
-    let next = ac.currentTime + 0.06
+    let next = ac.currentTime + 0.15   // a short lead-in: the first pass (mixer, reverb, a song's worth of notes) is built in time
     const pass = () => { next += scheduleSong(ac, musGain, song, next) }
     pass()
     if (song.loop) loopTimer = setInterval(() => { if (ac.currentTime > next - 2.5) pass() }, 250)
@@ -828,12 +828,17 @@ const KIT = {
 
 /* ── lookahead scheduling ──
    A song pass no longer builds every note up front. It queues them, and each
-   note's audio nodes are created only shortly before it plays: about a third
-   of a second ahead while the page is visible, a couple of seconds when it's
-   hidden (background tabs only wake timers once a second). That keeps the
-   work at any moment small, however long or rich the arrangement. Offline
-   renders (the videos) flush the queue in one-second steps the same way. */
-const JIT_AHEAD = 0.35, JIT_AHEAD_HIDDEN = 2.2
+   note's audio nodes are created only shortly before it plays: about a second
+   ahead while the page is visible, a couple of seconds when it's hidden
+   (background tabs only wake timers once a second). That keeps the work at
+   any moment small, however long or rich the arrangement. The second of
+   margin is what a busy phone needs: when its main thread stalls (garbage
+   collection, a battle's animations), notes built too close to their time
+   come out late, all at once, a stumble that gets worse the longer it plays.
+   A third of a second wasn't enough. A note that's late anyway (by more than
+   LATE_DROP) is dropped rather than played out of time. Offline renders (the
+   videos) flush the queue in one-second steps the same way. */
+const JIT_AHEAD = 1.2, JIT_AHEAD_HIDDEN = 2.2, LATE_DROP = 0.08
 function jitQueue(ac) {
   if (ac.__q) return ac.__q
   ac.__q = []
@@ -843,8 +848,9 @@ function jitQueue(ac) {
 function jitFlush(ac, until) {
   const q = ac.__q; if (!q?.length) return
   let n = 0; while (n < q.length && q[n].t < until) n++
-  // Notes for a song that has since been stopped are dropped, not played.
-  for (const e of q.splice(0, n)) if (!e.out.__stopped) e.fn()
+  // Notes for a song that has since been stopped are dropped, not played; so are notes already too late to be in time.
+  const late = ac instanceof OfflineAudioContext ? -Infinity : ac.currentTime - LATE_DROP
+  for (const e of q.splice(0, n)) if (!e.out.__stopped && e.t >= late) e.fn()
 }
 /** For an offline render of `secs`: flush the queue a second at a time as it renders. */
 function prepareOffline(ac, secs) {

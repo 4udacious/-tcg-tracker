@@ -422,3 +422,26 @@ test('music: every song\'s parts line up, and every note and chord reads', async
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('music keeps time when the phone is busy: no late notes through main-thread stalls', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.waitForTimeout(800)
+    await page.evaluate(() => {
+      RUN++; Sound.stopMusic()   // stop the page's own demo, which changes the music
+      // A busy phone: the main thread stalls for half a second every five seconds.
+      window.__stall = setInterval(() => { const end = performance.now() + 500; while (performance.now() < end); }, 5000)
+      // Count sounds that start after their time (already past when they're made).
+      const start = AudioScheduledSourceNode.prototype.start
+      window.__late = 0
+      // (From a second in: this is about keeping time through the loop, not the song's first notes.)
+      AudioScheduledSourceNode.prototype.start = function (when = 0, ...a) { const c = this.context; if (!(c instanceof OfflineAudioContext) && c.currentTime > 1 && c.currentTime - when > 0.03) window.__late++; return start.call(this, when, ...a) }
+      Sound.setOn(true); Sound.music('battleB')   // the densest arrangement
+    })
+    await page.waitForTimeout(25000)
+    const r = await page.evaluate(() => { clearInterval(window.__stall); Sound.stopMusic(); return { late: window.__late, played: Sound && true } })
+    assert.equal(r.late, 0, `${r.late} sounds started late`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
