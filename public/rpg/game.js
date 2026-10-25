@@ -1488,7 +1488,8 @@ SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8, leadIn
  *     leading tone, the piano ripping up into stabs, timpani rolling louder.
  *   - The slide: chords sliding down by semitones (F minor, E, E-flat, D,
  *     D-flat) onto C, over a C pedal, and back to the hammer.
- * 160 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a 42 s loop.
+ * 160 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a long
+ * loop (see below).
  */
 SONGS.championClassic = SONGS.champion
 /** A bar of the hammer: three struck notes, the semitone above held, three more. */
@@ -1530,6 +1531,58 @@ SONGS.champion = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 
       bass: bars(octs('C2'), octs('C2'), octs('C2'), 'C2 . . . . . . . C2 . . . . . . .'),
       drums: 'K.h.S.h.K.h.S.hK'.repeat(3) + 'K...S...SSSSPPPP' },
   ] }
+
+/*
+ * The Champion's battle runs long, so the loop does too: after the four
+ * sections above, six more develop the same material before it all comes
+ * round again (about 1:48 a loop):
+ *   - the hammer a half step higher, F-sharp minor, a tritone jolt away from
+ *     the C before it, slipping back down to C7;
+ *   - a lament: half-time, a mournful piano and violin line over a bass
+ *     falling F, E-flat, D-flat, C, with choir and low timpani, turning to F7;
+ *   - a chase in B-flat minor: hammered staccato arpeggios over piano runs
+ *     every bar, tremolo, the drums driving;
+ *   - the storm again, now with a long dark melody over the churning bass;
+ *   - a climax: fortissimo, D-flat, G-flat, the diminished seventh on E,
+ *     brass and violins over tremolo and rising piano runs;
+ *   - the slide again, down onto C and back to the top.
+ */
+{
+  const [HAMMER, , STORM, SLIDE] = SONGS.champion.sections
+  SONGS.champion.sections.push(
+    { // The hammer, a half step up (F-sharp minor), slipping back to C7
+      ...HAMMER, trem: 'x x x x x x x x'.split(' '), doubles: [['brass', -1, 0.5], ['violins', 1, 0.28]],
+      chords: [...transposeChords(HAMMER.chords.slice(0, 7), 1), 'C7'],
+      lead: [...transpose(HAMMER.lead.slice(0, 112), 1), ...HAMMER.lead.slice(112)],
+      bass: [...transpose(HAMMER.bass.slice(0, 112), 1), ...HAMMER.bass.slice(112)] },
+    { // The lament: half-time, piano and violins together over a falling bass
+      chords: 'Fm Eb Db C Fm Eb Db F7'.split(' '), doubles: [['violins', 0, 0.32]], leadVel: 1, crash: true,
+      lead: bars('C6 . . . . . . . Ab5 . . . . . . .', 'G5 . . . . . . . Bb5 . . . . . . .', 'Ab5 . . . . . F5 . . . . . Db5 . . .', 'E5~ . . . . . . . G5 . . . C6 . . .',
+        'F6 . . . . . . . C6 . . . Ab5 . . .', 'Bb5 . . . . . . . G5 . . . Eb5 . . .', 'F5 . . . . . Ab5 . . . . . Db6 . . .', 'A5 . . . . . . . . . . . Eb6 . . .'),
+      bass: bars('F1 . . . . . . . . . . . C2 . . .', 'Eb1 . . . . . . . . . . . Bb1 . . .', 'Db1 . . . . . . . . . . . Ab1 . . .', 'C1 . . . . . . . . . . . G1 . . .',
+        'F1 . . . . . . . . . . . C2 . . .', 'Eb1 . . . . . . . . . . . Bb1 . . .', 'Db1 . . . . . . . . . . . Ab1 . . .', 'F1 . . . . . . . . . . . C2 . . .'),
+      drums: 'P.......S.......'.repeat(7) + 'P.......SSSSPPPP' },
+    { // The chase: B-flat minor, staccato arpeggios over runs every bar
+      chords: 'Bbm Bbm Gb Gb Ebm Ebm C7 C7'.split(' '), runs: 'u d u d u d u f'.split(' '), trem: '. . x x . . x x'.split(' '), doubles: [['brass', -1, 0.42]],
+      lead: bars('F5! - Db5! - Bb4! - Db5! - F5! - Bb5! - Db6! - Bb5! -', 'Db6! - F6! - Db6! - Bb5! - F5! - Bb5! - Db6! - F6! -',
+        'Gb5! - Bb5! - Db6! - Bb5! - Gb5! - Db5! - Gb5! - Bb5! -', 'Db6 . . . . . . . Bb5 . . . Gb5 . . .',
+        'Eb5! - Gb5! - Bb5! - Gb5! - Eb6! - Bb5! - Gb5! - Bb5! -', 'Gb6 . . . . . . . Eb6 . . . Bb5 . . .',
+        'E5! - G5! - Bb5! - C6! - E6! - C6! - Bb5! - G5! -', 'C6~ . . . . . . . . . . . - - - -'),
+      bass: bars(octs('Bb1'), octs('Bb1'), octs('Gb1'), octs('Gb1'), octs('Eb1'), octs('Eb1'), octs('C2'), octs('C2')),
+      drums: 'K.h.S.hKK.h.S.hK'.repeat(7) + 'K.h.SSSSPPPPSSSS' },
+    { // The storm again, with a melody over the churning bass
+      ...STORM, doubles: [['violins', 0, 0.3]], leadVel: 1,
+      lead: bars('Ab5 . . . . . . . C6 . . . . . . .', 'F6 . . . . . Eb6 . C6 . . . Ab5 . . .', 'Ab5 . . . . . . . F5 . . . . . . .', 'Db6 . . . . . C6 . Ab5 . . . F5 . . .',
+        'F5 . . . . . . . Bb5 . . . . . . .', 'Db6 . . . . . C6 . Bb5 . . . F5 . . .', 'E5 . . . . . . . G5 . . . Bb5 . . .', 'C6~ . . . . . . . E6 . . . G6 . . .') },
+    { // The climax: fortissimo, D-flat, G-flat, the diminished seventh on E
+      chords: 'Db Gb Edim7 C7 Db Gb Bbm C7'.split(' '), trem: 'x x x x x x x x'.split(' '), runs: 'u . u . u . u f'.split(' '), doubles: [['brass', -1, 0.55], ['violins', 0, 0.32]], crash: true,
+      lead: bars('F6^ . . . . . . . Db6 . . . Ab5 . . .', 'Gb6 . . . . . . . Db6 . . . Bb5 . . .', 'G6 . . . . . . . E6 . . . Db6 . . .', 'E6~ . . . . . . . C6 . . . G5 . . .',
+        'Ab6 . . . . . . . F6 . . . Db6 . . .', 'Bb6 . . . . . . . Gb6 . . . Db6 . . .', 'Db7 . . . . . . . Bb6 . . . F6 . . .', 'C7 . . . . . . . . . . . - - - -'),
+      bass: bars(octs('Db2'), octs('Gb1'), octs('E1'), octs('C2'), octs('Db2'), octs('Gb1'), octs('Bb1'), octs('C2')),
+      drums: 'K.h.S.h.K.h.S.hK'.repeat(3) + 'K.h.S.h.PPPPSSSS' + 'K.h.S.h.K.h.S.hK'.repeat(3) + 'SSSSSSSSPPPPPPPP' },
+    { ...SLIDE },
+  )
+}
 
 /** Which intro plays under each League member's words. */
 const LEAGUE_INTRO = { will: 'e4Will', koga: 'e4Koga', bruno: 'e4Bruno', karen: 'e4Karen', lance: 'championIntro' }
