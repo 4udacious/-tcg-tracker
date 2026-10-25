@@ -683,6 +683,46 @@ const INST = {
     for (const [mul, det] of [[1, -5], [1, 5], [1.4983, -4], [2, 3]]) oscAt(ac, 'sawtooth', f * mul, t, end, det).connect(pre)
     pre.connect(sh).connect(hp).connect(mid).connect(cab).connect(g).connect(ch)
   },
+  /**
+   * Piano: six partials, slightly stretched as real strings are, each dying
+   * away faster the higher it is, and a felt-hammer knock at the start.
+   */
+  piano(ac, ch, t, f, dur, v) {
+    const len = Math.max(0.4, Math.min(1.8, dur * 2.2)), end = t + len + 0.05
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.26 * v, t + 0.003)
+    g.gain.setTargetAtTime(0, t + len - 0.12, 0.05)
+    for (const [n, amp] of [[1, 1], [2, 0.5], [3, 0.28], [4, 0.17], [5, 0.1], [6, 0.06]]) {
+      const o = oscAt(ac, 'sine', f * n * Math.sqrt(1 + 0.0004 * n * n), t, end), pg = ac.createGain()
+      pg.gain.setValueAtTime(amp, t); pg.gain.exponentialRampToValueAtTime(amp * 0.002, t + Math.min(len, 1.6 / (0.6 + n * 0.5)))
+      o.connect(pg).connect(g)
+    }
+    noiseHit(ac, g, t, { type: 'bandpass', f: Math.min(4000, f * 3), q: 1, len: 0.02, vol: 0.25 })
+    g.connect(ch)
+  },
+  /**
+   * Choir, singing "ah": detuned saws through the vowel's formants (the
+   * resonances of a voice), with a slow swell and a gentle vibrato.
+   */
+  choir(ac, ch, t, f, dur, v) {
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.4 * v, Math.min(0.35, dur * 0.5), 0.4, 0.9, 0.4)
+    const lfo = oscAt(ac, 'sine', 4.8, t, end), lg = ac.createGain(); lg.gain.value = f * 0.005; lfo.connect(lg)
+    const src = ac.createGain()
+    for (const det of [-11, 0, 12]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); lg.connect(o.frequency); o.connect(src) }
+    for (const [ff, q, amp] of [[730, 6, 1], [1150, 7, 0.55], [2650, 8, 0.18]]) {
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = q
+      const fg = ac.createGain(); fg.gain.value = amp; src.connect(bp).connect(fg).connect(g)
+    }
+    g.connect(ch)
+  },
+  /** A violin section: detuned saws, a quick bow attack, bright, with vibrato that comes in as the note holds. */
+  violins(ac, ch, t, f, dur, v, art) {
+    const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = Math.min(7500, f * 6); flt.Q.value = 0.7
+    const end = adsr(g.gain, t, dur, 0.13 * v, 0.03, 0.2, 0.85, 0.12)
+    const lfo = oscAt(ac, 'sine', 5.8, t, end), lg = ac.createGain()
+    lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.008, t + Math.min(0.4, dur * 0.8)); lfo.connect(lg)
+    for (const det of [-12, -4, 5, 13]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(flt) }
+    flt.connect(g).connect(ch)
+  },
   /** Synth bass: saw and sine sub, a resonant filter that snaps shut. */
   bass(ac, ch, t, f, dur, v) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 4
@@ -988,8 +1028,8 @@ function schedulePart(ac, out, song, t0) {
   each(song.lead, (t, n, d, i) => {
     const [base, art] = tok(n), m = base + (song.leadOct ?? 0) * 12
     play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85), art)
-    // A second instrument on the melody an octave up, quieter: the unison lines gym themes are built on.
-    if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12, d, 0.32, art)
+    // A second instrument on the melody, an octave up (or wherever leadDoubleOct says), quieter: the unison lines battle themes are built on.
+    if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12 * (song.leadDoubleOct ?? 1), d, song.leadDoubleVel ?? 0.32, art)
   })
   // Harmony under the melody: the nearest chord tone 3-9 semitones down.
   if (song.chords) each(song.lead, (t, n, d, i) => {
@@ -999,8 +1039,15 @@ function schedulePart(ac, out, song, t0) {
   // String pad holding each chord, voiced around middle C.
   if (song.chords) song.chords.forEach((c, k) => {
     const t = t0 + k * song.chordLen * step, dur = Math.min(song.chordLen, song.lead.length - k * song.chordLen) * step
-    for (const pc of chordPcs(c).slice(0, 3)) play('strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8)
+    for (const pc of chordPcs(c).slice(0, 3)) play(song.padInst ?? 'strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8)
   })
+  // Piano ostinato: a repeating figure through the chord (its three notes from middle C up, and the root an octave higher).
+  if (song.ostinato) for (let i = 0; i < song.lead.length; i++) {
+    const k = song.ostinato[i % song.ostinato.length]; if (k === '-') continue
+    const tones = chordAt(i).slice(0, 3).map((pc) => 60 + ((pc - 60) % 12 + 12) % 12).sort((a, b) => a - b)
+    tones.push(tones[0] + 12)
+    play('piano', M.keys, T(i), tones[+k] + 12 * (song.ostinatoOct ?? 0), step * 1.4, i % song.div ? 0.5 : 0.8)
+  }
   // Electric piano comping: chord stabs on the off-beats.
   if (song.comp) for (let i = 1; i < song.lead.length; i += 2) {
     const pcs = chordAt(i).slice(0, 2)
@@ -1179,6 +1226,56 @@ SONGS.elite = { file: null, loop: true, bpm: 172, div: 2, chordLen: 8, leadInst:
       lead: bars('B4 . B4 . E5 . B4 .', 'G5 . G5 . E5 . B4 .', 'C#5 . C#5 . F#5 . A#5 .', 'C#6 . . . - - - -'),
       bass: bars('E1 E1 E2 E1 E1 E2 E1 E2', 'E1 E1 E2 E1 E1 E2 E1 E2', 'F#1 F#1 F#2 F#1 F#1 F#2 F#1 F#2', 'F#1 . . . F#1 . . .'),
       drums: 'KhKhKhKh' + 'KhKhKhKh' + 'KSKSKSKS' + 'SSSSSSSS' },
+  ] }
+
+/*
+ * The Elite Four battle, second version (the first is SONGS.eliteClassic).
+ * Where the gym theme drives, this one looms. It's the only battle theme not
+ * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.
+ *   - The verse starts over a pedal: the bass holds D, the dominant, while
+ *     the chords move above it (Gm, Eb, Cm, D7), and only lets go in its
+ *     second half, through the Neapolitan Ab major to D7.
+ *   - A choir holds the chords instead of strings; a piano ostinato rolls
+ *     through them the whole time; the melody is a violin section with the
+ *     brass an octave below.
+ *   - A middle section moves by thirds instead of steps: B-flat major, G-flat,
+ *     E-flat, then E-flat minor sliding down to D7.
+ *   - A breakdown of piano, timpani and choir alone before the loop.
+ * 160 bpm, 12 steps a bar: a 6 s intro once, then a 42 s loop.
+ */
+SONGS.eliteClassic = SONGS.elite
+/** A bar of the gallop on one bass note: the note, then its octave, on each beat's first and last triplet. */
+const gallop = (n) => { const hi = transpose([n], 12)[0]; return Array(4).fill(`${n} . ${hi}`).join(' ') }
+const E4V_CHORDS = 'Gm Eb Cm7 D7 Gm Eb Ab D7'.split(' ')
+const E4V_BASS = bars(gallop('D2'), gallop('D2'), gallop('D2'), gallop('D2'), gallop('G1'), gallop('Eb2'), gallop('Ab1'), gallop('D2'))
+const E4V_DRUMS = 'K.hS.hK.KS.h'.repeat(7) + 'K.hS.hTTtSSS'
+SONGS.elite = { file: null, loop: true, bpm: 160, div: 3, chordLen: 12,
+  leadInst: 'violins', leadDouble: 'brass', leadDoubleOct: -1, leadDoubleVel: 0.42, harmInst: 'strings', padInst: 'choir',
+  ostinato: '0 1 2 3 2 1 0 1 2 3 2 1'.split(' '), comp: false, glock: false, hats16: false, power: false, crash: true, fill: '',
+  intro: { chords: 'D7 D7 Gm D7'.split(' '),
+    lead: bars('- - - - - - - - - - - -', '- - - - - - - - - - - -', 'G4 . . . . . Bb4 . . D5 . .', 'F#5~ . . . . . . . . - - -'),
+    bass: bars('D1 . . . . . . . . . . .', 'D1 . . . . . . . . . . .', gallop('G1'), 'D2 . . . . . D2 . . D2 . .'),
+    drums: 'PPPPPPPPPPPP' + 'PPPPPPPPPPPP' + 'K.....K.....' + 'K.....K.SSSS' },
+  sections: [
+    { // The verse, over the pedal
+      chords: E4V_CHORDS, bass: E4V_BASS, drums: E4V_DRUMS,
+      lead: bars('G5 . . . . . D5 . . G5 . A5', 'Bb5 . . . . . G5 . . Eb5 . .', 'C6 . . Bb5 . . G5 . . Eb5 . .', 'F#5~ . . . . . A5 . . C6 . .',
+        'D6 . . . . . Bb5 . . G5 . A5', 'Bb5 . . . . . Eb6 . . G6 . .', 'Ab6^ . . . . . Eb6 . . C6 . .', 'A5 . . F#5 . . D5 . . C6 . .') },
+    { // The verse again, higher, with triplet turns
+      chords: E4V_CHORDS, bass: E4V_BASS, drums: E4V_DRUMS,
+      lead: bars('G5 A5 Bb5 D6 . . Bb5 . . G6 . .', 'G6 . . Eb6 . . Bb5 . . G5 . .', 'Eb6 . . C6 . . G5 . . Eb6 D6 C6', 'D6 . . F#6 . . A6 . . F#6 . .',
+        'G6 . . . . . D6 . . Bb5 . .', 'Eb6 . . . . . Bb5 . . G5 . .', 'C6 . . Eb6 . . Ab6 . . Eb6 . C6', 'D6~ . . . . . . . . - - -') },
+    { // By thirds: B-flat, G-flat, E-flat, then E-flat minor sliding to D7; the snare only on beat three
+      chords: 'Bb Gb Eb Cm Bb Gb Ebm D7'.split(' '), harmInst: 'brass',
+      lead: bars('D6 . . . . . F6 . . . . .', 'Gb6^ . . . . . Db6 . . Bb5 . .', 'Bb5 . . . . . G5 . . Eb6 . .', 'Eb6 . . . . . C6 . . G5 . .',
+        'F6 . . . . . D6 . . Bb5 . .', 'Db6 . . . . . Gb6 . . Bb6 . .', 'Bb6~ . . . . . Gb6 . . Eb6 . .', 'F#6 . . . . . D6 . . A5 C6 D6'),
+      bass: bars(gallop('Bb1'), gallop('Gb1'), gallop('Eb2'), gallop('C2'), gallop('Bb1'), gallop('Gb1'), gallop('Eb2'), gallop('D2')),
+      drums: 'K.hK.hS.hK.h'.repeat(7) + 'K.hK.hSSSPPP' },
+    { // Breakdown: piano, timpani and choir
+      chords: 'Gm Eb Cm D7'.split(' '), crash: false,
+      lead: bars('- - - - - - - - - - - -', '- - - - - - - - - - - -', '- - - - - - - - - - - -', 'D5 . . F#5 . . A5 . . C6 . .'),
+      bass: bars('G1 . . . . . . . . . . .', 'Eb2 . . . . . . . . . . .', 'C2 . . . . . . . . . . .', 'D2 . . . . . D2 . . D2 . .'),
+      drums: 'P.....P.....'.repeat(3) + 'P.PP.PSSSSSS' },
   ] }
 
 /** The Champion's intro: a regal brass fanfare with timpani, then a stately loop in E-flat. */
@@ -5096,9 +5193,9 @@ async function run(id) {
    * Lose: the ticket is gone and the ladder starts again from Will.
    */
   async function eliteBattle(demoPlan) {
-    const L = ELITE[eliteStep], key = summonKey('elite')
+    const L = ELITE[eliteStep], key = summonKey('elite'), lance = L.short === 'LANCE'
     toolsEnabled(false)
-    Sound.music('gymIntro')
+    Sound.music(LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')   // each member's own intro under the splash and their words
     await wipeTrainer(async () => {
       setScene([L.scene]); showLayer('battle')
       const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', L.color)
@@ -5108,7 +5205,7 @@ async function run(id) {
     await W(1400)
     await talk(L, L.intro)
     vsHide()
-    Sound.music('gym')
+    Sound.music(lance ? 'champion' : 'elite')
     const team = eliteTeam(L)
     const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: L, plan: demoPlan?.turns, planD: demoPlan?.defend })
     if (out.result === 'won') {

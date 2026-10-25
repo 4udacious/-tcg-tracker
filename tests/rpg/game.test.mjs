@@ -404,6 +404,9 @@ test('music: every song\'s parts line up, and every note and chord reads', async
           for (const c of p.chords ?? []) if (!/^([A-G][#b]?)(m|dim|aug)?(maj7|7)?$/.test(c)) out.push(`${where}: chord ${c}`)
         }
       }
+      // The League's music, as the Elite Four battles play it: each member's intro, then the Elite Four or Champion theme.
+      for (const n of [...Object.values(LEAGUE_INTRO), 'elite', 'champion', 'gym']) if (!SONGS[n]) out.push(`missing song ${n}`)
+      if (ELITE.some((L) => !LEAGUE_INTRO[L.short.toLowerCase()])) out.push('a League member without an intro')
       return out
     })
     assert.deepEqual(problems, [])
