@@ -2947,6 +2947,20 @@ async function run(id) {
   let pendingEvoItem = false   // an evolution item used in the Bag: the evolution plays once the sheet closes
   let wallet = 10, shelfItems = []   // tokens to spend, and the supplies on the shelf this restock
   let realShelf = null   // in the app: the real machine, as syncMachine last read it
+  /*
+   * Battle mode. Off, the game is just the vending machine: a tap goes
+   * straight to the purchase screen, with no wild Pokémon, no trainers, no
+   * scalper camping it, no finds, and no tutorial first. Each player's choice
+   * (per account, in the app) is kept in this browser.
+   */
+  const BATTLES_KEY = 'vvm-battles' + (APP.uid ? ':' + APP.uid : '')
+  let battlesOn = (() => { try { return localStorage.getItem(BATTLES_KEY) !== 'off' } catch { return true } })()
+  function paintBattles() {
+    const b = $('bBattles'); if (!b) return
+    b.hidden = demo; b.classList.toggle('off', !battlesOn)
+    b.innerHTML = `⚔ BATTLES <b>${battlesOn ? 'ON' : 'OFF'}</b>`
+    b.setAttribute('aria-pressed', String(battlesOn))
+  }
   let freeHeal = 1
   const party = [], box = []
   let busy = false
@@ -3071,7 +3085,7 @@ async function run(id) {
     if (state === 'idle') {
       const other = typeof machine !== 'undefined' && machine.lockedBy && machine.lockedBy !== 'YOU' ? machine.lockedBy : null
       h.classList.toggle('inuse', !!other)
-      $('tts').innerHTML = other ? `${other} IS USING IT<small>you can still tap: something may jump out</small>` : 'TOUCH TO START'
+      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesOn ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesOn ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
       $('homeLoiterer').style.display = 'none'; $('supplies').innerHTML = ''; return
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
@@ -6965,7 +6979,21 @@ async function run(id) {
     feed(`<b>You</b> tapped: ${ENC_TEXT[mine].replace('them', 'you')}.`)
     await tapMachine({ enc: mine })
   })
+  $('bBattles').onclick = (e) => {
+    e.stopPropagation()
+    if (MODE !== 'play' || busy || !live()) return
+    battlesOn = !battlesOn
+    try { localStorage.setItem(BATTLES_KEY, battlesOn ? 'on' : 'off') } catch {}
+    sfx(battlesOn ? 'select' : 'move'); paintBattles()
+    // A scalper camping the machine leaves with the battles.
+    if (!battlesOn && $('homeLoiterer').style.display === 'block') renderHome('idle')
+    else if (homeState === 'idle') renderHome('idle')
+    feed(battlesOn ? '<b>Battles on</b>: Pokémon and trainers can jump out when you tap.' : '<b>Battles off</b>: taps go straight to the machine.')
+  }
+  paintBattles()
   $('home').onclick = guard(async () => {
+    // Battles off: just the machine. Back to idle from any other screen; from idle, straight to it.
+    if (!battlesOn) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
     if (!tutorialDone) return first()
     // A scalper who beat you is still camping it; otherwise a state screen goes back to idle, and idle rolls a tap.
     if ($('homeLoiterer').style.display === 'block') return scalperEncounter(null, homeState)

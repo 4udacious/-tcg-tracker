@@ -135,6 +135,22 @@ test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', a
   } finally { await g.close() }
 })
 
+test('battles off: a tap goes straight to the machine, and the choice is kept', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(1000)
+    await page.click('#bBattles')
+    assert.match(await page.textContent('#bBattles'), /OFF/)
+    // Even a tap pinned to a wild Pokémon, before any tutorial, opens the purchase screen.
+    await page.selectOption('#nextTap', 'wild'); await page.evaluate(() => document.getElementById('home').click())
+    await page.waitForTimeout(2200)
+    const st = await page.evaluate(() => ({ home: document.getElementById('home').className, battle: getComputedStyle(document.getElementById('battleL')).display, kept: localStorage.getItem('vvm-battles') }))
+    assert.match(st.home, /\bin\b/); assert.equal(st.battle, 'none'); assert.equal(st.kept, 'off')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: the real machine, checkout, packs and tokens go through the bridge', async () => {
   const g = await openGame()
   try {
