@@ -234,7 +234,7 @@ test('in the app: the save is the account\'s, and a newer one from another devic
       // This browser holds an older copy, from revision 4.
       localStorage.setItem('vvm-save:u1', JSON.stringify(save('CHARMANDER', 1000, 4)))
       const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
-      document.body.replaceChildren(f)
+      RUN++; document.body.replaceChildren(f)   // stop this page's own game first
     })
     const frame = await (await page.waitForSelector('#game')).contentFrame()
     await frame.waitForFunction(() => window.__vvm?.party[0]?.name === 'EEVEE', null, { timeout: 15000 })
@@ -247,6 +247,36 @@ test('in the app: the save is the account\'s, and a newer one from another devic
     await frame.waitForFunction(() => window.__vvm?.party[0]?.name === 'PIKACHU', null, { timeout: 15000 })
     const local = await frame.evaluate(() => JSON.parse(localStorage.getItem('vvm-save:u1')))
     assert.equal(local.party[0].name, 'PIKACHU'); assert.equal(local.rev, 7)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('in the app: sold out shows the real clock, with nothing covering the stamp or the notice', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.evaluate(() => {
+      window.__vvmApi = {
+        async machine() { return { status: 'out_of_stock', cycle_no: 3, seconds_left: 192, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 11.56, wild: false, trainers: false, packs: [], tickets: [], supplies: [] } },
+        async loadSave() { return null }, async putSave() { return { ok: true, rev: 1 } }, async takeItems() { return [] }, async claim() { return { ok: false, reason: 'not_stocked' } }, async release() {},
+      }
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:390px;height:844px;border:0'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)   // stop this page's own game first
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm?.realShelf, null, { timeout: 15000 })
+    await frame.evaluate(() => document.getElementById('home').click())
+    await frame.waitForFunction(() => /\bout\b/.test(document.getElementById('home').className), null, { timeout: 10000 }); await page.waitForTimeout(1500)
+    const st = await frame.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect()
+      return { cls: document.getElementById('home').className, line: document.getElementById('homeLine').textContent, sub: document.getElementById('homeSub').textContent,
+        walletTop: r('#wallet').top, noticeBottom: r('.attract .notice').bottom, stampBottom: r('.attract .stamp').bottom, rowsBottom: r('#attractRows').bottom }
+    })
+    assert.doesNotMatch(st.cls, /has-sup/, 'no empty supplies shelf when sold out')
+    assert.equal(st.line, 'SOLD OUT'); assert.match(st.sub, /changes in 3:\d\d/)
+    assert.ok(st.walletTop >= st.noticeBottom - 1, 'the tokens chip sits below the notice')
+    assert.ok(st.stampBottom <= st.rowsBottom + 30, 'the stamp sits on the packs')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -284,7 +314,7 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
       const m = individual(speciesByName('CHARMANDER'), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 1 }, wallet: 99, badges: [], champion: false, eliteStep: 0, freeHeal: 1, gifted: true, roam: {}, weekShift: 0, reports: {} }))
       const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
-      document.body.replaceChildren(f)
+      RUN++; document.body.replaceChildren(f)   // stop this page's own game first
     })
     const frame = await (await page.waitForSelector('#game')).contentFrame()
     await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf && window.__vvm.bag.potion === 2, null, { timeout: 15000 })
@@ -353,6 +383,30 @@ test('play: the tutorial, then wild battles with new moves, then a save', { skip
       return { realId, savedId: s.id, hasForm: 'form' in s }
     })
     assert.equal(saved.savedId, saved.realId); assert.equal(saved.hasForm, false)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('music: every song\'s parts line up, and every note and chord reads', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const problems = await g.page.evaluate(() => {
+      const out = []
+      for (const [name, s] of Object.entries(SONGS)) {
+        const parts = s.sections ? [...(s.intro ? [['intro', { ...s, ...s.intro }]] : []), ...s.sections.map((x, k) => [`section ${k + 1}`, { ...s, ...x }])] : [['', s]]
+        for (const [label, p] of parts) {
+          const where = `${name}${label ? ` (${label})` : ''}`, L = p.lead.length
+          if (p.bass?.length && p.bass.length !== L) out.push(`${where}: bass ${p.bass.length} steps, lead ${L}`)
+          if (p.drums.length !== L) out.push(`${where}: drums ${p.drums.length} steps, lead ${L}`)
+          if (p.chords && p.chords.length * p.chordLen < L) out.push(`${where}: chords cover ${p.chords.length * p.chordLen} of ${L} steps`)
+          for (const n of [...p.lead, ...(p.bass ?? [])]) if (n !== '.' && n !== '-' && Number.isNaN(MIDI(/^(.+?)([~^]?)$/.exec(n)[1]))) out.push(`${where}: note ${n}`)
+          for (const c of p.chords ?? []) if (!/^([A-G][#b]?)(m|dim|aug)?(maj7|7)?$/.test(c)) out.push(`${where}: chord ${c}`)
+        }
+      }
+      return out
+    })
+    assert.deepEqual(problems, [])
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

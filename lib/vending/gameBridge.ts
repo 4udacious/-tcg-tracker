@@ -17,6 +17,9 @@ const n = (v: unknown) => { const x = typeof v === 'number' ? v : Number(v); ret
 export interface VvmMachine {
   status: string
   cycle_no: number
+  /** Seconds until the machine next changes state, and whether that clock is paused (someone holds the machine). */
+  seconds_left: number
+  frozen: boolean
   holder_id: string | null
   holder_name: string | null
   holder_expires: string | null
@@ -44,7 +47,7 @@ export function makeVvmApi(userId: string) {
     /** The machine as everyone sees it, plus your balance and cooldown. */
     async machine(): Promise<VvmMachine | null> {
       const { data } = await db.rpc('get_vending_state')
-      const st = one(data as { status: string; cycle_no: number; holder_id: string | null; holder_name: string | null; holder_expires: string | null } | null)
+      const st = one(data as { status: string; cycle_no: number; seconds_left: number; frozen: boolean; holder_id: string | null; holder_name: string | null; holder_expires: string | null } | null)
       if (!st) return null
       const stocked = st.status === 'in_stock' || st.status === 'out_of_stock'
       const [stock, tickets, supplies, me, bal, battles] = await Promise.all([
@@ -60,7 +63,7 @@ export function makeVvmApi(userId: string) {
       type S = { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; token_price: number; contents: { key: string; qty: number }[] | null }
       holding = st.holder_id === userId
       return {
-        status: st.status, cycle_no: st.cycle_no, holder_id: st.holder_id, holder_name: st.holder_name, holder_expires: st.holder_expires,
+        status: st.status, cycle_no: st.cycle_no, seconds_left: n(st.seconds_left), frozen: !!st.frozen, holder_id: st.holder_id, holder_name: st.holder_name, holder_expires: st.holder_expires,
         me: userId, cooldown_until: (me.data as { vending_cooldown_until: string | null } | null)?.vending_cooldown_until ?? null, balance: bal,
         wild: one(battles.data as { wild: boolean } | null)?.wild === true,
         trainers: one(battles.data as { trainers: boolean } | null)?.trainers === true,
