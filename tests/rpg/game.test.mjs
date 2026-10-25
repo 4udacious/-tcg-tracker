@@ -251,6 +251,36 @@ test('in the app: the save is the account\'s, and a newer one from another devic
   } finally { await g.close() }
 })
 
+test('in the app: sold out shows the real clock, with nothing covering the stamp or the notice', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.evaluate(() => {
+      window.__vvmApi = {
+        async machine() { return { status: 'out_of_stock', cycle_no: 3, seconds_left: 192, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 11.56, wild: false, trainers: false, packs: [], tickets: [], supplies: [] } },
+        async loadSave() { return null }, async putSave() { return { ok: true, rev: 1 } }, async takeItems() { return [] }, async claim() { return { ok: false, reason: 'not_stocked' } }, async release() {},
+      }
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:390px;height:844px;border:0'; f.src = '/rpg/index.html?app=1&u=u1'
+      document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm?.realShelf, null, { timeout: 15000 })
+    await frame.evaluate(() => document.getElementById('home').click())
+    await frame.waitForFunction(() => /\bout\b/.test(document.getElementById('home').className), null, { timeout: 10000 }); await page.waitForTimeout(1500)
+    const st = await frame.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect()
+      return { cls: document.getElementById('home').className, line: document.getElementById('homeLine').textContent, sub: document.getElementById('homeSub').textContent,
+        walletTop: r('#wallet').top, noticeBottom: r('.attract .notice').bottom, stampBottom: r('.attract .stamp').bottom, rowsBottom: r('#attractRows').bottom }
+    })
+    assert.doesNotMatch(st.cls, /has-sup/, 'no empty supplies shelf when sold out')
+    assert.equal(st.line, 'SOLD OUT'); assert.match(st.sub, /changes in 3:\d\d/)
+    assert.ok(st.walletTop >= st.noticeBottom - 1, 'the tokens chip sits below the notice')
+    assert.ok(st.stampBottom <= st.rowsBottom + 30, 'the stamp sits on the packs')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: the real machine, checkout, packs and tokens go through the bridge', async () => {
   const g = await openGame()
   try {

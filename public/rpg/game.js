@@ -3106,10 +3106,11 @@ async function run(id) {
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
     const sup = state === 'in' ? shelfItems : [], real = vvm() && realShelf
-    h.classList.toggle('has-sup', real ? true : sup.length > 0)
+    h.classList.toggle('has-sup', state === 'in' && (real ? true : sup.length > 0))
     $('supplies').innerHTML = state === 'in' && real ? realTiles() : state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
     $('homeLine').textContent = blocked ? 'BLOCKED!' : { in: 'PACKS ARE IN!', out: 'NEXT RESTOCK 03:12', maint: 'BACK SOON' }[state]
     $('homeSub').textContent = blocked ? `${scalper.short} is camping the machine` : { in: 'tap items to add them to your cart', out: 'sold out', maint: 'under maintenance' }[state]
+    if (real && !blocked && state !== 'in') paintClock()
     if (blocked) $('homeLoiterer').src = ART[scalper.body]
     $('homeLoiterer').style.display = blocked ? 'block' : 'none'
   }
@@ -3141,13 +3142,33 @@ async function run(id) {
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
-    realShelf = m
+    realShelf = m; m.changesAt = Date.now() + m.seconds_left * 1000
     if (modeLive.wild !== m.wild || modeLive.trainers !== m.trainers) { modeLive.wild = m.wild; modeLive.trainers = m.trainers; paintBattles() }
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
     machine.state = st; $('machineState').value = st
     machine.lockedBy = !m.holder_id ? null : m.holder_id === m.me ? YOU : (m.holder_name ?? 'SOMEONE')
     if (homeState === 'idle') renderHome('idle')
+    // Looking at a sold-out or maintenance screen when it changes: back to idle, where a tap shows what it is now.
+    else if ((homeState === 'out' || homeState === 'maint') && st !== homeState) renderHome('idle')
+  }
+  /*
+   * Sold out or under maintenance, in the app: when the machine next changes,
+   * counting down, as the VVM page shows it. Paused while someone holds the
+   * machine. At zero it asks the server what the machine is now.
+   */
+  let clockTimer = null, clockAsked = false
+  function paintClock() {
+    clearInterval(clockTimer); clockAsked = false
+    const tick = () => {
+      if (!live() || homeState === 'idle' || homeState === 'in' || !realShelf) { clearInterval(clockTimer); return }
+      const s = Math.max(0, Math.round((realShelf.changesAt - Date.now()) / 1000))
+      $('homeLine').textContent = homeState === 'out' ? 'SOLD OUT' : 'BACK SOON'
+      $('homeSub').textContent = realShelf.frozen ? 'the machine changes once its current trainer is done'
+        : s > 0 ? `the machine changes in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'changing now…'
+      if (s === 0 && !realShelf.frozen && !clockAsked) { clockAsked = true; syncMachine() }
+    }
+    tick(); clockTimer = setInterval(tick, 1000)
   }
   const realKey = (k) => { const i = k.indexOf(':'); return [k.slice(0, i), k.slice(i + 1)] }
   const realRow = (k) => {
