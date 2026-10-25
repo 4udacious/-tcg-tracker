@@ -48,6 +48,8 @@ test('battle rules', async () => {
         tox: [statusTick(tox), statusTick(tox), statusTick(tox)],
         sleep: [statusAtAction(sleeper, Math.random), statusAtAction(sleeper, Math.random), statusAtAction(sleeper, Math.random)],
         sing: { perfect: lands('PERFECT', 1.6), good: lands('GOOD', 1), miss: lands('MISS', 0.7) },
+        // Every status move, by timing: never certain, better timing always at least as likely, MISS never.
+        statusOdds: Object.entries(SUPPORT).filter(([, m]) => ['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(m.effect)).map(([n, m]) => [n, ...['PERFECT', 'GREAT', 'GOOD', 'OK', 'MISS'].map((l) => statusOdds(m, l))]),
         sorted: sched.every((lv, i) => i === 0 || sched[i - 1] <= lv),
         abra15: evoDue(mon('ABRA', 15)), abra16: evoDue(mon('ABRA', 16))?.to,
         kadabra: evoByItem(mon('KADABRA', 20), 'linkcable', {}).rule?.to,
@@ -84,7 +86,11 @@ test('battle rules', async () => {
     assert.deepEqual(r.defend, ['parry*', 'parry', 'miss', 'dodge', 'miss', 'jump*', 'jump', 'miss'])
     assert.deepEqual(r.tox, [10, 20, 30])
     assert.deepEqual(r.sleep, ['asleep', 'asleep', 'wake'])
-    assert.equal(r.sing.perfect, 1); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)
+    assert.ok(r.sing.perfect > 0.75 && r.sing.perfect < 0.87, `Sing on PERFECT: ${r.sing.perfect}`); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)
+    for (const [n, perfect, great, good, ok, miss] of r.statusOdds) {
+      assert.ok(perfect < 1 && perfect > 0.8, `${n} on PERFECT: ${perfect}`)
+      assert.ok(perfect >= great && great >= good && good >= ok && ok > miss && miss === 0, `${n}: ${[perfect, great, good, ok, miss].join(' ')}`)
+    }
     assert.ok(r.sorted, 'level schedule in level order')
     assert.equal(r.abra15, null); assert.equal(r.abra16, 'KADABRA'); assert.equal(r.kadabra, 'ALAKAZAM')
     assert.deepEqual(r.golbat, [null, 'CROBAT'])

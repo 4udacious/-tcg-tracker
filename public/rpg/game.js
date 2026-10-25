@@ -1919,24 +1919,24 @@ const STATUS_ON_HIT = {
 }
 /* Status moves that inflict one outright (taught by Move Disc). */
 Object.assign(SUPPORT, {
-  'THUNDER WAVE':   { type: 'electric', target: 'foe', effect: 'status', status: 'par', prio: 0, cost: 1, sub: 'paralyzes the foe', solo: 'paralyzes' },
-  'WILL-O-WISP':    { type: 'fire', target: 'foe', effect: 'status', status: 'brn', prio: 0, cost: 1, sub: 'burns the foe', solo: 'burns' },
-  'POISON POWDER':  { type: 'poison', target: 'foe', effect: 'status', status: 'psn', prio: 0, cost: 1, sub: 'poisons the foe', solo: 'poisons' },
+  'THUNDER WAVE':   { type: 'electric', target: 'foe', effect: 'status', status: 'par', chance: 0.8, prio: 0, cost: 1, sub: 'paralyzes the foe', solo: 'paralyzes' },
+  'WILL-O-WISP':    { type: 'fire', target: 'foe', effect: 'status', status: 'brn', chance: 0.75, prio: 0, cost: 1, sub: 'burns the foe', solo: 'burns' },
+  'POISON POWDER':  { type: 'poison', target: 'foe', effect: 'status', status: 'psn', chance: 0.75, prio: 0, cost: 1, sub: 'poisons the foe', solo: 'poisons' },
 })
 Object.assign(DISC_RULES, { 'THUNDER WAVE': { types: ['electric', 'normal', 'psychic', 'dragon'] }, 'WILL-O-WISP': { types: ['fire', 'ghost', 'psychic'] }, 'POISON POWDER': { types: ['grass', 'bug', 'poison'] } })
 DISC_POOL.push('THUNDER WAVE', 'WILL-O-WISP', 'POISON POWDER')
-/* Sleep, bad poison, confusion, Leech Seed and Yawn. `chance`: how often it lands on a GOOD (PERFECT always, MISS never); none means it always lands. */
+/* Sleep, bad poison, confusion, Leech Seed and Yawn. `chance`: how often it lands on a GOOD (see statusLands; never certain, MISS never). */
 Object.assign(SUPPORT, {
   SING:            { type: 'normal', target: 'foe', effect: 'status', status: 'slp', chance: 0.6, prio: 0, cost: 1, sub: 'puts the foe to sleep', solo: 'sleep' },
   HYPNOSIS:        { type: 'psychic', target: 'foe', effect: 'status', status: 'slp', chance: 0.65, prio: 0, cost: 1, sub: 'puts the foe to sleep', solo: 'sleep' },
   'SLEEP POWDER':  { type: 'grass', target: 'foe', effect: 'status', status: 'slp', chance: 0.75, prio: 0, cost: 2, sub: 'puts the foe to sleep', solo: 'sleep' },
-  YAWN:            { type: 'normal', target: 'foe', effect: 'yawn', prio: 0, cost: 1, sub: 'foe sleeps next turn', solo: 'sleep next turn' },
-  TOXIC:           { type: 'poison', target: 'foe', effect: 'status', status: 'tox', prio: 0, cost: 1, sub: 'badly poisons the foe', solo: 'bad poison' },
-  'CONFUSE RAY':   { type: 'ghost', target: 'foe', effect: 'confuse', prio: 0, cost: 1, sub: 'confuses the foe', solo: 'confuses' },
+  YAWN:            { type: 'normal', target: 'foe', effect: 'yawn', chance: 0.8, prio: 0, cost: 1, sub: 'foe sleeps next turn', solo: 'sleep next turn' },
+  TOXIC:           { type: 'poison', target: 'foe', effect: 'status', status: 'tox', chance: 0.75, prio: 0, cost: 1, sub: 'badly poisons the foe', solo: 'bad poison' },
+  'CONFUSE RAY':   { type: 'ghost', target: 'foe', effect: 'confuse', chance: 0.8, prio: 0, cost: 1, sub: 'confuses the foe', solo: 'confuses' },
   SUPERSONIC:      { type: 'normal', target: 'foe', effect: 'confuse', chance: 0.6, prio: 0, cost: 0, sub: 'confuses the foe', solo: 'confuses' },
   'SWEET KISS':    { type: 'fairy', target: 'foe', effect: 'confuse', chance: 0.75, prio: 0, cost: 1, sub: 'confuses the foe', solo: 'confuses' },
-  SWAGGER:         { type: 'normal', target: 'foe', effect: 'swagger', prio: 0, cost: 1, sub: "confuses · foe's ATK ▲2", solo: 'confuses, ATK ▲2 foe' },
-  'LEECH SEED':    { type: 'grass', target: 'foe', effect: 'seed', prio: 0, cost: 1, sub: 'drains 1/8 HP a turn', solo: 'drains 1/8 a turn' },
+  SWAGGER:         { type: 'normal', target: 'foe', effect: 'swagger', chance: 0.8, prio: 0, cost: 1, sub: "confuses · foe's ATK ▲2", solo: 'confuses, ATK ▲2 foe' },
+  'LEECH SEED':    { type: 'grass', target: 'foe', effect: 'seed', chance: 0.8, prio: 0, cost: 1, sub: 'drains 1/8 HP a turn', solo: 'drains 1/8 a turn' },
 })
 /* Fake Out: only on the user's first turn out, first, and the foe flinches. */
 MOVEDEX['FAKE OUT'] = { type: 'normal', power: 40, cat: 'phys', cost: 1, prio: 3, fx: 'dash', snd: 'thud', firstTurn: true, sub: 'first turn only · flinch' }
@@ -2000,8 +2000,16 @@ function moveWorks(name, user, target, S, field = {}) {
     default: return true
   }
 }
-/** Does a status move land? Its `chance` on a GOOD, scaled by timing; PERFECT always lands, MISS never. */
-const statusLands = (mv, acc, r) => acc.label !== 'MISS' && (!mv.chance || acc.label === 'PERFECT' || r() < Math.min(1, mv.chance * acc.mult))
+/*
+ * Does a status move land? Never certain, even on a PERFECT: its `chance`
+ * (what it lands on a GOOD) times the timing's factor, up to that grade's
+ * ceiling. Better timing always helps; a MISS never lands. A foe's counts as
+ * a GOOD.
+ */
+const STATUS_TIMING = { PERFECT: [1.35, 0.95], GREAT: [1.2, 0.9], GOOD: [1, 0.85], OK: [0.8, 0.75] }
+const STATUS_CHANCE = 0.75   // for a status move without its own chance
+const statusOdds = (mv, label) => { const [f, cap] = STATUS_TIMING[label] ?? [0, 0]; return Math.min(cap, (mv.chance ?? STATUS_CHANCE) * f) }
+const statusLands = (mv, acc, r) => r() < statusOdds(mv, acc.label)
 /** The per-battle extras (confusion, seed, drowsy, flinch) as HUD tags. */
 const volTags = (t) => [t.conf && 'CONF', t.seeded && 'SEED', t.drowsy && 'DROWSY', t.cursed && 'CURSE', t.perish && `PERISH ${t.perish}`, t.trapped && 'TRAPPED', t.disabled && 'DISABLE'].filter(Boolean)
 /*
@@ -4629,11 +4637,11 @@ async function run(id) {
         t.conf = 2 + Math.floor(rand() * 3); sfx('shadow'); tags(T); await say(T.mon.name, 'became confused!', 300); return true
       }
       if (mv.effect === 'seed') {
-        if (acc.label === 'MISS' || t.seeded || T.mon.types.includes('grass')) return false
+        if (t.seeded || T.mon.types.includes('grass') || !statusLands(mv, acc, rand)) return false
         t.seeded = user; sfx('whoosh'); rise(T.c, '#86efac', 'dot'); tags(T); await say(T.mon.name, 'was seeded!', 300); return true
       }
       if (mv.effect === 'yawn') {
-        if (acc.label === 'MISS' || t.drowsy || !canTake(T.mon, 'slp')) return false
+        if (t.drowsy || !canTake(T.mon, 'slp') || !statusLands(mv, acc, rand)) return false
         t.drowsy = 2; sfx('shadow'); tags(T); await say(T.mon.name, 'grew drowsy!', 300); return true
       }
       return false
@@ -6351,11 +6359,11 @@ async function run(id) {
         t.conf = 2 + Math.floor(rand() * 3); sfx('shadow'); showTags(); await say(who(target), 'became confused!', 350); return true
       }
       if (mv.effect === 'seed') {
-        if (acc.label === 'MISS' || t.seeded || target.types.includes('grass')) return false
+        if (t.seeded || target.types.includes('grass') || !statusLands(mv, acc, rand)) return false
         t.seeded = true; sfx('whoosh'); rise(isFoe ? C.e : C.p, '#86efac', 'dot'); showTags(); await say(who(target), 'was seeded!', 350); return true
       }
       if (mv.effect === 'yawn') {
-        if (acc.label === 'MISS' || t.drowsy || !canTake(target, 'slp')) return false
+        if (t.drowsy || !canTake(target, 'slp') || !statusLands(mv, acc, rand)) return false
         t.drowsy = 2; sfx('shadow'); showTags(); await say(who(target), 'grew drowsy!', 350); return true
       }
       return false
@@ -6869,7 +6877,9 @@ async function run(id) {
       if (sig && !sigUsed && !ST(foe).taunt && foe.turn < 2 && canTake(me, SUPPORT[sig].status) && rand() < 0.6) {
         sigUsed = true
         await announce(`${trainer.short}'s ${foe.name} used`, `${sig}!`, READ_MS)
-        if (ST(me).protect) await say(who(me), 'protected itself!', 300); else await afflict(me, SUPPORT[sig].status)
+        if (ST(me).protect) await say(who(me), 'protected itself!', 300)
+        else if (!statusLands(SUPPORT[sig], { label: 'GOOD' }, rand)) await say('But it failed!', '', 300)   // never certain, a leader's included
+        else await afflict(me, SUPPORT[sig].status)
         foe.turn++
         return
       }
