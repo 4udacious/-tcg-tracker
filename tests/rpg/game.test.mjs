@@ -153,6 +153,8 @@ test('battle switches: wild and trainers each keep their kind away, and are kept
     let st = await tapAs('wild'); assert.match(st.home, /\bin\b/); assert.equal(st.battle, 'none')
     st = await tapAs('scalper'); assert.match(st.home, /\bin\b/); assert.equal(st.battle, 'none')
     assert.deepEqual(await page.evaluate(() => [localStorage.getItem('vvm-wild'), localStorage.getItem('vvm-trainers')]), ['off', 'off'])
+    // Trainer battles pick one of the two trainer themes at random.
+    assert.deepEqual(await page.evaluate(() => [...new Set(Array.from({ length: 60 }, () => window.__vvm.trainerTheme()))].sort()), ['battle', 'battleB'])
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -400,7 +402,7 @@ test('music: every song\'s parts line up, and every note and chord reads', async
           if (p.bass?.length && p.bass.length !== L) out.push(`${where}: bass ${p.bass.length} steps, lead ${L}`)
           if (p.drums.length !== L) out.push(`${where}: drums ${p.drums.length} steps, lead ${L}`)
           if (p.chords && p.chords.length * p.chordLen < L) out.push(`${where}: chords cover ${p.chords.length * p.chordLen} of ${L} steps`)
-          for (const n of [...p.lead, ...(p.bass ?? [])]) if (n !== '.' && n !== '-' && Number.isNaN(MIDI(/^(.+?)([~^]?)$/.exec(n)[1]))) out.push(`${where}: note ${n}`)
+          for (const n of [...p.lead, ...(p.bass ?? [])]) if (n !== '.' && n !== '-' && Number.isNaN(MIDI(/^(.+?)([~^v]?)$/.exec(n)[1]))) out.push(`${where}: note ${n}`)
           for (const c of p.chords ?? []) if (!/^([A-G][#b]?)(m|dim|aug)?(maj7|7)?$/.test(c)) out.push(`${where}: chord ${c}`)
         }
       }

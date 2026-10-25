@@ -416,7 +416,7 @@ function chordPcs(name) {
 }
 const PC_NAME = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 /** A whole passage moved by some semitones (notes keep their articulation marks; chords keep their quality). */
-const transpose = (track, k) => track.map((n) => { if (n === '.' || n === '-') return n; const [, b, art] = /^(.+?)([~^]?)$/.exec(n), m = MIDI(b) + k; return PC_NAME[m % 12] + (Math.floor(m / 12) - 1) + art })
+const transpose = (track, k) => track.map((n) => { if (n === '.' || n === '-') return n; const [, b, art] = /^(.+?)([~^v]?)$/.exec(n), m = MIDI(b) + k; return PC_NAME[m % 12] + (Math.floor(m / 12) - 1) + art })
 const transposeChords = (cs, k) => cs.map((c) => { const [, r, q] = /^([A-G][#b]?)(.*)$/.exec(c); return PC_NAME[(MIDI(r + '4') + k) % 12] + q })
 Object.assign(SONGS.vs, { chordLen: 8, chords: 'Em Em Em'.split(' ') })
 Object.assign(SONGS.battle, { chordLen: 8, chords: 'Am F G E Am F G E'.split(' '), arp: true })
@@ -594,12 +594,15 @@ function adsr(param, t, dur, peak, a, d, s, r) {
   return off + r * 2
 }
 /**
- * Lead articulations, on an oscillator playing `f`: a scoop (it starts a whole
- * step flat and slides up, as brass players do into a big note) or a trill
- * (it alternates with the whole step above, then settles).
+ * Lead articulations, on an oscillator playing `f`: a scoop '^' (it starts a
+ * whole step flat and slides up, as brass players do into a big note), a
+ * trill '~' (it alternates with the whole step above, then settles) or a
+ * fall 'v' (it drops away at the end).
  */
 function articulate(o, f, t, dur, art) {
   if (art === '^') { o.frequency.setValueAtTime(f * 0.89, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.085) }
+  // A fall: the note drops off at its end, as a sax or a trumpet does.
+  if (art === 'v') { const from = t + Math.max(0.06, dur * 0.6); o.frequency.setValueAtTime(f, from); o.frequency.exponentialRampToValueAtTime(f * 0.7, t + dur + 0.04) }
   if (art === '~') {
     const up = f * 1.1225, end = t + dur - 0.05
     for (let k = 0, x = t + 0.07; x < end; k++, x += 0.058) o.frequency.setValueAtTime(k % 2 ? f : up, x)
@@ -723,6 +726,35 @@ const INST = {
     for (const det of [-12, -4, 5, 13]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(flt) }
     flt.connect(g).connect(ch)
   },
+  /**
+   * Saxophone: a reedy saw-and-square tone through the horn's resonances, a
+   * breath of air on the attack, a growl (a fast flutter in the level) and
+   * vibrato once the note holds.
+   */
+  sax(ac, ch, t, f, dur, v, art) {
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.17 * v, 0.025, 0.15, 0.8, 0.07)
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(6000, f * 5.5); lp.Q.value = 1
+    const pk = ac.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 1400; pk.gain.value = 7; pk.Q.value = 1.1
+    const lfo = oscAt(ac, 'sine', 5.2, t, end), lg = ac.createGain()
+    lg.gain.setValueAtTime(0, t); lg.gain.setValueAtTime(0, t + Math.min(0.22, dur * 0.5)); lg.gain.linearRampToValueAtTime(f * 0.009, t + Math.min(0.5, dur * 0.9)); lfo.connect(lg)
+    const growl = ac.createGain(); growl.gain.value = 1
+    const gl = oscAt(ac, 'sine', 31, t, end), gd = ac.createGain(); gd.gain.value = 0.16; gl.connect(gd).connect(growl.gain)
+    for (const [type, gain, det] of [['sawtooth', 1, -4], ['square', 0.45, 4]]) {
+      const o = oscAt(ac, type, f, t, end, det), og = ac.createGain(); og.gain.value = gain
+      articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(og).connect(lp)
+    }
+    noiseHit(ac, lp, t, { type: 'bandpass', f: Math.min(5000, f * 3), q: 0.8, len: 0.06, vol: 0.12 })
+    lp.connect(pk).connect(growl).connect(g).connect(ch)
+  },
+  /** Clavinet: a bright, buzzy pluck through an envelope filter that snaps shut ("wah"), very short. */
+  clav(ac, ch, t, f, dur, v) {
+    const len = Math.max(0.09, Math.min(0.28, dur)), end = t + len + 0.03
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.001, t + len)
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.5
+    bp.frequency.setValueAtTime(Math.min(6000, f * 9), t); bp.frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.09)
+    oscAt(ac, 'square', f, t, end, 3).connect(bp); const o2 = oscAt(ac, 'sawtooth', f * 2, t, end), o2g = ac.createGain(); o2g.gain.value = 0.35; o2.connect(o2g).connect(bp)
+    bp.connect(g).connect(ch)
+  },
   /** Synth bass: saw and sine sub, a resonant filter that snaps shut. */
   bass(ac, ch, t, f, dur, v) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 4
@@ -754,6 +786,8 @@ const KIT = {
   o: (ac, m, t) => noiseHit(ac, m.hat, t, { type: 'highpass', f: 7600, len: 0.28, vol: 0.45 }),
   C: (ac, m, t) => { noiseHit(ac, m.cym, t, { type: 'highpass', f: 4800, len: 1.6, vol: 0.6 }); noiseHit(ac, m.cym, t, { type: 'bandpass', f: 9500, q: 0.6, len: 0.9, vol: 0.3 }) },
   T: (ac, m, t) => toneHit(ac, m.tom, t, { f: 190, f1: 115, len: 0.3, vol: 0.8 }),
+  /** Hand clap: three quick bursts of filtered noise, the last one ringing a little. */
+  X: (ac, m, t, v = 1) => { for (const [d, len] of [[0, 0.01], [0.011, 0.01], [0.022, 0.13]]) noiseHit(ac, m.snare, t + d, { type: 'bandpass', f: 1250, q: 1.3, len, vol: 0.7 * v }) },
   /** Timpani, tuned (to the chord's root when the song schedules it): a long, round low boom with a soft mallet. */
   P: (ac, m, t, v = 1, f = 73.4) => { toneHit(ac, m.tom, t, { f: f * 1.06, f1: f, len: 1.1, vol: 0.9 * v }); toneHit(ac, m.tom, t, { f: f * 2.02, f1: f * 2, len: 0.5, vol: 0.18 * v }); noiseHit(ac, m.tom, t, { type: 'lowpass', f: 600, len: 0.06, vol: 0.25 * v }) },
   t: (ac, m, t) => toneHit(ac, m.tom, t, { f: 140, f1: 85, len: 0.34, vol: 0.8 }),
@@ -1019,8 +1053,8 @@ function schedulePart(ac, out, song, t0) {
   }
   const chordAt = (i) => song.chords ? chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]) : null
   const play = (name, ch, t, m, d, v, art) => at(t, () => INST[name](ac, ch, t, HZ(m), d, v, art))
-  /** A lead token: its pitch, and its articulation mark if it has one ('~' trill, '^' scoop). */
-  const tok = (n) => { const [, b, art] = /^(.+?)([~^]?)$/.exec(n); return [MIDI(b), art] }
+  /** A lead token: its pitch, and its articulation mark if it has one ('~' trill, '^' scoop, 'v' fall). */
+  const tok = (n) => { const [, b, art] = /^(.+?)([~^v]?)$/.exec(n); return [MIDI(b), art] }
   const hit = (c, t, v) => at(t, () => KIT[c](ac, M, t, v))
   const lastLead = song.lead.reduce((k, n, i) => (n !== '.' && n !== '-' ? i : k), 0)
 
@@ -1041,6 +1075,11 @@ function schedulePart(ac, out, song, t0) {
     const t = t0 + k * song.chordLen * step, dur = Math.min(song.chordLen, song.lead.length - k * song.chordLen) * step
     for (const pc of chordPcs(c).slice(0, 3)) play(song.padInst ?? 'strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8)
   })
+  // Clavinet and horn-section stabs: the chord, short, wherever their one-bar rhythm ('x') says.
+  const chordAround = (i, lo) => chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]).slice(0, 4).map((pc) => lo + ((pc - lo) % 12 + 12) % 12)
+  for (const [pat, inst, ch, lo, len, vel] of [[song.clav, 'clav', M.keys, 58, 0.8, 0.8], [song.stabs, 'brass', M.harm, 55, 1.3, 0.7]]) {
+    if (pat) for (let i = 0; i < song.lead.length; i++) if (pat[i % pat.length] === 'x') for (const m of chordAround(i, lo)) play(inst, ch, T(i), m, step * len, vel)
+  }
   // Piano ostinato: a repeating figure through the chord (its three notes from middle C up, and the root an octave higher).
   if (song.ostinato) for (let i = 0; i < song.lead.length; i++) {
     const k = song.ostinato[i % song.ostinato.length]; if (k === '-') continue
@@ -1226,6 +1265,55 @@ SONGS.elite = { file: null, loop: true, bpm: 172, div: 2, chordLen: 8, leadInst:
       lead: bars('B4 . B4 . E5 . B4 .', 'G5 . G5 . E5 . B4 .', 'C#5 . C#5 . F#5 . A#5 .', 'C#6 . . . - - - -'),
       bass: bars('E1 E1 E2 E1 E1 E2 E1 E2', 'E1 E1 E2 E1 E1 E2 E1 E2', 'F#1 F#1 F#2 F#1 F#1 F#2 F#1 F#2', 'F#1 . . . F#1 . . .'),
       drums: 'KhKhKhKh' + 'KhKhKhKh' + 'KSKSKSKS' + 'SSSSSSSS' },
+  ] }
+
+/*
+ * The trainer battle, second version: SONGS.battleB. Trainer battles pick
+ * this or the first (SONGS.battle) at random each time. Scalpers at a
+ * vending machine are a street encounter, so this one is cheeky funk rather
+ * than another urgent minor theme:
+ *   - C Dorian (minor, with a bright raised sixth), on a Cm7-F7 vamp turned
+ *     around through A-flat 7 to G7;
+ *   - a syncopated slap-bass line, a clavinet comping in sixteenths, horn
+ *     section stabs and hand claps;
+ *   - a saxophone lead that growls and falls off its notes;
+ *   - a middle section of jazz changes, each chord leading into the next
+ *     (Fm7 Bb7 Ebmaj7 Abmaj7 Dm7 G7), and a breakdown of bass, drums and clav.
+ * 160 bpm, sixteenth-note grid, 16 steps a bar: a 3 s intro, then a 42 s loop.
+ */
+/** A bar of funk bass on a root: the root, its octave popped, the flat seventh below, the fifth, the seventh, and back up. */
+const funk = (n) => { const [lo7, hi, fifth, sev] = transpose([n, n, n, n], 0).map((x, k) => transpose([x], [-2, 12, 7, 10][k])[0]); return `${n} . . ${hi} - ${n} . ${lo7} . . ${n} . ${fifth} . ${sev} ${hi}` }
+const FUNK_A = {
+  chords: 'Cm7 F7 Cm7 F7 Cm7 F7 Ab7 G7'.split(' '),
+  lead: bars('- - G5 . Bb5 . C6 . - Bb5 . G5 . . F5 G5', 'A5 . . . . . F5 . Eb5 . F5 . A5 . C6 .',
+    'Bb5 . . G5 . . Eb5 . G5 . F5 . - - C6 .', 'Eb6v . . . . . . . - - C6 . A5 . F5 .',
+    'G5 . C6 . Eb6 . C6 . Bb5 . . G5 . . Bb5 .', 'C6 . A5 . F5 . A5 . C6 . D6 . Eb6 . C6 .',
+    'Eb6 . . C6 . . Ab5 . Gb5 . . . Eb5 . . .', 'D6~ . . . . . . . B5 . . . G5 . F5 .'),
+  bass: bars(funk('C2'), funk('F1'), funk('C2'), funk('F1'), funk('C2'), funk('F1'), funk('Ab1'), funk('G1')),
+  drums: 'K.hgS.hKhgKhS.hg'.repeat(7) + 'K.hgS.hKXXXXSSSS' }
+SONGS.battleB = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16,
+  leadInst: 'sax', harmInst: 'strings', comp: false, glock: false, hats16: false, crash: true, fill: '',
+  clav: '.x.x.xx..x.x.xx.', stabs: '..........x..x..',
+  intro: { chords: ['Cm7', 'Cm7'], leadInst: 'brass', clav: '', stabs: '',
+    lead: bars('G5 . . G5 . . G5 . Bb5 . . Bb5 . . C6 .', 'C6v . . . . . . . - - - - - - - -'),
+    bass: bars('C2 . . C2 . . C2 . Bb1 . . Bb1 . . C2 .', 'C2 . . . . . . . - - - - - - - -'),
+    drums: 'K..K..K.S..S..S.' + 'K...S...XXXXSSSS' },
+  sections: [
+    { ...FUNK_A },
+    { // Jazz changes, each chord leading into the next; claps on the backbeat
+      chords: 'Fm7 Bb7 Ebmaj7 Abmaj7 Dm7 G7 Cm7 G7'.split(' '), stabs: '....x.......x...',
+      lead: bars('Ab5 . . . C6 . . . Eb6 . . . C6 . Ab5 .', 'D6 . . . . . . . F5 . Ab5 . Bb5 . D6 .',
+        'G6v . . . . . . . - - Eb6 . D6 . Bb5 .', 'C6 . . . Eb6 . . . G5 . . . Ab5 . C6 .',
+        'F6 . . . D6 . . . A5 . . . C6 . . .', 'B5 . . . D6 . . . F6 . . . D6 . B5 .',
+        'C6^ . . . . . . . G5 . Bb5 . C6 . Eb6 .', 'D6~ . . . . . . . G5 . . . G5 A5 B5 D6'),
+      bass: bars(funk('F1'), funk('Bb1'), funk('Eb2'), funk('Ab1'), funk('D2'), funk('G1'), funk('C2'), funk('G1')),
+      drums: 'K.hgX.hKhgKhX.hg'.repeat(7) + 'K.hgX.hKSSSSXXXX' },
+    { ...FUNK_A, leadInst: 'brass', leadDouble: 'sax', leadDoubleOct: -1, leadDoubleVel: 0.5, stabs: '' },   // the vamp again: trumpet on top, the sax an octave under
+    { // Breakdown: bass, drums and clav, then the sax back in
+      chords: 'Cm7 F7 Cm7 F7'.split(' '), stabs: '',
+      lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', 'F5 . A5 . C6 . Eb6 . F6 . A6 . - - - -'),
+      bass: bars(funk('C2'), funk('F1'), funk('C2'), funk('F1')),
+      drums: 'K..hS..hK.hhS..h'.repeat(3) + 'SSSSXXXXSSSSKKKK' },
   ] }
 
 /*
@@ -5079,6 +5167,8 @@ async function run(id) {
    * on deck. 'solo': one scalper with two out at once, or, when they only
    * carry one, a 2-on-1. Either way your first two Pokémon fight.
    */
+  /** Trainer battles play one of two themes, picked at random each time (not from the game's own rolls, which it would shift; the demos keep the first). */
+  const trainerTheme = () => (demo || Math.random() < 0.5 ? 'battle' : 'battleB')
   async function duoEncounter(demoPlan, variant = 'tag', state = 'in') {
     toolsEnabled(false)
     if (!party.some((m) => m.hp > 0)) { $('homeSub').textContent = 'heal your party first'; toolsEnabled(true); return }
@@ -5105,7 +5195,7 @@ async function run(id) {
     else if (crew[1]) { for (const T of crew) await talk(T, [pickOf(TEAM_UP[T.short])]) }
     else await talk(crew[0], pickOf(SOLO_DOUBLE[crew[0].short]))
     vsHide()
-    Sound.music('battle')
+    Sound.music(trainerTheme())
     const out = await duoBattle({ foes: field, bench: waiting, trainers: crew, plan: demoPlan })
     if (out.result === 'won') {
       restBeaten(crew)   // they stay away for a while
@@ -5553,7 +5643,7 @@ async function run(id) {
       await talk(ALEX, ALEX.picked(me.name))
     } else await talk(ALEX, ALEX.again)
     vsHide()
-    Sound.music('battle')
+    Sound.music(trainerTheme())
     if (demo) cap('TUTORIAL', 'You command your Pokémon; Alex commands Porygon and hits his own rings. He explains each thing the first time it comes up.')
     // Gentle opponents, and a partner a little ahead of you.
     const foes = crew.map((T) => ({ mon: individual(DATA.trainer.find((t) => t.name === T.mon), 4, rand), owner: T }))
@@ -6983,7 +7073,7 @@ async function run(id) {
     await W(1300)
     await talk(T, demoPlan ? T.intro[0] : pickOf(T.intro))
     $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
-    Sound.music('battle')
+    Sound.music(trainerTheme())
     // Their Pokémon for this battle, from their pool; the demo always meets Herb's GHOLDENGO.
     const deck = deckFor(T, leadLevel(), demoPlan ? [T.mon] : null)   // around your lead: see levelBand()
     demoNoBlunder = !!demoPlan?.noBlunder
@@ -7323,7 +7413,7 @@ async function run(id) {
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
-    box, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
