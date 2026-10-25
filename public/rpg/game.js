@@ -223,11 +223,14 @@ DATA.forms.push(...[{"id":12,"name":"BUTTERFREE","types":["bug","flying"],"base"
 /*
  * How often each wild species turns up, in a machine's weekly pool and then
  * among the pool: by catch rate, as in the games (easy to catch is common),
- * with a few set by hand. Rare: the pseudo-legendary lines.
+ * except that rare is a short list set by hand: the pseudo-legendary lines,
+ * the fossils, Porygon, Lapras and Unown. Otherwise hard to catch is uncommon.
  */
 const RARITY_WEIGHT = { common: 4, uncommon: 2, rare: 1 }
-const RARITY_SET = { EEVEE: 'uncommon', AIPOM: 'uncommon', LICKITUNG: 'uncommon' }
-const rarityOf = (w) => RARITY_SET[w.name] ?? (w.capture >= 120 ? 'common' : w.capture > 45 ? 'uncommon' : 'rare')
+const RARITY_SET = { EEVEE: 'uncommon', AIPOM: 'uncommon', LICKITUNG: 'uncommon', SMOOCHUM: 'uncommon', ELEKID: 'uncommon', MAGBY: 'uncommon', SCYTHER: 'uncommon',
+  TANGELA: 'uncommon', MURKROW: 'uncommon', MISDREAVUS: 'uncommon' }
+for (const n of ['DRATINI', 'GIBLE', 'LARVITAR', 'DREEPY', 'KABUTO', 'OMANYTE', 'AERODACTYL', 'PORYGON', 'LAPRAS', 'UNOWN']) RARITY_SET[n] = 'rare'
+const rarityOf = (w) => RARITY_SET[w.name] ?? (w.capture >= 120 ? 'common' : 'uncommon')
 const rarityWeight = (w) => RARITY_WEIGHT[rarityOf(w)]
 /** One of `list`, each as likely as its weight. */
 function weightedPick(list, weightOf, r) {
@@ -237,6 +240,41 @@ function weightedPick(list, weightOf, r) {
 }
 Object.assign(DATA.evos, {"CATERPIE":[{"to":"METAPOD","level":7}],"METAPOD":[{"to":"BUTTERFREE","level":10}],"WEEDLE":[{"to":"KAKUNA","level":7}],"KAKUNA":[{"to":"BEEDRILL","level":10}],"ZUBAT":[{"to":"GOLBAT","level":22}],"ODDISH":[{"to":"GLOOM","level":21}],"VENONAT":[{"to":"VENOMOTH","level":31}],"MANKEY":[{"to":"PRIMEAPE","level":28}],"POLIWAG":[{"to":"POLIWHIRL","level":25}],"ABRA":[{"to":"KADABRA","level":16}],"MACHOP":[{"to":"MACHOKE","level":28}],"BELLSPROUT":[{"to":"WEEPINBELL","level":21}],"GEODUDE":[{"to":"GRAVELER","level":25}],"PONYTA":[{"to":"RAPIDASH","level":40}],"GRIMER":[{"to":"MUK","level":38}],"DROWZEE":[{"to":"HYPNO","level":26}],"VOLTORB":[{"to":"ELECTRODE","level":30}],"KOFFING":[{"to":"WEEZING","level":35}],"GOLDEEN":[{"to":"SEAKING","level":33}],"DRATINI":[{"to":"DRAGONAIR","level":30}],"DRAGONAIR":[{"to":"DRAGONITE","level":55}],"SPINARAK":[{"to":"ARIADOS","level":22}],"HOPPIP":[{"to":"SKIPLOOM","level":18}],"SKIPLOOM":[{"to":"JUMPLUFF","level":27}],"PINECO":[{"to":"FORRETRESS","level":31}],"SLUGMA":[{"to":"MAGCARGO","level":38}],"HOUNDOUR":[{"to":"HOUNDOOM","level":24}],"SLAKOTH":[{"to":"VIGOROTH","level":18}],"VIGOROTH":[{"to":"SLAKING","level":36}],"HIPPOPOTAS":[{"to":"HIPPOWDON","level":34}],"TRUBBISH":[{"to":"GARBODOR","level":36}]})
 for (const id of [10,13,37,41,43,48,56,60,63,66,69,74,77,88,100,102,109,118,120,147,167,187,204,218,228,449,568,12,15,42,44,61,70,97,188,288,289]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+/*
+ * The second batch: babies (Cleffa, Igglybuff, Happiny, Munchlax, Smoochum,
+ * Elekid, Magby, Tyrogue, Mime Jr.), Meowth, the Kabuto and Omanyte fossils,
+ * and the stone and trade evolutions the trainers' Pokémon were missing
+ * (Clefable, Wigglytuff, Delcatty, Sunflora, Honchkrow, Mismagius,
+ * Rhyperior, Scizor, Porygon2, Porygon-Z, Electivire, Magmortar, Tangrowth,
+ * Toxicroak). Skitty, Sunkern, Murkrow, Misdreavus, Rhyhorn, Scyther,
+ * Porygon, Tangela and Croagunk, trainer-only before, turn up wild too.
+ */
+DATA.wild.push(...[{"id":52,"name":"MEOWTH","types":["normal"],"base":{"hp":40,"attack":45,"defense":35,"special-attack":40,"special-defense":40,"speed":90},"capture":255},{"id":140,"name":"KABUTO","types":["rock","water"],"base":{"hp":30,"attack":80,"defense":90,"special-attack":55,"special-defense":45,"speed":55},"capture":45},{"id":138,"name":"OMANYTE","types":["rock","water"],"base":{"hp":35,"attack":40,"defense":100,"special-attack":90,"special-defense":55,"speed":35},"capture":45},{"id":173,"name":"CLEFFA","types":["fairy"],"base":{"hp":50,"attack":25,"defense":28,"special-attack":45,"special-defense":55,"speed":15},"capture":150},{"id":174,"name":"IGGLYBUFF","types":["normal","fairy"],"base":{"hp":90,"attack":30,"defense":15,"special-attack":40,"special-defense":20,"speed":15},"capture":170},{"id":440,"name":"HAPPINY","types":["normal"],"base":{"hp":100,"attack":5,"defense":5,"special-attack":15,"special-defense":65,"speed":30},"capture":130},{"id":446,"name":"MUNCHLAX","types":["normal"],"base":{"hp":135,"attack":85,"defense":40,"special-attack":40,"special-defense":85,"speed":5},"capture":50},{"id":238,"name":"SMOOCHUM","types":["ice","psychic"],"base":{"hp":45,"attack":30,"defense":15,"special-attack":85,"special-defense":65,"speed":65},"capture":45},{"id":239,"name":"ELEKID","types":["electric"],"base":{"hp":45,"attack":63,"defense":37,"special-attack":65,"special-defense":55,"speed":95},"capture":45},{"id":240,"name":"MAGBY","types":["fire"],"base":{"hp":45,"attack":75,"defense":37,"special-attack":70,"special-defense":55,"speed":83},"capture":45},{"id":236,"name":"TYROGUE","types":["fighting"],"base":{"hp":35,"attack":35,"defense":35,"special-attack":35,"special-defense":35,"speed":35},"capture":75},{"id":439,"name":"MIME JR.","types":["psychic","fairy"],"base":{"hp":20,"attack":25,"defense":45,"special-attack":70,"special-defense":90,"speed":60},"capture":145}], ...["SKITTY","SUNKERN","MURKROW","MISDREAVUS","RHYHORN","SCYTHER","PORYGON","TANGELA","CROAGUNK"].map((n) => DATA.trainer.find((t) => t.name === n)))
+DATA.forms.push(...[{"id":36,"name":"CLEFABLE","types":["fairy"],"base":{"hp":95,"attack":70,"defense":73,"special-attack":95,"special-defense":90,"speed":60},"capture":25},{"id":40,"name":"WIGGLYTUFF","types":["normal","fairy"],"base":{"hp":140,"attack":70,"defense":45,"special-attack":85,"special-defense":50,"speed":45},"capture":50},{"id":301,"name":"DELCATTY","types":["normal"],"base":{"hp":70,"attack":65,"defense":65,"special-attack":55,"special-defense":55,"speed":90},"capture":60},{"id":192,"name":"SUNFLORA","types":["grass"],"base":{"hp":75,"attack":75,"defense":55,"special-attack":105,"special-defense":85,"speed":30},"capture":120},{"id":430,"name":"HONCHKROW","types":["dark","flying"],"base":{"hp":100,"attack":125,"defense":52,"special-attack":105,"special-defense":52,"speed":71},"capture":30},{"id":429,"name":"MISMAGIUS","types":["ghost"],"base":{"hp":60,"attack":60,"defense":60,"special-attack":105,"special-defense":105,"speed":105},"capture":45},{"id":464,"name":"RHYPERIOR","types":["ground","rock"],"base":{"hp":115,"attack":140,"defense":130,"special-attack":55,"special-defense":55,"speed":40},"capture":30},{"id":212,"name":"SCIZOR","types":["bug","steel"],"base":{"hp":70,"attack":130,"defense":100,"special-attack":55,"special-defense":80,"speed":65},"capture":25},{"id":233,"name":"PORYGON2","types":["normal"],"base":{"hp":85,"attack":80,"defense":90,"special-attack":105,"special-defense":95,"speed":60},"capture":45},{"id":474,"name":"PORYGON-Z","types":["normal"],"base":{"hp":85,"attack":80,"defense":70,"special-attack":135,"special-defense":75,"speed":90},"capture":30},{"id":466,"name":"ELECTIVIRE","types":["electric"],"base":{"hp":75,"attack":123,"defense":67,"special-attack":95,"special-defense":85,"speed":95},"capture":30},{"id":467,"name":"MAGMORTAR","types":["fire"],"base":{"hp":75,"attack":95,"defense":67,"special-attack":125,"special-defense":95,"speed":83},"capture":30},{"id":465,"name":"TANGROWTH","types":["grass"],"base":{"hp":100,"attack":100,"defense":125,"special-attack":110,"special-defense":50,"speed":50},"capture":30},{"id":454,"name":"TOXICROAK","types":["poison","fighting"],"base":{"hp":83,"attack":106,"defense":65,"special-attack":86,"special-defense":65,"speed":85},"capture":75}])
+Object.assign(DATA.evos, {"MEOWTH":[{"to":"PERSIAN","level":28}],"KABUTO":[{"to":"KABUTOPS","level":40}],"OMANYTE":[{"to":"OMASTAR","level":40}],"SMOOCHUM":[{"to":"JYNX","level":30}],"ELEKID":[{"to":"ELECTABUZZ","level":30}],"MAGBY":[{"to":"MAGMAR","level":30}],"TYROGUE":[{"to":"HITMONLEE","level":20},{"to":"HITMONCHAN","level":20},{"to":"HITMONTOP","level":20}],"CROAGUNK":[{"to":"TOXICROAK","level":37}],"RHYHORN":[{"to":"RHYDON","level":42}]})
+for (const id of [52,140,138,173,174,440,446,238,239,240,236,439,36,40,301,192,430,429,464,212,233,474,466,467,465,454]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+Object.assign(ART, { 'item:moonstone': '/rpg/a/items/moonstone.png', 'item:sunstone': '/rpg/a/items/sunstone.png', 'item:duskstone': '/rpg/a/items/duskstone.png' })
+/*
+ * Gen 1 and 2, finished: every non-legendary Kanto and Johto Pokémon is in
+ * the game. The 42 first stages here are wild, and so are ten that were
+ * only trainers' until now (Growlithe, Slowpoke, Onix, Lapras, Ditto,
+ * Aerodactyl, Natu, Smeargle, Miltank, Skarmory). Their evolutions are in
+ * DATA.forms, by level, stone, Linking Cord or Bond.
+ */
+DATA.wild.push(...[{"id":19,"name":"RATTATA","types":["normal"],"base":{"hp":30,"attack":56,"defense":35,"special-attack":25,"special-defense":35,"speed":72},"capture":255},{"id":21,"name":"SPEAROW","types":["normal","flying"],"base":{"hp":40,"attack":60,"defense":30,"special-attack":31,"special-defense":31,"speed":70},"capture":255},{"id":23,"name":"EKANS","types":["poison"],"base":{"hp":35,"attack":60,"defense":44,"special-attack":40,"special-defense":54,"speed":55},"capture":255},{"id":27,"name":"SANDSHREW","types":["ground"],"base":{"hp":50,"attack":75,"defense":85,"special-attack":20,"special-defense":30,"speed":40},"capture":255},{"id":29,"name":"NIDORAN♀","types":["poison"],"base":{"hp":55,"attack":47,"defense":52,"special-attack":40,"special-defense":40,"speed":41},"capture":235},{"id":32,"name":"NIDORAN♂","types":["poison"],"base":{"hp":46,"attack":57,"defense":40,"special-attack":40,"special-defense":40,"speed":50},"capture":235},{"id":46,"name":"PARAS","types":["bug","grass"],"base":{"hp":35,"attack":70,"defense":55,"special-attack":45,"special-defense":55,"speed":25},"capture":190},{"id":50,"name":"DIGLETT","types":["ground"],"base":{"hp":10,"attack":55,"defense":25,"special-attack":35,"special-defense":45,"speed":95},"capture":255},{"id":72,"name":"TENTACOOL","types":["water","poison"],"base":{"hp":40,"attack":40,"defense":35,"special-attack":50,"special-defense":100,"speed":70},"capture":190},{"id":83,"name":"FARFETCH'D","types":["normal","flying"],"base":{"hp":52,"attack":90,"defense":55,"special-attack":58,"special-defense":62,"speed":60},"capture":45},{"id":84,"name":"DODUO","types":["normal","flying"],"base":{"hp":35,"attack":85,"defense":45,"special-attack":35,"special-defense":35,"speed":75},"capture":190},{"id":90,"name":"SHELLDER","types":["water"],"base":{"hp":30,"attack":65,"defense":100,"special-attack":45,"special-defense":25,"speed":40},"capture":190},{"id":98,"name":"KRABBY","types":["water"],"base":{"hp":30,"attack":105,"defense":90,"special-attack":25,"special-defense":25,"speed":50},"capture":225},{"id":104,"name":"CUBONE","types":["ground"],"base":{"hp":50,"attack":50,"defense":95,"special-attack":40,"special-defense":50,"speed":35},"capture":190},{"id":115,"name":"KANGASKHAN","types":["normal"],"base":{"hp":105,"attack":95,"defense":80,"special-attack":40,"special-defense":80,"speed":90},"capture":45},{"id":127,"name":"PINSIR","types":["bug"],"base":{"hp":65,"attack":125,"defense":100,"special-attack":55,"special-defense":70,"speed":85},"capture":45},{"id":128,"name":"TAUROS","types":["normal"],"base":{"hp":75,"attack":100,"defense":95,"special-attack":40,"special-defense":70,"speed":110},"capture":45},{"id":161,"name":"SENTRET","types":["normal"],"base":{"hp":35,"attack":46,"defense":34,"special-attack":35,"special-defense":45,"speed":20},"capture":255},{"id":165,"name":"LEDYBA","types":["bug","flying"],"base":{"hp":40,"attack":20,"defense":30,"special-attack":40,"special-defense":80,"speed":55},"capture":255},{"id":170,"name":"CHINCHOU","types":["water","electric"],"base":{"hp":75,"attack":38,"defense":38,"special-attack":56,"special-defense":56,"speed":67},"capture":190},{"id":175,"name":"TOGEPI","types":["fairy"],"base":{"hp":35,"attack":20,"defense":65,"special-attack":40,"special-defense":65,"speed":20},"capture":190},{"id":179,"name":"MAREEP","types":["electric"],"base":{"hp":55,"attack":40,"defense":40,"special-attack":65,"special-defense":45,"speed":35},"capture":235},{"id":183,"name":"MARILL","types":["water","fairy"],"base":{"hp":70,"attack":20,"defense":50,"special-attack":20,"special-defense":50,"speed":40},"capture":190},{"id":185,"name":"SUDOWOODO","types":["rock"],"base":{"hp":70,"attack":100,"defense":115,"special-attack":30,"special-defense":65,"speed":30},"capture":65},{"id":193,"name":"YANMA","types":["bug","flying"],"base":{"hp":65,"attack":65,"defense":45,"special-attack":75,"special-defense":45,"speed":95},"capture":75},{"id":201,"name":"UNOWN","types":["psychic"],"base":{"hp":48,"attack":72,"defense":48,"special-attack":72,"special-defense":48,"speed":48},"capture":225},{"id":202,"name":"WOBBUFFET","types":["psychic"],"base":{"hp":190,"attack":33,"defense":58,"special-attack":33,"special-defense":58,"speed":33},"capture":45},{"id":203,"name":"GIRAFARIG","types":["normal","psychic"],"base":{"hp":70,"attack":80,"defense":65,"special-attack":90,"special-defense":65,"speed":85},"capture":60},{"id":206,"name":"DUNSPARCE","types":["normal"],"base":{"hp":100,"attack":70,"defense":70,"special-attack":65,"special-defense":65,"speed":45},"capture":190},{"id":207,"name":"GLIGAR","types":["ground","flying"],"base":{"hp":65,"attack":75,"defense":105,"special-attack":35,"special-defense":65,"speed":85},"capture":60},{"id":209,"name":"SNUBBULL","types":["fairy"],"base":{"hp":60,"attack":80,"defense":50,"special-attack":40,"special-defense":40,"speed":30},"capture":190},{"id":211,"name":"QWILFISH","types":["water","poison"],"base":{"hp":65,"attack":95,"defense":85,"special-attack":55,"special-defense":55,"speed":85},"capture":45},{"id":213,"name":"SHUCKLE","types":["bug","rock"],"base":{"hp":20,"attack":10,"defense":230,"special-attack":10,"special-defense":230,"speed":5},"capture":190},{"id":214,"name":"HERACROSS","types":["bug","fighting"],"base":{"hp":80,"attack":125,"defense":75,"special-attack":40,"special-defense":95,"speed":85},"capture":45},{"id":215,"name":"SNEASEL","types":["dark","ice"],"base":{"hp":55,"attack":95,"defense":55,"special-attack":35,"special-defense":75,"speed":115},"capture":60},{"id":216,"name":"TEDDIURSA","types":["normal"],"base":{"hp":60,"attack":80,"defense":50,"special-attack":50,"special-defense":50,"speed":40},"capture":120},{"id":222,"name":"CORSOLA","types":["water","rock"],"base":{"hp":65,"attack":55,"defense":95,"special-attack":65,"special-defense":95,"speed":35},"capture":60},{"id":223,"name":"REMORAID","types":["water"],"base":{"hp":35,"attack":65,"defense":35,"special-attack":65,"special-defense":35,"speed":65},"capture":190},{"id":225,"name":"DELIBIRD","types":["ice","flying"],"base":{"hp":45,"attack":55,"defense":45,"special-attack":65,"special-defense":45,"speed":75},"capture":45},{"id":226,"name":"MANTINE","types":["water","flying"],"base":{"hp":85,"attack":40,"defense":70,"special-attack":80,"special-defense":140,"speed":70},"capture":25},{"id":231,"name":"PHANPY","types":["ground"],"base":{"hp":90,"attack":60,"defense":60,"special-attack":40,"special-defense":40,"speed":40},"capture":120},{"id":234,"name":"STANTLER","types":["normal"],"base":{"hp":73,"attack":95,"defense":62,"special-attack":85,"special-defense":65,"speed":85},"capture":45}], ...['GROWLITHE', 'SLOWPOKE', 'ONIX', 'LAPRAS', 'DITTO', 'AERODACTYL', 'NATU', 'SMEARGLE', 'MILTANK', 'SKARMORY'].map((n) => DATA.trainer.find((t) => t.name === n)))
+DATA.forms.push(...[{"id":20,"name":"RATICATE","types":["normal"],"base":{"hp":55,"attack":81,"defense":60,"special-attack":50,"special-defense":70,"speed":97},"capture":127},{"id":22,"name":"FEAROW","types":["normal","flying"],"base":{"hp":65,"attack":90,"defense":65,"special-attack":61,"special-defense":61,"speed":100},"capture":90},{"id":24,"name":"ARBOK","types":["poison"],"base":{"hp":60,"attack":95,"defense":69,"special-attack":65,"special-defense":79,"speed":80},"capture":90},{"id":28,"name":"SANDSLASH","types":["ground"],"base":{"hp":75,"attack":100,"defense":110,"special-attack":45,"special-defense":55,"speed":65},"capture":90},{"id":30,"name":"NIDORINA","types":["poison"],"base":{"hp":70,"attack":62,"defense":67,"special-attack":55,"special-defense":55,"speed":56},"capture":120},{"id":31,"name":"NIDOQUEEN","types":["poison","ground"],"base":{"hp":90,"attack":92,"defense":87,"special-attack":75,"special-defense":85,"speed":76},"capture":45},{"id":33,"name":"NIDORINO","types":["poison"],"base":{"hp":61,"attack":72,"defense":57,"special-attack":55,"special-defense":55,"speed":65},"capture":120},{"id":34,"name":"NIDOKING","types":["poison","ground"],"base":{"hp":81,"attack":102,"defense":77,"special-attack":85,"special-defense":75,"speed":85},"capture":45},{"id":47,"name":"PARASECT","types":["bug","grass"],"base":{"hp":60,"attack":95,"defense":80,"special-attack":60,"special-defense":80,"speed":30},"capture":75},{"id":51,"name":"DUGTRIO","types":["ground"],"base":{"hp":35,"attack":100,"defense":50,"special-attack":50,"special-defense":70,"speed":120},"capture":50},{"id":73,"name":"TENTACRUEL","types":["water","poison"],"base":{"hp":80,"attack":70,"defense":65,"special-attack":80,"special-defense":120,"speed":100},"capture":60},{"id":85,"name":"DODRIO","types":["normal","flying"],"base":{"hp":60,"attack":110,"defense":70,"special-attack":60,"special-defense":60,"speed":110},"capture":45},{"id":91,"name":"CLOYSTER","types":["water","ice"],"base":{"hp":50,"attack":95,"defense":180,"special-attack":85,"special-defense":45,"speed":70},"capture":60},{"id":99,"name":"KINGLER","types":["water"],"base":{"hp":55,"attack":130,"defense":115,"special-attack":50,"special-defense":50,"speed":75},"capture":60},{"id":105,"name":"MAROWAK","types":["ground"],"base":{"hp":60,"attack":80,"defense":110,"special-attack":50,"special-defense":80,"speed":45},"capture":75},{"id":162,"name":"FURRET","types":["normal"],"base":{"hp":85,"attack":76,"defense":64,"special-attack":45,"special-defense":55,"speed":90},"capture":90},{"id":166,"name":"LEDIAN","types":["bug","flying"],"base":{"hp":55,"attack":35,"defense":50,"special-attack":55,"special-defense":110,"speed":85},"capture":90},{"id":171,"name":"LANTURN","types":["water","electric"],"base":{"hp":125,"attack":58,"defense":58,"special-attack":76,"special-defense":76,"speed":67},"capture":75},{"id":176,"name":"TOGETIC","types":["fairy","flying"],"base":{"hp":55,"attack":40,"defense":85,"special-attack":80,"special-defense":105,"speed":40},"capture":75},{"id":180,"name":"FLAAFFY","types":["electric"],"base":{"hp":70,"attack":55,"defense":55,"special-attack":80,"special-defense":60,"speed":45},"capture":120},{"id":181,"name":"AMPHAROS","types":["electric"],"base":{"hp":90,"attack":75,"defense":85,"special-attack":115,"special-defense":90,"speed":55},"capture":45},{"id":184,"name":"AZUMARILL","types":["water","fairy"],"base":{"hp":100,"attack":50,"defense":80,"special-attack":60,"special-defense":80,"speed":50},"capture":75},{"id":186,"name":"POLITOED","types":["water"],"base":{"hp":90,"attack":75,"defense":75,"special-attack":90,"special-defense":100,"speed":70},"capture":45},{"id":199,"name":"SLOWKING","types":["water","psychic"],"base":{"hp":95,"attack":75,"defense":80,"special-attack":100,"special-defense":110,"speed":30},"capture":70},{"id":210,"name":"GRANBULL","types":["fairy"],"base":{"hp":90,"attack":120,"defense":75,"special-attack":60,"special-defense":60,"speed":45},"capture":75},{"id":217,"name":"URSARING","types":["normal"],"base":{"hp":90,"attack":130,"defense":75,"special-attack":75,"special-defense":75,"speed":55},"capture":60},{"id":224,"name":"OCTILLERY","types":["water"],"base":{"hp":75,"attack":105,"defense":75,"special-attack":105,"special-defense":75,"speed":45},"capture":75},{"id":232,"name":"DONPHAN","types":["ground"],"base":{"hp":90,"attack":120,"defense":120,"special-attack":60,"special-defense":60,"speed":50},"capture":60}])
+Object.assign(DATA.evos, {"RATTATA":[{"to":"RATICATE","level":20}],"SPEAROW":[{"to":"FEAROW","level":20}],"EKANS":[{"to":"ARBOK","level":22}],"SANDSHREW":[{"to":"SANDSLASH","level":22}],"NIDORAN♀":[{"to":"NIDORINA","level":16}],"NIDORAN♂":[{"to":"NIDORINO","level":16}],"PARAS":[{"to":"PARASECT","level":24}],"DIGLETT":[{"to":"DUGTRIO","level":26}],"TENTACOOL":[{"to":"TENTACRUEL","level":30}],"DODUO":[{"to":"DODRIO","level":31}],"KRABBY":[{"to":"KINGLER","level":28}],"CUBONE":[{"to":"MAROWAK","level":28}],"SENTRET":[{"to":"FURRET","level":15}],"LEDYBA":[{"to":"LEDIAN","level":18}],"CHINCHOU":[{"to":"LANTURN","level":27}],"MAREEP":[{"to":"FLAAFFY","level":15}],"FLAAFFY":[{"to":"AMPHAROS","level":30}],"MARILL":[{"to":"AZUMARILL","level":18}],"SNUBBULL":[{"to":"GRANBULL","level":23}],"TEDDIURSA":[{"to":"URSARING","level":30}],"REMORAID":[{"to":"OCTILLERY","level":25}],"PHANPY":[{"to":"DONPHAN","level":25}],"SLOWPOKE":[{"to":"SLOWBRO","level":37}],"NATU":[{"to":"XATU","level":25}],"PATRAT":[{"to":"WATCHOG","level":20}],"PURRLOIN":[{"to":"LIEPARD","level":20}],"SKWOVET":[{"to":"GREEDENT","level":24}]})
+for (const id of [19,21,23,27,29,32,46,50,72,83,84,90,98,104,115,127,128,161,165,170,175,179,183,185,193,201,202,203,206,207,209,211,213,214,215,216,222,223,225,226,231,234,20,22,24,28,30,31,33,34,47,51,73,85,91,99,105,162,166,171,176,180,181,184,186,199,210,217,224,232]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+/*
+ * The Shiny Stone's Pokémon: Togetic → Togekiss, and the Budew, Minccino
+ * and Flabébé families it finishes (Roselia → Roserade, Minccino →
+ * Cinccino, Floette → Florges). Budew evolves at full Bond by day.
+ */
+DATA.wild.push(...[{"id":406,"name":"BUDEW","types":["grass","poison"],"base":{"hp":40,"attack":30,"defense":35,"special-attack":50,"special-defense":70,"speed":55},"capture":255},{"id":572,"name":"MINCCINO","types":["normal"],"base":{"hp":55,"attack":50,"defense":40,"special-attack":40,"special-defense":40,"speed":75},"capture":255},{"id":669,"name":"FLABÉBÉ","types":["fairy"],"base":{"hp":44,"attack":38,"defense":39,"special-attack":61,"special-defense":79,"speed":42},"capture":225}])
+DATA.forms.push(...[{"id":315,"name":"ROSELIA","types":["grass","poison"],"base":{"hp":50,"attack":60,"defense":45,"special-attack":100,"special-defense":80,"speed":65},"capture":150},{"id":407,"name":"ROSERADE","types":["grass","poison"],"base":{"hp":60,"attack":70,"defense":65,"special-attack":125,"special-defense":105,"speed":90},"capture":75},{"id":573,"name":"CINCCINO","types":["normal"],"base":{"hp":75,"attack":95,"defense":60,"special-attack":65,"special-defense":60,"speed":115},"capture":60},{"id":670,"name":"FLOETTE","types":["fairy"],"base":{"hp":54,"attack":45,"defense":47,"special-attack":75,"special-defense":98,"speed":52},"capture":120},{"id":671,"name":"FLORGES","types":["fairy"],"base":{"hp":78,"attack":65,"defense":68,"special-attack":112,"special-defense":154,"speed":75},"capture":45},{"id":468,"name":"TOGEKISS","types":["fairy","flying"],"base":{"hp":85,"attack":50,"defense":95,"special-attack":120,"special-defense":115,"speed":80},"capture":30}])
+Object.assign(DATA.evos, {"FLABÉBÉ":[{"to":"FLOETTE","level":19}]})
+for (const id of [406,572,669,315,407,573,670,671,468]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+ART['item:shinystone'] = '/rpg/a/items/shinystone.png'
 // Every species has its cry (a few of the trainers' evolved Pokémon didn't, so they came out silent).
 for (const s of [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms]) ART['cry:' + s.id] ??= `/rpg/a/cries/${s.id}.ogg`
 
@@ -1251,8 +1289,9 @@ const learnAtLevel = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv === m.le
 /** What it learns later, for the Box: [[level, name]]. */
 const upcoming = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv > m.level && !m.learned.includes(n))
 
-/* Move Discs: one-use items that teach their move to any Pokémon. The VVM can
-   stock them, and a beaten scalper drops one. */
+/* Move Discs: one-use items that teach their move to any Pokémon. Gym Leaders
+   give one (of their type) when you win, the VVM sometimes stocks one, and a
+   booster pack's rare slot can hold one. */
 const DISC_POOL = ['HELPING HAND', 'TAILWIND', 'AFTER YOU', 'HEAL PULSE', 'HOWL', 'EARTHQUAKE', 'ROCK SLIDE', 'HYPER VOICE']
 const discKey = (n) => 'disc:' + n
 /*
@@ -1438,13 +1477,51 @@ DISC_POOL.push('TOXIC', 'YAWN', 'HYPNOSIS', 'CONFUSE RAY', 'FAKE OUT', 'LEECH SE
 /* What foes use, by species first, then type: their sleep / confusion / poison move (else their type's accuracy or evasion move). */
 const FOE_STATUS_BY_SPECIES = { JIGGLYPUFF: 'SING', WIGGLYTUFF: 'SING', CLEFAIRY: 'SING', LAPRAS: 'SING', GASTLY: 'HYPNOSIS', HAUNTER: 'HYPNOSIS', GENGAR: 'HYPNOSIS',
   HOOTHOOT: 'HYPNOSIS', NOCTOWL: 'HYPNOSIS', KADABRA: 'HYPNOSIS', MISDREAVUS: 'CONFUSE RAY', MURKROW: 'SWAGGER', SUNKERN: 'LEECH SEED', SLAKOTH: 'YAWN', PSYDUCK: 'YAWN', SNORLAX: 'YAWN' }
-function foeStatusMove(m, r, hard = false) {
-  const t = m.types[0]
-  if (FOE_STATUS_BY_SPECIES[m.name]) return FOE_STATUS_BY_SPECIES[m.name]
-  if (hard && STAT_BY_TYPE[t] && r() < 0.5) return STAT_BY_TYPE[t]
-  if (STATUS2_BY_TYPE[t] && r() < 0.5) return STATUS2_BY_TYPE[t]
-  if (t === 'normal' && r() < 0.5) return r() < 0.5 ? 'GROWL' : 'TAIL WHIP'
-  return statusOf(m)
+/**
+ * A foe's status or setup move, or null if none of its choices would do
+ * anything (`works`, see moveWorks): then it just attacks. Its own species'
+ * move comes first; a leader's type stat move, its type's second status
+ * move and a Normal type's Growl or Tail Whip each get a half chance; its
+ * type's accuracy or evasion move is the fallback.
+ */
+function foeStatusMove(m, r, hard = false, works = () => true) {
+  const t = m.types[0], options = []
+  if (FOE_STATUS_BY_SPECIES[m.name]) options.push([FOE_STATUS_BY_SPECIES[m.name], true])
+  if (hard && STAT_BY_TYPE[t]) options.push([STAT_BY_TYPE[t], false])
+  if (STATUS2_BY_TYPE[t]) options.push([STATUS2_BY_TYPE[t], false])
+  if (t === 'normal') options.push([r() < 0.5 ? 'GROWL' : 'TAIL WHIP', false])
+  options.push([statusOf(m), true])
+  const ok = options.filter(([n]) => works(n))
+  return (ok.find(([, sure], i) => sure || i === ok.length - 1 || r() < 0.5) ?? [null])[0]
+}
+/**
+ * Would this status or setup move do anything, from `user` on `target`?
+ * `S` gives a Pokémon's battle stages and extras; `field` the weather. Keeps
+ * foes from wasting a turn: no sleep on the sleeping, no Leech Seed on a
+ * Grass type, no Swords Dance at +4, no Curse they can't pay for.
+ */
+function moveWorks(name, user, target, S, field = {}) {
+  const mv = SUPPORT[name]; if (!mv) return true
+  const ts = S(target), us = S(user)
+  switch (mv.effect) {
+    case 'status': return canTake(target, mv.status)
+    case 'yawn': return canTake(target, 'slp') && !ts.drowsy
+    case 'confuse': case 'swagger': return !ts.conf
+    case 'seed': return !ts.seeded && !target.types.includes('grass')
+    case 'taunt': return !ts.taunt
+    case 'trap': return !ts.trapped
+    case 'curse': return !ts.cursed && user.hp > user.stats.hp / 2
+    case 'accDown': return (ts.acc ?? 0) > -STAGE_MAX
+    case 'evaUp': return (us.eva ?? 0) < STAGE_MAX
+    case 'stat': {
+      const who = mv.target === 'foe' ? ts : us
+      const room = Object.entries(mv.stages).some(([k, by]) => (by > 0 ? (who[k] ?? 0) < 4 : (who[k] ?? 0) > -4))
+      return room && (mv.target === 'foe' || user.hp > user.stats.hp / 2)   // no setting up when it's about to faint
+    }
+    case 'weather': return field.weather !== mv.weather
+    case 'screen': return !field[mv.screen]
+    default: return true
+  }
 }
 /** Does a status move land? Its `chance` on a GOOD, scaled by timing; PERFECT always lands, MISS never. */
 const statusLands = (mv, acc, r) => acc.label !== 'MISS' && (!mv.chance || acc.label === 'PERFECT' || r() < Math.min(1, mv.chance * acc.mult))
@@ -1566,7 +1643,7 @@ const SPECIES_MOVES = {
   PSYDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']], GOLDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']],
   SABLEYE: [[15, 'MEAN LOOK'], [30, 'KNOCK OFF']], MISDREAVUS: [[14, 'CONFUSE RAY'], [40, 'PERISH SONG']],
   MURKROW: [[11, 'TAUNT'], [25, 'FEATHER DANCE']], SCYTHER: [[12, 'FURY CUTTER'], [24, 'SWORDS DANCE']],
-  EEVEE: [[20, 'BATON PASS']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
+  EEVEE: [[20, 'BATON PASS']], TANGELA: [[33, 'ANCIENT POWER']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
 }
 Object.assign(DISC_RULES, { 'KNOCK OFF': { types: ['dark', 'fighting', 'ghost'] }, CURSE: { types: ['ghost'] }, REST: { all: true }, 'MEAN LOOK': { types: ['ghost', 'dark'] } })
 DISC_POOL.push('REST', 'KNOCK OFF')
@@ -1664,7 +1741,9 @@ function evoDue(m) {
   if (how) {
     if (m.evoWait && m.level < m.evoWait) return null
     // At a level-up: knowing the move, or a full Bond (with the time of day or a Fairy move where that picks the form).
-    return how.find((r) => (r.move ? learn(m).learned.includes(r.move) : r.bond ? bondReady(m, r) : false)) ?? null
+    const r = how.find((x) => (x.move ? learn(m).learned.includes(x.move) : x.bond ? bondReady(m, x) : false))
+    // A species that also evolves by level (Slowpoke: Slowbro by level, Slowking by Linking Cord) goes on to check that.
+    if (r || !(DATA.evos?.[m.name] ?? []).some((o) => !o.standIn)) return r ?? null
   }
   const opts = DATA.evos?.[m.name]; if (!opts?.length) return null
   m.evoPick ??= Math.floor(Math.random() * opts.length)
@@ -1674,7 +1753,8 @@ function evoDue(m) {
 /** "Charmeleon at Lv 16", for the stat page. */
 function evoText(m) {
   const how = EVO_HOW[m.name]
-  if (how) return how.map((r) => `${cap1(r.to)} ${howText(r)}`).join('; ') + (m.evoWait ? ` (it was stopped: not before Lv ${m.evoWait})` : '')
+  const byLevel = (DATA.evos?.[m.name] ?? []).filter((o) => !o.standIn).map((o) => `${cap1(o.to)} at Lv ${o.level}`)
+  if (how) return [...byLevel, ...how.map((r) => `${cap1(r.to)} ${howText(r)}`)].join('; ') + (m.evoWait ? ` (it was stopped: not before Lv ${m.evoWait})` : '')
   const opts = DATA.evos?.[m.name]; if (!opts?.length) return ''
   const names = [...new Set(opts.map((o) => o.to))], lv = opts[0].level
   const when = m.evoWait && m.evoWait > lv ? `Lv ${m.evoWait} (it was stopped)` : `Lv ${lv}${opts[0].standIn ? ' (stand-in)' : ''}`
@@ -1730,9 +1810,14 @@ const EVO_HOW = {
   SEADRA: [{ to: 'KINGDRA', item: 'linkcable', needs: 'dragonscale' }],
 }
 // The families added with the new species (see DATA.wild): stones, the Linking Cord for trade evolutions, Bond for friendship ones.
+Object.assign(EVO_HOW, {"CLEFFA":[{"to":"CLEFAIRY","bond":true}],"IGGLYBUFF":[{"to":"JIGGLYPUFF","bond":true}],"HAPPINY":[{"to":"CHANSEY","bond":true}],"MUNCHLAX":[{"to":"SNORLAX","bond":true}],"MIME JR.":[{"to":"MR. MIME","bond":true}],"CHANSEY":[{"to":"BLISSEY","bond":true}],"CLEFAIRY":[{"to":"CLEFABLE","item":"moonstone"}],"JIGGLYPUFF":[{"to":"WIGGLYTUFF","item":"moonstone"}],"SKITTY":[{"to":"DELCATTY","item":"moonstone"}],"SUNKERN":[{"to":"SUNFLORA","item":"sunstone"}],"MURKROW":[{"to":"HONCHKROW","item":"duskstone"}],"MISDREAVUS":[{"to":"MISMAGIUS","item":"duskstone"}],"RHYDON":[{"to":"RHYPERIOR","item":"linkcable"}],"SCYTHER":[{"to":"SCIZOR","item":"linkcable"}],"PORYGON":[{"to":"PORYGON2","item":"linkcable"}],"PORYGON2":[{"to":"PORYGON-Z","item":"linkcable"}],"ELECTABUZZ":[{"to":"ELECTIVIRE","item":"linkcable"}],"MAGMAR":[{"to":"MAGMORTAR","item":"linkcable"}],"TANGELA":[{"to":"TANGROWTH","move":"ANCIENT POWER"}]})
 Object.assign(EVO_HOW, {"VULPIX":[{"to":"NINETALES","item":"firestone"}],"GOLBAT":[{"to":"CROBAT","bond":true}],"GLOOM":[{"to":"VILEPLUME","item":"leafstone"}],"POLIWHIRL":[{"to":"POLIWRATH","item":"waterstone"}],"KADABRA":[{"to":"ALAKAZAM","item":"linkcable"}],"MACHOKE":[{"to":"MACHAMP","item":"linkcable"}],"WEEPINBELL":[{"to":"VICTREEBEL","item":"leafstone"}],"GRAVELER":[{"to":"GOLEM","item":"linkcable"}],"EXEGGCUTE":[{"to":"EXEGGUTOR","item":"leafstone"}],"STARYU":[{"to":"STARMIE","item":"waterstone"}]})
+EVO_HOW.GLOOM.push({ to: 'BELLOSSOM', item: 'sunstone' })
+// Gen 1-2's stone, Linking Cord and Bond evolutions, added to any a species already has (Poliwhirl: Water Stone for Poliwrath, Linking Cord for Politoed).
+for (const [n, rules] of Object.entries({"BUDEW":[{"to":"ROSELIA","bond":true,"time":"day"}],"ROSELIA":[{"to":"ROSERADE","item":"shinystone"}],"MINCCINO":[{"to":"CINCCINO","item":"shinystone"}],"FLOETTE":[{"to":"FLORGES","item":"shinystone"}],"TOGETIC":[{"to":"TOGEKISS","item":"shinystone"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
+for (const [n, rules] of Object.entries({"NIDORINA":[{"to":"NIDOQUEEN","item":"moonstone"}],"NIDORINO":[{"to":"NIDOKING","item":"moonstone"}],"SHELLDER":[{"to":"CLOYSTER","item":"waterstone"}],"TOGEPI":[{"to":"TOGETIC","bond":true}],"POLIWHIRL":[{"to":"POLITOED","item":"linkcable"}],"SLOWPOKE":[{"to":"SLOWKING","item":"linkcable"}],"GROWLITHE":[{"to":"ARCANINE","item":"firestone"}],"ONIX":[{"to":"STEELIX","item":"linkcable"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
 const cap1 = (s) => s[0] + s.slice(1).toLowerCase()
-const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
+const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', moonstone: 'MOON STONE', sunstone: 'SUN STONE', duskstone: 'DUSK STONE', shinystone: 'SHINY STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
 /** "with a THUNDER STONE", "at full Bond, by day", "levelling up knowing ROLLOUT". */
 const howText = (r) => (r.item ? `with a ${EVO_ITEM_NAME[r.item]}${r.needs ? ` (and a ${EVO_ITEM_NAME[r.needs]})` : ''}`
   : r.bond ? `at full Bond${r.fairy ? ', knowing a Fairy move' : r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
@@ -2355,14 +2440,21 @@ const SHOP_DEFAULT = {
   firestone: { on: true, price: 1, rate: 8 },
   leafstone: { on: true, price: 1, rate: 6 },
   icestone: { on: true, price: 1, rate: 6 },
+  moonstone: { on: true, price: 1, rate: 6 },
+  sunstone: { on: true, price: 1, rate: 5 },
+  duskstone: { on: true, price: 1, rate: 5 },
+  shinystone: { on: true, price: 1, rate: 4 },
   linkcable: { on: true, price: 1.5, rate: 8 },
-  dragonscale: { on: true, price: 1, rate: 5 },   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
+  dragonscale: { on: true, price: 1, rate: 5 },
+  disc: { on: true, price: 1.5, rate: 12 },   // a Move Disc: a different random one each time it's stocked   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
 }
 const SHOP = (() => {
   const base = structuredClone(SHOP_DEFAULT)
   try { const saved = JSON.parse(localStorage.getItem('vvm-shop')); if (saved) for (const k in base) Object.assign(base[k], saved[k]) } catch {}
   return base
 })()
+/** A shelf key's shop settings: a stocked 'disc:NAME' sells on the MOVE DISC slot's. */
+const shopOf = (k) => SHOP[k.startsWith('disc:') ? 'disc' : k]
 const saveShop = () => { try { localStorage.setItem('vvm-shop', JSON.stringify(SHOP)) } catch {} }
 /*
  * Bundles: several supplies sold together as one thing on the shelf, at
@@ -2392,21 +2484,28 @@ const ITEMS = {
   iceheal:  { name: 'ICE HEAL', sub: 'thaws it out', cls: 't-cure', cure: ['frz'] },
   fullheal: { name: 'FULL HEAL', sub: 'cures any status', cls: 't-cure', cure: ['psn', 'tox', 'par', 'brn', 'frz', 'slp'] },
   thunderstone: { name: 'THUNDER STONE', sub: 'evolves Pikachu, Magneton, Eevee', cls: 't-evo', evo: true },
-  waterstone: { name: 'WATER STONE', sub: 'evolves Eevee into Vaporeon', cls: 't-evo', evo: true },
-  firestone: { name: 'FIRE STONE', sub: 'evolves Eevee into Flareon', cls: 't-evo', evo: true },
-  leafstone: { name: 'LEAF STONE', sub: 'evolves Eevee into Leafeon', cls: 't-evo', evo: true },
+  waterstone: { name: 'WATER STONE', sub: 'evolves Eevee, Poliwhirl, Staryu', cls: 't-evo', evo: true },
+  firestone: { name: 'FIRE STONE', sub: 'evolves Eevee, Vulpix', cls: 't-evo', evo: true },
+  leafstone: { name: 'LEAF STONE', sub: 'evolves Eevee, Gloom, Weepinbell, Exeggcute', cls: 't-evo', evo: true },
   icestone: { name: 'ICE STONE', sub: 'evolves Eevee into Glaceon', cls: 't-evo', evo: true },
-  linkcable: { name: 'LINKING CORD', sub: 'evolves Haunter and Seadra', cls: 't-evo', evo: true },
+  moonstone: { name: 'MOON STONE', sub: 'evolves Clefairy, Jigglypuff, Skitty', cls: 't-evo', evo: true },
+  sunstone: { name: 'SUN STONE', sub: 'evolves Sunkern, Gloom (Bellossom)', cls: 't-evo', evo: true },
+  duskstone: { name: 'DUSK STONE', sub: 'evolves Murkrow, Misdreavus', cls: 't-evo', evo: true },
+  shinystone: { name: 'SHINY STONE', sub: 'evolves Togetic, Roselia, Minccino, Floette', cls: 't-evo', evo: true },
+  linkcable: { name: 'LINKING CORD', sub: 'trade evolutions: Kadabra, Scyther, Porygon…', cls: 't-evo', evo: true },
   dragonscale: { name: 'DRAGON SCALE', sub: 'Seadra needs it with a LINKING CORD', cls: 't-evo', held: true },
   ball: { name: 'POKé BALL', sub: 'catch ×1', cls: 't-ball' },
   great: { name: 'GREAT BALL', sub: 'catch ×1.5', cls: 't-great' },
   potion: { name: 'POTION', sub: 'heals 30%', cls: 't-potion', heal: 0.3 },
   super: { name: 'SUPER POTION', sub: 'heals 60%', cls: 't-heal', heal: 0.6 },
   revive: { name: 'REVIVE', sub: 'revives at 50% HP', cls: 't-revive', revive: 0.5 },
+  disc: { name: 'MOVE DISC', sub: 'a random move each restock', cls: 't-disc' },   // the shelf slot; what's bought is a 'disc:NAME'
 }
+/* The evolution items a scalper (or a pack's rare slot) can turn up. */
+const EVO_DROPS = ['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']
 /* Item icons: the Scarlet/Violet Bag art, wherever an item is drawn. */
 ;(() => {
-  const css = ['ball', 'great', 'potion', 'super', 'revive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'linkcable', 'dragonscale'].map((k) => {
+  const css = ['ball', 'great', 'potion', 'super', 'revive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale'].map((k) => {
     const u = `url("${ART['item:' + k]}")`
     return `.supic.${k}, .ic.${k} { background: ${u} center / contain no-repeat !important; border: 0 !important; border-radius: 0 !important; transform: none !important; box-shadow: none !important; }
 .supic.${k}::after, .ic.${k}::after { display: none !important; }
@@ -2446,6 +2545,12 @@ const APP = (() => {
     music: (s.musicVolume ?? 0.6) / 0.6,
   }
 })()
+/**
+ * The real machine, in the app: PlayFrame's bridge (lib/vending/gameBridge.ts)
+ * on the parent window. Anywhere else (the mockup, the demos) it's null and
+ * the machine is the game's own simulation.
+ */
+const vvm = () => { if (!APP.on) return null; try { return window.parent !== window ? window.parent.__vvmApi ?? null : null } catch { return null } }
 /** A short vibration, in the app, if the player hasn't turned it off. */
 const buzz = (p) => { if (APP.haptics) try { navigator.vibrate?.(p) } catch {} }
 /** The sound engine calls this when it builds its mixer: the app's volume settings go on the two buses. */
@@ -2841,6 +2946,21 @@ async function run(id) {
   const cart = new Map()   // the machine's cart: shelf key -> how many
   let pendingEvoItem = false   // an evolution item used in the Bag: the evolution plays once the sheet closes
   let wallet = 10, shelfItems = []   // tokens to spend, and the supplies on the shelf this restock
+  let realShelf = null   // in the app: the real machine, as syncMachine last read it
+  /*
+   * Battle mode. Off, the game is just the vending machine: a tap goes
+   * straight to the purchase screen, with no wild Pokémon, no trainers, no
+   * scalper camping it, no finds, and no tutorial first. Each player's choice
+   * (per account, in the app) is kept in this browser.
+   */
+  const BATTLES_KEY = 'vvm-battles' + (APP.uid ? ':' + APP.uid : '')
+  let battlesOn = (() => { try { return localStorage.getItem(BATTLES_KEY) !== 'off' } catch { return true } })()
+  function paintBattles() {
+    const b = $('bBattles'); if (!b) return
+    b.hidden = demo; b.classList.toggle('off', !battlesOn)
+    b.innerHTML = `⚔ BATTLES <b>${battlesOn ? 'ON' : 'OFF'}</b>`
+    b.setAttribute('aria-pressed', String(battlesOn))
+  }
   let freeHeal = 1
   const party = [], box = []
   let busy = false
@@ -2965,13 +3085,13 @@ async function run(id) {
     if (state === 'idle') {
       const other = typeof machine !== 'undefined' && machine.lockedBy && machine.lockedBy !== 'YOU' ? machine.lockedBy : null
       h.classList.toggle('inuse', !!other)
-      $('tts').innerHTML = other ? `${other} IS USING IT<small>you can still tap: something may jump out</small>` : 'TOUCH TO START'
+      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesOn ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesOn ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
       $('homeLoiterer').style.display = 'none'; $('supplies').innerHTML = ''; return
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
-    const sup = state === 'in' ? shelfItems : []
-    h.classList.toggle('has-sup', sup.length > 0)
-    $('supplies').innerHTML = state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
+    const sup = state === 'in' ? shelfItems : [], real = vvm() && realShelf
+    h.classList.toggle('has-sup', real ? true : sup.length > 0)
+    $('supplies').innerHTML = state === 'in' && real ? realTiles() : state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
     $('homeLine').textContent = blocked ? 'BLOCKED!' : { in: 'PACKS ARE IN!', out: 'NEXT RESTOCK 03:12', maint: 'BACK SOON' }[state]
     $('homeSub').textContent = blocked ? `${scalper.short} is camping the machine` : { in: 'tap items to add them to your cart', out: 'sold out', maint: 'under maintenance' }[state]
     if (blocked) $('homeLoiterer').src = ART[scalper.body]
@@ -2980,6 +3100,95 @@ async function run(id) {
   /* The packs in the stocked grid (the app's real stock: one per set, a token each). */
   const STOCK_PACKS = [{ art: 'jungle-scyther', name: 'Jungle', left: 12 }, { art: 'gym-heroes-brock', name: 'Gym Heroes', left: 7 }, { art: 'fossil-lapras', name: 'Fossil', left: 9 },
     { art: 'team-rocket-giovanni', name: 'Team Rocket', left: 4 }, { art: 'gym-challenge-koga', name: 'Gym Challenge', left: 15 }]
+  /*
+   * Booster packs as a battle award: beaten trainers sometimes leave one, Gym
+   * Leaders half the time and the Elite Four every time. In the app it's a
+   * real pack, out of a set's inventory and into your collection (opened
+   * there, like one you bought), up to a few a day; the server decides. In
+   * the mockup it's only named.
+   */
+  async function givePack(source) {
+    const api = vvm()
+    if (!api) return `a ${pickOf(STOCK_PACKS).name.toUpperCase()} PACK`
+    const r = await api.awardPack(source).catch(() => null)
+    if (!r?.ok) return null
+    feed(`<b>You</b> won a ${esc(r.set_name)} pack (${esc(r.pack_name)}). It's in your collection.`)
+    return `a ${String(r.set_name).toUpperCase()} PACK`
+  }
+  /* ── the real machine (in the app) ──
+     The stock state, who holds the purchase screen, your tokens and cooldown
+     all come from the server. The shelf is the real one: packs by set, raffle
+     tickets, and the admin's battle supplies. Cart keys are 'set:CODE',
+     'ticket:ID' and 'sup:KEY'. */
+  // Catalog supplies (vvm_supplies) and what they are in the Bag.
+  const BAG_OF = { potion: 'potion', super_potion: 'super', revive: 'revive', poke_ball: 'ball', great_ball: 'great' }
+  async function syncMachine() {
+    const api = vvm(); if (!api) return
+    const m = await api.machine().catch(() => null); if (!m || !live()) return
+    realShelf = m
+    wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+    const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
+    machine.state = st; $('machineState').value = st
+    machine.lockedBy = !m.holder_id ? null : m.holder_id === m.me ? YOU : (m.holder_name ?? 'SOMEONE')
+    if (homeState === 'idle') renderHome('idle')
+  }
+  const realKey = (k) => { const i = k.indexOf(':'); return [k.slice(0, i), k.slice(i + 1)] }
+  const realRow = (k) => {
+    const [kind, id] = realKey(k), t = realShelf ?? { packs: [], tickets: [], supplies: [] }
+    return kind === 'set' ? t.packs.find((p) => p.set_code === id) : kind === 'ticket' ? t.tickets.find((x) => String(x.ticket_id) === id) : kind === 'sup' ? t.supplies.find((x) => x.key === id) : null
+  }
+  const isReal = (k) => /^(set|ticket|sup):/.test(k)
+  /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
+  function supNot(key) {
+    if (key === 'gym_summon') return nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
+    if (key === 'elite_ticket') return champion ? "you're Champion" : badges.length < 8 ? 'needs all 8 Johto badges' : bag[summonKey('elite')] ? 'you have one' : ''
+    return ''
+  }
+  function realTiles() {
+    const t = realShelf
+    const pack = (p) => `<button class="tile pack" data-buy="set:${esc(p.set_code)}"><span class="art"><img src="${esc(p.image)}" alt=""></span><span class="qty">${p.quantity}</span><b>${esc(p.set_name)}</b><span class="meta">1 token · ${p.quantity} left</span></button>`
+    const ticket = (x) => `<button class="tile summon" data-buy="ticket:${x.ticket_id}"><span class="art">${x.image ? `<img src="${esc(x.image)}" alt="">` : '<span class="supic summon"></span>'}</span><i class="kind">RAFFLE</i><b>${esc(x.name)}</b><span class="meta">${x.price.toFixed(2)} tk · ${x.quantity} left</span></button>`
+    const sup = (x) => {
+      const no = supNot(x.key), off = no ? ' disabled' : '', meta = (sub) => `<span class="meta">${x.price.toFixed(2)} tk · ${esc(no || sub)}</span>`
+      if (x.kind === 'bundle') return `<button class="tile bundle" data-buy="sup:${esc(x.key)}"><span class="art">${(x.contents ?? []).map((c) => `<span class="brow"><span class="supic ${BAG_OF[c.key] ?? ''}"></span>×${c.qty}</span>`).join('')}</span><i class="kind">BUNDLE</i><b>${esc(x.name.toUpperCase())}</b>${meta(`${(x.contents ?? []).reduce((a, c) => a + c.qty, 0)} items`)}</button>`
+      if (x.key === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
+      if (x.key === 'elite_ticket') return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[ELITE_CARD.face]}" alt=""></span><i class="kind">LEAGUE</i><b>ELITE FOUR TICKET</b>${meta('all 5 battles')}</button>`
+      const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
+      return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
+    }
+    return [...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...t.supplies.map(sup)].join('')
+  }
+  /**
+   * Supplies bought at the machine (here or on the app's VVM page) move from
+   * your account into the Bag: the game's save holds them from then on. A Move
+   * Disc becomes a random disc now; a Gym Summon is for your next gym.
+   */
+  async function collectItems() {
+    const api = vvm(); if (!api || !tutorialDone) return []
+    const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k))]
+    const got = await api.takeItems(keys).catch(() => [])
+    const said = []
+    for (const { key, qty } of got) {
+      if (BAG_OF[key]) { bag[BAG_OF[key]] = (bag[BAG_OF[key]] ?? 0) + qty; said.push(`${qty} ${ITEMS[BAG_OF[key]].name}`) }
+      else if (key === 'gym_summon') { const g = nextGym(); summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + qty; said.push(`${qty} ${ITEMS[summonKey(g)].name}`) }
+      else if (key === 'elite_ticket') { summonItem('elite'); bag[summonKey('elite')] = 1; said.push('an ELITE FOUR TICKET') }
+      else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
+    }
+    if (said.length) { renderTools(); saveGame(); feed(`<b>You</b> collected ${said.join(', ')} into the Bag.`) }
+    return said
+  }
+  /** Tokens a battle pays: in the app, real ones into your earned tokens, up to a daily cap. */
+  async function payTokens(amount, source, b = '') {
+    const api = vvm()
+    if (!api) {
+      wallet = Math.round((wallet + +amount) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+      sfx('tokens'); return say(`You got ${(+amount).toFixed(2)} tokens!`, b, 600)
+    }
+    const r = await api.awardTokens(+amount, source).catch(() => null)
+    if (r) { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }
+    if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, b, 600) }
+    return say(r?.reason === 'daily_cap' ? "That's all the battle tokens for today." : 'No tokens this time.', b, 600)
+  }
   /** A battle supply's tile in the grid: an item, a bundle, or your next gym's summon. */
   function supplyTile(k) {
     if (k.startsWith('bundle:')) {
@@ -2989,13 +3198,14 @@ async function run(id) {
     }
     if (k === 'elite') return `<button class="tile summon" data-buy="elite"><span class="art"><img src="${ART[ELITE_CARD.face]}" alt=""></span><i class="kind">LEAGUE</i><b>ELITE FOUR TICKET</b><span class="meta">${SHOP.elite.price.toFixed(2)} tk · all 5 battles</span></button>`
     if (k === 'summon') { const L = GYMS[nextGym()]; return `<button class="tile summon" data-buy="summon"><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b><span class="meta">${SHOP.summon.price.toFixed(2)} tk · ${L.short}</span></button>` }
+    if (k.startsWith('disc:')) return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${ITEMS[k].name}</b><span class="meta">${shopOf(k).price.toFixed(2)} tk · ${moveInfo(ITEMS[k].disc).type.toUpperCase()} · teaches it</span></button>`
     return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic ${k}"></span></span><i class="kind">${ITEMS[k].key ? 'KEY ITEM' : 'ITEM'}</i><b>${ITEMS[k].name}</b><span class="meta">${SHOP[k].price.toFixed(2)} tk · ${ITEMS[k].sub}</span></button>`
   }
   /** Buys one supply off the shelf: tokens out, the item (or a bundle's items) into the Bag. */
   function buySupply(k) {
     const b = k.startsWith('bundle:') ? bundleById(k.slice(7)) : null
     if (k.startsWith('bundle:') && !b) return false
-    const price = b ? b.price : SHOP[k].price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
+    const price = b ? b.price : shopOf(k).price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
     if (wallet + 1e-9 < price) { sfx('blocked'); $('homeSub').textContent = `not enough tokens for ${b ? `the ${b.name}` : `a ${ITEMS[k].name}`}`; return false }
     wallet = Math.round((wallet - price) * 100) / 100
     if (b) {
@@ -3028,15 +3238,18 @@ async function run(id) {
       cart.set(k, n + 1); sfx('click'); hot(b)
       anim(b, [{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 200 })
     }
-    paintCart()
+    paintCart(); vvm()?.heartbeat()
   }
   /* ── the cart ──
      Taps put supplies in the cart; CHECKOUT shows the order, PAY takes the
      tokens and the machine dispenses (like the packs in the app), and the
      items land in the Bag. A summon, a ticket or a key item is one at a time. */
-  const cartMax = (k) => (k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9)
-  const priceOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : SHOP[k].price)
-  const nameOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.name ?? 'BUNDLE' : k === 'summon' ? `${GYMS[nextGym()]?.badge ?? 'GYM'} SUMMON` : ITEMS[k].name)
+  const cartMax = (k) => {
+    if (isReal(k)) { const [kind, id] = realKey(k), r = realRow(k); return !r ? 0 : kind === 'set' ? r.quantity : kind === 'ticket' ? r.max : id === 'gym_summon' || id === 'elite_ticket' ? 1 : 20 }
+    return k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9
+  }
+  const priceOf = (k) => (isReal(k) ? (realKey(k)[0] === 'set' ? 1 : realRow(k)?.price ?? 0) : k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : shopOf(k).price)
+  const nameOf = (k) => (isReal(k) ? (realKey(k)[0] === 'set' ? `${realRow(k)?.set_name ?? realKey(k)[1]} pack` : realRow(k)?.name ?? realKey(k)[1]) : k.startsWith('bundle:') ? bundleById(k.slice(7))?.name ?? 'BUNDLE' : k === 'summon' ? `${GYMS[nextGym()]?.badge ?? 'GYM'} SUMMON` : k.startsWith('disc:') ? `MOVE DISC (${ITEMS[k].disc})` : ITEMS[k].name)
   const cartCount = () => [...cart.values()].reduce((a, b) => a + b, 0)
   const cartTotal = () => Math.round([...cart].reduce((s, [k, n]) => s + priceOf(k) * n, 0) * 100) / 100
   /** The tiles' counts and the bar under them. */
@@ -3062,7 +3275,7 @@ async function run(id) {
   function drawCheckout() {
     const total = cartTotal(), short = wallet + 1e-9 < total
     $('checkout').innerHTML = `<div class="cohd">CHECKOUT</div>
-      <div class="colines">${[...cart].map(([k, n]) => `<div class="coline">${k.startsWith('bundle:') || k === 'summon' || k === 'elite' ? '<span class="coic box"></span>' : `<span class="coic supic ${k}"></span>`}<span class="conm">${nameOf(k)}</span><span class="coqty">×${n}</span><span class="copr">${(priceOf(k) * n).toFixed(2)}</span></div>`).join('')}</div>
+      <div class="colines">${[...cart].map(([k, n]) => `<div class="coline">${k.startsWith('bundle:') || k === 'summon' || k === 'elite' || (isReal(k) && !BAG_OF[realKey(k)[1]] && realKey(k)[1] !== 'move_disc') ? '<span class="coic box"></span>' : `<span class="coic supic ${k.startsWith('disc:') || k === 'sup:move_disc' ? 'disc' : isReal(k) ? BAG_OF[realKey(k)[1]] : k}"></span>`}<span class="conm">${nameOf(k)}</span><span class="coqty">×${n}</span><span class="copr">${(priceOf(k) * n).toFixed(2)}</span></div>`).join('')}</div>
       <div class="cotot"><span>TOTAL</span><b>${total.toFixed(2)} tokens</b></div>
       <div class="cobal">Your tokens: ${wallet.toFixed(2)} → <b class="${short ? 'bad' : ''}">${short ? 'not enough' : (wallet - total).toFixed(2)}</b></div>
       <div class="cobtns"><button class="cb back" data-co="back">◀ KEEP SHOPPING</button><button class="cb go" data-co="pay" ${short ? 'disabled' : ''}>PAY ${total.toFixed(2)}</button></div>`
@@ -3071,8 +3284,23 @@ async function run(id) {
   async function payCart() {
     const total = cartTotal(), items = [...cart], n = cartCount()
     if (!n || wallet + 1e-9 < total) return
-    wallet = Math.round((wallet - total) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
-    for (const [k, q] of items) for (let i = 0; i < q; i++) giveSupply(k)
+    let collected = []
+    if (vvm()) {
+      // The real checkout: the server checks the stock, your tokens and that you still hold the machine.
+      const pick = (kind, f) => items.filter(([k]) => realKey(k)[0] === kind).map(([k, qty]) => f(realKey(k)[1], qty))
+      const r = await vvm().checkout(pick('set', (set_code, qty) => ({ set_code, qty })), pick('ticket', (id, qty) => ({ ticket_id: +id, qty })), pick('sup', (key, qty) => ({ key, qty })))
+      if (!r.ok) {
+        sfx('blocked'); $('checkout').classList.remove('open'); cart.clear(); machine.lockedBy = null
+        $('homeSub').textContent = CHECKOUT_FAIL[r.reason] ?? `checkout failed (${r.reason})`
+        await syncMachine(); paintCart(); return
+      }
+      wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`; machine.lockedBy = null
+      collected = await collectItems()
+    } else {
+      wallet = Math.round((wallet - total) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+      for (const [k, q] of items) for (let i = 0; i < q; i++) giveSupply(k)
+    }
+    const packsBought = items.filter(([k]) => k.startsWith('set:')).reduce((a, [, q]) => a + q, 0)
     cart.clear(); renderTools(); window.__saveSoon?.()
     const co = $('checkout'); co.classList.add('disp')
     for (let i = 1; i <= n; i++) {
@@ -3080,12 +3308,15 @@ async function run(id) {
       sfx('click'); await W(i === n ? 700 : 450)
     }
     sfx('tokens')
-    co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${n} item${n === 1 ? '' : 's'} added to your Bag</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
+    co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${vvm() ? [packsBought ? `${packsBought} pack${packsBought === 1 ? '' : 's'} to your collection` : '', collected.length ? `${collected.length} to your Bag` : ''].filter(Boolean).join(' · ') || 'in your account' : `${n} item${n === 1 ? '' : 's'} added to your Bag`}</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
     feed(`<b>You</b> bought ${items.map(([k, q]) => `${q} ${nameOf(k)}`).join(', ')} for ${total.toFixed(2)} tokens.`)
     await W(1700)
     co.classList.remove('open', 'disp'); co.innerHTML = ''
     await toIdle()
   }
+  const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
+    insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
+    ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty' }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
   $('checkout').onclick = (e) => {
@@ -3208,7 +3439,7 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${n && bag[k] ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.sub} · ${n ? `${n === 1 ? '1 Pokémon needs' : `${n} Pokémon need`} it · tap to use` : 'nobody needs it right now'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
-    }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Beaten trainers drop Move Discs too.</p>`
+    }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders and, now and then, the VVM. Beaten trainers sometimes leave a booster pack: it goes to your collection.</p>`
   }
   /** A summon's challenge page: who, how many, how strong; then the button. */
   function summonPage(k) {
@@ -3251,13 +3482,25 @@ async function run(id) {
       }).join('')
   }
   const everyone = () => [...party, ...box]
-  function boxBody() {
-    const row = (m, i, where) => `<button class="prow pmain boxmon" data-mon="${i}"><img src="${ART[m.id]}" alt=""><span class="mid">
-        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · ${where}</span></span>
-        <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span><span class="go">›</span></button>`
-    return `<p class="note" style="margin:0 2px 8px">Tap a Pokémon to choose its four moves.</p>` +
-      everyone().map((m, i) => row(m, i, i < party.length ? 'party' : 'box')).join('') +
-      `<p class="note">Your party holds six. Catches after that land in the Box, and you can swap them in and out between battles.</p>`
+  /**
+   * The Box: your party, then everyone else. Tap a Pokémon for its moves; the
+   * button beside it moves it between party and Box. With a full party, SWAP IN
+   * picks a Box Pokémon and then the party member it replaces (in that slot).
+   * The party always keeps at least one.
+   */
+  function boxBody(pick = null) {
+    const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${ART[m.id]}" alt=""><span class="mid">
+        <span class="nm"><b>${m.name}</b><span>Lv ${m.level}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
+        <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>${side}</div>`
+    const inParty = party.map((m, i) => row(m, i, pick != null
+      ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
+      : `<button class="pbtn" data-deposit="${i}" ${party.length > 1 ? '' : 'disabled'} aria-label="Move ${m.name} to the Box">→ BOX</button>`)).join('')
+    const inBox = box.map((m, j) => row(m, party.length + j, party.length < 6
+      ? `<button class="pbtn" data-withdraw="${j}" aria-label="Move ${m.name} to your party">→ PARTY</button>`
+      : `<button class="pbtn${pick === party.length + j ? ' on' : ''}" data-withdraw="${j}" aria-label="Swap ${m.name} into your party">${pick === party.length + j ? 'CANCEL' : 'SWAP IN'}</button>`)).join('')
+    return `<p class="note" style="margin:0 2px 8px">${pick != null ? `Now tap <b>SWAP</b> on the party Pokémon that ${everyone()[pick].name} replaces.` : 'Tap a Pokémon to choose its four moves. The button beside it moves it between your party and the Box.'}</p>` +
+      `<div class="lbl">Party <span>${party.length}/6 · battle order is set in Party</span></div>${inParty}` +
+      `<div class="lbl">Box <span>${box.length ? `${box.length} Pokémon` : 'empty'}</span></div>${inBox || '<p class="note">Catches land here once your party has six. You can also send party Pokémon here.</p>'}`
   }
   function moveCard(n, attrs, extra = '') {
     const m = moveInfo(n)
@@ -3349,7 +3592,7 @@ async function run(id) {
     const draw = () => {
       $('sheetTitle').textContent = title()
       const body = kind === 'party' ? (view.page === 'stats' ? statPage(view.mon) : partyList())
-        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot) : boxBody()
+        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot) : boxBody(view.pick)
       $('sheetBody').innerHTML = (toast ? `<div class="toast${toastBad ? ' bad' : ''}">${toast}</div>` : '') + body
     }
     const do_ = (a) => {
@@ -3380,6 +3623,17 @@ async function run(id) {
       } else if (a.target != null) { toast = useItem(view.item, party[a.target]); if (!bag[view.item]) view = { page: 'list' } }
       // Box: pick a Pokémon, pick an equipped slot, pick a learned move to put there.
       if (a.mon != null) { view = { page: 'moves', mon: everyone()[a.mon], slot: null }; sfx('select') }
+      // Party ⇄ Box (the Box sheet). The party never goes below one.
+      if (a.deposit != null && party.length > 1) { const [m] = party.splice(a.deposit, 1); box.push(m); view.pick = null; sfx('move'); toast = `${m.name} went to the Box.` }
+      if (a.withdraw != null) {
+        const j = a.withdraw, m = box[j]
+        if (party.length < 6) { box.splice(j, 1); party.push(m); view.pick = null; sfx('select'); toast = `${m.name} joined your party.` }
+        else { view.pick = view.pick === party.length + j ? null : party.length + j; sfx('move') }   // full: pick it, then a party slot
+      }
+      if (a.swapat != null && view.pick != null) {
+        const j = view.pick - party.length, m = box[j], out = party[a.swapat]
+        party[a.swapat] = m; box[j] = out; view.pick = null; sfx('select'); toast = `${m.name} swapped in for ${out.name}, who went to the Box.`
+      }
       if (a.slot != null) { view.slot = view.slot === a.slot ? null : a.slot; sfx('move') }
       if (a.learn != null) {
         if (view.slot == null) { toast = 'First tap the equipped move to swap out.'; toastBad = true }
@@ -3389,7 +3643,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -3585,16 +3839,23 @@ async function run(id) {
   /**
    * What a beaten scalper leaves behind. The tokens are paid by the caller and
    * always come; these are only sometimes there: a Potion (or a Super Potion)
-   * about a third of the time, a Move Disc about one time in five.
+   * about a third of the time, a booster pack about one time in seven (in the
+   * app a real one, into your collection), and now and then an evolution
+   * item. Move Discs aren't dropped: they come from Gym Leaders and the VVM.
    */
   async function loot(T) {
     const got = []
     if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`a ${ITEMS[k].name}`) }
-    if (flavor() < 0.2) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; got.push(`a MOVE DISC (${n})`) }
-    // Now and then, an evolution item.
-    if (flavor() < 0.08) { const k = pickOf(['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'linkcable', 'dragonscale']); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
+    if (flavor() < 0.15) { const p = await givePack('trainer'); if (p) got.push(p) }
+    if (flavor() < 0.08) { const k = pickOf(EVO_DROPS); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
     renderTools()
     if (got.length) { sfx('click'); await say(`${T.short} dropped`, `${got.join(' and ')}!`, 700) }
+  }
+  /** A Move Disc a Gym Leader hands over: one of their type you don't have yet, if there is one. */
+  function gymDisc(L) {
+    const mine = DISC_POOL.filter((n) => moveInfo(n).type === L.type), fresh = mine.filter((n) => !bag[discKey(n)])
+    const n = pickOf(fresh.length ? fresh : mine.length ? mine : DISC_POOL)
+    discItem(n); return n
   }
   /** How long a foe's move name stays up before its attack starts: time to read it and pick parry, dodge or jump. */
   const READ_MS = demo ? 850 : 1150
@@ -3988,8 +4249,15 @@ async function run(id) {
         if (!scripted && s.owner?.blunder && flavor() < s.owner.blunder) return { actor: s, move: { name: 'BLUNDER', kind: 'blunder', prio: 0, cost: 0 } }
         if (!scripted && heal && s.mon.hp < s.mon.stats.hp * 0.45 && rand() < 0.7) return { actor: s, move: moveInfo(heal), target: s }
         // Now and then, once per Pokémon: its type's accuracy or evasion move.
-        if (!scripted && !s.usedStatus && !S(s.mon).taunt && (window.__forceStatusMove || rand() < 0.1)) { s.usedStatus = true; const sm = moveInfo(demo ? statusOf(s.mon) : foeStatusMove(s.mon, rand, !!s.owner?.hard)); const up = alive('p')
-          return { actor: s, move: sm, target: sm.target === 'foe' ? up[Math.floor(rand() * up.length)] : s } }
+        if (!scripted && !s.usedStatus && !S(s.mon).taunt && (window.__forceStatusMove || rand() < 0.1)) {
+          // A move that would work on at least one of yours (aimed at one it works on), or on itself; with none, it attacks.
+          const up = alive('p'), works = (n) => (SUPPORT[n]?.target === 'foe' ? up.some((x) => moveWorks(n, s.mon, x.mon, S, { weather: weather?.kind })) : moveWorks(n, s.mon, s.mon, S, { weather: weather?.kind, ...sides.e }))
+          const sn = demo ? statusOf(s.mon) : foeStatusMove(s.mon, rand, !!s.owner?.hard, works)
+          if (sn) {
+            s.usedStatus = true; const sm = moveInfo(sn), fits = up.filter((x) => demo || moveWorks(sn, s.mon, x.mon, S, { weather: weather?.kind }))
+            return { actor: s, move: sm, target: sm.target === 'foe' ? fits[Math.floor(rand() * fits.length)] ?? up[0] : s }
+          }
+        }
         s.turn = (s.turn ?? 0)
         let mv = (scripted?.move && atk.find((m) => m.name === scripted.move)) || atk[s.turn++ % atk.length]
         if (S(s.mon).disabled?.name === mv.name) mv = atk.find((m) => m.name !== mv.name) ?? mv   // Disable: it reaches for something else
@@ -4586,9 +4854,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       for (const T of crew) { await trainerOn(T, 'down'); await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff() }
       await out.exp(); out.cleanup()   // EXP after their parting words, then tokens
-      const tokens = crew.reduce((n, T) => n + +T.tokens, 0).toFixed(2)
-      wallet = Math.round((wallet + +tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${tokens} tokens!`, 'The VVM is free!', 600)   // always
+      await payTokens(crew.reduce((n, T) => n + +T.tokens, 0), 'duo', 'The VVM is free!')   // always
       for (const T of crew) await loot(T)   // sometimes
       Sound.stopMusic(); await backToMachine(state)
     } else {
@@ -4641,8 +4907,12 @@ async function run(id) {
       await out.exp?.()
       badges.push(n); sfx('levelup'); showBadge(L)
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
-      wallet = Math.round((wallet + +L.tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${L.tokens} tokens!`, '', 600)
+      await payTokens(L.tokens, 'gym')
+      // A Move Disc of the leader's type, and half the time a booster pack.
+      const n = gymDisc(L); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1
+      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${n}!`, 900)
+      if (flavor() < 0.5) { const p = await givePack('gym'); if (p) await say(`${L.short} also gave you`, `${p}!`, 700) }
+      renderTools()
     } else {
       await trainerOn(L); await talk(L, L.gloat); await trainerOff()
       await say(`${L.short} headed back to the ${L.city} GYM.`, 'The SUMMON was used up.')
@@ -4684,8 +4954,8 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
-      wallet = Math.round((wallet + +L.tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${L.tokens} tokens!`, '', 600)
+      await payTokens(L.tokens, 'elite')
+      { const p = await givePack('elite'); if (p) { sfx('click'); await say(`${L.short} gave you`, `${p}!`, 700) } }
       eliteStep++
       if (eliteStep === ELITE.length) {
         eliteStep = 0; champion = true; bag[key] = Math.max(0, (bag[key] ?? 0) - 1)
@@ -4799,6 +5069,7 @@ async function run(id) {
   /** Yours: into the Bag or the wallet, with a little pop on the machine's screen. */
   function collectFind(f) {
     if (f.item) bag[f.item] = (bag[f.item] ?? 0) + 1
+    else if (vvm()) vvm().awardTokens(f.tokens, 'find').then((r) => { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }).catch(() => {})
     else wallet = Math.round((wallet + f.tokens) * 100) / 100
     renderTools(); $('wallet').textContent = `${wallet.toFixed(2)} tk`
     sfx(f.item ? 'click' : 'tokens')
@@ -4947,7 +5218,15 @@ async function run(id) {
    * screen, unless another trainer is already on it. `force` pins the
    * encounter (the demo, "Your next tap"); `force.plan` is a demo script.
    */
+  /** This restock's shelf: each enabled supply (and bundle) with its rate as the chance; a MOVE DISC slot becomes one random disc. */
+  function rollShelf() {
+    return [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (badges.length >= 8 && !champion)) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate)
+      .map((k) => { if (k !== 'disc') return k; const n = pickOf(DISC_POOL); discItem(n); return discKey(n) }),
+      ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
+  }
   async function tapMachine(force = {}) {
+    const api = vvm()
+    if (api) await syncMachine()   // the real stock state and holder, as of now
     const state = machine.state
     tickRest()   // beaten trainers' rest counts down with your taps
     const { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
@@ -4955,14 +5234,29 @@ async function run(id) {
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
     // Bundles the same way, each with its own rate.
-    if (state === 'in') shelfItems = force.items ?? [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (badges.length >= 8 && !champion)) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate),
-      ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
+    if (state === 'in' && !api) shelfItems = force.items ?? rollShelf()
     $('tts').textContent = 'STARTING…'; sfx('select'); await W(450)
     // The purchase screen is one trainer at a time; encounters don't need it.
-    const waiting = !enc && state === 'in' && machine.lockedBy && machine.lockedBy !== YOU
-    if (!enc && state === 'in' && !waiting) lockFor(YOU)
+    let waiting = !enc && state === 'in' && machine.lockedBy && machine.lockedBy !== YOU, refused = null
+    if (!enc && state === 'in' && !waiting) {
+      if (!api) lockFor(YOU)
+      else {
+        // The real machine: claim it. It can say no (someone beat you to it, your cooldown, no tokens, nothing left).
+        const r = await api.claim().catch(() => ({ ok: false, reason: 'error' }))
+        await syncMachine()
+        if (r.ok) lockFor(YOU)
+        else if (r.reason === 'busy') { waiting = true; machine.lockedBy = r.holder_name ?? machine.lockedBy ?? 'SOMEONE' }
+        else refused = r
+      }
+    }
     await fadeThrough(async () => {
-      renderHome(state)
+      renderHome(refused && (refused.reason === 'not_stocked' || refused.reason === 'empty') ? 'out' : state)
+      if (refused && refused.reason !== 'not_stocked' && refused.reason !== 'empty') {
+        $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''
+        $('homeLine').textContent = { cooldown: 'COOLING DOWN', no_tokens: 'NO TOKENS' }[refused.reason] ?? "CAN'T START"
+        $('homeSub').textContent = refused.reason === 'cooldown' ? `you just bought · back ${refused.expires_at ? `at ${new Date(refused.expires_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'soon'} · tap to go back`
+          : refused.reason === 'no_tokens' ? 'no tokens left this month · tap to go back' : 'the machine said no · tap to go back'
+      }
       if (waiting) { $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''; $('homeLine').textContent = `${machine.lockedBy} IS USING IT`; $('homeSub').textContent = 'the purchase screen is one trainer at a time · tap to go back' }
     })
     if (found) collectFind(found)
@@ -4972,7 +5266,7 @@ async function run(id) {
     if (enc === 'duo') return duoEncounter(force.plan, flavor() < 0.5 ? 'tag' : 'solo', state)
   }
   /** Back to idle, giving up the purchase screen if you had it. */
-  const toIdle = () => fadeThrough(async () => { if (machine.lockedBy === YOU) machine.lockedBy = null; renderHome('idle') })
+  const toIdle = () => fadeThrough(async () => { if (machine.lockedBy === YOU) { machine.lockedBy = null; vvm()?.release() } renderHome('idle') })
   async function firstEncounter(demoPlan) {
     toolsEnabled(false)
     const crew = [HERB, PAUL]
@@ -5008,8 +5302,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       for (const T of crew) { await trainerOn(T, 'down'); await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff() }
       await out.exp(); out.cleanup()   // EXP after their parting words, then tokens
-      wallet = Math.round((wallet + 1.75) * 100) / 100
-      sfx('tokens'); await say('You got 1.75 tokens!', 'The VVM is free!', 600)
+      await payTokens(1.75, 'tutorial', 'The VVM is free!')
       for (const T of crew) await loot(T)
       await trainerOn(ALEX); await talk(ALEX, ALEX.won); await starterKit(); await trainerOff()
       tutorialDone = true; showTools(true)
@@ -6044,9 +6337,12 @@ async function run(id) {
         return
       }
       // Now and then (more often for leaders), once per Pokémon: its type's accuracy or evasion move.
-      if (!foe.roamer && !foe.usedStatus && !ST(foe).taunt && (window.__forceStatusMove || rand() < (trainer?.hard ? 0.25 : 0.1))) {   // __forceStatusMove: testing only
+      const statusTurn = !foe.roamer && !foe.usedStatus && !ST(foe).taunt && (window.__forceStatusMove || rand() < (trainer?.hard ? 0.25 : 0.1))   // __forceStatusMove: testing only
+      // Only a move that would do something (moveWorks); with none, it attacks instead and may try again later.
+      const sn = !statusTurn ? null : demo ? statusOf(foe) : foeStatusMove(foe, rand, !!trainer?.hard, (n) => moveWorks(n, foe, me, ST, { weather: weather?.kind, ...scr.e }))
+      if (sn) {
         foe.usedStatus = true
-        const sn = demo ? statusOf(foe) : foeStatusMove(foe, rand, !!trainer?.hard), sm = SUPPORT[sn]
+        const sm = SUPPORT[sn]
         await announce(`${kind === 'trainer' ? '' : 'The wild '}${foe.name} used`, `${sn}!`, 300)
         if (FIELD_EFFECTS.includes(sm.effect)) { if (!(await fieldMove(sm, foe, { label: 'GOOD', mult: 1 }))) await say('But it failed!', '', 300); return }
         foeLast = sn
@@ -6301,8 +6597,10 @@ async function run(id) {
   /**
    * Evolutions due from this battle, one at a time, on the battle screen: the
    * old and new forms flicker faster and faster to the evolution music, and
-   * STOP (B) cancels it, for another try 5 levels later. The demo lets it run.
+   * holding STOP (B) for 3 seconds cancels it, for another try 5 levels
+   * later. The demo lets it run.
    */
+  const EVO_HOLD_MS = 3000
   async function runEvolutions() {
     for (const m of [...pendingEvos]) {
       pendingEvos.delete(m)
@@ -6316,18 +6614,23 @@ async function run(id) {
       const [a, b] = stage.querySelectorAll('img')
       Sound.music('evolution')
       await say('What?', `${m.name} is evolving!`, 500)
-      $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'it will try again in 5 levels'
+      $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'tries again in 5 levels'
       panel(demo ? null : 'pEvo')
+      // Stopping takes holding B for EVO_HOLD_MS (the button fills as you hold); a tap does nothing.
       let stopped = false
-      const off = listen((btn) => { if (btn === 'b') stopped = true })
+      const shownAt = performance.now(), stopBtn = $('pEvo').querySelector('.bEvoStop')
+      const held = () => (btnDown.b ? performance.now() - Math.max(btnDown.b, shownAt) : 0)
+      const tick = () => { const h = held(); stopBtn.style.setProperty('--hold', Math.min(1, h / EVO_HOLD_MS)); if (h >= EVO_HOLD_MS) stopped = true }
       // The flicker: white silhouettes swapping, faster as it goes (about 6 s).
       a.classList.add('glow'); b.classList.add('glow')
       for (let i = 0, gap = 520; i < 26 && !stopped; i++, gap = Math.max(70, gap * 0.86)) {
         const showNew = i % 2 === 1
         a.style.opacity = showNew ? 0 : 1; b.style.opacity = showNew ? 1 : 0
-        await W(gap)
+        for (const end = performance.now() + gap; performance.now() < end && !stopped;) { tick(); await W(30) }
       }
-      off(); panel(null)
+      // Still holding when the flicker ends: it waits for you to finish the hold or let go.
+      for (let i = 0; btnDown.b && !stopped; i++) { a.style.opacity = i % 6 < 3 ? 0 : 1; b.style.opacity = i % 6 < 3 ? 1 : 0; tick(); await W(30) }
+      stopBtn.style.setProperty('--hold', 0); panel(null)
       a.classList.remove('glow'); b.classList.remove('glow')
       if (stopped) {
         a.style.opacity = 1; b.style.opacity = 0
@@ -6430,8 +6733,7 @@ async function run(id) {
       anim($('trainer'), [{ transform: 'none' }, { transform: 'translateY(3px) scaleY(.97)', offset: .5 }, { transform: 'none' }], { duration: 520, easing: 'ease-in-out' })
       await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff()
       await out.exp?.()   // EXP after their parting words, then tokens
-      wallet = Math.round((wallet + +T.tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${T.tokens} tokens!`, 'The VVM is free!', 600)   // always
+      await payTokens(T.tokens, 'trainer', 'The VVM is free!')   // always
       await loot(T)   // sometimes
       Sound.stopMusic()
       await backToMachine(state)
@@ -6602,6 +6904,7 @@ async function run(id) {
   const guard = (fn) => async () => { if (busy || !live()) return; busy = true; try { await fn() } catch (e) { if (e !== STOP) console.error(e) } finally { busy = false } }
   /** Other trainers use the same machine every few seconds, once you're past the tutorial. */
   const othersLoop = () => {
+    if (vvm()) return   // in the app the other trainers are real (see syncMachine)
     const tick = () => { if (!live()) return; if (tutorialDone) otherTaps(OTHERS[Math.floor(Math.random() * OTHERS.length)]); setTimeout(tick, 5000 + Math.random() * 5000) }
     setTimeout(tick, 3000)
   }
@@ -6646,12 +6949,19 @@ async function run(id) {
     $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderRoamers?.(); renderPool?.(); renderTools()
     return new Date(s.at)
   }
-  const first = async () => { await (homeState === 'idle' ? firstRestock() : firstEncounter()); if (tutorialDone) { playCap(); toolsEnabled(true); othersLoop(); saveGame() } }
+  const first = async () => { await (homeState === 'idle' ? firstRestock() : firstEncounter()); if (tutorialDone) { playCap(); toolsEnabled(true); othersLoop(); saveGame(); collectItems() } }
   // A save from before: straight back to where you were.
   const loaded = loadGame()
   if (!loaded) $('saveN').textContent = '—'
   if (loaded) { showTools(true); toolsEnabled(true); playCap(); othersLoop(); feed(`<b>Welcome back.</b> Loaded your save from ${loaded.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.`); $('saveN').textContent = loaded.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
   setInterval(() => { if (live() && !busy) saveGame() }, 30000)
+  // In the app: the real machine. Its state and holder are read now and every few seconds while you're on the idle screen,
+  // and supplies you bought (here or on the app's VVM page) come into the Bag when you open the game or come back to it.
+  if (APP.on) {
+    ;(async () => { for (let i = 0; i < 50 && !vvm(); i++) await W(100); if (!vvm()) return; await syncMachine(); if (loaded) await collectItems() })().catch(() => {})
+    setInterval(() => { if (live() && vvm() && homeState === 'idle' && !busy) syncMachine() }, 8000)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && live() && vvm() && !busy) { syncMachine(); collectItems() } })
+  }
   window.__saveSoon = () => setTimeout(() => { if (live()) saveGame() }, 200)
   // The app's exit button saves before it leaves.
   window.__saveNow = () => { if (live()) saveGame() }
@@ -6664,7 +6974,8 @@ async function run(id) {
     if (!tutorialDone) return
     for (let i = 0; i < 8; i++) if (!badges.includes(i)) badges.push(i)
     for (const m of party) { m.level = Math.max(m.level, 45); m.exp = 0; m.stats = statsAt(m, m.level); m.hp = m.stats.hp; learnAtLevel(m) }
-    wallet = Math.round((wallet + 10) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderTools()
+    if (!vvm()) wallet = Math.round((wallet + 10) * 100) / 100
+    $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderTools()
     feed('Skipped to the League: all 8 Johto badges, the party at Lv 45. ELITE FOUR TICKETS can now turn up on a stocked machine.')
   })
   // Testing: every party Pokémon goes up a level (as a real level-up would), and any evolution plays out.
@@ -6680,7 +6991,8 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+    box, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
@@ -6690,7 +7002,21 @@ async function run(id) {
     feed(`<b>You</b> tapped: ${ENC_TEXT[mine].replace('them', 'you')}.`)
     await tapMachine({ enc: mine })
   })
+  $('bBattles').onclick = (e) => {
+    e.stopPropagation()
+    if (MODE !== 'play' || busy || !live()) return
+    battlesOn = !battlesOn
+    try { localStorage.setItem(BATTLES_KEY, battlesOn ? 'on' : 'off') } catch {}
+    sfx(battlesOn ? 'select' : 'move'); paintBattles()
+    // A scalper camping the machine leaves with the battles.
+    if (!battlesOn && $('homeLoiterer').style.display === 'block') renderHome('idle')
+    else if (homeState === 'idle') renderHome('idle')
+    feed(battlesOn ? '<b>Battles on</b>: Pokémon and trainers can jump out when you tap.' : '<b>Battles off</b>: taps go straight to the machine.')
+  }
+  paintBattles()
   $('home').onclick = guard(async () => {
+    // Battles off: just the machine. Back to idle from any other screen; from idle, straight to it.
+    if (!battlesOn) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
     if (!tutorialDone) return first()
     // A scalper who beat you is still camping it; otherwise a state screen goes back to idle, and idle rolls a tap.
     if ($('homeLoiterer').style.display === 'block') return scalperEncounter(null, homeState)
