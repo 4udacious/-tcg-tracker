@@ -1089,6 +1089,8 @@ function schedulePart(ac, out, song, t0) {
     play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85), art)
     // A second instrument on the melody, an octave up (or wherever leadDoubleOct says), quieter: the unison lines battle themes are built on.
     if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12 * (song.leadDoubleOct ?? 1), d, song.leadDoubleVel ?? 0.32, art)
+    // Or several: [instrument, octaves, velocity] each (violins above and low brass below, say).
+    for (const [inst, oct, vel] of song.doubles ?? []) play(inst, M.lead, t, m + 12 * oct, d, vel, art)
   })
   // Harmony under the melody: the nearest chord tone 3-9 semitones down.
   if (song.chords) each(song.lead, (t, n, d, i) => {
@@ -1104,6 +1106,17 @@ function schedulePart(ac, out, song, t0) {
   const chordAround = (i, lo) => chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]).slice(0, 4).map((pc) => lo + ((pc - lo) % 12 + 12) % 12)
   for (const [pat, inst, ch, lo, len, vel] of [[song.clav, 'clav', M.keys, 58, 0.8, 0.8], [song.stabs, 'brass', M.harm, 55, 1.3, 0.7]]) {
     if (pat) for (let i = 0; i < song.lead.length; i++) if (pat[i % pat.length] === 'x') for (const m of chordAround(i, lo)) play(inst, ch, T(i), m, step * len, vel)
+  }
+  // Piano runs: a bar-long sweep through the chord across four octaves, one letter a bar ('u' up, 'd' down, 'w' up and back, '.' none).
+  if (song.runs) for (let b = 0; b * song.chordLen < song.lead.length; b++) {
+    const kind = song.runs[b % song.runs.length], n = Math.min(song.chordLen, song.lead.length - b * song.chordLen); if (kind === '.') continue
+    const pcs = chordAt(b * song.chordLen), tones = []
+    for (let m = 48; m <= 96; m++) if (pcs.includes(m % 12)) tones.push(m)
+    for (let k = 0; k < n; k++) {
+      const x = kind === 'u' ? k / (n - 1) : kind === 'd' ? 1 - k / (n - 1) : 1 - Math.abs(2 * k / (n - 1) - 1)
+      const m = tones[Math.round(x * (tones.length - 1))]
+      play('piano', M.keys, T(b * song.chordLen + k), m, step * 1.6, 0.45 + 0.4 * (kind === 'd' ? 1 - x : x))
+    }
   }
   // Piano ostinato: a repeating figure through the chord (its three notes from middle C up, and the root an octave higher).
   if (song.ostinato) for (let i = 0; i < song.lead.length; i++) {
@@ -1431,54 +1444,54 @@ SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8, leadIn
 
 /*
  * The Champion's battle, second version (the first is SONGS.championClassic).
- * The last fight in the game, so it's the most restless: the only theme in
- * an odd meter. In E-flat minor, after the Champion's intro in E-flat, and
- * built on one four-note motif (Eb Gb F Bb: up, a step back, a leap) that
- * returns in every section.
- *   - The verse is in 7/8 (2+2+3), guitar and timpani under the brass with
- *     violins an octave above, and a pipe organ holding the chords.
- *   - The second verse rises a half step, to E minor, and slides back down
- *     (B7 to Bb7) to set up
- *   - the chorus: E-flat MAJOR, half-time, on borrowed chords (Gb, Db, Cb)
- *     for a heroic, cinematic lift, with a choir and tubular bells.
- *   - A four-bar last stand in 4/4 drives back to the top.
- * It opens with the organ, bells and timpani. Eighth-note grid; 7 steps a
- * bar in the verses, 8 elsewhere. About 35 s a loop.
+ * The last fight in the game, written to be the most heroic: fast, in
+ * E-flat major (after the Champion's intro in E-flat), with big brass and
+ * sweeping piano runs.
+ *   - The main theme is brass, doubled by violins an octave above and low
+ *     brass an octave below, with brass stabs on the chords. Under it, the
+ *     piano sweeps through each chord across four octaves, and the bass
+ *     gallops (one long, two short).
+ *   - The harmony lifts on purpose: through C MAJOR (E natural) into F minor
+ *     in the theme, and in the middle a C minor section over a bass that
+ *     walks down by steps (Cm G/B Bb F/A Ab Eb/G Fm G7), with an organ.
+ *   - The last time round, the theme comes back a whole step up, in F major,
+ *     then turns on B-flat 7 to start again in E-flat.
+ * 180 bpm, sixteenth-note grid, 16 steps a bar: a 5 s intro, then a 32 s loop.
  */
 SONGS.championClassic = SONGS.champion
-/** A 7/8 bar of bass on one note: 2+2+3, the third hit an octave up, and a pickup. */
-const seven = (n) => { const hi = transpose([n], 12)[0]; return `${n} . ${n} . ${hi} . ${n}` }
-const CH2_A = { chordLen: 7, chords: 'Ebm Ebm Cb Cb Abm Abm Bb7 Bb7'.split(' '),
-  lead: bars('Eb5 Gb5 F5 . Bb5 . .', 'Gb5 . Bb5 . Eb6 . .', 'Cb6 Eb6 Db6 . Gb6 . .', 'Cb6 . Gb5 . Eb5 . .',
-    'Ab5 Cb6 Bb5 . Eb6 . .', 'Cb6 . Ab5 . Eb5 . .', 'D5 . F5 . Ab5 . .', 'Bb5~ . . . . . .'),
-  bass: bars(seven('Eb2'), seven('Eb2'), seven('Cb2'), seven('Cb2'), seven('Ab1'), seven('Ab1'), seven('Bb1'), seven('Bb1')),
-  drums: 'K.S.KhS'.repeat(7) + 'SSSSSSS' }
-SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8,
-  leadInst: 'brass', leadDouble: 'violins', leadDoubleOct: 1, leadDoubleVel: 0.4, harmInst: 'strings', padInst: 'organ',
-  power: true, comp: false, glock: false, hats16: false, crash: true, fill: '',
-  intro: { chords: 'Ebm Ebm Abm Bb7'.split(' '), leadInst: 'bells', leadDouble: '', power: false,
-    lead: bars('Eb5 . Gb5 . F5 . . .', 'Bb5 . . . . . . .', 'Ab5 . Cb6 . Bb5 . . .', 'D6 . . . F6 . . .'),
-    bass: bars('Eb2 . . . . . . .', 'Eb2 . . . . . . .', 'Ab1 . . . . . . .', 'Bb1 . . . Bb1 . . .'),
-    drums: 'P.......' + 'P.......' + 'P...P...' + 'PPPPSSSS' },
+/** A bar of galloping bass: on every beat a long note then two short ones; beats 2 and 4 an octave up. */
+const heroGallop = (n) => { const hi = transpose([n], 12)[0]; return `${n} . ${n} ${n} ${hi} . ${hi} ${hi} ${n} . ${n} ${n} ${hi} . ${hi} ${hi}` }
+const CH3_THEME = {
+  chords: 'Eb Gm Ab Bb C Fm Ab Bb7'.split(' '), runs: 'u d u d u d u w'.split(' '),
+  lead: bars('Eb5^ . . . . . Bb4 . Eb5 . G5 . Bb5 . . .', 'D6 . . . . . Bb5 . G5 . . . D5 . . .',
+    'Eb6 . . . C6 . . . Ab5 . . . C6 . Eb6 .', 'F6 . . . . . . . D6 . . . Bb5 . . .',
+    'G6^ . . . . . E6 . C6 . . . G5 . . .', 'Ab6 . . . . . F6 . C6 . . . Ab5 . . .',
+    'C6 . . . Eb6 . . . Ab6 . . . Eb6 . C6 .', 'D6~ . . . . . . . . . . . F5 G5 Ab5 Bb5'),
+  bass: bars(heroGallop('Eb2'), heroGallop('G1'), heroGallop('Ab1'), heroGallop('Bb1'), heroGallop('C2'), heroGallop('F1'), heroGallop('Ab1'), heroGallop('Bb1')),
+  drums: 'K.hhS.hhK.KhS.hh'.repeat(7) + 'K.hhS.hhSSSSTTtt' }
+SONGS.champion = { file: null, loop: true, bpm: 180, div: 4, chordLen: 16,
+  leadInst: 'brass', doubles: [['violins', 1, 0.34], ['brass', -1, 0.4]], harmInst: 'brass', padInst: 'strings',
+  stabs: '......x.......x.', comp: false, glock: false, hats16: false, power: false, crash: true, fill: '',
+  intro: { chords: 'Eb Cm Ab Bb'.split(' '), runs: 'u d u w'.split(' '), stabs: '', doubles: [['brass', -1, 0.45], ['bells', 1, 0.3]],
+    lead: bars('Eb5 . . Bb4 . . Eb5 . G5 . . . Bb5 . . .', 'C6 . . G5 . . Eb5 . C5 . . . G5 . . .',
+      'Ab5 . . C6 . . Eb6 . Ab6 . . . Eb6 . C6 .', 'Bb5~ . . . . . . . D6 . . . F6 . . .'),
+    bass: bars('Eb2 . . . . . . . Eb2 . . . . . . .', 'C2 . . . . . . . C2 . . . . . . .', 'Ab1 . . . . . . . Ab1 . . . . . . .', 'Bb1 . . . . . . . Bb1 . Bb1 Bb1 Bb1 . Bb1 Bb1'),
+    drums: 'P.......P.......' + 'P.......P.......' + 'P.......P...P.P.' + 'PPPPPPPPSSSSSSSS' },
   sections: [
-    { ...CH2_A },
-    { // The verse a half step up, E minor, sliding back down at the end (B7 to Bb7)
-      ...CH2_A,
-      chords: [...transposeChords(CH2_A.chords.slice(0, 7), 1), 'Bb7'],
-      lead: [...transpose(CH2_A.lead.slice(0, 49), 1), ...bars('Bb5~ . . . . . .')],
-      bass: [...transpose(CH2_A.bass.slice(0, 49), 1), ...bars(seven('Bb1'))] },
-    { // Chorus: E-flat major, half-time, borrowed chords; choir and bells
-      chords: 'Eb Gb Ab Bb Eb Db Cb Bb7'.split(' '), padInst: 'choir', leadDouble: 'bells', leadDoubleOct: 1, leadDoubleVel: 0.5,
-      lead: bars('Eb5^ . . . G5 . Bb5 .', 'Bb5 . . . . . Db6 .', 'C6 . . . Eb6 . Ab5 .', 'D6 . . . . . F6 .',
-        'G6^ . . . Eb6 . Bb5 .', 'Ab5 . . . F5 . Db6 .', 'Eb6 . . . Gb6 . Cb6 .', 'D6~ . . . . . . .'),
-      bass: bars('Eb2 . . . Eb2 . Bb1 .', 'Gb1 . . . Gb1 . Db2 .', 'Ab1 . . . Ab1 . Eb2 .', 'Bb1 . . . Bb1 . F2 .',
-        'Eb2 . . . Eb2 . Bb1 .', 'Db2 . . . Db2 . Ab1 .', 'Cb2 . . . Cb2 . Gb1 .', 'Bb1 . . . Bb1 . D2 .'),
-      drums: 'K.h.S.h.'.repeat(7) + 'K.h.SSSS' },
-    { // The last stand: 4/4, full tilt, the motif climbing
-      chords: 'Ebm Cb Abm Bb7'.split(' '),
-      lead: bars('Eb5 Gb5 F5 . Bb5 . Eb6 .', 'Cb6 Eb6 Db6 . Gb6 . Cb6 .', 'Eb6 . Cb6 . Ab5 . Eb6 .', 'F6 . D6 . Bb5 . Ab5 .'),
-      bass: bars('Eb2 Eb2 Eb3 Eb2 Eb2 Eb3 Eb2 Eb3', 'Cb2 Cb2 Cb3 Cb2 Cb2 Cb3 Cb2 Cb3', 'Ab1 Ab1 Ab2 Ab1 Ab1 Ab2 Ab1 Ab2', 'Bb1 Bb1 Bb2 Bb1 D2 F2 Ab2 Bb2'),
-      drums: 'KhSKKhSh'.repeat(3) + 'SSSSPPPP' },
+    { ...CH3_THEME },
+    { // C minor, the bass walking down by steps; organ under it all
+      chords: 'Cm G Bb F Ab Eb Fm G7'.split(' '), runs: 'w w w w w w w u'.split(' '), padInst: 'organ', stabs: '....x.......x...',
+      lead: bars('G5 . . . C6 . . . Eb6 . . . C6 . D6 .', 'D6 . . . . . . . B5 . . . G5 . . .',
+        'F6 . . . . . D6 . Bb5 . . . F5 . . .', 'C6 . . . . . A5 . F5 . . . A5 . C6 .',
+        'Eb6 . . . . . C6 . Ab5 . . . C6 . Eb6 .', 'G6 . . . . . Eb6 . Bb5 . . . G5 . Bb5 .',
+        'Ab6 . . . . . F6 . C6 . . . F6 . Ab6 .', 'B6~ . . . . . . . G6 . . . F6 . D6 .'),
+      bass: bars(heroGallop('C2'), heroGallop('B1'), heroGallop('Bb1'), heroGallop('A1'), heroGallop('Ab1'), heroGallop('G1'), heroGallop('F1'), heroGallop('G1')),
+      drums: 'K.hhS.hhK.KhS.hh'.repeat(7) + 'K.hhS.hhPPPPSSSS' },
+    { // The theme a whole step up, F major, turning on B-flat 7 to start again
+      ...CH3_THEME,
+      chords: [...transposeChords(CH3_THEME.chords.slice(0, 7), 2), 'Bb7'],
+      lead: [...transpose(CH3_THEME.lead.slice(0, 112), 2), ...bars('D6~ . . . . . . . . . . . F5 G5 Ab5 Bb5')],
+      bass: [...transpose(CH3_THEME.bass.slice(0, 112), 2), ...bars(heroGallop('Bb1'))] },
   ] }
 
 /** Which intro plays under each League member's words. */
