@@ -2948,18 +2948,34 @@ async function run(id) {
   let wallet = 10, shelfItems = []   // tokens to spend, and the supplies on the shelf this restock
   let realShelf = null   // in the app: the real machine, as syncMachine last read it
   /*
-   * Battle mode. Off, the game is just the vending machine: a tap goes
-   * straight to the purchase screen, with no wild Pokémon, no trainers, no
-   * scalper camping it, no finds, and no tutorial first. Each player's choice
-   * (per account, in the app) is kept in this browser.
+   * Battle modes: WILD (wild Pokémon) and TRAINERS (scalpers, 2v2s, gyms, the
+   * Elite Four), each switched on or off by the player. With both off the game
+   * is just the vending machine: a tap goes straight to the purchase screen,
+   * with no scalper camping it, no finds, and no tutorial first. Each player's
+   * choice (per account, in the app) is kept in this browser.
+   *
+   * In the app an admin also decides what's live for members (battle_modes):
+   * a kind that isn't live is off, and its switch hidden. Admins always have
+   * both. Until the real machine has answered, both count as not live.
    */
-  const BATTLES_KEY = 'vvm-battles' + (APP.uid ? ':' + APP.uid : '')
-  let battlesOn = (() => { try { return localStorage.getItem(BATTLES_KEY) !== 'off' } catch { return true } })()
+  const MODE_KEY = (k) => `vvm-${k}` + (APP.uid ? ':' + APP.uid : '')
+  const playerOn = (() => {
+    const get = (k) => { try { return localStorage.getItem(MODE_KEY(k)) } catch { return null } }
+    const legacy = get('battles')   // the one switch there used to be
+    return { wild: (get('wild') ?? legacy) !== 'off', trainers: (get('trainers') ?? legacy) !== 'off' }
+  })()
+  const modeLive = { wild: !APP.on, trainers: !APP.on }
+  /** Can this kind of battle happen to you now? The demos always have both. */
+  const modeOn = (k) => demo || (playerOn[k] && modeLive[k])
+  const battlesActive = () => modeOn('wild') || modeOn('trainers')
+  const MODE_BTN = { wild: 'bWild', trainers: 'bTrainers' }
   function paintBattles() {
-    const b = $('bBattles'); if (!b) return
-    b.hidden = demo; b.classList.toggle('off', !battlesOn)
-    b.innerHTML = `⚔ BATTLES <b>${battlesOn ? 'ON' : 'OFF'}</b>`
-    b.setAttribute('aria-pressed', String(battlesOn))
+    for (const k of ['wild', 'trainers']) {
+      const b = $(MODE_BTN[k]); if (!b) continue
+      b.hidden = demo || !modeLive[k]; b.classList.toggle('off', !playerOn[k])
+      b.innerHTML = `${k === 'wild' ? '🌿 WILD' : '⚔ TRAINERS'} <b>${playerOn[k] ? 'ON' : 'OFF'}</b>`
+      b.setAttribute('aria-pressed', String(playerOn[k]))
+    }
   }
   let freeHeal = 1
   const party = [], box = []
@@ -3085,7 +3101,7 @@ async function run(id) {
     if (state === 'idle') {
       const other = typeof machine !== 'undefined' && machine.lockedBy && machine.lockedBy !== 'YOU' ? machine.lockedBy : null
       h.classList.toggle('inuse', !!other)
-      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesOn ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesOn ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
+      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesActive() ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesActive() || !(modeLive.wild || modeLive.trainers) ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
       $('homeLoiterer').style.display = 'none'; $('supplies').innerHTML = ''; return
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
@@ -3126,6 +3142,7 @@ async function run(id) {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
     realShelf = m
+    if (modeLive.wild !== m.wild || modeLive.trainers !== m.trainers) { modeLive.wild = m.wild; modeLive.trainers = m.trainers; paintBattles() }
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
     machine.state = st; $('machineState').value = st
@@ -3140,6 +3157,7 @@ async function run(id) {
   const isReal = (k) => /^(set|ticket|sup):/.test(k)
   /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
   function supNot(key) {
+    if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
     if (key === 'gym_summon') return nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
     if (key === 'elite_ticket') return champion ? "you're Champion" : badges.length < 8 ? 'needs all 8 Johto badges' : bag[summonKey('elite')] ? 'you have one' : ''
     return ''
@@ -3605,6 +3623,7 @@ async function run(id) {
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: s === 'elite' ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
       // The Elite Four ticket isn't spent here: only a loss, or beating Lance, uses it up.
+      if ((a.elite != null || a.challenge != null) && !modeOn('trainers')) { toast = modeLive.trainers ? 'Trainer battles are switched off (on the machine screen).' : "Trainer battles aren't live yet."; toastBad = true; draw(); return }
       if (a.elite != null) { pendingSummon = 'elite'; sfx('select'); sheetCloser?.(); return }
       // Summon: spend it, close the sheet, and the leader turns up.
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
@@ -5229,7 +5248,9 @@ async function run(id) {
     if (api) await syncMachine()   // the real stock state and holder, as of now
     const state = machine.state
     tickRest()   // beaten trainers' rest counts down with your taps
-    const { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
+    let { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
+    // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
+    if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
     // An empty tap may still turn up something small ("Your next tap" can ask for one; the demo's pinned taps never do).
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
@@ -7002,24 +7023,24 @@ async function run(id) {
     feed(`<b>You</b> tapped: ${ENC_TEXT[mine].replace('them', 'you')}.`)
     await tapMachine({ enc: mine })
   })
-  $('bBattles').onclick = (e) => {
+  for (const k of ['wild', 'trainers']) $(MODE_BTN[k]).onclick = (e) => {
     e.stopPropagation()
-    if (MODE !== 'play' || busy || !live()) return
-    battlesOn = !battlesOn
-    try { localStorage.setItem(BATTLES_KEY, battlesOn ? 'on' : 'off') } catch {}
-    sfx(battlesOn ? 'select' : 'move'); paintBattles()
-    // A scalper camping the machine leaves with the battles.
-    if (!battlesOn && $('homeLoiterer').style.display === 'block') renderHome('idle')
-    else if (homeState === 'idle') renderHome('idle')
-    feed(battlesOn ? '<b>Battles on</b>: Pokémon and trainers can jump out when you tap.' : '<b>Battles off</b>: taps go straight to the machine.')
+    if (MODE !== 'play' || busy || !live() || !modeLive[k]) return
+    playerOn[k] = !playerOn[k]
+    try { localStorage.setItem(MODE_KEY(k), playerOn[k] ? 'on' : 'off') } catch {}
+    sfx(playerOn[k] ? 'select' : 'move'); paintBattles()
+    // A scalper camping the machine leaves with the trainer battles.
+    if (homeState === 'idle' || (!modeOn('trainers') && $('homeLoiterer').style.display === 'block')) renderHome('idle')
+    feed(k === 'wild' ? (playerOn.wild ? '<b>Wild Pokémon on</b>: they can jump out when you tap.' : '<b>Wild Pokémon off</b>.')
+      : playerOn.trainers ? '<b>Trainer battles on</b>: scalpers and 2v2s can turn up, and gyms can be challenged.' : '<b>Trainer battles off</b>.')
   }
   paintBattles()
   $('home').onclick = guard(async () => {
     // Battles off: just the machine. Back to idle from any other screen; from idle, straight to it.
-    if (!battlesOn) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
+    if (!battlesActive()) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
     if (!tutorialDone) return first()
     // A scalper who beat you is still camping it; otherwise a state screen goes back to idle, and idle rolls a tap.
-    if ($('homeLoiterer').style.display === 'block') return scalperEncounter(null, homeState)
+    if ($('homeLoiterer').style.display === 'block' && modeOn('trainers')) return scalperEncounter(null, homeState)
     if (homeState !== 'idle') return toIdle()
     const v = $('nextTap').value
     await tapMachine(!v ? {} : v === 'find' ? { enc: null, find: true } : v === 'legend' ? { enc: 'wild', legend: true } : { enc: v === 'none' ? null : v })

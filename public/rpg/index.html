@@ -891,8 +891,10 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .home .attract .wallet { top: 8px; right: 12px; z-index: 7; padding: 3px 9px; font-size: 11px; background: #0E1726; color: #fde68a; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .home .attract .wallet::before { content: 'TOKENS '; font-size: 8px; letter-spacing: .08em; color: #94a3b8; }
 /* Battle mode: on the idle screen only, opposite the tokens. */
-.home .attract .btoggle { position: absolute; left: 12px; top: 54px; z-index: 7; padding: 3px 9px; border-radius: 999px; border: 0; background: #0E1726; color: #94a3b8; font-family: inherit; font-size: 9px; font-weight: 700; line-height: 1.4; letter-spacing: .06em; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; display: none; }
-.home.idle .attract .btoggle:not([hidden]) { display: block; }
+.home .attract .btoggles { position: absolute; left: 12px; top: 54px; z-index: 7; display: none; flex-direction: column; align-items: flex-start; gap: 4px; }
+.home.idle .attract .btoggles { display: flex; }
+.home .attract .btoggle { padding: 3px 9px; border-radius: 999px; border: 0; background: #0E1726; color: #94a3b8; font-family: inherit; font-size: 9px; font-weight: 700; line-height: 1.4; letter-spacing: .06em; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; }
+.home .attract .btoggle[hidden] { display: none; }
 .home .attract .btoggle b { color: #4ade80; font-size: 10px; }
 .home .attract .btoggle.off b { color: #f87171; }
 
@@ -959,7 +961,7 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
               <div class="notice"><b>NOTICE</b><p>One trainer at a time. Collect your packs from the tray before the next person steps up.</p></div>
               <div class="rows" id="attractRows"></div>
               <div class="wallet" id="wallet"></div>
-              <button class="btoggle" id="bBattles" type="button" hidden></button>
+              <div class="btoggles"><button class="btoggle" id="bWild" type="button" hidden></button><button class="btoggle" id="bTrainers" type="button" hidden></button></div>
               <div class="stamp">SOLD OUT</div>
               <div class="supplies" id="supplies"></div>
               <div class="tts" id="tts">TOUCH TO START</div>
@@ -1080,6 +1082,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=364c2c47af"></script>
+<script src="/rpg/game.js?v=6829990cb8"></script>
 </body>
 </html>

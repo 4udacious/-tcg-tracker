@@ -23,6 +23,9 @@ export interface VvmMachine {
   me: string
   cooldown_until: string | null
   balance: number
+  /** Which battles are on for you: always both for admins; for members, what an admin has made live. */
+  wild: boolean
+  trainers: boolean
   packs: { set_code: string; set_name: string; image: string; quantity: number; description: string | null }[]
   tickets: { ticket_id: number; name: string; image: string | null; price: number; quantity: number; max: number }[]
   supplies: { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; price: number; contents: { key: string; qty: number }[] | null }[]
@@ -44,12 +47,13 @@ export function makeVvmApi(userId: string) {
       const st = one(data as { status: string; cycle_no: number; holder_id: string | null; holder_name: string | null; holder_expires: string | null } | null)
       if (!st) return null
       const stocked = st.status === 'in_stock' || st.status === 'out_of_stock'
-      const [stock, tickets, supplies, me, bal] = await Promise.all([
+      const [stock, tickets, supplies, me, bal, battles] = await Promise.all([
         stocked ? db.rpc('get_vending_stock', { p_cycle: st.cycle_no }) : Promise.resolve({ data: [] }),
         stocked ? db.rpc('get_vending_ticket_stock', { p_cycle: st.cycle_no }) : Promise.resolve({ data: [] }),
         stocked ? db.rpc('get_vending_supply_stock', { p_cycle: st.cycle_no }) : Promise.resolve({ data: [] }),
         db.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
         balance(),
+        db.rpc('battle_modes'),
       ])
       type P = { set_code: string; set_name: string; display_image_url: string; quantity: number; description: string | null }
       type T = { ticket_id: number; name: string; image_url: string | null; token_price: number; quantity: number; remaining: number; per_user_limit: number | null; owned: number }
@@ -58,6 +62,8 @@ export function makeVvmApi(userId: string) {
       return {
         status: st.status, cycle_no: st.cycle_no, holder_id: st.holder_id, holder_name: st.holder_name, holder_expires: st.holder_expires,
         me: userId, cooldown_until: (me.data as { vending_cooldown_until: string | null } | null)?.vending_cooldown_until ?? null, balance: bal,
+        wild: one(battles.data as { wild: boolean } | null)?.wild === true,
+        trainers: one(battles.data as { trainers: boolean } | null)?.trainers === true,
         packs: ((stock.data as P[] | null) ?? []).map((p) => ({ set_code: p.set_code, set_name: p.set_name, image: p.display_image_url, quantity: p.quantity, description: p.description })),
         tickets: ((tickets.data as T[] | null) ?? []).map((t) => ({
           ticket_id: t.ticket_id, name: t.name, image: t.image_url, price: n(t.token_price), quantity: t.quantity,
