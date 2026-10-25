@@ -1289,8 +1289,9 @@ const learnAtLevel = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv === m.le
 /** What it learns later, for the Box: [[level, name]]. */
 const upcoming = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv > m.level && !m.learned.includes(n))
 
-/* Move Discs: one-use items that teach their move to any Pokémon. The VVM can
-   stock them, and a beaten scalper drops one. */
+/* Move Discs: one-use items that teach their move to any Pokémon. Gym Leaders
+   give one (of their type) when you win, the VVM sometimes stocks one, and a
+   booster pack's rare slot can hold one. */
 const DISC_POOL = ['HELPING HAND', 'TAILWIND', 'AFTER YOU', 'HEAL PULSE', 'HOWL', 'EARTHQUAKE', 'ROCK SLIDE', 'HYPER VOICE']
 const discKey = (n) => 'disc:' + n
 /*
@@ -2444,13 +2445,16 @@ const SHOP_DEFAULT = {
   duskstone: { on: true, price: 1, rate: 5 },
   shinystone: { on: true, price: 1, rate: 4 },
   linkcable: { on: true, price: 1.5, rate: 8 },
-  dragonscale: { on: true, price: 1, rate: 5 },   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
+  dragonscale: { on: true, price: 1, rate: 5 },
+  disc: { on: true, price: 1.5, rate: 12 },   // a Move Disc: a different random one each time it's stocked   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
 }
 const SHOP = (() => {
   const base = structuredClone(SHOP_DEFAULT)
   try { const saved = JSON.parse(localStorage.getItem('vvm-shop')); if (saved) for (const k in base) Object.assign(base[k], saved[k]) } catch {}
   return base
 })()
+/** A shelf key's shop settings: a stocked 'disc:NAME' sells on the MOVE DISC slot's. */
+const shopOf = (k) => SHOP[k.startsWith('disc:') ? 'disc' : k]
 const saveShop = () => { try { localStorage.setItem('vvm-shop', JSON.stringify(SHOP)) } catch {} }
 /*
  * Bundles: several supplies sold together as one thing on the shelf, at
@@ -2495,7 +2499,10 @@ const ITEMS = {
   potion: { name: 'POTION', sub: 'heals 30%', cls: 't-potion', heal: 0.3 },
   super: { name: 'SUPER POTION', sub: 'heals 60%', cls: 't-heal', heal: 0.6 },
   revive: { name: 'REVIVE', sub: 'revives at 50% HP', cls: 't-revive', revive: 0.5 },
+  disc: { name: 'MOVE DISC', sub: 'a random move each restock', cls: 't-disc' },   // the shelf slot; what's bought is a 'disc:NAME'
 }
+/* The evolution items a scalper (or a pack's rare slot) can turn up. */
+const EVO_DROPS = ['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']
 /* Item icons: the Scarlet/Violet Bag art, wherever an item is drawn. */
 ;(() => {
   const css = ['ball', 'great', 'potion', 'super', 'revive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale'].map((k) => {
@@ -2538,6 +2545,12 @@ const APP = (() => {
     music: (s.musicVolume ?? 0.6) / 0.6,
   }
 })()
+/**
+ * The real machine, in the app: PlayFrame's bridge (lib/vending/gameBridge.ts)
+ * on the parent window. Anywhere else (the mockup, the demos) it's null and
+ * the machine is the game's own simulation.
+ */
+const vvm = () => { if (!APP.on) return null; try { return window.parent !== window ? window.parent.__vvmApi ?? null : null } catch { return null } }
 /** A short vibration, in the app, if the player hasn't turned it off. */
 const buzz = (p) => { if (APP.haptics) try { navigator.vibrate?.(p) } catch {} }
 /** The sound engine calls this when it builds its mixer: the app's volume settings go on the two buses. */
@@ -2933,6 +2946,7 @@ async function run(id) {
   const cart = new Map()   // the machine's cart: shelf key -> how many
   let pendingEvoItem = false   // an evolution item used in the Bag: the evolution plays once the sheet closes
   let wallet = 10, shelfItems = []   // tokens to spend, and the supplies on the shelf this restock
+  let realShelf = null   // in the app: the real machine, as syncMachine last read it
   let freeHeal = 1
   const party = [], box = []
   let busy = false
@@ -3061,9 +3075,9 @@ async function run(id) {
       $('homeLoiterer').style.display = 'none'; $('supplies').innerHTML = ''; return
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
-    const sup = state === 'in' ? shelfItems : []
-    h.classList.toggle('has-sup', sup.length > 0)
-    $('supplies').innerHTML = state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
+    const sup = state === 'in' ? shelfItems : [], real = vvm() && realShelf
+    h.classList.toggle('has-sup', real ? true : sup.length > 0)
+    $('supplies').innerHTML = state === 'in' && real ? realTiles() : state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
     $('homeLine').textContent = blocked ? 'BLOCKED!' : { in: 'PACKS ARE IN!', out: 'NEXT RESTOCK 03:12', maint: 'BACK SOON' }[state]
     $('homeSub').textContent = blocked ? `${scalper.short} is camping the machine` : { in: 'tap items to add them to your cart', out: 'sold out', maint: 'under maintenance' }[state]
     if (blocked) $('homeLoiterer').src = ART[scalper.body]
@@ -3072,6 +3086,95 @@ async function run(id) {
   /* The packs in the stocked grid (the app's real stock: one per set, a token each). */
   const STOCK_PACKS = [{ art: 'jungle-scyther', name: 'Jungle', left: 12 }, { art: 'gym-heroes-brock', name: 'Gym Heroes', left: 7 }, { art: 'fossil-lapras', name: 'Fossil', left: 9 },
     { art: 'team-rocket-giovanni', name: 'Team Rocket', left: 4 }, { art: 'gym-challenge-koga', name: 'Gym Challenge', left: 15 }]
+  /*
+   * Booster packs as a battle award: beaten trainers sometimes leave one, Gym
+   * Leaders half the time and the Elite Four every time. In the app it's a
+   * real pack, out of a set's inventory and into your collection (opened
+   * there, like one you bought), up to a few a day; the server decides. In
+   * the mockup it's only named.
+   */
+  async function givePack(source) {
+    const api = vvm()
+    if (!api) return `a ${pickOf(STOCK_PACKS).name.toUpperCase()} PACK`
+    const r = await api.awardPack(source).catch(() => null)
+    if (!r?.ok) return null
+    feed(`<b>You</b> won a ${esc(r.set_name)} pack (${esc(r.pack_name)}). It's in your collection.`)
+    return `a ${String(r.set_name).toUpperCase()} PACK`
+  }
+  /* ── the real machine (in the app) ──
+     The stock state, who holds the purchase screen, your tokens and cooldown
+     all come from the server. The shelf is the real one: packs by set, raffle
+     tickets, and the admin's battle supplies. Cart keys are 'set:CODE',
+     'ticket:ID' and 'sup:KEY'. */
+  // Catalog supplies (vvm_supplies) and what they are in the Bag.
+  const BAG_OF = { potion: 'potion', super_potion: 'super', revive: 'revive', poke_ball: 'ball', great_ball: 'great' }
+  async function syncMachine() {
+    const api = vvm(); if (!api) return
+    const m = await api.machine().catch(() => null); if (!m || !live()) return
+    realShelf = m
+    wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+    const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
+    machine.state = st; $('machineState').value = st
+    machine.lockedBy = !m.holder_id ? null : m.holder_id === m.me ? YOU : (m.holder_name ?? 'SOMEONE')
+    if (homeState === 'idle') renderHome('idle')
+  }
+  const realKey = (k) => { const i = k.indexOf(':'); return [k.slice(0, i), k.slice(i + 1)] }
+  const realRow = (k) => {
+    const [kind, id] = realKey(k), t = realShelf ?? { packs: [], tickets: [], supplies: [] }
+    return kind === 'set' ? t.packs.find((p) => p.set_code === id) : kind === 'ticket' ? t.tickets.find((x) => String(x.ticket_id) === id) : kind === 'sup' ? t.supplies.find((x) => x.key === id) : null
+  }
+  const isReal = (k) => /^(set|ticket|sup):/.test(k)
+  /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
+  function supNot(key) {
+    if (key === 'gym_summon') return nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
+    if (key === 'elite_ticket') return champion ? "you're Champion" : badges.length < 8 ? 'needs all 8 Johto badges' : bag[summonKey('elite')] ? 'you have one' : ''
+    return ''
+  }
+  function realTiles() {
+    const t = realShelf
+    const pack = (p) => `<button class="tile pack" data-buy="set:${esc(p.set_code)}"><span class="art"><img src="${esc(p.image)}" alt=""></span><span class="qty">${p.quantity}</span><b>${esc(p.set_name)}</b><span class="meta">1 token · ${p.quantity} left</span></button>`
+    const ticket = (x) => `<button class="tile summon" data-buy="ticket:${x.ticket_id}"><span class="art">${x.image ? `<img src="${esc(x.image)}" alt="">` : '<span class="supic summon"></span>'}</span><i class="kind">RAFFLE</i><b>${esc(x.name)}</b><span class="meta">${x.price.toFixed(2)} tk · ${x.quantity} left</span></button>`
+    const sup = (x) => {
+      const no = supNot(x.key), off = no ? ' disabled' : '', meta = (sub) => `<span class="meta">${x.price.toFixed(2)} tk · ${esc(no || sub)}</span>`
+      if (x.kind === 'bundle') return `<button class="tile bundle" data-buy="sup:${esc(x.key)}"><span class="art">${(x.contents ?? []).map((c) => `<span class="brow"><span class="supic ${BAG_OF[c.key] ?? ''}"></span>×${c.qty}</span>`).join('')}</span><i class="kind">BUNDLE</i><b>${esc(x.name.toUpperCase())}</b>${meta(`${(x.contents ?? []).reduce((a, c) => a + c.qty, 0)} items`)}</button>`
+      if (x.key === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
+      if (x.key === 'elite_ticket') return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[ELITE_CARD.face]}" alt=""></span><i class="kind">LEAGUE</i><b>ELITE FOUR TICKET</b>${meta('all 5 battles')}</button>`
+      const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
+      return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
+    }
+    return [...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...t.supplies.map(sup)].join('')
+  }
+  /**
+   * Supplies bought at the machine (here or on the app's VVM page) move from
+   * your account into the Bag: the game's save holds them from then on. A Move
+   * Disc becomes a random disc now; a Gym Summon is for your next gym.
+   */
+  async function collectItems() {
+    const api = vvm(); if (!api || !tutorialDone) return []
+    const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k))]
+    const got = await api.takeItems(keys).catch(() => [])
+    const said = []
+    for (const { key, qty } of got) {
+      if (BAG_OF[key]) { bag[BAG_OF[key]] = (bag[BAG_OF[key]] ?? 0) + qty; said.push(`${qty} ${ITEMS[BAG_OF[key]].name}`) }
+      else if (key === 'gym_summon') { const g = nextGym(); summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + qty; said.push(`${qty} ${ITEMS[summonKey(g)].name}`) }
+      else if (key === 'elite_ticket') { summonItem('elite'); bag[summonKey('elite')] = 1; said.push('an ELITE FOUR TICKET') }
+      else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
+    }
+    if (said.length) { renderTools(); saveGame(); feed(`<b>You</b> collected ${said.join(', ')} into the Bag.`) }
+    return said
+  }
+  /** Tokens a battle pays: in the app, real ones into your earned tokens, up to a daily cap. */
+  async function payTokens(amount, source, b = '') {
+    const api = vvm()
+    if (!api) {
+      wallet = Math.round((wallet + +amount) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+      sfx('tokens'); return say(`You got ${(+amount).toFixed(2)} tokens!`, b, 600)
+    }
+    const r = await api.awardTokens(+amount, source).catch(() => null)
+    if (r) { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }
+    if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, b, 600) }
+    return say(r?.reason === 'daily_cap' ? "That's all the battle tokens for today." : 'No tokens this time.', b, 600)
+  }
   /** A battle supply's tile in the grid: an item, a bundle, or your next gym's summon. */
   function supplyTile(k) {
     if (k.startsWith('bundle:')) {
@@ -3081,13 +3184,14 @@ async function run(id) {
     }
     if (k === 'elite') return `<button class="tile summon" data-buy="elite"><span class="art"><img src="${ART[ELITE_CARD.face]}" alt=""></span><i class="kind">LEAGUE</i><b>ELITE FOUR TICKET</b><span class="meta">${SHOP.elite.price.toFixed(2)} tk · all 5 battles</span></button>`
     if (k === 'summon') { const L = GYMS[nextGym()]; return `<button class="tile summon" data-buy="summon"><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b><span class="meta">${SHOP.summon.price.toFixed(2)} tk · ${L.short}</span></button>` }
+    if (k.startsWith('disc:')) return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${ITEMS[k].name}</b><span class="meta">${shopOf(k).price.toFixed(2)} tk · ${moveInfo(ITEMS[k].disc).type.toUpperCase()} · teaches it</span></button>`
     return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic ${k}"></span></span><i class="kind">${ITEMS[k].key ? 'KEY ITEM' : 'ITEM'}</i><b>${ITEMS[k].name}</b><span class="meta">${SHOP[k].price.toFixed(2)} tk · ${ITEMS[k].sub}</span></button>`
   }
   /** Buys one supply off the shelf: tokens out, the item (or a bundle's items) into the Bag. */
   function buySupply(k) {
     const b = k.startsWith('bundle:') ? bundleById(k.slice(7)) : null
     if (k.startsWith('bundle:') && !b) return false
-    const price = b ? b.price : SHOP[k].price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
+    const price = b ? b.price : shopOf(k).price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
     if (wallet + 1e-9 < price) { sfx('blocked'); $('homeSub').textContent = `not enough tokens for ${b ? `the ${b.name}` : `a ${ITEMS[k].name}`}`; return false }
     wallet = Math.round((wallet - price) * 100) / 100
     if (b) {
@@ -3120,15 +3224,18 @@ async function run(id) {
       cart.set(k, n + 1); sfx('click'); hot(b)
       anim(b, [{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 200 })
     }
-    paintCart()
+    paintCart(); vvm()?.heartbeat()
   }
   /* ── the cart ──
      Taps put supplies in the cart; CHECKOUT shows the order, PAY takes the
      tokens and the machine dispenses (like the packs in the app), and the
      items land in the Bag. A summon, a ticket or a key item is one at a time. */
-  const cartMax = (k) => (k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9)
-  const priceOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : SHOP[k].price)
-  const nameOf = (k) => (k.startsWith('bundle:') ? bundleById(k.slice(7))?.name ?? 'BUNDLE' : k === 'summon' ? `${GYMS[nextGym()]?.badge ?? 'GYM'} SUMMON` : ITEMS[k].name)
+  const cartMax = (k) => {
+    if (isReal(k)) { const [kind, id] = realKey(k), r = realRow(k); return !r ? 0 : kind === 'set' ? r.quantity : kind === 'ticket' ? r.max : id === 'gym_summon' || id === 'elite_ticket' ? 1 : 20 }
+    return k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9
+  }
+  const priceOf = (k) => (isReal(k) ? (realKey(k)[0] === 'set' ? 1 : realRow(k)?.price ?? 0) : k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : shopOf(k).price)
+  const nameOf = (k) => (isReal(k) ? (realKey(k)[0] === 'set' ? `${realRow(k)?.set_name ?? realKey(k)[1]} pack` : realRow(k)?.name ?? realKey(k)[1]) : k.startsWith('bundle:') ? bundleById(k.slice(7))?.name ?? 'BUNDLE' : k === 'summon' ? `${GYMS[nextGym()]?.badge ?? 'GYM'} SUMMON` : k.startsWith('disc:') ? `MOVE DISC (${ITEMS[k].disc})` : ITEMS[k].name)
   const cartCount = () => [...cart.values()].reduce((a, b) => a + b, 0)
   const cartTotal = () => Math.round([...cart].reduce((s, [k, n]) => s + priceOf(k) * n, 0) * 100) / 100
   /** The tiles' counts and the bar under them. */
@@ -3154,7 +3261,7 @@ async function run(id) {
   function drawCheckout() {
     const total = cartTotal(), short = wallet + 1e-9 < total
     $('checkout').innerHTML = `<div class="cohd">CHECKOUT</div>
-      <div class="colines">${[...cart].map(([k, n]) => `<div class="coline">${k.startsWith('bundle:') || k === 'summon' || k === 'elite' ? '<span class="coic box"></span>' : `<span class="coic supic ${k}"></span>`}<span class="conm">${nameOf(k)}</span><span class="coqty">×${n}</span><span class="copr">${(priceOf(k) * n).toFixed(2)}</span></div>`).join('')}</div>
+      <div class="colines">${[...cart].map(([k, n]) => `<div class="coline">${k.startsWith('bundle:') || k === 'summon' || k === 'elite' || (isReal(k) && !BAG_OF[realKey(k)[1]] && realKey(k)[1] !== 'move_disc') ? '<span class="coic box"></span>' : `<span class="coic supic ${k.startsWith('disc:') || k === 'sup:move_disc' ? 'disc' : isReal(k) ? BAG_OF[realKey(k)[1]] : k}"></span>`}<span class="conm">${nameOf(k)}</span><span class="coqty">×${n}</span><span class="copr">${(priceOf(k) * n).toFixed(2)}</span></div>`).join('')}</div>
       <div class="cotot"><span>TOTAL</span><b>${total.toFixed(2)} tokens</b></div>
       <div class="cobal">Your tokens: ${wallet.toFixed(2)} → <b class="${short ? 'bad' : ''}">${short ? 'not enough' : (wallet - total).toFixed(2)}</b></div>
       <div class="cobtns"><button class="cb back" data-co="back">◀ KEEP SHOPPING</button><button class="cb go" data-co="pay" ${short ? 'disabled' : ''}>PAY ${total.toFixed(2)}</button></div>`
@@ -3163,8 +3270,23 @@ async function run(id) {
   async function payCart() {
     const total = cartTotal(), items = [...cart], n = cartCount()
     if (!n || wallet + 1e-9 < total) return
-    wallet = Math.round((wallet - total) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
-    for (const [k, q] of items) for (let i = 0; i < q; i++) giveSupply(k)
+    let collected = []
+    if (vvm()) {
+      // The real checkout: the server checks the stock, your tokens and that you still hold the machine.
+      const pick = (kind, f) => items.filter(([k]) => realKey(k)[0] === kind).map(([k, qty]) => f(realKey(k)[1], qty))
+      const r = await vvm().checkout(pick('set', (set_code, qty) => ({ set_code, qty })), pick('ticket', (id, qty) => ({ ticket_id: +id, qty })), pick('sup', (key, qty) => ({ key, qty })))
+      if (!r.ok) {
+        sfx('blocked'); $('checkout').classList.remove('open'); cart.clear(); machine.lockedBy = null
+        $('homeSub').textContent = CHECKOUT_FAIL[r.reason] ?? `checkout failed (${r.reason})`
+        await syncMachine(); paintCart(); return
+      }
+      wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`; machine.lockedBy = null
+      collected = await collectItems()
+    } else {
+      wallet = Math.round((wallet - total) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+      for (const [k, q] of items) for (let i = 0; i < q; i++) giveSupply(k)
+    }
+    const packsBought = items.filter(([k]) => k.startsWith('set:')).reduce((a, [, q]) => a + q, 0)
     cart.clear(); renderTools(); window.__saveSoon?.()
     const co = $('checkout'); co.classList.add('disp')
     for (let i = 1; i <= n; i++) {
@@ -3172,12 +3294,15 @@ async function run(id) {
       sfx('click'); await W(i === n ? 700 : 450)
     }
     sfx('tokens')
-    co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${n} item${n === 1 ? '' : 's'} added to your Bag</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
+    co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${vvm() ? [packsBought ? `${packsBought} pack${packsBought === 1 ? '' : 's'} to your collection` : '', collected.length ? `${collected.length} to your Bag` : ''].filter(Boolean).join(' · ') || 'in your account' : `${n} item${n === 1 ? '' : 's'} added to your Bag`}</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
     feed(`<b>You</b> bought ${items.map(([k, q]) => `${q} ${nameOf(k)}`).join(', ')} for ${total.toFixed(2)} tokens.`)
     await W(1700)
     co.classList.remove('open', 'disp'); co.innerHTML = ''
     await toIdle()
   }
+  const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
+    insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
+    ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty' }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
   $('checkout').onclick = (e) => {
@@ -3300,7 +3425,7 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${n && bag[k] ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.sub} · ${n ? `${n === 1 ? '1 Pokémon needs' : `${n} Pokémon need`} it · tap to use` : 'nobody needs it right now'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
-    }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Beaten trainers drop Move Discs too.</p>`
+    }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders and, now and then, the VVM. Beaten trainers sometimes leave a booster pack: it goes to your collection.</p>`
   }
   /** A summon's challenge page: who, how many, how strong; then the button. */
   function summonPage(k) {
@@ -3677,16 +3802,23 @@ async function run(id) {
   /**
    * What a beaten scalper leaves behind. The tokens are paid by the caller and
    * always come; these are only sometimes there: a Potion (or a Super Potion)
-   * about a third of the time, a Move Disc about one time in five.
+   * about a third of the time, a booster pack about one time in seven (in the
+   * app a real one, into your collection), and now and then an evolution
+   * item. Move Discs aren't dropped: they come from Gym Leaders and the VVM.
    */
   async function loot(T) {
     const got = []
     if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`a ${ITEMS[k].name}`) }
-    if (flavor() < 0.2) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; got.push(`a MOVE DISC (${n})`) }
-    // Now and then, an evolution item.
-    if (flavor() < 0.08) { const k = pickOf(['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
+    if (flavor() < 0.15) { const p = await givePack('trainer'); if (p) got.push(p) }
+    if (flavor() < 0.08) { const k = pickOf(EVO_DROPS); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
     renderTools()
     if (got.length) { sfx('click'); await say(`${T.short} dropped`, `${got.join(' and ')}!`, 700) }
+  }
+  /** A Move Disc a Gym Leader hands over: one of their type you don't have yet, if there is one. */
+  function gymDisc(L) {
+    const mine = DISC_POOL.filter((n) => moveInfo(n).type === L.type), fresh = mine.filter((n) => !bag[discKey(n)])
+    const n = pickOf(fresh.length ? fresh : mine.length ? mine : DISC_POOL)
+    discItem(n); return n
   }
   /** How long a foe's move name stays up before its attack starts: time to read it and pick parry, dodge or jump. */
   const READ_MS = demo ? 850 : 1150
@@ -4685,9 +4817,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       for (const T of crew) { await trainerOn(T, 'down'); await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff() }
       await out.exp(); out.cleanup()   // EXP after their parting words, then tokens
-      const tokens = crew.reduce((n, T) => n + +T.tokens, 0).toFixed(2)
-      wallet = Math.round((wallet + +tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${tokens} tokens!`, 'The VVM is free!', 600)   // always
+      await payTokens(crew.reduce((n, T) => n + +T.tokens, 0), 'duo', 'The VVM is free!')   // always
       for (const T of crew) await loot(T)   // sometimes
       Sound.stopMusic(); await backToMachine(state)
     } else {
@@ -4740,8 +4870,12 @@ async function run(id) {
       await out.exp?.()
       badges.push(n); sfx('levelup'); showBadge(L)
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
-      wallet = Math.round((wallet + +L.tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${L.tokens} tokens!`, '', 600)
+      await payTokens(L.tokens, 'gym')
+      // A Move Disc of the leader's type, and half the time a booster pack.
+      const n = gymDisc(L); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1
+      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${n}!`, 900)
+      if (flavor() < 0.5) { const p = await givePack('gym'); if (p) await say(`${L.short} also gave you`, `${p}!`, 700) }
+      renderTools()
     } else {
       await trainerOn(L); await talk(L, L.gloat); await trainerOff()
       await say(`${L.short} headed back to the ${L.city} GYM.`, 'The SUMMON was used up.')
@@ -4783,8 +4917,8 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
-      wallet = Math.round((wallet + +L.tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${L.tokens} tokens!`, '', 600)
+      await payTokens(L.tokens, 'elite')
+      { const p = await givePack('elite'); if (p) { sfx('click'); await say(`${L.short} gave you`, `${p}!`, 700) } }
       eliteStep++
       if (eliteStep === ELITE.length) {
         eliteStep = 0; champion = true; bag[key] = Math.max(0, (bag[key] ?? 0) - 1)
@@ -4898,6 +5032,7 @@ async function run(id) {
   /** Yours: into the Bag or the wallet, with a little pop on the machine's screen. */
   function collectFind(f) {
     if (f.item) bag[f.item] = (bag[f.item] ?? 0) + 1
+    else if (vvm()) vvm().awardTokens(f.tokens, 'find').then((r) => { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }).catch(() => {})
     else wallet = Math.round((wallet + f.tokens) * 100) / 100
     renderTools(); $('wallet').textContent = `${wallet.toFixed(2)} tk`
     sfx(f.item ? 'click' : 'tokens')
@@ -5046,7 +5181,15 @@ async function run(id) {
    * screen, unless another trainer is already on it. `force` pins the
    * encounter (the demo, "Your next tap"); `force.plan` is a demo script.
    */
+  /** This restock's shelf: each enabled supply (and bundle) with its rate as the chance; a MOVE DISC slot becomes one random disc. */
+  function rollShelf() {
+    return [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (badges.length >= 8 && !champion)) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate)
+      .map((k) => { if (k !== 'disc') return k; const n = pickOf(DISC_POOL); discItem(n); return discKey(n) }),
+      ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
+  }
   async function tapMachine(force = {}) {
+    const api = vvm()
+    if (api) await syncMachine()   // the real stock state and holder, as of now
     const state = machine.state
     tickRest()   // beaten trainers' rest counts down with your taps
     const { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
@@ -5054,14 +5197,29 @@ async function run(id) {
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
     // Bundles the same way, each with its own rate.
-    if (state === 'in') shelfItems = force.items ?? [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (badges.length >= 8 && !champion)) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate),
-      ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
+    if (state === 'in' && !api) shelfItems = force.items ?? rollShelf()
     $('tts').textContent = 'STARTING…'; sfx('select'); await W(450)
     // The purchase screen is one trainer at a time; encounters don't need it.
-    const waiting = !enc && state === 'in' && machine.lockedBy && machine.lockedBy !== YOU
-    if (!enc && state === 'in' && !waiting) lockFor(YOU)
+    let waiting = !enc && state === 'in' && machine.lockedBy && machine.lockedBy !== YOU, refused = null
+    if (!enc && state === 'in' && !waiting) {
+      if (!api) lockFor(YOU)
+      else {
+        // The real machine: claim it. It can say no (someone beat you to it, your cooldown, no tokens, nothing left).
+        const r = await api.claim().catch(() => ({ ok: false, reason: 'error' }))
+        await syncMachine()
+        if (r.ok) lockFor(YOU)
+        else if (r.reason === 'busy') { waiting = true; machine.lockedBy = r.holder_name ?? machine.lockedBy ?? 'SOMEONE' }
+        else refused = r
+      }
+    }
     await fadeThrough(async () => {
-      renderHome(state)
+      renderHome(refused && (refused.reason === 'not_stocked' || refused.reason === 'empty') ? 'out' : state)
+      if (refused && refused.reason !== 'not_stocked' && refused.reason !== 'empty') {
+        $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''
+        $('homeLine').textContent = { cooldown: 'COOLING DOWN', no_tokens: 'NO TOKENS' }[refused.reason] ?? "CAN'T START"
+        $('homeSub').textContent = refused.reason === 'cooldown' ? `you just bought · back ${refused.expires_at ? `at ${new Date(refused.expires_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'soon'} · tap to go back`
+          : refused.reason === 'no_tokens' ? 'no tokens left this month · tap to go back' : 'the machine said no · tap to go back'
+      }
       if (waiting) { $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''; $('homeLine').textContent = `${machine.lockedBy} IS USING IT`; $('homeSub').textContent = 'the purchase screen is one trainer at a time · tap to go back' }
     })
     if (found) collectFind(found)
@@ -5071,7 +5229,7 @@ async function run(id) {
     if (enc === 'duo') return duoEncounter(force.plan, flavor() < 0.5 ? 'tag' : 'solo', state)
   }
   /** Back to idle, giving up the purchase screen if you had it. */
-  const toIdle = () => fadeThrough(async () => { if (machine.lockedBy === YOU) machine.lockedBy = null; renderHome('idle') })
+  const toIdle = () => fadeThrough(async () => { if (machine.lockedBy === YOU) { machine.lockedBy = null; vvm()?.release() } renderHome('idle') })
   async function firstEncounter(demoPlan) {
     toolsEnabled(false)
     const crew = [HERB, PAUL]
@@ -5107,8 +5265,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       for (const T of crew) { await trainerOn(T, 'down'); await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff() }
       await out.exp(); out.cleanup()   // EXP after their parting words, then tokens
-      wallet = Math.round((wallet + 1.75) * 100) / 100
-      sfx('tokens'); await say('You got 1.75 tokens!', 'The VVM is free!', 600)
+      await payTokens(1.75, 'tutorial', 'The VVM is free!')
       for (const T of crew) await loot(T)
       await trainerOn(ALEX); await talk(ALEX, ALEX.won); await starterKit(); await trainerOff()
       tutorialDone = true; showTools(true)
@@ -6403,8 +6560,10 @@ async function run(id) {
   /**
    * Evolutions due from this battle, one at a time, on the battle screen: the
    * old and new forms flicker faster and faster to the evolution music, and
-   * STOP (B) cancels it, for another try 5 levels later. The demo lets it run.
+   * holding STOP (B) for 3 seconds cancels it, for another try 5 levels
+   * later. The demo lets it run.
    */
+  const EVO_HOLD_MS = 3000
   async function runEvolutions() {
     for (const m of [...pendingEvos]) {
       pendingEvos.delete(m)
@@ -6418,18 +6577,23 @@ async function run(id) {
       const [a, b] = stage.querySelectorAll('img')
       Sound.music('evolution')
       await say('What?', `${m.name} is evolving!`, 500)
-      $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'it will try again in 5 levels'
+      $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'tries again in 5 levels'
       panel(demo ? null : 'pEvo')
+      // Stopping takes holding B for EVO_HOLD_MS (the button fills as you hold); a tap does nothing.
       let stopped = false
-      const off = listen((btn) => { if (btn === 'b') stopped = true })
+      const shownAt = performance.now(), stopBtn = $('pEvo').querySelector('.bEvoStop')
+      const held = () => (btnDown.b ? performance.now() - Math.max(btnDown.b, shownAt) : 0)
+      const tick = () => { const h = held(); stopBtn.style.setProperty('--hold', Math.min(1, h / EVO_HOLD_MS)); if (h >= EVO_HOLD_MS) stopped = true }
       // The flicker: white silhouettes swapping, faster as it goes (about 6 s).
       a.classList.add('glow'); b.classList.add('glow')
       for (let i = 0, gap = 520; i < 26 && !stopped; i++, gap = Math.max(70, gap * 0.86)) {
         const showNew = i % 2 === 1
         a.style.opacity = showNew ? 0 : 1; b.style.opacity = showNew ? 1 : 0
-        await W(gap)
+        for (const end = performance.now() + gap; performance.now() < end && !stopped;) { tick(); await W(30) }
       }
-      off(); panel(null)
+      // Still holding when the flicker ends: it waits for you to finish the hold or let go.
+      for (let i = 0; btnDown.b && !stopped; i++) { a.style.opacity = i % 6 < 3 ? 0 : 1; b.style.opacity = i % 6 < 3 ? 1 : 0; tick(); await W(30) }
+      stopBtn.style.setProperty('--hold', 0); panel(null)
       a.classList.remove('glow'); b.classList.remove('glow')
       if (stopped) {
         a.style.opacity = 1; b.style.opacity = 0
@@ -6532,8 +6696,7 @@ async function run(id) {
       anim($('trainer'), [{ transform: 'none' }, { transform: 'translateY(3px) scaleY(.97)', offset: .5 }, { transform: 'none' }], { duration: 520, easing: 'ease-in-out' })
       await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff()
       await out.exp?.()   // EXP after their parting words, then tokens
-      wallet = Math.round((wallet + +T.tokens) * 100) / 100
-      sfx('tokens'); await say(`You got ${T.tokens} tokens!`, 'The VVM is free!', 600)   // always
+      await payTokens(T.tokens, 'trainer', 'The VVM is free!')   // always
       await loot(T)   // sometimes
       Sound.stopMusic()
       await backToMachine(state)
@@ -6704,6 +6867,7 @@ async function run(id) {
   const guard = (fn) => async () => { if (busy || !live()) return; busy = true; try { await fn() } catch (e) { if (e !== STOP) console.error(e) } finally { busy = false } }
   /** Other trainers use the same machine every few seconds, once you're past the tutorial. */
   const othersLoop = () => {
+    if (vvm()) return   // in the app the other trainers are real (see syncMachine)
     const tick = () => { if (!live()) return; if (tutorialDone) otherTaps(OTHERS[Math.floor(Math.random() * OTHERS.length)]); setTimeout(tick, 5000 + Math.random() * 5000) }
     setTimeout(tick, 3000)
   }
@@ -6748,12 +6912,19 @@ async function run(id) {
     $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderRoamers?.(); renderPool?.(); renderTools()
     return new Date(s.at)
   }
-  const first = async () => { await (homeState === 'idle' ? firstRestock() : firstEncounter()); if (tutorialDone) { playCap(); toolsEnabled(true); othersLoop(); saveGame() } }
+  const first = async () => { await (homeState === 'idle' ? firstRestock() : firstEncounter()); if (tutorialDone) { playCap(); toolsEnabled(true); othersLoop(); saveGame(); collectItems() } }
   // A save from before: straight back to where you were.
   const loaded = loadGame()
   if (!loaded) $('saveN').textContent = '—'
   if (loaded) { showTools(true); toolsEnabled(true); playCap(); othersLoop(); feed(`<b>Welcome back.</b> Loaded your save from ${loaded.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.`); $('saveN').textContent = loaded.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
   setInterval(() => { if (live() && !busy) saveGame() }, 30000)
+  // In the app: the real machine. Its state and holder are read now and every few seconds while you're on the idle screen,
+  // and supplies you bought (here or on the app's VVM page) come into the Bag when you open the game or come back to it.
+  if (APP.on) {
+    ;(async () => { for (let i = 0; i < 50 && !vvm(); i++) await W(100); if (!vvm()) return; await syncMachine(); if (loaded) await collectItems() })().catch(() => {})
+    setInterval(() => { if (live() && vvm() && homeState === 'idle' && !busy) syncMachine() }, 8000)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && live() && vvm() && !busy) { syncMachine(); collectItems() } })
+  }
   window.__saveSoon = () => setTimeout(() => { if (live()) saveGame() }, 200)
   // The app's exit button saves before it leaves.
   window.__saveNow = () => { if (live()) saveGame() }
@@ -6766,7 +6937,8 @@ async function run(id) {
     if (!tutorialDone) return
     for (let i = 0; i < 8; i++) if (!badges.includes(i)) badges.push(i)
     for (const m of party) { m.level = Math.max(m.level, 45); m.exp = 0; m.stats = statsAt(m, m.level); m.hp = m.stats.hp; learnAtLevel(m) }
-    wallet = Math.round((wallet + 10) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderTools()
+    if (!vvm()) wallet = Math.round((wallet + 10) * 100) / 100
+    $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderTools()
     feed('Skipped to the League: all 8 Johto badges, the party at Lv 45. ELITE FOUR TICKETS can now turn up on a stocked machine.')
   })
   // Testing: every party Pokémon goes up a level (as a real level-up would), and any evolution plays out.
@@ -6782,7 +6954,8 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+    rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
