@@ -189,7 +189,7 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
       const calls = window.__calls = []
       let balance = 10, owned = { potion: 2, move_disc: 1 }
       window.__vvmApi = {
-        async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance,
+        async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, battles: false,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
           supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null }] } },
         async balance() { return balance },
@@ -216,8 +216,10 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
     await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf && window.__vvm.bag.potion === 2, null, { timeout: 15000 })
     const start = await frame.evaluate(() => ({ wallet: document.getElementById('wallet').textContent, discs: Object.keys(window.__vvm.bag).filter((k) => k.startsWith('disc:')).length }))
     assert.equal(start.wallet, '10.00 tk', 'the wallet is the real balance'); assert.equal(start.discs, 1, 'a bought Move Disc became a disc in the Bag')
-    // Tap with nothing jumping out: the real machine is claimed and its shelf shown.
-    await frame.evaluate(() => { document.getElementById('nextTap').value = 'none'; document.getElementById('home').click() })
+    // Battles aren't live (an admin switch): no battle switch, and even a tap pinned to a wild Pokémon
+    // claims the real machine and shows its shelf.
+    assert.equal(await frame.evaluate(() => document.getElementById('bBattles').hidden), true)
+    await frame.evaluate(() => { document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click() })
     await frame.waitForSelector('[data-buy="set:base2"]', { timeout: 10000 }); await page.waitForTimeout(1200)   // the screen finishes fading in
     await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball']) document.querySelector(`[data-buy="${k}"]`).click() })
     await frame.evaluate(() => document.getElementById('cbGo').click())
@@ -230,6 +232,7 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
     assert.deepEqual(co.slice(1), [[{ set_code: 'base2', qty: 1 }], [], [{ key: 'great_ball', qty: 1 }]])
     assert.ok(calls.some((c) => c[0] === 'claim')); assert.ok(calls.some((c) => c[0] === 'awardPack' && c[1] === 'trainer'))
     assert.equal(await frame.evaluate(() => document.getElementById('wallet').textContent), '8.60 tk')
+    assert.equal(await frame.evaluate(() => getComputedStyle(document.getElementById('battleL')).display), 'none', 'no battle happened')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

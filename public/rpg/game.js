@@ -2955,9 +2955,13 @@ async function run(id) {
    */
   const BATTLES_KEY = 'vvm-battles' + (APP.uid ? ':' + APP.uid : '')
   let battlesOn = (() => { try { return localStorage.getItem(BATTLES_KEY) !== 'off' } catch { return true } })()
+  // In the app, until an admin makes battles live, members get the machine only (admins always have battles).
+  // Off until the real machine says otherwise, so nothing can jump out before it has answered.
+  let battlesAllowed = !APP.on
+  const battlesActive = () => battlesOn && battlesAllowed
   function paintBattles() {
     const b = $('bBattles'); if (!b) return
-    b.hidden = demo; b.classList.toggle('off', !battlesOn)
+    b.hidden = demo || !battlesAllowed; b.classList.toggle('off', !battlesOn)
     b.innerHTML = `⚔ BATTLES <b>${battlesOn ? 'ON' : 'OFF'}</b>`
     b.setAttribute('aria-pressed', String(battlesOn))
   }
@@ -3085,7 +3089,7 @@ async function run(id) {
     if (state === 'idle') {
       const other = typeof machine !== 'undefined' && machine.lockedBy && machine.lockedBy !== 'YOU' ? machine.lockedBy : null
       h.classList.toggle('inuse', !!other)
-      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesOn ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesOn ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
+      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesActive() ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesActive() || !battlesAllowed ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
       $('homeLoiterer').style.display = 'none'; $('supplies').innerHTML = ''; return
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
@@ -3126,6 +3130,7 @@ async function run(id) {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
     realShelf = m
+    if (battlesAllowed !== m.battles) { battlesAllowed = m.battles; paintBattles() }
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
     machine.state = st; $('machineState').value = st
@@ -3140,6 +3145,7 @@ async function run(id) {
   const isReal = (k) => /^(set|ticket|sup):/.test(k)
   /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
   function supNot(key) {
+    if ((key === 'gym_summon' || key === 'elite_ticket') && !battlesAllowed) return "battles aren't live yet"
     if (key === 'gym_summon') return nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
     if (key === 'elite_ticket') return champion ? "you're Champion" : badges.length < 8 ? 'needs all 8 Johto badges' : bag[summonKey('elite')] ? 'you have one' : ''
     return ''
@@ -3605,6 +3611,7 @@ async function run(id) {
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: s === 'elite' ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
       // The Elite Four ticket isn't spent here: only a loss, or beating Lance, uses it up.
+      if ((a.elite != null || a.challenge != null) && !battlesAllowed) { toast = "Battles aren't live yet."; toastBad = true; draw(); return }
       if (a.elite != null) { pendingSummon = 'elite'; sfx('select'); sheetCloser?.(); return }
       // Summon: spend it, close the sheet, and the leader turns up.
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
@@ -7016,7 +7023,7 @@ async function run(id) {
   paintBattles()
   $('home').onclick = guard(async () => {
     // Battles off: just the machine. Back to idle from any other screen; from idle, straight to it.
-    if (!battlesOn) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
+    if (!battlesActive()) return homeState !== 'idle' ? toIdle() : tapMachine({ enc: null })
     if (!tutorialDone) return first()
     // A scalper who beat you is still camping it; otherwise a state screen goes back to idle, and idle rolls a tap.
     if ($('homeLoiterer').style.display === 'block') return scalperEncounter(null, homeState)
