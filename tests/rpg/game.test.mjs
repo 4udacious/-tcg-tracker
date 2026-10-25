@@ -186,6 +186,30 @@ test('the Box: party to Box, Box to party, and a swap with a full party', async 
   } finally { await g.close() }
 })
 
+test('the Bag: medicine, balls, Move Discs and other in their own pockets', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    await page.evaluate(() => {
+      const m = individual(speciesByName('PIKACHU'), 10, Math.random); m.hp = m.stats.hp; window.__vvm.party.push(m)
+      discItem('TAILWIND'); Object.assign(window.__vvm.bag, { potion: 2, antidote: 1, ball: 3, great: 1, 'disc:TAILWIND': 1, thunderstone: 1 })
+      document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click()
+    })
+    await page.waitForSelector('#sheetBody [data-tab]')
+    const pocket = async (t) => {
+      await page.dispatchEvent(`#sheetBody [data-tab="${t}"]`, 'click'); await page.waitForTimeout(150)
+      return page.$$eval('#sheetBody .irow b', (bs) => bs.map((b) => b.textContent))
+    }
+    assert.deepEqual((await pocket('medicine')).sort(), ['ANTIDOTE', 'POTION'])
+    assert.deepEqual((await pocket('balls')).sort(), ['GREAT BALL', 'POKé BALL'])
+    assert.deepEqual(await pocket('discs'), ['TAILWIND'])
+    assert.deepEqual(await pocket('other'), ['THUNDER STONE'])
+    assert.match(await page.textContent('#sheetBody [data-tab="balls"]'), /4/, 'a pocket shows how many it holds')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: the real machine, checkout, packs and tokens go through the bridge', async () => {
   const g = await openGame()
   try {
