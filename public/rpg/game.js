@@ -4383,6 +4383,8 @@ async function run(id) {
     const n = pickOf(fresh.length ? fresh : mine.length ? mine : DISC_POOL)
     discItem(n); return n
   }
+  /** After an attack's announcement, presses this soon (ms) don't count yet: a double tap on the text isn't an early parry. */
+  const DEFEND_SETTLE_MS = 200
   /** How long a foe's move name stays up before its attack starts: time to read it and pick parry, dodge or jump. */
   const READ_MS = demo ? 850 : 1150
 
@@ -4901,6 +4903,7 @@ async function run(id) {
      * other Pokémon's spread move rolling into this one: jumping it dodges the
      * hit but earns no PP. Returns 'parry', 'dodge', 'jump' or 'miss'.
      */
+    let defendShownAt = 0   // when the last attack's announcement was moved on (see DEFEND_SETTLE_MS)
     async function defendHit(T, actor, mv, h, step, mult, ownPartner = false) {
       const dr = defendRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); if (T.mon.status === 'par') dr.wide *= 0.8
       // Every ring closes at its own speed, after a wind-up of its own (see attackPace).
@@ -4909,8 +4912,8 @@ async function run(id) {
       const approach = Math.round((mv.fast ? 640 : h === 0 ? 820 : 560) * dr.speed * vary)
       let first = null
       const auto = T.ally   // a partner's Pokémon: they defend it, and your presses don't count here
-      // Armed through the wind-up, so tapping early still counts as your press (and misses).
-      const armed = performance.now()
+      // Armed through the wind-up, so tapping early still counts as your press (and misses), after a moment's grace once the text is gone.
+      const armed = Math.max(performance.now(), defendShownAt + DEFEND_SETTLE_MS)
       const off = auto ? () => {} : listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
       if (auto) panel(null); else { panel('pDefend'); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed')) }
       if (windup) await W(windup)
@@ -4978,8 +4981,10 @@ async function run(id) {
       // A rampage (Outrage): 3 to 5 hits in a fast row on one target, then it's confused from the effort.
       const rampage = mv.rampage && !demo ? 3 + Math.floor(Math.random() * 3) : 0
       const hitsOf = rampage || (mv.hits ?? 1), mvHit = released ? { ...mv, fast: true } : mv
-      // The move's name stays up long enough to read it and decide.
+      // Only the dialogue while the move is announced (see the 1v1); the buttons come with the first ring.
+      panel(null)
       await announce(`${actor.owner ? `${actor.owner.short}'s ` : ''}${actor.mon.name} used`, `${mv.name}!${spread ? ' (hits all around it)' : ''}`, READ_MS)
+      defendShownAt = performance.now()
       let rings = 0, evaded = 0
       for (const T of targets) {
         let allParried = true, countered = 0
@@ -6905,8 +6910,8 @@ async function run(id) {
           : next === 'late' ? `Too late — ${me.name} takes the hit, and keeps the damage after the battle.`
           : 'Parry with A: a tight window, +1 PP. Hit it PERFECT for no damage and a counter.')
       }
-      panel('pDefend')
-      // The move's name stays up long enough to read it and decide.
+      // Only the dialogue while the move is announced: a tap there moves the text on, and can never land on PARRY.
+      panel(null)
       await announce(`${kind === 'trainer' ? '' : 'The wild '}${foe.name} used`, `${mv.name}!`, READ_MS)
       // Protect: hold B through the wind-up and let go as the ring closes (the demo's always holds).
       if (ST(me).protect) {
@@ -6922,6 +6927,8 @@ async function run(id) {
       const hits = rampage || (tell === 'double' ? (mv.hits ?? 1) + 1 : tell === 'lowHigh' ? 2 : mv.hits)
       const kindOf = (h) => (tell === 'lowHigh' ? (h === 0 ? 'low' : 'strike') : mv.kind)
       if (tell) { pop(TELL_LABEL[tell], C.e.x - 10, C.e.y - 86, 'orange'); sfx('blocked'); await W(350) }
+      // Now the buttons. Presses in their first moments (a quick double tap on the text) don't count as an early miss.
+      panel('pDefend'); const shownAt = performance.now()
       let allParried = true, evaded = 0, countered = 0
       for (let h = 0; h < hits; h++) {
         const kind_ = kindOf(h), feint = tell === 'feint' && h === 0 ? 450 : 0   // a feint holds the ring still this long
@@ -6933,7 +6940,7 @@ async function run(id) {
         const base = released ? 560 : rampage && h ? 400 : mv.fast ? 640 : h === 0 ? 860 : 560   // a released charge and a rampage's follow-ups come fast
         const approach = Math.round(base * (trainer?.hard ? trainer.ringFast ?? 0.8 : 1) * dr.speed * vary * quick)
         // Armed through the wind-up, so tapping early still counts as your press (and misses).
-        const armed = performance.now()
+        const armed = Math.max(performance.now(), shownAt + DEFEND_SETTLE_MS)
         let first = null
         const off = listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
         document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed'))

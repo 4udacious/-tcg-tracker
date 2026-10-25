@@ -42,6 +42,8 @@ export async function openGame({ mode } = {}) {
     want: [],
     /** One action: whatever the screen is asking for. */
     async step() {
+      // The defend buttons must never show while an announcement waits for a tap (a tap there would be a parry).
+      if (await page.evaluate(() => document.getElementById('msg')?.classList.contains('wait') && document.getElementById('pDefend')?.style.display === 'block')) log.push('BUG: defend buttons shown under a waiting announcement')
       const st = await page.evaluate((want) => {
         const b = document.getElementById('bStrike')
         const shown = (el) => el && el.closest('.panel')?.style.display !== 'none' && el.offsetParent
