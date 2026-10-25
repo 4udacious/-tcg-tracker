@@ -416,7 +416,7 @@ function chordPcs(name) {
 }
 const PC_NAME = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 /** A whole passage moved by some semitones (notes keep their articulation marks; chords keep their quality). */
-const transpose = (track, k) => track.map((n) => { if (n === '.' || n === '-') return n; const [, b, art] = /^(.+?)([~^v]?)$/.exec(n), m = MIDI(b) + k; return PC_NAME[m % 12] + (Math.floor(m / 12) - 1) + art })
+const transpose = (track, k) => track.map((n) => { if (n === '.' || n === '-') return n; const [, b, art] = /^(.+?)([~^v!]?)$/.exec(n), m = MIDI(b) + k; return PC_NAME[m % 12] + (Math.floor(m / 12) - 1) + art })
 const transposeChords = (cs, k) => cs.map((c) => { const [, r, q] = /^([A-G][#b]?)(.*)$/.exec(c); return PC_NAME[(MIDI(r + '4') + k) % 12] + q })
 Object.assign(SONGS.vs, { chordLen: 8, chords: 'Em Em Em'.split(' ') })
 Object.assign(SONGS.battle, { chordLen: 8, chords: 'Am F G E Am F G E'.split(' '), arp: true })
@@ -780,6 +780,14 @@ const INST = {
     }
     g.connect(ch)
   },
+  /** Low strings (cellos and basses together): dark saws and a sine an octave down, bowed hard at the start. */
+  lowstrings(ac, ch, t, f, dur, v) {
+    const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = Math.min(1800, f * 7); flt.Q.value = 0.8
+    const end = adsr(g.gain, t, dur * 0.95, 0.36 * v, 0.012, 0.12, 0.7, 0.08)
+    for (const det of [-9, 8]) oscAt(ac, 'sawtooth', f, t, end, det).connect(flt)
+    const sub = oscAt(ac, 'sine', f / 2, t, end), sg = ac.createGain(); sg.gain.value = 0.6; sub.connect(sg).connect(g)
+    flt.connect(g).connect(ch)
+  },
   /** Synth bass: saw and sine sub, a resonant filter that snaps shut. */
   bass(ac, ch, t, f, dur, v) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 4
@@ -1078,15 +1086,16 @@ function schedulePart(ac, out, song, t0) {
   }
   const chordAt = (i) => song.chords ? chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]) : null
   const play = (name, ch, t, m, d, v, art) => at(t, () => INST[name](ac, ch, t, HZ(m), d, v, art))
-  /** A lead token: its pitch, and its articulation mark if it has one ('~' trill, '^' scoop, 'v' fall). */
-  const tok = (n) => { const [, b, art] = /^(.+?)([~^v]?)$/.exec(n); return [MIDI(b), art] }
+  /** A lead token: its pitch, and its articulation mark if it has one ('~' trill, '^' scoop, 'v' fall, '!' staccato: short and accented). */
+  const tok = (n) => { const [, b, art] = /^(.+?)([~^v!]?)$/.exec(n); return [MIDI(b), art] }
   const hit = (c, t, v) => at(t, () => KIT[c](ac, M, t, v))
   const lastLead = song.lead.reduce((k, n, i) => (n !== '.' && n !== '-' ? i : k), 0)
 
   // Lead melody.
-  each(song.lead, (t, n, d, i) => {
+  each(song.lead, (t, n, d0, i) => {
     const [base, art] = tok(n), m = base + (song.leadOct ?? 0) * 12
-    play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85), art)
+    const d = art === '!' ? Math.min(d0, step * 0.85) : d0   // staccato: clipped short
+    play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85) * (art === '!' ? 1.15 : 1), art)
     // A second instrument on the melody, an octave up (or wherever leadDoubleOct says), quieter: the unison lines battle themes are built on.
     if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12 * (song.leadDoubleOct ?? 1), d, song.leadDoubleVel ?? 0.32, art)
     // Or several: [instrument, octaves, velocity] each (violins above and low brass below, say).
@@ -1107,11 +1116,26 @@ function schedulePart(ac, out, song, t0) {
   for (const [pat, inst, ch, lo, len, vel] of [[song.clav, 'clav', M.keys, 58, 0.8, 0.8], [song.stabs, 'brass', M.harm, 55, 1.3, 0.7]]) {
     if (pat) for (let i = 0; i < song.lead.length; i++) if (pat[i % pat.length] === 'x') for (const m of chordAround(i, lo)) play(inst, ch, T(i), m, step * len, vel)
   }
-  // Piano runs: a bar-long sweep through the chord across four octaves, one letter a bar ('u' up, 'd' down, 'w' up and back, '.' none).
+  // String tremolo: the strings shaking between the chord's notes, two to a step, wherever a bar is marked 'x'.
+  if (song.trem) for (let b = 0; b * song.chordLen < song.lead.length; b++) {
+    if (song.trem[b % song.trem.length] !== 'x') continue
+    const n = Math.min(song.chordLen, song.lead.length - b * song.chordLen), tones = chordAt(b * song.chordLen).slice(0, 3).map((pc) => 60 + ((pc - 60) % 12 + 12) % 12).sort((a, c) => a - c)
+    for (let k = 0; k < n * 2; k++) {
+      const t = T(b * song.chordLen) + k * step / 2
+      for (const m of k % 2 ? [tones[1], tones[2] + 12] : [tones[0], tones[2]]) play('violins', M.pad, t, m, step * 0.48, 0.34)
+    }
+  }
+  // Piano runs: a bar-long sweep through the chord across four octaves, one letter a bar ('u' up, 'd' down, 'w' up and back, '.' none),
+  // or 'f', a flourish: eight quick notes ripping up through the chord in the bar's last beat, into the next downbeat.
   if (song.runs) for (let b = 0; b * song.chordLen < song.lead.length; b++) {
     const kind = song.runs[b % song.runs.length], n = Math.min(song.chordLen, song.lead.length - b * song.chordLen); if (kind === '.') continue
     const pcs = chordAt(b * song.chordLen), tones = []
     for (let m = 48; m <= 96; m++) if (pcs.includes(m % 12)) tones.push(m)
+    if (kind === 'f') {
+      const hi = tones.filter((m) => m >= 72), t1 = T(b * song.chordLen + n - song.div)
+      for (let k = 0; k < 8; k++) play('piano', M.keys, t1 + k * step * song.div / 8, hi[Math.min(hi.length - 1, k)], step * 0.6, 0.55 + k * 0.06)
+      continue
+    }
     for (let k = 0; k < n; k++) {
       const x = kind === 'u' ? k / (n - 1) : kind === 'd' ? 1 - k / (n - 1) : 1 - Math.abs(2 * k / (n - 1) - 1)
       const m = tones[Math.round(x * (tones.length - 1))]
@@ -1149,7 +1173,9 @@ function schedulePart(ac, out, song, t0) {
   // Bass: the written line; on pulse songs, an extra eighth-note pulse on the root.
   each(song.bass, (t, n, d, i) => {
     if (song.pulse && d > step * 1.5) { for (let k = 0; k < d / step - 0.5; k++) play('bass', M.bass, t + k * step, MIDI(n), step * 0.8, k ? 0.6 : 1) }
-    else play('bass', M.bass, t, MIDI(n), d, 1)
+    else play(song.bassInst ?? 'bass', M.bass, t, MIDI(n), d, 1)
+    // Other instruments on the bass line ([instrument, octaves, velocity]): piano octaves over low strings, say.
+    for (const [inst, oct, vel] of song.bassDoubles ?? []) play(inst, M.keys, t, MIDI(n) + 12 * oct, d, vel)
   })
   // Drums, as written; then sixteenth-note hats between the steps, and a tom fill closing the loop.
   const fillFrom = song.fill ? song.drums.length - song.fill.length : Infinity
@@ -1444,54 +1470,65 @@ SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8, leadIn
 
 /*
  * The Champion's battle, second version (the first is SONGS.championClassic).
- * The last fight in the game, written to be the most heroic: fast, in
- * E-flat major (after the Champion's intro in E-flat), with big brass and
- * sweeping piano runs.
- *   - The main theme is brass, doubled by violins an octave above and low
- *     brass an octave below, with brass stabs on the chords. Under it, the
- *     piano sweeps through each chord across four octaves, and the bass
- *     gallops (one long, two short).
- *   - The harmony lifts on purpose: through C MAJOR (E natural) into F minor
- *     in the theme, and in the middle a C minor section over a bass that
- *     walks down by steps (Cm G/B Bb F/A Ab Eb/G Fm G7), with an organ.
- *   - The last time round, the theme comes back a whole step up, in F major,
- *     then turns on B-flat 7 to start again in E-flat.
- * 180 bpm, sixteenth-note grid, 16 steps a bar: a 5 s intro, then a 32 s loop.
+ * Dark: F minor, piano-led over the orchestra, the last fight in the game.
+ * Written in the manner of a dark piano score the owner shared (none of its
+ * notes or progression are used): a piano figure rising over a low pedal, a
+ * hammered motif, the harmonic minor's E natural and the Neapolitan G-flat,
+ * tremolo strings under the loudest chords, a quiet passage over a churning
+ * bass, quick runs ripping up into stabs, and a chromatic slide of chords
+ * down to the dominant.
+ *   - Intro: the piano rises through the chords over a held low F, choir and
+ *     timpani underneath.
+ *   - The hammer: the piano and low brass strike one note again and again,
+ *     leaning on the semitone above (C and D-flat, A-flat and B-flat...),
+ *     strings in tremolo, the bass pounding in octaves.
+ *   - The Neapolitan: G-flat major, D-flat, a diminished seventh on E, big
+ *     brass lines over the tremolo.
+ *   - The storm: hushed, a sixteenth-note bass churning around F with its
+ *     leading tone, the piano ripping up into stabs, timpani rolling louder.
+ *   - The slide: chords sliding down by semitones (F minor, E, E-flat, D,
+ *     D-flat) onto C, over a C pedal, and back to the hammer.
+ * 160 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a 42 s loop.
  */
 SONGS.championClassic = SONGS.champion
-/** A bar of galloping bass: on every beat a long note then two short ones; beats 2 and 4 an octave up. */
-const heroGallop = (n) => { const hi = transpose([n], 12)[0]; return `${n} . ${n} ${n} ${hi} . ${hi} ${hi} ${n} . ${n} ${n} ${hi} . ${hi} ${hi}` }
-const CH3_THEME = {
-  chords: 'Eb Gm Ab Bb C Fm Ab Bb7'.split(' '), runs: 'u d u d u d u w'.split(' '),
-  lead: bars('Eb5^ . . . . . Bb4 . Eb5 . G5 . Bb5 . . .', 'D6 . . . . . Bb5 . G5 . . . D5 . . .',
-    'Eb6 . . . C6 . . . Ab5 . . . C6 . Eb6 .', 'F6 . . . . . . . D6 . . . Bb5 . . .',
-    'G6^ . . . . . E6 . C6 . . . G5 . . .', 'Ab6 . . . . . F6 . C6 . . . Ab5 . . .',
-    'C6 . . . Eb6 . . . Ab6 . . . Eb6 . C6 .', 'D6~ . . . . . . . . . . . F5 G5 Ab5 Bb5'),
-  bass: bars(heroGallop('Eb2'), heroGallop('G1'), heroGallop('Ab1'), heroGallop('Bb1'), heroGallop('C2'), heroGallop('F1'), heroGallop('Ab1'), heroGallop('Bb1')),
-  drums: 'K.hhS.hhK.KhS.hh'.repeat(7) + 'K.hhS.hhSSSSTTtt' }
-SONGS.champion = { file: null, loop: true, bpm: 180, div: 4, chordLen: 16,
-  leadInst: 'brass', doubles: [['violins', 1, 0.34], ['brass', -1, 0.4]], harmInst: 'brass', padInst: 'strings',
-  stabs: '......x.......x.', comp: false, glock: false, hats16: false, power: false, crash: true, fill: '',
-  intro: { chords: 'Eb Cm Ab Bb'.split(' '), runs: 'u d u w'.split(' '), stabs: '', doubles: [['brass', -1, 0.45], ['bells', 1, 0.3]],
-    lead: bars('Eb5 . . Bb4 . . Eb5 . G5 . . . Bb5 . . .', 'C6 . . G5 . . Eb5 . C5 . . . G5 . . .',
-      'Ab5 . . C6 . . Eb6 . Ab6 . . . Eb6 . C6 .', 'Bb5~ . . . . . . . D6 . . . F6 . . .'),
-    bass: bars('Eb2 . . . . . . . Eb2 . . . . . . .', 'C2 . . . . . . . C2 . . . . . . .', 'Ab1 . . . . . . . Ab1 . . . . . . .', 'Bb1 . . . . . . . Bb1 . Bb1 Bb1 Bb1 . Bb1 Bb1'),
-    drums: 'P.......P.......' + 'P.......P.......' + 'P.......P...P.P.' + 'PPPPPPPPSSSSSSSS' },
+/** A bar of the hammer: three struck notes, the semitone above held, three more. */
+const hammer = (x, up) => `${x}! - ${x}! - ${x}! - ${up} . . . ${x}! - ${x}! - ${x}! -`
+/** A bar of pounding bass octaves, in eighths. */
+const octs = (n) => { const hi = transpose([n], 12)[0]; return Array(8).fill(0).map((_, k) => (k % 2 ? `${hi} .` : `${n} .`)).join(' ') }
+/** A bar of churning sixteenths around a note: its neighbours, down to the leading tone and back. */
+const churn = (n) => transpose(Array(16).fill(n), 0).map((x, k) => transpose([x], [0, 2, 3, 2, 0, -1, 0, 2, 3, 5, 3, 2, 0, -1, -4, -1][k])[0]).join(' ')
+SONGS.champion = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 1.15,
+  leadInst: 'piano', leadVel: 1.15, doubles: [['brass', -1, 0.42]], harmInst: 'strings', padInst: 'choir',
+  bassInst: 'lowstrings', bassDoubles: [['piano', 1, 0.5]], comp: false, glock: false, hats16: false, power: false, crash: true, fill: '',
+  intro: { chords: 'Fm Db Bbm C7'.split(' '), doubles: [], bassDoubles: [], ostinato: '0 - 1 - 2 - 3 - 1 - 2 - 3 - 2 -'.split(' '), ostinatoOct: 0,
+    lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', '- - - - - - - - E5 . . . G5 . C6 .'),
+    bass: bars('F1 . . . . . . . . . . . . . . .', 'F1 . . . . . . . . . . . . . . .', 'F1 . . . . . . . . . . . . . . .', 'C2 . . . . . . . C2 . . . C2 . . .'),
+    drums: 'P...............' + 'P...............' + 'P.......P.......' + 'P...P...PPPPSSSS', runs: '. . . f'.split(' ') },
   sections: [
-    { ...CH3_THEME },
-    { // C minor, the bass walking down by steps; organ under it all
-      chords: 'Cm G Bb F Ab Eb Fm G7'.split(' '), runs: 'w w w w w w w u'.split(' '), padInst: 'organ', stabs: '....x.......x...',
-      lead: bars('G5 . . . C6 . . . Eb6 . . . C6 . D6 .', 'D6 . . . . . . . B5 . . . G5 . . .',
-        'F6 . . . . . D6 . Bb5 . . . F5 . . .', 'C6 . . . . . A5 . F5 . . . A5 . C6 .',
-        'Eb6 . . . . . C6 . Ab5 . . . C6 . Eb6 .', 'G6 . . . . . Eb6 . Bb5 . . . G5 . Bb5 .',
-        'Ab6 . . . . . F6 . C6 . . . F6 . Ab6 .', 'B6~ . . . . . . . G6 . . . F6 . D6 .'),
-      bass: bars(heroGallop('C2'), heroGallop('B1'), heroGallop('Bb1'), heroGallop('A1'), heroGallop('Ab1'), heroGallop('G1'), heroGallop('F1'), heroGallop('G1')),
-      drums: 'K.hhS.hhK.KhS.hh'.repeat(7) + 'K.hhS.hhPPPPSSSS' },
-    { // The theme a whole step up, F major, turning on B-flat 7 to start again
-      ...CH3_THEME,
-      chords: [...transposeChords(CH3_THEME.chords.slice(0, 7), 2), 'Bb7'],
-      lead: [...transpose(CH3_THEME.lead.slice(0, 112), 2), ...bars('D6~ . . . . . . . . . . . F5 G5 Ab5 Bb5')],
-      bass: [...transpose(CH3_THEME.bass.slice(0, 112), 2), ...bars(heroGallop('Bb1'))] },
+    { // The hammer
+      chords: 'Fm Fm Db Db Bbm C7 Fm C7'.split(' '), trem: '. . x x x x . x'.split(' '), runs: '. . . f . . . f'.split(' '),
+      lead: bars(hammer('C5', 'Db5'), hammer('C5', 'Db5'), hammer('Ab4', 'Bb4'), 'Ab5! - Ab5! - F5! - Db5 . . . F5! - Ab5! - C6! -',
+        hammer('F5', 'Gb5'), hammer('E5', 'F5'), 'F5! - Ab5! - C6! - F6 . . . Eb6! - C6! - Ab5! -', 'G5 . . . E5 . . . C5 . . . Bb4 . . .'),
+      bass: bars(octs('F1'), octs('F1'), octs('Db2'), octs('Db2'), octs('Bb1'), octs('C2'), octs('F1'), octs('C2')),
+      drums: 'K.h.S.h.K.h.S.hK'.repeat(7) + 'K.h.S.h.SSSSPPPP' },
+    { // The Neapolitan: G-flat, D-flat, a diminished seventh on E
+      chords: 'Gb Gb Db C7 Fm Gb Edim7 C7'.split(' '), trem: 'x x x x x x x x'.split(' '), runs: '. . . f . . . f'.split(' '), doubles: [['brass', -1, 0.5], ['violins', 1, 0.3]],
+      lead: bars('Gb5^ . . . . . . . Bb5 . . . Db6 . . .', 'Gb6 . . . Db6 . . . Bb5 . . . Gb5 . . .', 'Ab5 . . . . . F5 . Db5 . . . F5 . Ab5 .', 'G5~ . . . . . . . E5 . . . Bb5 . . .',
+        'C6 . . . . . Ab5 . F5 . . . Ab5 . C6 .', 'Db6 . . . . . Bb5 . Gb5 . . . Bb5 . Db6 .', 'Db6 . . . Bb5 . . . G5 . . . E5 . . .', 'C6 . . . . . . . - - - - - - - -'),
+      bass: bars('Gb1 . . . . . . . Gb1 . . . Gb2 . . .', 'Gb1 . . . . . . . Gb1 . . . Db2 . . .', 'Db2 . . . . . . . Db2 . . . Ab1 . . .', 'C2 . . . . . . . C2 . . . G1 . . .',
+        'F1 . . . . . . . F1 . . . C2 . . .', 'Gb1 . . . . . . . Gb1 . . . Db2 . . .', 'E1 . . . . . . . E1 . . . G1 . . .', 'C2 . . . . . . . C2 . C2 . C2 . C2 .'),
+      drums: 'K.......S.......'.repeat(3) + 'K...S...P.P.P.P.' + 'K.......S.......'.repeat(3) + 'PPPPPPPPSSSSSSSS' },
+    { // The storm: hushed, churning bass, the piano ripping up into stabs
+      chords: 'Fm Fm Db Db Bbm Bbm C7 C7'.split(' '), doubles: [], bassDoubles: [['piano', 1, 0.35]], padInst: 'strings', crash: false, runs: '. f . f . f . f'.split(' '), leadVel: 0.95,
+      lead: bars('- - - - - - - - - - - - - - - -', 'F6! - - - - - - - - - - - C6! - - -', '- - - - - - - - - - - - - - - -', 'F6! - - - - - - - - - - - Ab6! - - -',
+        '- - - - - - - - - - - - - - - -', 'F6! - - - - - - - - - - - Db6! - - -', '- - - - - - - - - - - - - - - -', 'E6! - - - G6! - - - Bb6! - - - C7! - - -'),
+      bass: bars(churn('F2'), churn('F2'), churn('Db2'), churn('Db2'), churn('Bb1'), churn('Bb1'), churn('C2'), churn('C2')),
+      drums: 'P...............'.repeat(4) + 'P.......P.......'.repeat(2) + 'P...P...P...P...' + 'PPPPPPPPSSSSSSSS' },
+    { // The slide: chords sliding down by semitones over a C pedal, onto C
+      chordLen: 8, chords: 'Fm E Eb D Db C C7 C7'.split(' '), trem: 'x x x x'.split(' '), doubles: [['brass', -1, 0.5], ['violins', 1, 0.3]],
+      lead: bars('F6 . . . . . . . E6 . . . . . . .', 'Eb6 . . . . . . . D6 . . . . . . .', 'Db6 . . . . . . . C6 . . . . . . .', 'C6~ . . . . . . . . . . . - - - -'),
+      bass: bars(octs('C2'), octs('C2'), octs('C2'), 'C2 . . . . . . . C2 . . . . . . .'),
+      drums: 'K.h.S.h.K.h.S.hK'.repeat(3) + 'K...S...SSSSPPPP' },
   ] }
 
 /** Which intro plays under each League member's words. */
