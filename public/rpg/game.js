@@ -73,7 +73,7 @@ const SFX = {
 const SONGS = {
   vs: { file: null, loop: false, bpm: 152, div: 4,
     lead: 'E4 G4 B4 E5 G4 B4 E5 G5 B4 E5 G5 B5 E5 G5 B5 E6 . . . . . . . -'.split(' '),
-    bass: 'E2 . . . . . . . E2 . . . . . . . E3 . . . . . . . -'.split(' '),
+    bass: 'E2 . . . . . . . E2 . . . . . . . E3 . . . . . . .'.split(' '),
     drums: 'S.S.S.S.SSSSSSSSC.......' },
   battle: { file: null, loop: true, bpm: 152, div: 2,
     lead: [
@@ -407,11 +407,17 @@ const MAGIKARP = [{ name: 'SPLASH', splash: true }, S_('TACKLE', 'normal', 40, '
    drums. The lead gets a second, slightly detuned voice and a short echo. */
 const MIDI = (n) => { const m = /^([A-G])(#|b)?(-?\d)$/.exec(n); return 12 * (+m[3] + 1) + { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) }
 const HZ = (m) => 440 * Math.pow(2, (m - 69) / 12)
-/** 'Am', 'G7', 'F#m', 'B' -> pitch classes, root first. */
+/** 'Am', 'G7', 'F#m', 'B', 'F#mmaj7', 'D#dim' -> pitch classes, root first. */
 function chordPcs(name) {
-  const m = /^([A-G][#b]?)(m)?(7)?$/.exec(name), root = MIDI(m[1] + '4') % 12
-  return [0, m[2] ? 3 : 4, 7, ...(m[3] ? [10] : [])].map((i) => (root + i) % 12)
+  const m = /^([A-G][#b]?)(m|dim|aug)?(maj7|7)?$/.exec(name), root = MIDI(m[1] + '4') % 12
+  const triad = { m: [0, 3, 7], dim: [0, 3, 6], aug: [0, 4, 8] }[m[2]] ?? [0, 4, 7]
+  const seventh = m[3] === 'maj7' ? [11] : m[3] ? [m[2] === 'dim' ? 9 : 10] : []
+  return [...triad, ...seventh].map((i) => (root + i) % 12)
 }
+const PC_NAME = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+/** A whole passage moved by some semitones (notes keep their articulation marks; chords keep their quality). */
+const transpose = (track, k) => track.map((n) => { if (n === '.' || n === '-') return n; const [, b, art] = /^(.+?)([~^v!]?)$/.exec(n), m = MIDI(b) + k; return PC_NAME[m % 12] + (Math.floor(m / 12) - 1) + art })
+const transposeChords = (cs, k) => cs.map((c) => { const [, r, q] = /^([A-G][#b]?)(.*)$/.exec(c); return PC_NAME[(MIDI(r + '4') + k) % 12] + q })
 Object.assign(SONGS.vs, { chordLen: 8, chords: 'Em Em Em'.split(' ') })
 Object.assign(SONGS.battle, { chordLen: 8, chords: 'Am F G E Am F G E'.split(' '), arp: true })
 Object.assign(SONGS.encounter, { chordLen: 4, chords: 'Em Em Em Em C D Em B'.split(' '), arp: true })
@@ -554,6 +560,7 @@ const CHANNELS = {   // gain, stereo position, reverb send
   hat:   { g: 0.20, pan: 0.30,  rev: 0.06 },
   cym:   { g: 0.22, pan: -0.15, rev: 0.25 },
   tom:   { g: 0.45, pan: -0.2,  rev: 0.15 },
+  gtr:   { g: 0.30, pan: 0.38,  rev: 0.10 },
 }
 function mixer(ac, out, vol = 1) {
   if (out.__mix) return out.__mix
@@ -586,9 +593,32 @@ function adsr(param, t, dur, peak, a, d, s, r) {
   param.setTargetAtTime(0, off, r / 3)
   return off + r * 2
 }
+/**
+ * Lead articulations, on an oscillator playing `f`: a scoop '^' (it starts a
+ * whole step flat and slides up, as brass players do into a big note), a
+ * trill '~' (it alternates with the whole step above, then settles) or a
+ * fall 'v' (it drops away at the end).
+ */
+function articulate(o, f, t, dur, art) {
+  if (art === '^') { o.frequency.setValueAtTime(f * 0.89, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.085) }
+  // A fall: the note drops off at its end, as a sax or a trumpet does.
+  if (art === 'v') { const from = t + Math.max(0.06, dur * 0.6); o.frequency.setValueAtTime(f, from); o.frequency.exponentialRampToValueAtTime(f * 0.7, t + dur + 0.04) }
+  if (art === '~') {
+    const up = f * 1.1225, end = t + dur - 0.05
+    for (let k = 0, x = t + 0.07; x < end; k++, x += 0.058) o.frequency.setValueAtTime(k % 2 ? f : up, x)
+    o.frequency.setValueAtTime(f, Math.max(t, end))
+  }
+}
+/** A soft-clipping curve for the guitar's overdrive, made once per context. */
+function driveCurve(ac) {
+  if (ac.__drive) return ac.__drive
+  const n = 1024, c = new Float32Array(n)
+  for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(x * 5.5) / Math.tanh(5.5) }
+  return (ac.__drive = c)
+}
 const INST = {
   /** Brass: two detuned saws and a quiet sub, through a filter that opens with a bite, plus delayed vibrato. */
-  brass(ac, ch, t, f, dur, v) {
+  brass(ac, ch, t, f, dur, v, art) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 1.4
     const end = adsr(g.gain, t, dur, 0.22 * v, 0.018, 0.14, 0.72, 0.09)
     flt.frequency.setValueAtTime(f * 1.3, t); flt.frequency.linearRampToValueAtTime(Math.min(9000, f * 9), t + 0.045)
@@ -598,12 +628,13 @@ const INST = {
     lfo.connect(lg)
     for (const [type, mul, det, gain] of [['sawtooth', 1, -6, 1], ['sawtooth', 1, 6, 1], ['square', 0.5, 0, 0.35]]) {
       const o = oscAt(ac, type, f * mul, t, end, det), og = ac.createGain(); og.gain.value = gain
+      articulate(o, f * mul, t, dur, art)
       lg.connect(o.frequency); o.connect(og).connect(flt)
     }
     flt.connect(g).connect(ch)
   },
   /** Synth lead: two detuned squares an octave apart, a quick filter blip, and fast vibrato. Unmistakably digital. */
-  synth(ac, ch, t, f, dur, v) {
+  synth(ac, ch, t, f, dur, v, art) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 3
     const end = adsr(g.gain, t, dur, 0.16 * v, 0.006, 0.1, 0.8, 0.06)
     flt.frequency.setValueAtTime(Math.min(10000, f * 10), t); flt.frequency.setTargetAtTime(Math.min(7000, f * 5), t + 0.01, 0.06)
@@ -611,6 +642,7 @@ const INST = {
     lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.01, t + Math.min(0.25, dur * 0.7)); lfo.connect(lg)
     for (const [mul, det, gain] of [[1, -8, 1], [1, 8, 0.8], [2, 0, 0.25]]) {
       const o = oscAt(ac, 'square', f * mul, t, end, det), og = ac.createGain(); og.gain.value = gain
+      articulate(o, f * mul, t, dur, art)
       lg.connect(o.frequency); o.connect(og).connect(flt)
     }
     flt.connect(g).connect(ch)
@@ -639,6 +671,122 @@ const INST = {
     const car = oscAt(ac, 'sine', f, t, end), m = oscAt(ac, 'sine', f * 3.5, t, end), i = ac.createGain()
     i.gain.setValueAtTime(f * 1.6, t); i.gain.exponentialRampToValueAtTime(f * 0.05, t + 0.25)
     m.connect(i).connect(car.frequency); car.connect(g).connect(ch)
+  },
+  /**
+   * Overdriven guitar, palm-muted: a power chord (root, fifth, octave) of
+   * detuned saws, soft-clipped, then a speaker-cabinet band (no fizz, no mud).
+   */
+  power(ac, ch, t, f, dur, v) {
+    const pre = ac.createGain(); pre.gain.value = 0.55
+    const sh = ac.createWaveShaper(); sh.curve = driveCurve(ac); sh.oversample = '2x'
+    const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 95
+    const cab = ac.createBiquadFilter(); cab.type = 'lowpass'; cab.frequency.value = 2900; cab.Q.value = 0.9
+    const mid = ac.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 900; mid.gain.value = 4; mid.Q.value = 0.8
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.2 * v, 0.003, 0.09, 0.55, 0.05)
+    for (const [mul, det] of [[1, -5], [1, 5], [1.4983, -4], [2, 3]]) oscAt(ac, 'sawtooth', f * mul, t, end, det).connect(pre)
+    pre.connect(sh).connect(hp).connect(mid).connect(cab).connect(g).connect(ch)
+  },
+  /**
+   * Piano: six partials, slightly stretched as real strings are, each dying
+   * away faster the higher it is, and a felt-hammer knock at the start.
+   */
+  piano(ac, ch, t, f, dur, v) {
+    const len = Math.max(0.4, Math.min(1.8, dur * 2.2)), end = t + len + 0.05
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.26 * v, t + 0.003)
+    g.gain.setTargetAtTime(0, t + len - 0.12, 0.05)
+    for (const [n, amp] of [[1, 1], [2, 0.5], [3, 0.28], [4, 0.17], [5, 0.1], [6, 0.06]]) {
+      const o = oscAt(ac, 'sine', f * n * Math.sqrt(1 + 0.0004 * n * n), t, end), pg = ac.createGain()
+      pg.gain.setValueAtTime(amp, t); pg.gain.exponentialRampToValueAtTime(amp * 0.002, t + Math.min(len, 1.6 / (0.6 + n * 0.5)))
+      o.connect(pg).connect(g)
+    }
+    noiseHit(ac, g, t, { type: 'bandpass', f: Math.min(4000, f * 3), q: 1, len: 0.02, vol: 0.25 })
+    g.connect(ch)
+  },
+  /**
+   * Choir, singing "ah": detuned saws through the vowel's formants (the
+   * resonances of a voice), with a slow swell and a gentle vibrato.
+   */
+  choir(ac, ch, t, f, dur, v) {
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.4 * v, Math.min(0.35, dur * 0.5), 0.4, 0.9, 0.4)
+    const lfo = oscAt(ac, 'sine', 4.8, t, end), lg = ac.createGain(); lg.gain.value = f * 0.005; lfo.connect(lg)
+    const src = ac.createGain()
+    for (const det of [-11, 0, 12]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); lg.connect(o.frequency); o.connect(src) }
+    for (const [ff, q, amp] of [[730, 6, 1], [1150, 7, 0.55], [2650, 8, 0.18]]) {
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = q
+      const fg = ac.createGain(); fg.gain.value = amp; src.connect(bp).connect(fg).connect(g)
+    }
+    g.connect(ch)
+  },
+  /** A violin section: detuned saws, a quick bow attack, bright, with vibrato that comes in as the note holds. */
+  violins(ac, ch, t, f, dur, v, art) {
+    const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = Math.min(7500, f * 6); flt.Q.value = 0.7
+    const end = adsr(g.gain, t, dur, 0.13 * v, 0.03, 0.2, 0.85, 0.12)
+    const lfo = oscAt(ac, 'sine', 5.8, t, end), lg = ac.createGain()
+    lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.008, t + Math.min(0.4, dur * 0.8)); lfo.connect(lg)
+    for (const det of [-12, -4, 5, 13]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(flt) }
+    flt.connect(g).connect(ch)
+  },
+  /**
+   * Saxophone: a reedy saw-and-square tone through the horn's resonances, a
+   * breath of air on the attack, a growl (a fast flutter in the level) and
+   * vibrato once the note holds.
+   */
+  sax(ac, ch, t, f, dur, v, art) {
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.17 * v, 0.025, 0.15, 0.8, 0.07)
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(6000, f * 5.5); lp.Q.value = 1
+    const pk = ac.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 1400; pk.gain.value = 7; pk.Q.value = 1.1
+    const lfo = oscAt(ac, 'sine', 5.2, t, end), lg = ac.createGain()
+    lg.gain.setValueAtTime(0, t); lg.gain.setValueAtTime(0, t + Math.min(0.22, dur * 0.5)); lg.gain.linearRampToValueAtTime(f * 0.009, t + Math.min(0.5, dur * 0.9)); lfo.connect(lg)
+    const growl = ac.createGain(); growl.gain.value = 1
+    const gl = oscAt(ac, 'sine', 31, t, end), gd = ac.createGain(); gd.gain.value = 0.16; gl.connect(gd).connect(growl.gain)
+    for (const [type, gain, det] of [['sawtooth', 1, -4], ['square', 0.45, 4]]) {
+      const o = oscAt(ac, type, f, t, end, det), og = ac.createGain(); og.gain.value = gain
+      articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(og).connect(lp)
+    }
+    noiseHit(ac, lp, t, { type: 'bandpass', f: Math.min(5000, f * 3), q: 0.8, len: 0.06, vol: 0.12 })
+    lp.connect(pk).connect(growl).connect(g).connect(ch)
+  },
+  /** Clavinet: a bright, buzzy pluck through an envelope filter that snaps shut ("wah"), very short. */
+  clav(ac, ch, t, f, dur, v) {
+    const len = Math.max(0.09, Math.min(0.28, dur)), end = t + len + 0.03
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.001, t + len)
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.5
+    bp.frequency.setValueAtTime(Math.min(6000, f * 9), t); bp.frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.09)
+    oscAt(ac, 'square', f, t, end, 3).connect(bp); const o2 = oscAt(ac, 'sawtooth', f * 2, t, end), o2g = ac.createGain(); o2g.gain.value = 0.35; o2.connect(o2g).connect(bp)
+    bp.connect(g).connect(ch)
+  },
+  /**
+   * Pipe organ: sine "drawbars" (the sub-octave, the fundamental and its
+   * harmonics up to the 8th), a steady level with a breath of air at the
+   * start, and a slow tremulant. Holds as long as the note does.
+   */
+  organ(ac, ch, t, f, dur, v) {
+    const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.1 * v, 0.03, 0.1, 1, 0.12)
+    const trem = ac.createGain(); trem.gain.value = 1
+    const lfo = oscAt(ac, 'sine', 5.6, t, end), lg = ac.createGain(); lg.gain.value = 0.08; lfo.connect(lg).connect(trem.gain)
+    for (const [mul, amp] of [[0.5, 0.6], [1, 1], [2, 0.7], [3, 0.35], [4, 0.4], [6, 0.15], [8, 0.2]]) {
+      const o = oscAt(ac, 'sine', f * mul, t, end), og = ac.createGain(); og.gain.value = amp; o.connect(og).connect(trem)
+    }
+    noiseHit(ac, trem, t, { type: 'bandpass', f: Math.min(6000, f * 4), q: 0.7, len: 0.05, vol: 0.06 })
+    trem.connect(g).connect(ch)
+  },
+  /** Tubular bells: a struck tube's out-of-tune partials (the hum below, the strike tone, and bright ones above), ringing for seconds. */
+  bells(ac, ch, t, f, dur, v) {
+    const len = 2.6, end = t + len + 0.05
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0008, t + len)
+    for (const [mul, amp, decay] of [[0.5, 0.35, 2.4], [1, 1, 2.2], [2.01, 0.55, 1.4], [2.76, 0.4, 1.0], [4.07, 0.25, 0.6], [5.43, 0.15, 0.35]]) {
+      const o = oscAt(ac, 'sine', f * mul, t, end), og = ac.createGain()
+      og.gain.setValueAtTime(amp, t); og.gain.exponentialRampToValueAtTime(amp * 0.003, t + decay); o.connect(og).connect(g)
+    }
+    g.connect(ch)
+  },
+  /** Low strings (cellos and basses together): dark saws and a sine an octave down, bowed hard at the start. */
+  lowstrings(ac, ch, t, f, dur, v) {
+    const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = Math.min(1800, f * 7); flt.Q.value = 0.8
+    const end = adsr(g.gain, t, dur * 0.95, 0.36 * v, 0.012, 0.12, 0.7, 0.08)
+    for (const det of [-9, 8]) oscAt(ac, 'sawtooth', f, t, end, det).connect(flt)
+    const sub = oscAt(ac, 'sine', f / 2, t, end), sg = ac.createGain(); sg.gain.value = 0.6; sub.connect(sg).connect(g)
+    flt.connect(g).connect(ch)
   },
   /** Synth bass: saw and sine sub, a resonant filter that snaps shut. */
   bass(ac, ch, t, f, dur, v) {
@@ -671,6 +819,10 @@ const KIT = {
   o: (ac, m, t) => noiseHit(ac, m.hat, t, { type: 'highpass', f: 7600, len: 0.28, vol: 0.45 }),
   C: (ac, m, t) => { noiseHit(ac, m.cym, t, { type: 'highpass', f: 4800, len: 1.6, vol: 0.6 }); noiseHit(ac, m.cym, t, { type: 'bandpass', f: 9500, q: 0.6, len: 0.9, vol: 0.3 }) },
   T: (ac, m, t) => toneHit(ac, m.tom, t, { f: 190, f1: 115, len: 0.3, vol: 0.8 }),
+  /** Hand clap: three quick bursts of filtered noise, the last one ringing a little. */
+  X: (ac, m, t, v = 1) => { for (const [d, len] of [[0, 0.01], [0.011, 0.01], [0.022, 0.13]]) noiseHit(ac, m.snare, t + d, { type: 'bandpass', f: 1250, q: 1.3, len, vol: 0.7 * v }) },
+  /** Timpani, tuned (to the chord's root when the song schedules it): a long, round low boom with a soft mallet. */
+  P: (ac, m, t, v = 1, f = 73.4) => { toneHit(ac, m.tom, t, { f: f * 1.06, f1: f, len: 1.1, vol: 0.9 * v }); toneHit(ac, m.tom, t, { f: f * 2.02, f1: f * 2, len: 0.5, vol: 0.18 * v }); noiseHit(ac, m.tom, t, { type: 'lowpass', f: 600, len: 0.06, vol: 0.25 * v }) },
   t: (ac, m, t) => toneHit(ac, m.tom, t, { f: 140, f1: 85, len: 0.34, vol: 0.8 }),
 }
 
@@ -828,6 +980,62 @@ SONGS.gym = { file: null, loop: true, bpm: 176, div: 2, chordLen: 8, leadInst: '
       drums: 'KhKhKhKh' + 'KhKhKhKh' + 'KSKSKSKS' + 'SSSSSSSS' },
   ] }
 
+/*
+ * Gym battle, second version. The first (now SONGS.gymClassic) shared its
+ * harmony, groove and arrangement with the other battle themes: minor
+ * i-VI-VII-V, straight eighth-note octave bass, brass/strings/e-piano/glock,
+ * a half-time bridge. This one takes its cues from the series' gym leader
+ * themes instead, and differs on purpose:
+ *   - F-sharp minor over a chromatically falling bass (F# F E D# D C#) under
+ *     the held tonic, and a second verse that modulates up a whole step;
+ *   - a 3+3+2 syncopated drive in the kick, bass and an overdriven guitar;
+ *   - a chromatic sixteenth-note run to open, long heroic notes with trills
+ *     and scoops, brass doubled an octave up by the synth;
+ *   - a middle section in A major as a march: marching snare, a walking bass
+ *     and running sixteenth-note arpeggios, closed by tuned timpani.
+ * Sixteenth-note grid (div 4), 150 bpm, 16 steps a bar: a 6 s intro once, then a 38 s loop.
+ */
+SONGS.gymClassic = SONGS.gym
+/** A bar of the 3+3+2 drive on one bass note: low, octave, low; and again. */
+const drive = (n) => { const hi = transpose([n], 12)[0]; return `${n} . . ${hi} . . ${n} . ${n} . . ${hi} . . ${n} .` }
+/** A bar of walking quarter notes. */
+const walk = (...ns) => ns.map((n) => `${n} . . .`).join(' ')
+const GYM2_DRIVE = 'K.hKS.K.K.hKSgKh'
+const GYM2_VERSE = {
+  chords: 'F#m F#mmaj7 F#m7 B7 D C#7 Bm C#7'.split(' '),
+  lead: bars('F#5^ . . . . . . . C#5 . F#5 . A5 . C#6 .', 'A5 . . . . . G#5 A5 C#6 . . . E#5 . . .',
+    'A5~ . . . . . G#5 A5 C#6 . B5 . A5 . E5 .', 'D#5 . . . F#5 . . . B5 . . . A5 . G#5 .',
+    'A5^ . . . . . F#5 . D5 . F#5 . A5 . D6 .', 'C#6 . . . B5 . A5 . G#5 . . . E#5 . G#5 .',
+    'B5~ . . . . . C#6 . D6 . C#6 . B5 . F#5 .', 'G#5 . . . . . . . E#5 . . . C#5 . . .'),
+  bass: bars(drive('F#2'), drive('F2'), drive('E2'), drive('D#2'), drive('D2'), drive('C#2'), drive('B1'),
+    'C#2 . . C#3 . . C#2 . G#1 . . G#2 . . E#2 .'),
+  drums: GYM2_DRIVE.repeat(7) + 'K.hKS.K.TTttSSSS' }
+SONGS.gym = { file: null, loop: true, bpm: 150, div: 4, chordLen: 16,
+  leadInst: 'brass', leadDouble: 'synth', harmInst: 'strings', power: true, comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chordLen: 8, chords: 'F#m F#m D C#7 F#m F#m C#7 C#7'.split(' '),
+    lead: bars('C#6 C6 B5 A#5 A5 G#5 G5 F#5 F5 E5 D#5 D5 C#5 C5 B4 A#4', 'A4 . . A4 . . A4 . G#4 . . G#4 . . E#4 .',
+      'F#4 . . F#4 . . F#4 . F#4 . A4 . C#5 . F#5 .', 'E#5~ . . . . . . . . . . . - - - -'),
+    bass: bars('F#1 . . . . . . . . . . . . . . .', 'D2 . . D2 . . D2 . C#2 . . C#2 . . C#2 .',
+      'F#1 . . F#2 . . F#1 . F#1 . . F#2 . . F#1 .', 'C#2 . . . . . . . . . . . - - - -'),
+    drums: 'K...T...t...SSSS' + 'K..K..K.K..K..SS' + 'K..K..K.P.P.P.P.' + 'PPPPPPPPSSSSSSSS', power: false },
+  sections: [
+    { ...GYM2_VERSE },
+    { // The verse again, a whole step up (G-sharp minor), turning at the end towards A major
+      ...GYM2_VERSE,
+      chords: [...transposeChords(GYM2_VERSE.chords.slice(0, 7), 2), 'E7'],
+      lead: [...transpose(GYM2_VERSE.lead.slice(0, 112), 2), ...bars('B5~ . . . . . . . G#5 . . . E5 . D5 .')],
+      bass: [...transpose(GYM2_VERSE.bass.slice(0, 112), 2), ...bars('E2 . . E3 . . E2 . B1 . . B2 . . D2 .')] },
+    { // March: A major, walking bass, running sixteenths, the snare on every step
+      chords: 'A E F#m D Bm C#7 D C#7'.split(' '), harmInst: 'brass',
+      lead: bars('E5 A5 C#6 E6 . . C#6 . A5 . . . E5 . A5 .', 'E5 G#5 B5 E6 . . B5 . G#5 . . . E5 . G#5 .',
+        'F#5 A5 C#6 F#6 . . C#6 . A5 . . . F#5 . A5 .', 'D6^ . . . . . . . F#5 . A5 . D6 . E6 .',
+        'F#6 . E6 C#6 D6 . B5 . F#5 . B5 . D6 . F#6 .', 'E#6 . D6 C#6 B5 . G#5 . E#5 . G#5 . B5 . C#6 .',
+        'D6 . C#6 B5 A5 . F#5 . D5 . F#5 . A5 . D6 .', 'C#6~ . . . . . . . - - - - G#5 A5 B5 C#6'),
+      bass: bars(walk('A1', 'C#2', 'E2', 'F#2'), walk('E2', 'G#2', 'B2', 'C#3'), walk('F#2', 'A2', 'C#3', 'D3'), walk('D2', 'F#2', 'A2', 'B2'),
+        walk('B1', 'D2', 'F#2', 'G#2'), walk('C#2', 'E#2', 'G#2', 'B2'), walk('D2', 'F#2', 'A2', 'B2'), 'C#2 . . . . . . . G#1 . . . C#2 . . .'),
+      drums: 'KghgSghgKghgSghg'.repeat(7) + 'KghgSgSgPPPPSSSS' },
+  ] }
+
 /** Rival B: darker and electronic, A minor, a sixteenth-note synth bass under everything. About 45 s a loop. */
 const AVERSE = { chords: 'Am F C G Am F E7 E7'.split(' '),
   lead: bars('A4 . C5 E5 A5 . G5 E5', 'F5 . . A5 C6 . A5 F5', 'G5 . E5 C5 G5 . E5 G5', 'B5 . . . D6 . B5 G5',
@@ -877,25 +1085,70 @@ function schedulePart(ac, out, song, t0) {
     }
   }
   const chordAt = (i) => song.chords ? chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]) : null
-  const play = (name, ch, t, m, d, v) => at(t, () => INST[name](ac, ch, t, HZ(m), d, v))
+  const play = (name, ch, t, m, d, v, art) => at(t, () => INST[name](ac, ch, t, HZ(m), d, v, art))
+  /** A lead token: its pitch, and its articulation mark if it has one ('~' trill, '^' scoop, 'v' fall, '!' staccato: short and accented). */
+  const tok = (n) => { const [, b, art] = /^(.+?)([~^v!]?)$/.exec(n); return [MIDI(b), art] }
   const hit = (c, t, v) => at(t, () => KIT[c](ac, M, t, v))
   const lastLead = song.lead.reduce((k, n, i) => (n !== '.' && n !== '-' ? i : k), 0)
 
   // Lead melody.
-  each(song.lead, (t, n, d, i) => {
-    const m = MIDI(n) + (song.leadOct ?? 0) * 12
-    play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85))
+  each(song.lead, (t, n, d0, i) => {
+    const [base, art] = tok(n), m = base + (song.leadOct ?? 0) * 12
+    const d = art === '!' ? Math.min(d0, step * 0.85) : d0   // staccato: clipped short
+    play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85) * (art === '!' ? 1.15 : 1), art)
+    // A second instrument on the melody, an octave up (or wherever leadDoubleOct says), quieter: the unison lines battle themes are built on.
+    if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12 * (song.leadDoubleOct ?? 1), d, song.leadDoubleVel ?? 0.32, art)
+    // Or several: [instrument, octaves, velocity] each (violins above and low brass below, say).
+    for (const [inst, oct, vel] of song.doubles ?? []) play(inst, M.lead, t, m + 12 * oct, d, vel, art)
   })
   // Harmony under the melody: the nearest chord tone 3-9 semitones down.
   if (song.chords) each(song.lead, (t, n, d, i) => {
-    const lead = MIDI(n), pcs = chordAt(i)
+    const lead = tok(n)[0], pcs = chordAt(i)
     for (let k = 3; k <= 9; k++) if (pcs.includes(((lead - k) % 12 + 12) % 12)) { play(song.harmInst ?? 'brass', M.harm, t, lead - k, d, 0.55); break }
   })
   // String pad holding each chord, voiced around middle C.
   if (song.chords) song.chords.forEach((c, k) => {
     const t = t0 + k * song.chordLen * step, dur = Math.min(song.chordLen, song.lead.length - k * song.chordLen) * step
-    for (const pc of chordPcs(c).slice(0, 3)) play('strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8)
+    for (const pc of chordPcs(c).slice(0, 3)) play(song.padInst ?? 'strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8)
   })
+  // Clavinet and horn-section stabs: the chord, short, wherever their one-bar rhythm ('x') says.
+  const chordAround = (i, lo) => chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]).slice(0, 4).map((pc) => lo + ((pc - lo) % 12 + 12) % 12)
+  for (const [pat, inst, ch, lo, len, vel] of [[song.clav, 'clav', M.keys, 58, 0.8, 0.8], [song.stabs, 'brass', M.harm, 55, 1.3, 0.7]]) {
+    if (pat) for (let i = 0; i < song.lead.length; i++) if (pat[i % pat.length] === 'x') for (const m of chordAround(i, lo)) play(inst, ch, T(i), m, step * len, vel)
+  }
+  // String tremolo: the strings shaking between the chord's notes, two to a step, wherever a bar is marked 'x'.
+  if (song.trem) for (let b = 0; b * song.chordLen < song.lead.length; b++) {
+    if (song.trem[b % song.trem.length] !== 'x') continue
+    const n = Math.min(song.chordLen, song.lead.length - b * song.chordLen), tones = chordAt(b * song.chordLen).slice(0, 3).map((pc) => 60 + ((pc - 60) % 12 + 12) % 12).sort((a, c) => a - c)
+    for (let k = 0; k < n * 2; k++) {
+      const t = T(b * song.chordLen) + k * step / 2
+      for (const m of k % 2 ? [tones[1], tones[2] + 12] : [tones[0], tones[2]]) play('violins', M.pad, t, m, step * 0.48, 0.34)
+    }
+  }
+  // Piano runs: a bar-long sweep through the chord across four octaves, one letter a bar ('u' up, 'd' down, 'w' up and back, '.' none),
+  // or 'f', a flourish: eight quick notes ripping up through the chord in the bar's last beat, into the next downbeat.
+  if (song.runs) for (let b = 0; b * song.chordLen < song.lead.length; b++) {
+    const kind = song.runs[b % song.runs.length], n = Math.min(song.chordLen, song.lead.length - b * song.chordLen); if (kind === '.') continue
+    const pcs = chordAt(b * song.chordLen), tones = []
+    for (let m = 48; m <= 96; m++) if (pcs.includes(m % 12)) tones.push(m)
+    if (kind === 'f') {
+      const hi = tones.filter((m) => m >= 72), t1 = T(b * song.chordLen + n - song.div)
+      for (let k = 0; k < 8; k++) play('piano', M.keys, t1 + k * step * song.div / 8, hi[Math.min(hi.length - 1, k)], step * 0.6, 0.55 + k * 0.06)
+      continue
+    }
+    for (let k = 0; k < n; k++) {
+      const x = kind === 'u' ? k / (n - 1) : kind === 'd' ? 1 - k / (n - 1) : 1 - Math.abs(2 * k / (n - 1) - 1)
+      const m = tones[Math.round(x * (tones.length - 1))]
+      play('piano', M.keys, T(b * song.chordLen + k), m, step * 1.6, 0.45 + 0.4 * (kind === 'd' ? 1 - x : x))
+    }
+  }
+  // Piano ostinato: a repeating figure through the chord (its three notes from middle C up, and the root an octave higher).
+  if (song.ostinato) for (let i = 0; i < song.lead.length; i++) {
+    const k = song.ostinato[i % song.ostinato.length]; if (k === '-') continue
+    const tones = chordAt(i).slice(0, 3).map((pc) => 60 + ((pc - 60) % 12 + 12) % 12).sort((a, b) => a - b)
+    tones.push(tones[0] + 12)
+    play('piano', M.keys, T(i), tones[+k] + 12 * (song.ostinatoOct ?? 0), step * 1.4, i % song.div ? 0.5 : 0.8)
+  }
   // Electric piano comping: chord stabs on the off-beats.
   if (song.comp) for (let i = 1; i < song.lead.length; i += 2) {
     const pcs = chordAt(i).slice(0, 2)
@@ -912,16 +1165,25 @@ function schedulePart(ac, out, song, t0) {
     const r = 33 + ((chordAt(i)[0] - 33) % 12 + 12) % 12   // the root, from A1 up
     play('bass', M.bass, t0 + i * step, r, step * 0.45, 1); play('bass', M.bass, t0 + (i + 0.5) * step, r + 12, step * 0.4, 0.7)
   }
+  // Guitar: a palm-muted power chord on the chord's root (not the bass note, so a bass line can walk under it) wherever the bass plays.
+  if (song.power) each(song.bass, (t, n, d, i) => {
+    const r = 40 + ((chordAt(i)[0] - 40) % 12 + 12) % 12   // E2..D#3
+    play('power', M.gtr, t, r, Math.min(d, step * 1.6) * 0.85, 1)
+  })
   // Bass: the written line; on pulse songs, an extra eighth-note pulse on the root.
   each(song.bass, (t, n, d, i) => {
     if (song.pulse && d > step * 1.5) { for (let k = 0; k < d / step - 0.5; k++) play('bass', M.bass, t + k * step, MIDI(n), step * 0.8, k ? 0.6 : 1) }
-    else play('bass', M.bass, t, MIDI(n), d, 1)
+    else play(song.bassInst ?? 'bass', M.bass, t, MIDI(n), d, 1)
+    // Other instruments on the bass line ([instrument, octaves, velocity]): piano octaves over low strings, say.
+    for (const [inst, oct, vel] of song.bassDoubles ?? []) play(inst, M.keys, t, MIDI(n) + 12 * oct, d, vel)
   })
   // Drums, as written; then sixteenth-note hats between the steps, and a tom fill closing the loop.
   const fillFrom = song.fill ? song.drums.length - song.fill.length : Infinity
   ;[...song.drums].forEach((c, i) => {
     const t = T(i)
     if (i >= fillFrom) { hit(song.fill[i - fillFrom], t); return }
+    // Timpani are tuned to the chord's root, low.
+    if (c === 'P') { const f = HZ(31 + ((chordAt(i)[0] - 31) % 12 + 12) % 12); at(t, () => KIT.P(ac, M, t, 1, f)); return }
     if (KIT[c]) hit(c, t)
     if (song.hats16) hit('h', t + step / 2, 0.5)
     if (song.hats16 && c !== 'h' && c !== 'C' && i % 2 === 1) hit('h', t, 0.8)
@@ -1069,6 +1331,105 @@ SONGS.elite = { file: null, loop: true, bpm: 172, div: 2, chordLen: 8, leadInst:
       drums: 'KhKhKhKh' + 'KhKhKhKh' + 'KSKSKSKS' + 'SSSSSSSS' },
   ] }
 
+/*
+ * The trainer battle, second version: SONGS.battleB. Trainer battles pick
+ * this or the first (SONGS.battle) at random each time. Scalpers at a
+ * vending machine are a street encounter, so this one is cheeky funk rather
+ * than another urgent minor theme:
+ *   - C Dorian (minor, with a bright raised sixth), on a Cm7-F7 vamp turned
+ *     around through A-flat 7 to G7;
+ *   - a syncopated slap-bass line, a clavinet comping in sixteenths, horn
+ *     section stabs and hand claps;
+ *   - a saxophone lead that growls and falls off its notes;
+ *   - a middle section of jazz changes, each chord leading into the next
+ *     (Fm7 Bb7 Ebmaj7 Abmaj7 Dm7 G7), and a breakdown of bass, drums and clav.
+ * 160 bpm, sixteenth-note grid, 16 steps a bar: a 3 s intro, then a 42 s loop.
+ */
+/** A bar of funk bass on a root: the root, its octave popped, the flat seventh below, the fifth, the seventh, and back up. */
+const funk = (n) => { const [lo7, hi, fifth, sev] = transpose([n, n, n, n], 0).map((x, k) => transpose([x], [-2, 12, 7, 10][k])[0]); return `${n} . . ${hi} - ${n} . ${lo7} . . ${n} . ${fifth} . ${sev} ${hi}` }
+const FUNK_A = {
+  chords: 'Cm7 F7 Cm7 F7 Cm7 F7 Ab7 G7'.split(' '),
+  lead: bars('- - G5 . Bb5 . C6 . - Bb5 . G5 . . F5 G5', 'A5 . . . . . F5 . Eb5 . F5 . A5 . C6 .',
+    'Bb5 . . G5 . . Eb5 . G5 . F5 . - - C6 .', 'Eb6v . . . . . . . - - C6 . A5 . F5 .',
+    'G5 . C6 . Eb6 . C6 . Bb5 . . G5 . . Bb5 .', 'C6 . A5 . F5 . A5 . C6 . D6 . Eb6 . C6 .',
+    'Eb6 . . C6 . . Ab5 . Gb5 . . . Eb5 . . .', 'D6~ . . . . . . . B5 . . . G5 . F5 .'),
+  bass: bars(funk('C2'), funk('F1'), funk('C2'), funk('F1'), funk('C2'), funk('F1'), funk('Ab1'), funk('G1')),
+  drums: 'K.hgS.hKhgKhS.hg'.repeat(7) + 'K.hgS.hKXXXXSSSS' }
+SONGS.battleB = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16,
+  leadInst: 'sax', harmInst: 'strings', comp: false, glock: false, hats16: false, crash: true, fill: '',
+  clav: '.x.x.xx..x.x.xx.', stabs: '..........x..x..',
+  intro: { chords: ['Cm7', 'Cm7'], leadInst: 'brass', clav: '', stabs: '',
+    lead: bars('G5 . . G5 . . G5 . Bb5 . . Bb5 . . C6 .', 'C6v . . . . . . . - - - - - - - -'),
+    bass: bars('C2 . . C2 . . C2 . Bb1 . . Bb1 . . C2 .', 'C2 . . . . . . . - - - - - - - -'),
+    drums: 'K..K..K.S..S..S.' + 'K...S...XXXXSSSS' },
+  sections: [
+    { ...FUNK_A },
+    { // Jazz changes, each chord leading into the next; claps on the backbeat
+      chords: 'Fm7 Bb7 Ebmaj7 Abmaj7 Dm7 G7 Cm7 G7'.split(' '), stabs: '....x.......x...',
+      lead: bars('Ab5 . . . C6 . . . Eb6 . . . C6 . Ab5 .', 'D6 . . . . . . . F5 . Ab5 . Bb5 . D6 .',
+        'G6v . . . . . . . - - Eb6 . D6 . Bb5 .', 'C6 . . . Eb6 . . . G5 . . . Ab5 . C6 .',
+        'F6 . . . D6 . . . A5 . . . C6 . . .', 'B5 . . . D6 . . . F6 . . . D6 . B5 .',
+        'C6^ . . . . . . . G5 . Bb5 . C6 . Eb6 .', 'D6~ . . . . . . . G5 . . . G5 A5 B5 D6'),
+      bass: bars(funk('F1'), funk('Bb1'), funk('Eb2'), funk('Ab1'), funk('D2'), funk('G1'), funk('C2'), funk('G1')),
+      drums: 'K.hgX.hKhgKhX.hg'.repeat(7) + 'K.hgX.hKSSSSXXXX' },
+    { ...FUNK_A, leadInst: 'brass', leadDouble: 'sax', leadDoubleOct: -1, leadDoubleVel: 0.5, stabs: '' },   // the vamp again: trumpet on top, the sax an octave under
+    { // Breakdown: bass, drums and clav, then the sax back in
+      chords: 'Cm7 F7 Cm7 F7'.split(' '), stabs: '',
+      lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', 'F5 . A5 . C6 . Eb6 . F6 . A6 . - - - -'),
+      bass: bars(funk('C2'), funk('F1'), funk('C2'), funk('F1')),
+      drums: 'K..hS..hK.hhS..h'.repeat(3) + 'SSSSXXXXSSSSKKKK' },
+  ] }
+
+/*
+ * The Elite Four battle, second version (the first is SONGS.eliteClassic).
+ * Where the gym theme drives, this one looms. It's the only battle theme not
+ * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.
+ *   - The verse starts over a pedal: the bass holds D, the dominant, while
+ *     the chords move above it (Gm, Eb, Cm, D7), and only lets go in its
+ *     second half, through the Neapolitan Ab major to D7.
+ *   - A choir holds the chords instead of strings; a piano ostinato rolls
+ *     through them the whole time; the melody is a violin section with the
+ *     brass an octave below.
+ *   - A middle section moves by thirds instead of steps: B-flat major, G-flat,
+ *     E-flat, then E-flat minor sliding down to D7.
+ *   - A breakdown of piano, timpani and choir alone before the loop.
+ * 160 bpm, 12 steps a bar: a 6 s intro once, then a 42 s loop.
+ */
+SONGS.eliteClassic = SONGS.elite
+/** A bar of the gallop on one bass note: the note, then its octave, on each beat's first and last triplet. */
+const gallop = (n) => { const hi = transpose([n], 12)[0]; return Array(4).fill(`${n} . ${hi}`).join(' ') }
+const E4V_CHORDS = 'Gm Eb Cm7 D7 Gm Eb Ab D7'.split(' ')
+const E4V_BASS = bars(gallop('D2'), gallop('D2'), gallop('D2'), gallop('D2'), gallop('G1'), gallop('Eb2'), gallop('Ab1'), gallop('D2'))
+const E4V_DRUMS = 'K.hS.hK.KS.h'.repeat(7) + 'K.hS.hTTtSSS'
+SONGS.elite = { file: null, loop: true, bpm: 160, div: 3, chordLen: 12,
+  leadInst: 'violins', leadDouble: 'brass', leadDoubleOct: -1, leadDoubleVel: 0.42, harmInst: 'strings', padInst: 'choir',
+  ostinato: '0 1 2 3 2 1 0 1 2 3 2 1'.split(' '), comp: false, glock: false, hats16: false, power: false, crash: true, fill: '',
+  intro: { chords: 'D7 D7 Gm D7'.split(' '),
+    lead: bars('- - - - - - - - - - - -', '- - - - - - - - - - - -', 'G4 . . . . . Bb4 . . D5 . .', 'F#5~ . . . . . . . . - - -'),
+    bass: bars('D1 . . . . . . . . . . .', 'D1 . . . . . . . . . . .', gallop('G1'), 'D2 . . . . . D2 . . D2 . .'),
+    drums: 'PPPPPPPPPPPP' + 'PPPPPPPPPPPP' + 'K.....K.....' + 'K.....K.SSSS' },
+  sections: [
+    { // The verse, over the pedal
+      chords: E4V_CHORDS, bass: E4V_BASS, drums: E4V_DRUMS,
+      lead: bars('G5 . . . . . D5 . . G5 . A5', 'Bb5 . . . . . G5 . . Eb5 . .', 'C6 . . Bb5 . . G5 . . Eb5 . .', 'F#5~ . . . . . A5 . . C6 . .',
+        'D6 . . . . . Bb5 . . G5 . A5', 'Bb5 . . . . . Eb6 . . G6 . .', 'Ab6^ . . . . . Eb6 . . C6 . .', 'A5 . . F#5 . . D5 . . C6 . .') },
+    { // The verse again, higher, with triplet turns
+      chords: E4V_CHORDS, bass: E4V_BASS, drums: E4V_DRUMS,
+      lead: bars('G5 A5 Bb5 D6 . . Bb5 . . G6 . .', 'G6 . . Eb6 . . Bb5 . . G5 . .', 'Eb6 . . C6 . . G5 . . Eb6 D6 C6', 'D6 . . F#6 . . A6 . . F#6 . .',
+        'G6 . . . . . D6 . . Bb5 . .', 'Eb6 . . . . . Bb5 . . G5 . .', 'C6 . . Eb6 . . Ab6 . . Eb6 . C6', 'D6~ . . . . . . . . - - -') },
+    { // By thirds: B-flat, G-flat, E-flat, then E-flat minor sliding to D7; the snare only on beat three
+      chords: 'Bb Gb Eb Cm Bb Gb Ebm D7'.split(' '), harmInst: 'brass',
+      lead: bars('D6 . . . . . F6 . . . . .', 'Gb6^ . . . . . Db6 . . Bb5 . .', 'Bb5 . . . . . G5 . . Eb6 . .', 'Eb6 . . . . . C6 . . G5 . .',
+        'F6 . . . . . D6 . . Bb5 . .', 'Db6 . . . . . Gb6 . . Bb6 . .', 'Bb6~ . . . . . Gb6 . . Eb6 . .', 'F#6 . . . . . D6 . . A5 C6 D6'),
+      bass: bars(gallop('Bb1'), gallop('Gb1'), gallop('Eb2'), gallop('C2'), gallop('Bb1'), gallop('Gb1'), gallop('Eb2'), gallop('D2')),
+      drums: 'K.hK.hS.hK.h'.repeat(7) + 'K.hK.hSSSPPP' },
+    { // Breakdown: piano, timpani and choir
+      chords: 'Gm Eb Cm D7'.split(' '), crash: false,
+      lead: bars('- - - - - - - - - - - -', '- - - - - - - - - - - -', '- - - - - - - - - - - -', 'D5 . . F#5 . . A5 . . C6 . .'),
+      bass: bars('G1 . . . . . . . . . . .', 'Eb2 . . . . . . . . . . .', 'C2 . . . . . . . . . . .', 'D2 . . . . . D2 . . D2 . .'),
+      drums: 'P.....P.....'.repeat(3) + 'P.PP.PSSSSSS' },
+  ] }
+
 /** The Champion's intro: a regal brass fanfare with timpani, then a stately loop in E-flat. */
 SONGS.championIntro = { file: null, loop: true, bpm: 100, div: 2, chordLen: 8, vol: 0.88,
   leadInst: 'brass', harmInst: 'brass', comp: false, hats16: false, crash: false, fill: 'TTtt', glock: true,
@@ -1106,6 +1467,122 @@ SONGS.champion = { file: null, loop: true, bpm: 180, div: 2, chordLen: 8, leadIn
       drums: 'KhhhShhh'.repeat(7) + 'KhhhSSSS' },
     { ...CHAMP_A, leadInst: 'synth', glock: true },
   ] }
+
+/*
+ * The Champion's battle, second version (the first is SONGS.championClassic).
+ * Dark: F minor, piano-led over the orchestra, the last fight in the game.
+ * Written in the manner of a dark piano score the owner shared (none of its
+ * notes or progression are used): a piano figure rising over a low pedal, a
+ * hammered motif, the harmonic minor's E natural and the Neapolitan G-flat,
+ * tremolo strings under the loudest chords, a quiet passage over a churning
+ * bass, quick runs ripping up into stabs, and a chromatic slide of chords
+ * down to the dominant.
+ *   - Intro: the piano rises through the chords over a held low F, choir and
+ *     timpani underneath.
+ *   - The hammer: the piano and low brass strike one note again and again,
+ *     leaning on the semitone above (C and D-flat, A-flat and B-flat...),
+ *     strings in tremolo, the bass pounding in octaves.
+ *   - The Neapolitan: G-flat major, D-flat, a diminished seventh on E, big
+ *     brass lines over the tremolo.
+ *   - The storm: hushed, a sixteenth-note bass churning around F with its
+ *     leading tone, the piano ripping up into stabs, timpani rolling louder.
+ *   - The slide: chords sliding down by semitones (F minor, E, E-flat, D,
+ *     D-flat) onto C, over a C pedal, and back to the hammer.
+ * 160 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a long
+ * loop (see below).
+ */
+SONGS.championClassic = SONGS.champion
+/** A bar of the hammer: three struck notes, the semitone above held, three more. */
+const hammer = (x, up) => `${x}! - ${x}! - ${x}! - ${up} . . . ${x}! - ${x}! - ${x}! -`
+/** A bar of pounding bass octaves, in eighths. */
+const octs = (n) => { const hi = transpose([n], 12)[0]; return Array(8).fill(0).map((_, k) => (k % 2 ? `${hi} .` : `${n} .`)).join(' ') }
+/** A bar of churning sixteenths around a note: its neighbours, down to the leading tone and back. */
+const churn = (n) => transpose(Array(16).fill(n), 0).map((x, k) => transpose([x], [0, 2, 3, 2, 0, -1, 0, 2, 3, 5, 3, 2, 0, -1, -4, -1][k])[0]).join(' ')
+SONGS.champion = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 1.15,
+  leadInst: 'piano', leadVel: 1.15, doubles: [['brass', -1, 0.42]], harmInst: 'strings', padInst: 'choir',
+  bassInst: 'lowstrings', bassDoubles: [['piano', 1, 0.5]], comp: false, glock: false, hats16: false, power: false, crash: true, fill: '',
+  intro: { chords: 'Fm Db Bbm C7'.split(' '), doubles: [], bassDoubles: [], ostinato: '0 - 1 - 2 - 3 - 1 - 2 - 3 - 2 -'.split(' '), ostinatoOct: 0,
+    lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - - - - -', '- - - - - - - - E5 . . . G5 . C6 .'),
+    bass: bars('F1 . . . . . . . . . . . . . . .', 'F1 . . . . . . . . . . . . . . .', 'F1 . . . . . . . . . . . . . . .', 'C2 . . . . . . . C2 . . . C2 . . .'),
+    drums: 'P...............' + 'P...............' + 'P.......P.......' + 'P...P...PPPPSSSS', runs: '. . . f'.split(' ') },
+  sections: [
+    { // The hammer
+      chords: 'Fm Fm Db Db Bbm C7 Fm C7'.split(' '), trem: '. . x x x x . x'.split(' '), runs: '. . . f . . . f'.split(' '),
+      lead: bars(hammer('C5', 'Db5'), hammer('C5', 'Db5'), hammer('Ab4', 'Bb4'), 'Ab5! - Ab5! - F5! - Db5 . . . F5! - Ab5! - C6! -',
+        hammer('F5', 'Gb5'), hammer('E5', 'F5'), 'F5! - Ab5! - C6! - F6 . . . Eb6! - C6! - Ab5! -', 'G5 . . . E5 . . . C5 . . . Bb4 . . .'),
+      bass: bars(octs('F1'), octs('F1'), octs('Db2'), octs('Db2'), octs('Bb1'), octs('C2'), octs('F1'), octs('C2')),
+      drums: 'K.h.S.h.K.h.S.hK'.repeat(7) + 'K.h.S.h.SSSSPPPP' },
+    { // The Neapolitan: G-flat, D-flat, a diminished seventh on E
+      chords: 'Gb Gb Db C7 Fm Gb Edim7 C7'.split(' '), trem: 'x x x x x x x x'.split(' '), runs: '. . . f . . . f'.split(' '), doubles: [['brass', -1, 0.5], ['violins', 1, 0.3]],
+      lead: bars('Gb5^ . . . . . . . Bb5 . . . Db6 . . .', 'Gb6 . . . Db6 . . . Bb5 . . . Gb5 . . .', 'Ab5 . . . . . F5 . Db5 . . . F5 . Ab5 .', 'G5~ . . . . . . . E5 . . . Bb5 . . .',
+        'C6 . . . . . Ab5 . F5 . . . Ab5 . C6 .', 'Db6 . . . . . Bb5 . Gb5 . . . Bb5 . Db6 .', 'Db6 . . . Bb5 . . . G5 . . . E5 . . .', 'C6 . . . . . . . - - - - - - - -'),
+      bass: bars('Gb1 . . . . . . . Gb1 . . . Gb2 . . .', 'Gb1 . . . . . . . Gb1 . . . Db2 . . .', 'Db2 . . . . . . . Db2 . . . Ab1 . . .', 'C2 . . . . . . . C2 . . . G1 . . .',
+        'F1 . . . . . . . F1 . . . C2 . . .', 'Gb1 . . . . . . . Gb1 . . . Db2 . . .', 'E1 . . . . . . . E1 . . . G1 . . .', 'C2 . . . . . . . C2 . C2 . C2 . C2 .'),
+      drums: 'K.......S.......'.repeat(3) + 'K...S...P.P.P.P.' + 'K.......S.......'.repeat(3) + 'PPPPPPPPSSSSSSSS' },
+    { // The storm: hushed, churning bass, the piano ripping up into stabs
+      chords: 'Fm Fm Db Db Bbm Bbm C7 C7'.split(' '), doubles: [], bassDoubles: [['piano', 1, 0.35]], padInst: 'strings', crash: false, runs: '. f . f . f . f'.split(' '), leadVel: 0.95,
+      lead: bars('- - - - - - - - - - - - - - - -', 'F6! - - - - - - - - - - - C6! - - -', '- - - - - - - - - - - - - - - -', 'F6! - - - - - - - - - - - Ab6! - - -',
+        '- - - - - - - - - - - - - - - -', 'F6! - - - - - - - - - - - Db6! - - -', '- - - - - - - - - - - - - - - -', 'E6! - - - G6! - - - Bb6! - - - C7! - - -'),
+      bass: bars(churn('F2'), churn('F2'), churn('Db2'), churn('Db2'), churn('Bb1'), churn('Bb1'), churn('C2'), churn('C2')),
+      drums: 'P...............'.repeat(4) + 'P.......P.......'.repeat(2) + 'P...P...P...P...' + 'PPPPPPPPSSSSSSSS' },
+    { // The slide: chords sliding down by semitones over a C pedal, onto C
+      chordLen: 8, chords: 'Fm E Eb D Db C C7 C7'.split(' '), trem: 'x x x x'.split(' '), doubles: [['brass', -1, 0.5], ['violins', 1, 0.3]],
+      lead: bars('F6 . . . . . . . E6 . . . . . . .', 'Eb6 . . . . . . . D6 . . . . . . .', 'Db6 . . . . . . . C6 . . . . . . .', 'C6~ . . . . . . . . . . . - - - -'),
+      bass: bars(octs('C2'), octs('C2'), octs('C2'), 'C2 . . . . . . . C2 . . . . . . .'),
+      drums: 'K.h.S.h.K.h.S.hK'.repeat(3) + 'K...S...SSSSPPPP' },
+  ] }
+
+/*
+ * The Champion's battle runs long, so the loop does too: after the four
+ * sections above, six more develop the same material before it all comes
+ * round again (about 1:48 a loop):
+ *   - the hammer a half step higher, F-sharp minor, a tritone jolt away from
+ *     the C before it, slipping back down to C7;
+ *   - a lament: half-time, a mournful piano and violin line over a bass
+ *     falling F, E-flat, D-flat, C, with choir and low timpani, turning to F7;
+ *   - a chase in B-flat minor: hammered staccato arpeggios over piano runs
+ *     every bar, tremolo, the drums driving;
+ *   - the storm again, now with a long dark melody over the churning bass;
+ *   - a climax: fortissimo, D-flat, G-flat, the diminished seventh on E,
+ *     brass and violins over tremolo and rising piano runs;
+ *   - the slide again, down onto C and back to the top.
+ */
+{
+  const [HAMMER, , STORM, SLIDE] = SONGS.champion.sections
+  SONGS.champion.sections.push(
+    { // The hammer, a half step up (F-sharp minor), slipping back to C7
+      ...HAMMER, trem: 'x x x x x x x x'.split(' '), doubles: [['brass', -1, 0.5], ['violins', 1, 0.28]],
+      chords: [...transposeChords(HAMMER.chords.slice(0, 7), 1), 'C7'],
+      lead: [...transpose(HAMMER.lead.slice(0, 112), 1), ...HAMMER.lead.slice(112)],
+      bass: [...transpose(HAMMER.bass.slice(0, 112), 1), ...HAMMER.bass.slice(112)] },
+    { // The lament: half-time, piano and violins together over a falling bass
+      chords: 'Fm Eb Db C Fm Eb Db F7'.split(' '), doubles: [['violins', 0, 0.32]], leadVel: 1, crash: true,
+      lead: bars('C6 . . . . . . . Ab5 . . . . . . .', 'G5 . . . . . . . Bb5 . . . . . . .', 'Ab5 . . . . . F5 . . . . . Db5 . . .', 'E5~ . . . . . . . G5 . . . C6 . . .',
+        'F6 . . . . . . . C6 . . . Ab5 . . .', 'Bb5 . . . . . . . G5 . . . Eb5 . . .', 'F5 . . . . . Ab5 . . . . . Db6 . . .', 'A5 . . . . . . . . . . . Eb6 . . .'),
+      bass: bars('F1 . . . . . . . . . . . C2 . . .', 'Eb1 . . . . . . . . . . . Bb1 . . .', 'Db1 . . . . . . . . . . . Ab1 . . .', 'C1 . . . . . . . . . . . G1 . . .',
+        'F1 . . . . . . . . . . . C2 . . .', 'Eb1 . . . . . . . . . . . Bb1 . . .', 'Db1 . . . . . . . . . . . Ab1 . . .', 'F1 . . . . . . . . . . . C2 . . .'),
+      drums: 'P.......S.......'.repeat(7) + 'P.......SSSSPPPP' },
+    { // The chase: B-flat minor, staccato arpeggios over runs every bar
+      chords: 'Bbm Bbm Gb Gb Ebm Ebm C7 C7'.split(' '), runs: 'u d u d u d u f'.split(' '), trem: '. . x x . . x x'.split(' '), doubles: [['brass', -1, 0.42]],
+      lead: bars('F5! - Db5! - Bb4! - Db5! - F5! - Bb5! - Db6! - Bb5! -', 'Db6! - F6! - Db6! - Bb5! - F5! - Bb5! - Db6! - F6! -',
+        'Gb5! - Bb5! - Db6! - Bb5! - Gb5! - Db5! - Gb5! - Bb5! -', 'Db6 . . . . . . . Bb5 . . . Gb5 . . .',
+        'Eb5! - Gb5! - Bb5! - Gb5! - Eb6! - Bb5! - Gb5! - Bb5! -', 'Gb6 . . . . . . . Eb6 . . . Bb5 . . .',
+        'E5! - G5! - Bb5! - C6! - E6! - C6! - Bb5! - G5! -', 'C6~ . . . . . . . . . . . - - - -'),
+      bass: bars(octs('Bb1'), octs('Bb1'), octs('Gb1'), octs('Gb1'), octs('Eb1'), octs('Eb1'), octs('C2'), octs('C2')),
+      drums: 'K.h.S.hKK.h.S.hK'.repeat(7) + 'K.h.SSSSPPPPSSSS' },
+    { // The storm again, with a melody over the churning bass
+      ...STORM, doubles: [['violins', 0, 0.3]], leadVel: 1,
+      lead: bars('Ab5 . . . . . . . C6 . . . . . . .', 'F6 . . . . . Eb6 . C6 . . . Ab5 . . .', 'Ab5 . . . . . . . F5 . . . . . . .', 'Db6 . . . . . C6 . Ab5 . . . F5 . . .',
+        'F5 . . . . . . . Bb5 . . . . . . .', 'Db6 . . . . . C6 . Bb5 . . . F5 . . .', 'E5 . . . . . . . G5 . . . Bb5 . . .', 'C6~ . . . . . . . E6 . . . G6 . . .') },
+    { // The climax: fortissimo, D-flat, G-flat, the diminished seventh on E
+      chords: 'Db Gb Edim7 C7 Db Gb Bbm C7'.split(' '), trem: 'x x x x x x x x'.split(' '), runs: 'u . u . u . u f'.split(' '), doubles: [['brass', -1, 0.55], ['violins', 0, 0.32]], crash: true,
+      lead: bars('F6^ . . . . . . . Db6 . . . Ab5 . . .', 'Gb6 . . . . . . . Db6 . . . Bb5 . . .', 'G6 . . . . . . . E6 . . . Db6 . . .', 'E6~ . . . . . . . C6 . . . G5 . . .',
+        'Ab6 . . . . . . . F6 . . . Db6 . . .', 'Bb6 . . . . . . . Gb6 . . . Db6 . . .', 'Db7 . . . . . . . Bb6 . . . F6 . . .', 'C7 . . . . . . . . . . . - - - -'),
+      bass: bars(octs('Db2'), octs('Gb1'), octs('E1'), octs('C2'), octs('Db2'), octs('Gb1'), octs('Bb1'), octs('C2')),
+      drums: 'K.h.S.h.K.h.S.hK'.repeat(3) + 'K.h.S.h.PPPPSSSS' + 'K.h.S.h.K.h.S.hK'.repeat(3) + 'SSSSSSSSPPPPPPPP' },
+    { ...SLIDE },
+  )
+}
 
 /** Which intro plays under each League member's words. */
 const LEAGUE_INTRO = { will: 'e4Will', koga: 'e4Koga', bruno: 'e4Bruno', karen: 'e4Karen', lance: 'championIntro' }
@@ -2606,7 +3083,7 @@ const ATTRACT_PACKS = ['jungle-scyther', 'gym-heroes-brock', 'fossil-lapras', 't
   }).join('')
 })()
 for (const [id, k] of [['maintLogo', 'logo'], ['maintQr', 'qr'], ['maintArt', 'art']]) $(id).src = ART['maint:' + k]
-function fit() { $('screen').style.setProperty('--z', String($('sw').clientWidth / 320)) }
+function fit() { const sc = $('screen'), sw = $('sw'); if (sc && sw) sc.style.setProperty('--z', String(sw.clientWidth / 320)) }
 addEventListener('resize', fit)
 const MODES = { mDemo: 'demo', mDuo: 'duo', mGym: 'gym', mPlay: 'play' }
 function setMode(m) { MODE = m; for (const [id, v] of Object.entries(MODES)) $(id).setAttribute('aria-pressed', String(v === m)) }
@@ -3106,10 +3583,11 @@ async function run(id) {
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
     const sup = state === 'in' ? shelfItems : [], real = vvm() && realShelf
-    h.classList.toggle('has-sup', real ? true : sup.length > 0)
+    h.classList.toggle('has-sup', state === 'in' && (real ? true : sup.length > 0))
     $('supplies').innerHTML = state === 'in' && real ? realTiles() : state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
     $('homeLine').textContent = blocked ? 'BLOCKED!' : { in: 'PACKS ARE IN!', out: 'NEXT RESTOCK 03:12', maint: 'BACK SOON' }[state]
     $('homeSub').textContent = blocked ? `${scalper.short} is camping the machine` : { in: 'tap items to add them to your cart', out: 'sold out', maint: 'under maintenance' }[state]
+    if (real && !blocked && state !== 'in') paintClock()
     if (blocked) $('homeLoiterer').src = ART[scalper.body]
     $('homeLoiterer').style.display = blocked ? 'block' : 'none'
   }
@@ -3141,13 +3619,33 @@ async function run(id) {
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
-    realShelf = m
+    realShelf = m; m.changesAt = Date.now() + m.seconds_left * 1000
     if (modeLive.wild !== m.wild || modeLive.trainers !== m.trainers) { modeLive.wild = m.wild; modeLive.trainers = m.trainers; paintBattles() }
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
     machine.state = st; $('machineState').value = st
     machine.lockedBy = !m.holder_id ? null : m.holder_id === m.me ? YOU : (m.holder_name ?? 'SOMEONE')
     if (homeState === 'idle') renderHome('idle')
+    // Looking at a sold-out or maintenance screen when it changes: back to idle, where a tap shows what it is now.
+    else if ((homeState === 'out' || homeState === 'maint') && st !== homeState) renderHome('idle')
+  }
+  /*
+   * Sold out or under maintenance, in the app: when the machine next changes,
+   * counting down, as the VVM page shows it. Paused while someone holds the
+   * machine. At zero it asks the server what the machine is now.
+   */
+  let clockTimer = null, clockAsked = false
+  function paintClock() {
+    clearInterval(clockTimer); clockAsked = false
+    const tick = () => {
+      if (!live() || homeState === 'idle' || homeState === 'in' || !realShelf) { clearInterval(clockTimer); return }
+      const s = Math.max(0, Math.round((realShelf.changesAt - Date.now()) / 1000))
+      $('homeLine').textContent = homeState === 'out' ? 'SOLD OUT' : 'BACK SOON'
+      $('homeSub').textContent = realShelf.frozen ? 'the machine changes once its current trainer is done'
+        : s > 0 ? `the machine changes in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'changing now…'
+      if (s === 0 && !realShelf.frozen && !clockAsked) { clockAsked = true; syncMachine() }
+    }
+    tick(); clockTimer = setInterval(tick, 1000)
   }
   const realKey = (k) => { const i = k.indexOf(':'); return [k.slice(0, i), k.slice(i + 1)] }
   const realRow = (k) => {
@@ -4849,6 +5347,8 @@ async function run(id) {
    * on deck. 'solo': one scalper with two out at once, or, when they only
    * carry one, a 2-on-1. Either way your first two Pokémon fight.
    */
+  /** Trainer battles play one of two themes, picked at random each time (not from the game's own rolls, which it would shift; the demos keep the first). */
+  const trainerTheme = () => (demo || Math.random() < 0.5 ? 'battle' : 'battleB')
   async function duoEncounter(demoPlan, variant = 'tag', state = 'in') {
     toolsEnabled(false)
     if (!party.some((m) => m.hp > 0)) { $('homeSub').textContent = 'heal your party first'; toolsEnabled(true); return }
@@ -4875,7 +5375,7 @@ async function run(id) {
     else if (crew[1]) { for (const T of crew) await talk(T, [pickOf(TEAM_UP[T.short])]) }
     else await talk(crew[0], pickOf(SOLO_DOUBLE[crew[0].short]))
     vsHide()
-    Sound.music('battle')
+    Sound.music(trainerTheme())
     const out = await duoBattle({ foes: field, bench: waiting, trainers: crew, plan: demoPlan })
     if (out.result === 'won') {
       restBeaten(crew)   // they stay away for a while
@@ -4963,9 +5463,9 @@ async function run(id) {
    * Lose: the ticket is gone and the ladder starts again from Will.
    */
   async function eliteBattle(demoPlan) {
-    const L = ELITE[eliteStep], key = summonKey('elite')
+    const L = ELITE[eliteStep], key = summonKey('elite'), lance = L.short === 'LANCE'
     toolsEnabled(false)
-    Sound.music('gymIntro')
+    Sound.music(LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')   // each member's own intro under the splash and their words
     await wipeTrainer(async () => {
       setScene([L.scene]); showLayer('battle')
       const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', L.color)
@@ -4975,7 +5475,7 @@ async function run(id) {
     await W(1400)
     await talk(L, L.intro)
     vsHide()
-    Sound.music('gym')
+    Sound.music(lance ? 'champion' : 'elite')
     const team = eliteTeam(L)
     const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: L, plan: demoPlan?.turns, planD: demoPlan?.defend })
     if (out.result === 'won') {
@@ -5323,7 +5823,7 @@ async function run(id) {
       await talk(ALEX, ALEX.picked(me.name))
     } else await talk(ALEX, ALEX.again)
     vsHide()
-    Sound.music('battle')
+    Sound.music(trainerTheme())
     if (demo) cap('TUTORIAL', 'You command your Pokémon; Alex commands Porygon and hits his own rings. He explains each thing the first time it comes up.')
     // Gentle opponents, and a partner a little ahead of you.
     const foes = crew.map((T) => ({ mon: individual(DATA.trainer.find((t) => t.name === T.mon), 4, rand), owner: T }))
@@ -6753,7 +7253,7 @@ async function run(id) {
     await W(1300)
     await talk(T, demoPlan ? T.intro[0] : pickOf(T.intro))
     $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
-    Sound.music('battle')
+    Sound.music(trainerTheme())
     // Their Pokémon for this battle, from their pool; the demo always meets Herb's GHOLDENGO.
     const deck = deckFor(T, leadLevel(), demoPlan ? [T.mon] : null)   // around your lead: see levelBand()
     demoNoBlunder = !!demoPlan?.noBlunder
@@ -7093,7 +7593,7 @@ async function run(id) {
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
-    box, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
