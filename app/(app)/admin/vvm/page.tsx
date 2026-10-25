@@ -24,7 +24,7 @@ export default async function AdminVvmPage() {
       .from('vvm_supplies')
       .select('key, kind, name, description, contents, token_price, appearance_rate, is_active, sort_order, updated_at')
       .order('sort_order'),
-    supabase.from('vending_settings').select('battle_rewards_open').single(),
+    supabase.from('vending_settings').select('wild_live, battle_rewards_open').single(),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -64,7 +64,10 @@ export default async function AdminVvmPage() {
     <div className="space-y-8">
       <VvmItemsClient sets={[...bySet.values()]} />
       <VvmSuppliesClient supplies={(supplies as SupplyRow[] | null) ?? []} />
-      <BattlesLiveClient live={!!(settings as { battle_rewards_open: boolean } | null)?.battle_rewards_open} />
+      <BattlesLiveClient
+        wild={!!(settings as { wild_live: boolean } | null)?.wild_live}
+        trainers={!!(settings as { battle_rewards_open: boolean } | null)?.battle_rewards_open}
+      />
     </div>
   )
 }
