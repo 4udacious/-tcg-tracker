@@ -3530,7 +3530,9 @@ $('sheet').addEventListener('pointerdown', (e) => { if (e.target === $('sheet') 
 
    Levels climb steadily across all 26 leaders. `min` is the lowest level a
    leader's ace can be: Johto 13 → 41, the Elite Four 44 → 50, Lance 53, Kanto
-   55 → 70 (Blue), the Kanto Elite Four 78 → 84, Red 88. Out-level a leader
+   55 → 67, the Kanto Elite Four 78 → 84, Red 88. Blue, at 81 (86 with the
+   balance offset below), is the toughest gym and the toughest battle after
+   Red and Alex's last: above Blaine and the Kanto Elite Four. Out-level a leader
    and their ace sits 3 above your best instead; the rest of the team is 2
    below the ace. Nobody goes above Lv 100. */
 const GYMS = [
@@ -3620,7 +3622,7 @@ const GYMS = [
     intro: ['Blaine! My gym burned down, so a vending machine will have to do!', 'Pop quiz: what melts a Champion? My fire types!'],
     outro: ["I've burned out! What a battle!", 'You have earned the VOLCANO BADGE!'],
     gloat: ['The answer was my fire. Correct!', 'Study up and come back for a retake!'] },
-  { short: 'BLUE', full: 'GYM LEADER BLUE', city: 'VIRIDIAN CITY', type: 'normal', badge: 'EARTH', color: '#93c5fd', scene: 'tower', min: 70, tokens: '20.00', anyType: true,
+  { short: 'BLUE', full: 'GYM LEADER BLUE', city: 'VIRIDIAN CITY', type: 'normal', badge: 'EARTH', color: '#93c5fd', scene: 'tower', min: 81, tokens: '20.00', anyType: true,
     team: ['PIDGEOT', 'ALAKAZAM', 'RHYDON', 'EXEGGUTOR', 'GYARADOS', 'ARCANINE'],
     sig: [S_('FLARE BLITZ', 'fire', 80, 'phys', 'whoosh'), S_('CRUNCH', 'dark', 70, 'phys', 'crunch'), S_('EXTREME SPEED', 'normal', 50, 'phys', 'whoosh', { fast: true })],
     intro: ["So you're the one who beat Lance. I'm Blue. I was Champion once, you know.", "I've never gone easy on anyone. Don't expect me to start now."],
