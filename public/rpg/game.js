@@ -3100,12 +3100,13 @@ const ALEX = {
  * Three phases, each with its own look (art), battle theme and scene:
  *   1. battles 1-3, the friendly rival: SONGS.rival, look 1.
  *   2. battles 4-5, colder, Porygon upgraded: SONGS.rival2, look 2.
- *   3. battles 6-7, Mewtwo joins: SONGS.rival3, look 3.
+ *   3. battles 6-7, Porygon-Z; Mewtwo joins for the last: SONGS.rival3, look 3.
  * Alex's team is built around Porygon, which evolves along the way
  * (Porygon2 in phase 2, Porygon-Z in phase 3), with made and engineered
- * Pokémon around it (Magnemite's line, Rotom, Starmie) and Mewtwo, cloned in
- * a lab, at the end. Each team covers its types: water, fire, electric and
- * steel, rock and dark, psychic and normal by the end. Ace last.
+ * Pokémon around it (Magnemite's line, Rotom, Starmie), Alakazam in battle
+ * 6, and in the last battle Zapdos and Mewtwo, cloned in a lab. Each team
+ * covers its types: water, fire, electric, rock and dark, psychic and normal
+ * by the end. Ace last.
  *
  * Levels as a Gym Leader's (leaderLevels): the ace at the battle's `min` or
  * 3 above your best, the rest 2 below it. Alex fights like a leader (`hard`:
@@ -3148,12 +3149,12 @@ const RIVAL_BATTLES = [
     intro: ['The Elite Four. You think you are ready for them?', "You're not getting to the Plateau without getting past me first."],
     outro: ['Go on, then. Go meet your Champion.', '...Whatever it takes. I said that, and I meant it.'],
     gloat: ['The League can wait. Forever, maybe.', "You're not ready. I am."] },
-  { due: (p) => p.champion, min: 58, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'PORYGON-Z', 'MEWTWO'],
-    intro: ['Champion, huh. Congratulations. Really.', "I found something in a lab outside Cerulean. It doesn't lose. Neither do I, anymore."],
-    outro: ['Even Mewtwo couldn\'t... How are you still standing?', 'No. Not like this. One more battle. The last one.'],
+  { due: (p) => p.champion, min: 58, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
+    intro: ['Champion, huh. Congratulations. Really.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
+    outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.kanto >= 7, min: 70, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'MEWTWO', 'PORYGON-Z'],
-    intro: ['Seven Kanto badges. Just Blue left, and me first.', 'Last battle. Everything I have. No more upgrades, just us.'],
+  { due: (p) => p.kanto >= 7, min: 70, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'MEWTWO', 'PORYGON-Z'],
+    intro: ['Seven Kanto badges. Just Blue left, and me first.', 'Meet Mewtwo. Made in a lab, like Porygon was. This is everything I have.'],
     outro: ['...You did it. You really are better.', 'Thanks for not letting me win the wrong way. Go take Blue down, Champion.'],
     gloat: ['I won... and you made me earn every inch of it.', 'Rest up. I want the real you for the rematch.'] },
 ]
@@ -3173,11 +3174,13 @@ const RIVAL_MOVES = {
   PORYGON: [S_('TRI ATTACK', 'normal', 45, 'spec', 'zap', { ranged: true }), S_('PSYBEAM', 'psychic', 45, 'spec', 'shadow', { ranged: true }), L_('DISCHARGE', 'electric', 40, 'spec', 'current', 'zap')],
   PORYGON2: [S_('TRI ATTACK', 'normal', 65, 'spec', 'zap', { ranged: true }), S_('ICE BEAM', 'ice', 65, 'spec', 'whoosh', { ranged: true }), L_('DISCHARGE', 'electric', 55, 'spec', 'current', 'zap')],
   'PORYGON-Z': [S_('TRI ATTACK', 'normal', 80, 'spec', 'zap', { ranged: true }), S_('ICE BEAM', 'ice', 70, 'spec', 'whoosh', { ranged: true }), L_('DISCHARGE', 'electric', 60, 'spec', 'current', 'zap'), S_('DARK PULSE', 'dark', 70, 'spec', 'shadow', { ranged: true })],
+  ZAPDOS: [S_('THUNDER', 'electric', 85, 'spec', 'zap', { ranged: true }), S_('DRILL PECK', 'flying', 70, 'phys', 'whoosh'), L_('DISCHARGE', 'electric', 60, 'spec', 'current', 'zap'), S_('HEAT WAVE', 'fire', 65, 'spec', 'whoosh', { ranged: true })],
   MEWTWO: [S_('PSYSTRIKE', 'psychic', 85, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('AURA SPHERE', 'fighting', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('PSYWAVE', 'psychic', 60, 'spec', 'wave', 'shadow'), S_('SHADOW BALL', 'ghost', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' })],
 }
-/** Mewtwo: only Alex has one (it isn't wild, and doesn't evolve from anything). */
-DATA.forms.push({ id: 150, name: 'MEWTWO', types: ['psychic'], base: { hp: 106, attack: 110, defense: 90, 'special-attack': 154, 'special-defense': 90, speed: 130 }, capture: 3 })
-Object.assign(ART, { 150: '/rpg/a/150.gif', '150b': '/rpg/a/150-back.gif', 'cry:150': '/rpg/a/cries/150.ogg' })
+/** Mewtwo and Zapdos: only Alex has them (they aren't wild, and don't evolve from anything). */
+DATA.forms.push({ id: 150, name: 'MEWTWO', types: ['psychic'], base: { hp: 106, attack: 110, defense: 90, 'special-attack': 154, 'special-defense': 90, speed: 130 }, capture: 3 },
+  { id: 145, name: 'ZAPDOS', types: ['electric', 'flying'], base: { hp: 90, attack: 90, defense: 85, 'special-attack': 125, 'special-defense': 90, speed: 100 }, capture: 3 })
+for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
