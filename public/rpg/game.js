@@ -1560,7 +1560,7 @@ SONGS.champion = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 
   ] }
 
 /*
- * The rival's battle: one theme for every fight with them, and a serious one.
+ * The rival's first battle (SONGS.rival2, below, is the second), and a serious one.
  * The rival who was all swagger in their encounter music (SONGS.rivalTalk)
  * means it now. E minor, so it takes over from that tune's closing B7.
  * Written to sound unlike the other battles: the Gym has the 3+3+2 drive
@@ -1620,6 +1620,66 @@ SONGS.rival = { file: null, loop: true, bpm: 168, div: 4, chordLen: 16, vol: 0.9
       drums: 'K.h.h.h.S.h.h.h.'.repeat(6) + 'K.h.S.h.K.hKS.SS' + 'S.S.S.S.SSSSSSSS' },
     { // The verse again, on the rival's synth, low brass under it and horn stabs
       ...RIVAL_VERSE, leadInst: 'synth', doubles: [['brass', -1, 0.45]], stabs: 'x.....x.....x...',
+      drums: RIVAL_CHUG.repeat(7) + 'KhKKShKKPPPPSSSS' },
+  ] }
+
+/*
+ * The rival's second battle: the first one's music, grown darker. Same key,
+ * same chug, the same chorus shape, but something has gone wrong with it.
+ *   - The motif is corrupted: E, G, F-sharp, E becomes E, G, F, E, the
+ *     semitone above the key where the first theme only visited it.
+ *   - The harmony leans on the tritone: B-flat major and D minor take the
+ *     places of the first theme's B and D major.
+ *   - Intro: the bells that tolled in the first theme's breakdown open this
+ *     one, over low brass and basses, then hammered hits onto the tritone.
+ *   - Verse: the first verse with the corrupted motif and B-flat under it;
+ *     its second half is the first verse's, note for note.
+ *   - Chorus: the first chorus's climbing lines, reharmonised in minor
+ *     (D minor, B-flat), a choir under it and the strings in tremolo throughout.
+ *   - The descent: new. The bass falls by semitones from E to B (E, D-sharp,
+ *     D, C-sharp, C) under an organ and the choir singing the motif, half
+ *     time, timpani on the downbeats.
+ *   - The corrupted verse once more on the rival's synth, with violins,
+ *     low brass and horn stabs, back to the top.
+ * 160 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a 48 s loop.
+ */
+const RIVAL2_VERSE = {
+  chords: 'Em F Em Bb Em C F B7'.split(' '),
+  lead: [...bars('E5^ . . . . . G5 . F5 . E5 . B4 . . .', 'C5 . . . F5 . A5 . C6 . . . B5 . A5 .',
+    'G5 . . . . . F#5 . E5 . . . B4 . E5 .', 'F5 . . . D5 . . . Bb4 . . . D5 . F5 .'), ...RIVAL_VERSE.lead.slice(64)],
+  bass: bars(chug('E2'), chug('F2'), chug('E2'), chug('Bb1'), chug('E2'), chug('C2'), chug('F2'), chug('B1')),
+  drums: RIVAL_CHUG.repeat(7) + 'KhKKShKKTTttSSSS' }
+SONGS.rival2 = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 0.9,
+  leadInst: 'brass', doubles: [['violins', 0, 0.3], ['brass', -1, 0.4]], harmInst: 'strings', padInst: 'choir', power: true,
+  comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chords: 'Em F Em B7'.split(' '), doubles: [['lowstrings', -1, 0.6], ['bells', 1, 0.35]], power: false,
+    lead: bars('E4 . . . . . . . G4 . . . . . . .', 'F4 . . . . . . . E4 . . . . . . .',
+      'E4! - E4! - F4! - E4! - Bb4 . . . . . . .', 'B4~ . . . . . . . D#5 . F#5 . A5 . D#5 .'),
+    bass: bars('E1 . . . . . . . . . . . . . . .', 'F1 . . . . . . . . . . . . . . .', 'E1 . . . . . . . . . . . . . . .', chug('B1')),
+    drums: 'P...............' + 'P...............' + 'K.K.K.K.P.......' + 'PPPPPPPPSSSSSSSS' },
+  sections: [
+    { ...RIVAL2_VERSE },
+    { // Chorus: the first chorus's lines, in minor, choir and tremolo throughout
+      chords: 'Am Dm Bb Em C Bb B7 B7'.split(' '), trem: 'x x x x x x x x'.split(' '),
+      lead: bars('A5 . . . . . . . C6 . . . E6 . . .', 'F6 . . . . . E6 . D6 . . . A5 . . .',
+        'Bb5 . . . . . . . D6 . . . F6 . . .', 'G6 . . . F#6 . E6 . B5 . . . . . . .',
+        'C6 . . . . . . . E6 . . . G6 . . .', 'F6 . . . . . D6 . Bb5 . . . F5 . . .',
+        'D#6^ . . . . . . . F#6 . . . A6 . G6 F#6', 'F#6~ . . . . . . . . . . . - - - -'),
+      bass: bars(octs('A1'), octs('D2'), octs('Bb1'), octs('E2'), octs('C2'), octs('Bb1'), octs('B1'), octs('B1')),
+      drums: 'K.h.S.h.K.hKS.h.'.repeat(7) + 'K.h.S.h.TTttSSSS' },
+    { // The descent: the bass falling by semitones, organ and choir singing the motif, half time, timpani
+      chords: 'Em B Em C#dim C C B7 B7'.split(' '), leadInst: 'organ', leadVel: 1.1, doubles: [['choir', 0, 0.55]], padInst: 'strings',
+      bassInst: 'lowstrings', power: false,
+      lead: bars('E5 . . . . . . . G5 . . . . . . .', 'F#5 . . . . . . . D#5 . . . . . . .',
+        'E5 . . . . . . . B4 . . . . . . .', 'E5 . . . . . . . G5 . . . . . . .',
+        'G5 . . . . . . . E5 . . . . . . .', 'C6 . . . . . . . B5 . . . A5 . G5 .',
+        'F#5 . . . . . . . A5 . . . . . . .', 'B5 . . . . . . . - - - - - - - -'),
+      bass: bars('E2 . . . . . . . . . . . . . . .', 'D#2 . . . . . . . . . . . . . . .', 'D2 . . . . . . . . . . . . . . .',
+        'C#2 . . . . . . . . . . . . . . .', 'C2 . . . . . . . . . . . . . . .', 'C2 . . . . . . . C2 . . . C2 . . .',
+        'B1 . . . . . . . . . . . . . . .', 'B1 . . . . . . . B1 . B1 . B1 . B1 .'),
+      drums: 'P.......S.......' + 'K.......S.......'.repeat(5) + 'P.......P.......' + 'PPPPPPPPSSSSSSSS' },
+    { // The corrupted verse once more, on the rival's synth, violins and low brass with it, horn stabs
+      ...RIVAL2_VERSE, leadInst: 'synth', doubles: [['brass', -1, 0.45], ['violins', 0, 0.25]], stabs: 'x.....x.....x...',
       drums: RIVAL_CHUG.repeat(7) + 'KhKKShKKPPPPSSSS' },
   ] }
 
