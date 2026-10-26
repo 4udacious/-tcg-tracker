@@ -3201,7 +3201,8 @@ const ALEX = {
  * by the end. Ace last.
  *
  * Levels as a Gym Leader's (leaderLevels): the ace at the battle's `min` or
- * 3 above your best, the rest 2 below it. Alex fights like a leader (`hard`:
+ * `over` above your best (3, then 6, 9 and 14 in Kanto, climbing with
+ * Kanto's leaders), the rest 2 below it. Alex fights like a leader (`hard`:
  * the best move each turn, tells, quicker rings, a line before the last
  * Pokémon, or the battle's own `last` words) with `restores` Full
  * Restores: one in battles 1-4, two in 5 and 6, three in 7.
@@ -3237,15 +3238,15 @@ const RIVAL_BATTLES = [
     intro: ["You noticed. Porygon's different now. I installed the UPGRADE.", "Friends? We were. Now you're just the number I have to beat."],
     outro: ["...That doesn't make sense. The numbers were on my side.", "I'll find what's missing. Whatever it takes."],
     gloat: ["The upgrade works. You don't.", "Go home. The machine's mine today."] },
-  { due: (p) => p.kanto >= 1, min: 62, restores: 2, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
+  { due: (p) => p.kanto >= 1, min: 62, over: 6, restores: 2, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
     intro: ["Champion. And now you're collecting Kanto badges too.", "I skipped the League. I've been upgrading instead. Let's see whose time was better spent."],
     outro: ["...You're the Champion for a reason. I get it now.", 'Whatever it takes. I said that, and I meant it.'],
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
-  { due: (p) => p.kanto >= 7, min: 78, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
+  { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, min: 90, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, min: 90, over: 14, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
@@ -3533,8 +3534,10 @@ $('sheet').addEventListener('pointerdown', (e) => { if (e.target === $('sheet') 
    55 → 67, the Kanto Elite Four 78 → 84, Red 88. Blue, at 81 (86 with the
    balance offset below), is the toughest gym and the toughest battle after
    Red and Alex's last: above Blaine and the Kanto Elite Four. Out-level a leader
-   and their ace sits 3 above your best instead; the rest of the team is 2
-   below the ace. Nobody goes above Lv 100. */
+   and their ace sits above your best instead (see leaderLevels: 3 plus their
+   balance offset in Johto; in Kanto a steady climb, Brock 6 to Blaine 9, the
+   Elite Four 10-11, Blue 12, Red 13); the rest of the team is 2 below the
+   ace. Nobody goes above Lv 100. */
 const GYMS = [
   { short: 'FALKNER', full: 'GYM LEADER FALKNER', city: 'VIOLET CITY', type: 'flying', badge: 'ZEPHYR', color: '#7fb2ff', scene: 'tower', min: 13,
     team: ['PIDGEY', 'HOOTHOOT', 'PIDGEOTTO'],
@@ -3710,7 +3713,7 @@ const KANTO_ELITE = [
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
 ]
-KANTO_ELITE.forEach((L) => Object.assign(L, { elite: true, kanto: true, city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : 0.45, ringFast: L.red ? 0.75 : 0.78,
+KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, over: [10, 10, 11, 11, 13][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : 0.45, ringFast: L.red ? 0.75 : 0.78,
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const KANTO_CARD = { short: 'THE KANTO LEAGUE', city: 'INDIGO PLATEAU', summonName: 'KANTO LEAGUE TICKET', face: 'gymFace:red', color: '#ef4444', tag: 'LEAGUE' }
 /** The two Leagues, by their ticket's summon id: Johto's ('elite') and Kanto's ('kanto'). */
@@ -3730,12 +3733,14 @@ function art(L) {
 const LEVEL_CAP = 100
 /**
  * The levels a leader's team fights at, ace last, against a party at these
- * levels: the ace at the leader's minimum or 3 above your best, the rest 2
- * below it.
+ * levels. The ace is at the leader's floor (their minimum plus their balance
+ * offset, `lvAdj`) or, once you out-level that, `over` above your best; the
+ * rest 2 below it. `over` is 3 plus the offset unless a leader sets their own
+ * (Kanto's, so their offsets don't stack on top of your level).
  */
 function leaderLevels(L, partyLevels) {
-  const best = Math.max(1, ...partyLevels), last = L.team.length - 1
-  const ace = Math.min(LEVEL_CAP, Math.max(L.min, best + 3))
+  const best = Math.max(1, ...partyLevels), last = L.team.length - 1, adj = L.lvAdj ?? 0
+  const ace = Math.min(LEVEL_CAP, Math.max(L.min + adj, best + (L.over ?? 3 + adj)))
   return L.team.map((_, i) => (i === last ? ace : Math.max(1, ace - 2)))
 }
 
@@ -3786,9 +3791,12 @@ KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig }
 const JOHTO_ADJ = [-1, -2, -1, -1, -3, 0, 2, 2]
 // Kanto comes after the Champion, against a full, evolved party: well above you. (Blue's own minimum puts him above them all.)
 const KANTO_ADJ = [6, 6, 10, 8, 10, 10, 12, 5]
+// Out-levelled, Kanto's leaders sit this far above your best (not 3 plus their offset): a steady climb, Blaine 9, Blue 12,
+// with the Kanto Elite Four (10-11) between them and Red (13).
+const KANTO_OVER = [6, 6, 7, 7, 8, 8, 9, 12]
 GYMS.forEach((L, i) => Object.assign(L, i < 8
   ? { lvAdj: JOHTO_ADJ[i], tellRate: i < 3 ? 0.15 : i < 6 ? 0.3 : 0.4, ringFast: i < 3 ? 0.9 : i < 6 ? 0.85 : 0.8 }
-  : { lvAdj: KANTO_ADJ[i - 8], tellRate: 0.45, ringFast: 0.8 }))
+  : { lvAdj: KANTO_ADJ[i - 8], over: KANTO_OVER[i - 8], tellRate: 0.45, ringFast: 0.8 }))
 ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?? 6, tellRate: L.role === 'CHAMPION' ? 0.5 : 0.45, ringFast: 0.8 }))
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
@@ -4423,7 +4431,7 @@ async function run(id) {
   }
   /** A summon's challenge page: who, how many, how strong; then the button. */
   function summonPage(k) {
-    const n = ITEMS[k].summon, L = GYMS[n], ace = Math.min(LEVEL_CAP, leaderLevels(L, party.map((m) => m.level)).at(-1) + (L.lvAdj ?? 0))
+    const n = ITEMS[k].summon, L = GYMS[n], ace = leaderLevels(L, party.map((m) => m.level)).at(-1)
     return `<button class="back" data-back>◀ Bag</button>
       <div class="gymcard" style="--c:${L.color}"><img src="${ART[L.face]}" alt=""><div>
         <b>${L.full}</b><span>${L.city} GYM · ${L.type.toUpperCase()} TYPE</span>
@@ -4440,7 +4448,7 @@ async function run(id) {
       <div class="ladder">${list.map((E, i) => `<span class="${i < st ? 'done' : i === st ? 'next' : ''}"><img src="${ART[E.face]}" alt=""><b>${E.short}</b><i>${i < st ? 'BEATEN' : i === st ? 'NEXT' : E.role === 'CHAMPION' || E.red ? E.role : `#${i + 1}`}</i></span>`).join('')}</div>
       <div class="gymcard" style="--c:${L.color}"><img src="${ART[L.face]}" alt=""><div>
         <b>${L.full}</b><span>${L.red ? 'MT. SILVER' : `${L.type.toUpperCase()} TYPE`} · battle ${st + 1} of 5</span>
-        <span>${L.team.length} Pokémon · their ace around Lv ${Math.min(LEVEL_CAP, leaderLevels(L, party.map((m) => m.level)).at(-1) + (L.lvAdj ?? 0))} · pays ${L.tokens} tokens</span></div></div>
+        <span>${L.team.length} Pokémon · their ace around Lv ${leaderLevels(L, party.map((m) => m.level)).at(-1)} · pays ${L.tokens} tokens</span></div></div>
       <p class="note">One ticket covers all five battles. Take as long as you like between them: heal up, buy supplies, then come back here. Win and the ticket stays for the next battle; lose and it's gone, and the next ticket starts again from ${first}. ${last.red ? `Beat ${last.short}, if you can.` : `Beat ${last.short} and you're Champion.`}</p>
       <div class="lbl">Your party</div>
       <div class="mvchips" style="margin-bottom:10px">${party.map((m) => `<i style="background:${TYPE_COL[m.types[0]]}">${m.name} Lv ${m.level} · ${m.hp}/${m.stats.hp}</i>`).join('')}</div>
@@ -6086,8 +6094,8 @@ async function run(id) {
   /* ══════════ gym battles ══════════ */
   /** A leader's team for this fight: the ace at their minimum or 3 above your best, the rest 2 below it; every IV at least 20. */
   function gymTeam(n) {
-    // leaderLevels(): the ace at their minimum or 3 above your best, the rest 2 below; then their balance offset.
-    const L = GYMS[n], lv = leaderLevels(L, party.map((m) => m.level)).map((x) => Math.min(LEVEL_CAP, x + (L.lvAdj ?? 0)))
+    // leaderLevels(): the ace at their floor or above your best, the rest 2 below.
+    const L = GYMS[n], lv = leaderLevels(L, party.map((m) => m.level))
     return L.team.map((name, i) => {
       const m = individual(DATA.trainer.find((t) => t.name === name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k])
@@ -6133,7 +6141,7 @@ async function run(id) {
   }
   /** An Elite Four member's team: levels as leaderLevels() sets them, every IV at least 20. */
   function eliteTeam(L) {
-    const lv = leaderLevels(L, party.map((m) => m.level)).map((x) => Math.min(LEVEL_CAP, x + (L.lvAdj ?? 0)))
+    const lv = leaderLevels(L, party.map((m) => m.level))
     return L.team.map((name, i) => {
       const m = individual(DATA.trainer.find((t) => t.name === name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k])
