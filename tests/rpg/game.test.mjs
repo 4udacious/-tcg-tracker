@@ -48,6 +48,8 @@ test('battle rules', async () => {
         tox: [statusTick(tox), statusTick(tox), statusTick(tox)],
         sleep: [statusAtAction(sleeper, Math.random), statusAtAction(sleeper, Math.random), statusAtAction(sleeper, Math.random)],
         sing: { perfect: lands('PERFECT', 1.6), good: lands('GOOD', 1), miss: lands('MISS', 0.7) },
+        // Every status move, by timing: never certain, better timing always at least as likely, MISS never.
+        statusOdds: Object.entries(SUPPORT).filter(([, m]) => ['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(m.effect)).map(([n, m]) => [n, ...['PERFECT', 'GREAT', 'GOOD', 'OK', 'MISS'].map((l) => statusOdds(m, l))]),
         sorted: sched.every((lv, i) => i === 0 || sched[i - 1] <= lv),
         abra15: evoDue(mon('ABRA', 15)), abra16: evoDue(mon('ABRA', 16))?.to,
         kadabra: evoByItem(mon('KADABRA', 20), 'linkcable', {}).rule?.to,
@@ -84,7 +86,11 @@ test('battle rules', async () => {
     assert.deepEqual(r.defend, ['parry*', 'parry', 'miss', 'dodge', 'miss', 'jump*', 'jump', 'miss'])
     assert.deepEqual(r.tox, [10, 20, 30])
     assert.deepEqual(r.sleep, ['asleep', 'asleep', 'wake'])
-    assert.equal(r.sing.perfect, 1); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)
+    assert.ok(r.sing.perfect > 0.75 && r.sing.perfect < 0.87, `Sing on PERFECT: ${r.sing.perfect}`); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)
+    for (const [n, perfect, great, good, ok, miss] of r.statusOdds) {
+      assert.ok(perfect < 1 && perfect > 0.8, `${n} on PERFECT: ${perfect}`)
+      assert.ok(perfect >= great && great >= good && good >= ok && ok > miss && miss === 0, `${n}: ${[perfect, great, good, ok, miss].join(' ')}`)
+    }
     assert.ok(r.sorted, 'level schedule in level order')
     assert.equal(r.abra15, null); assert.equal(r.abra16, 'KADABRA'); assert.equal(r.kadabra, 'ALAKAZAM')
     assert.deepEqual(r.golbat, [null, 'CROBAT'])
@@ -208,6 +214,30 @@ test('the Bag: medicine, balls, Move Discs and other in their own pockets', asyn
     assert.deepEqual(await pocket('discs'), ['TAILWIND'])
     assert.deepEqual(await pocket('other'), ['THUNDER STONE'])
     assert.match(await page.textContent('#sheetBody [data-tab="balls"]'), /4/, 'a pocket shows how many it holds')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('attack effects: every move has its own look, and every one plays without errors', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(async () => {
+      document.getElementById('home').style.display = 'none'; document.getElementById('battleL').style.display = 'block'
+      const A = { x: 100, y: 194 }, T = { x: 220, y: 114 }, el = document.getElementById('player'), recipes = {}
+      const names = Object.keys(MOVEDEX)
+      for (const name of names) recipes[name] = window.__fx.recipe(moveInfo(name))
+      // In batches, so the run is quick but the layer doesn't hold hundreds of particles at once.
+      for (let i = 0; i < names.length; i += 12) await Promise.all(names.slice(i, i + 12).map(async (name) => {
+        const mv = moveInfo(name); await window.__fx.strike(mv, A, T, el, true); window.__fx.impact(T, mv.type, true)
+      }))
+      const counts = {}; for (const R of Object.values(recipes)) counts[R] = (counts[R] ?? 0) + 1
+      return { recipes, counts, total: names.length }
+    })
+    for (const [name, R] of Object.entries(r.recipes)) assert.ok(typeof R === 'string' && R, `${name} has an effect`)
+    assert.ok(Object.keys(r.counts).length >= 25, `moves use many different effects (${Object.keys(r.counts).length})`)
+    assert.ok(Math.max(...Object.values(r.counts)) < r.total * 0.25, `no one effect covers a quarter of the moves: ${JSON.stringify(r.counts)}`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -373,6 +403,7 @@ test('play: the tutorial, then wild battles with new moves, then a save', { skip
     g.bot.want = ['TOXIC', 'CROSS CHOP', 'DOUBLE KICK', 'SCRATCH']
     assert.ok(await g.bot.encounter('wild'), 'a wild battle started')
     assert.ok(g.log.some((l) => /used/.test(l)), 'moves were used')
+    assert.deepEqual(g.log.filter((l) => l.startsWith('BUG')), [], 'only the dialogue shows while an attack is announced')
 
     // A save made mid-Transform keeps the Pokémon as it really is.
     const saved = await g.page.evaluate(() => {
@@ -412,6 +443,29 @@ test('music: every song\'s parts line up, and every note and chord reads', async
       return out
     })
     assert.deepEqual(problems, [])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('music keeps time when the phone is busy: no late notes through main-thread stalls', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.waitForTimeout(800)
+    await page.evaluate(() => {
+      RUN++; Sound.stopMusic()   // stop the page's own demo, which changes the music
+      // A busy phone: the main thread stalls for half a second every five seconds.
+      window.__stall = setInterval(() => { const end = performance.now() + 500; while (performance.now() < end); }, 5000)
+      // Count sounds that start after their time (already past when they're made).
+      const start = AudioScheduledSourceNode.prototype.start
+      window.__late = 0
+      // (From a second in: this is about keeping time through the loop, not the song's first notes.)
+      AudioScheduledSourceNode.prototype.start = function (when = 0, ...a) { const c = this.context; if (!(c instanceof OfflineAudioContext) && c.currentTime > 1 && c.currentTime - when > 0.03) window.__late++; return start.call(this, when, ...a) }
+      Sound.setOn(true); Sound.music('battleB')   // the densest arrangement
+    })
+    await page.waitForTimeout(25000)
+    const r = await page.evaluate(() => { clearInterval(window.__stall); Sound.stopMusic(); return { late: window.__late, played: Sound && true } })
+    assert.equal(r.late, 0, `${r.late} sounds started late`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
