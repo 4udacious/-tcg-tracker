@@ -473,12 +473,13 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
         missing: KANTO_ELITE.flatMap((L) => L.team).filter((n) => { const s = speciesByName(n); return !s || !ART[s.id] }),
         art: KANTO_ELITE.every((L) => ART[L.vs] && ART[L.face] && ART[L.body]), sig: KANTO_ELITE.every((L) => L.sig?.length >= 3),
         themes: [LEAGUES.kanto.battle(KANTO_ELITE[0]), LEAGUES.kanto.battle(KANTO_ELITE[4])], songs: !!(SONGS.kantoElite && SONGS.red),
-        blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title }
+        blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj }
     })
     assert.deepEqual(r.now, [null, 'elite', null, 'kanto', null], 'the Johto League with 8 badges; the Kanto League as Champion with all 16; none once Red is beaten')
     assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
     assert.deepEqual(r.who, ['LORELEI', 'BRUNO', 'AGATHA', 'LANCE', 'RED'])
-    assert.ok(r.mins.every((m, i) => m > 70 && (!i || m > r.mins[i - 1])), `above Blue, each tougher than the last: ${r.mins}`)
+    assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), `each tougher than the last: ${r.mins}`)
+    assert.ok(r.blueAce > Math.max(...r.mins.slice(0, 4)) && r.blueAce < r.mins[4], `Blue (${r.blueAce}) above the Kanto Elite Four and below Red`)
     assert.equal(r.red.restores, 2); assert.equal(r.red.team.at(-1), 'PIKACHU')
     assert.deepEqual(r.missing, []); assert.ok(r.art, 'everyone has art (placeholders for the new faces)'); assert.ok(r.sig, 'every ace has its signature moves')
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
