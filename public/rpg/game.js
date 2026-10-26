@@ -1962,15 +1962,9 @@ const QUICK_NATURES = new Set(['Timid', 'Hasty', 'Jolly', 'Naive'])
 const startPP = (m) => (QUICK_NATURES.has(m.nature[0]) ? 2 : 1)
 
 /* ── EXP ──
-   Beating or catching a Pokémon is worth 12 × its level, 18 × from a
-   scalper's. Up to Lv 15, Lv L to L+1 takes (L+1)^3 - L^3 points (the
-   games' medium-fast growth): about L/4 wins against Pokémon near your
-   level. Past that, each level costs more on top, so the climb slows the
-   higher a Pokémon goes: twice the medium-fast cost at Lv 50, three times
-   at Lv 85. In wild wins a level, roughly: Lv 10 3, Lv 30 12, Lv 50 26,
-   Lv 70 47, Lv 90 73 (trainers' Pokémon give half as much again). */
-const EXP_SLOW_FROM = 15, EXP_SLOW_OVER = 35
-const expToNext = (L) => Math.round(((L + 1) ** 3 - L ** 3) * (1 + Math.max(0, L - EXP_SLOW_FROM) / EXP_SLOW_OVER))
+   Medium-fast growth: Lv L to L+1 takes (L+1)^3 - L^3 points. Beating or
+   catching a Pokémon is worth 12 × its level, 18 × from a scalper's. */
+const expToNext = (L) => (L + 1) ** 3 - L ** 3
 const expYield = (foe, trainer = false) => Math.round(foe.level * (trainer ? 18 : 12))
 /** Stats at a level, from the same IVs and nature (the formula individual() uses). */
 function statsAt(m, level) {
