@@ -474,7 +474,9 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
         art: KANTO_ELITE.every((L) => ART[L.vs] && ART[L.face] && ART[L.body]), sig: KANTO_ELITE.every((L) => L.sig?.length >= 3),
         themes: [LEAGUES.kanto.battle(KANTO_ELITE[0]), LEAGUES.kanto.battle(KANTO_ELITE[4])], songs: !!(SONGS.kantoElite && SONGS.red),
         blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj,
-        johto: ELITE.map((L) => [L.short, L.min + L.lvAdj, L.lvAdj]) }
+        johto: ELITE.map((L) => [L.short, L.min + L.lvAdj, L.lvAdj]),
+        // How far above a party at their floor each sits, once out-levelled: Kanto's gyms, Blaine, the Kanto Elite Four, Blue, Red, Alex's last.
+        over: [...GYMS.slice(8, 15), ...KANTO_ELITE.slice(0, 4), GYMS[15], KANTO_ELITE[4], RIVAL_BATTLES[6]].map((L) => { const f = L.min + (L.lvAdj ?? 0), b = Math.min(f, 80); return leaderLevels(L, [b]).at(-1) - b }) }
     })
     assert.deepEqual(r.now, [null, 'elite', null, 'kanto', null], 'the Johto League with 8 badges; the Kanto League as Champion with all 16; none once Red is beaten')
     assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
@@ -484,7 +486,8 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
     assert.equal(r.red.restores, 2); assert.equal(r.red.team.at(-1), 'PIKACHU')
     assert.deepEqual(r.missing, []); assert.ok(r.art, 'everyone has art (placeholders for the new faces)'); assert.ok(r.sig, 'every ace has its signature moves')
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
-    assert.deepEqual(r.blue, [81, 81, 81, 81, 81, 83], 'Blue: the ace 3 above your best, the rest 2 below, as every leader (no more mirroring)')
+    assert.deepEqual(r.blue, [90, 90, 90, 90, 90, 92], 'Blue out-levelled: the ace 12 above your best, the rest 2 below (no more mirroring)')
+    assert.ok(r.over.every((x, i) => !i || x >= r.over[i - 1]) && r.over[0] < 10 && r.over.at(-1) <= 15, `out-levelled, Kanto climbs steadily, no offsets stacking: ${r.over}`)
     assert.match(r.blueTitle, /EVERY TYPE/)
     const [lance, ...four] = [r.johto.at(-1), ...r.johto.slice(0, 4)]
     assert.ok(four.every(([, ace, adj]) => lance[1] > ace && lance[2] > adj), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)
