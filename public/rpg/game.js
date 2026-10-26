@@ -28,6 +28,7 @@ function tone(ac, out, t, { type = 'square', f, f1, dur = 0.1, vol = 0.2, attack
   g.gain.exponentialRampToValueAtTime(vol, t + attack)
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
   o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.03)
+  o.onended = () => g.disconnect()   // finished sounds leave the graph (see retire())
 }
 function noise(ac, out, t, { dur = 0.1, vol = 0.2, filter = 'lowpass', f = 2000, f1, q = 1 }) {
   if (t < 0) return
@@ -36,6 +37,7 @@ function noise(ac, out, t, { dur = 0.1, vol = 0.2, filter = 'lowpass', f = 2000,
   fl.frequency.setValueAtTime(f, t); if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + dur)
   const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
   s.connect(fl).connect(g).connect(out); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.03)
+  s.onended = () => g.disconnect()
 }
 const arp = (ac, o, t, notes, step, vol = 0.12) => notes.forEach((n, i) => tone(ac, o, t + i * step, { f: NOTE(n), dur: step * 1.6, vol }))
 const hitSynth = (ac, o, t, k = 1) => { noise(ac, o, t, { dur: .12 * k, vol: .45 * k, f: 1800 }); tone(ac, o, t, { f: 260, f1: 70, dur: .12 * k, vol: .25 }) }
@@ -516,6 +518,7 @@ function playBuffer(ac, out, buf, t, rate) {
   const s = ac.createBufferSource(), g = ac.createGain()
   s.buffer = buf; s.playbackRate.value = rate; g.gain.value = CRY_VOL
   s.connect(g).connect(out); s.start(t)
+  s.onended = () => g.disconnect()
 }
 window.__playCry = async (ac, out, id, rate = 1) => { const buf = await cryBuffer(ac, id); if (buf) playBuffer(ac, out, buf, ac.currentTime + 0.01, rate) }
 window.__scheduleCries = async (ac, out, log, fromMs) => {
@@ -584,7 +587,24 @@ function mixer(ac, out, vol = 1) {
 }
 
 /* ── instruments ── each plays one note: (ac, channel, time, hz, seconds, velocity 0..1) */
-const oscAt = (ac, type, f, t, end, detune = 0) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = detune; o.start(t); o.stop(end); return o }
+const oscAt = (ac, type, f, t, end, detune = 0) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = detune; o.start(t); o.stop(end); voiceEnd = Math.max(voiceEnd, end); return o }
+/** The latest moment any part of the note being built sounds (oscAt and noiseHit push it on), so it can be retired after. */
+let voiceEnd = 0
+/**
+ * Delayed vibrato, for notes held long enough to hear it: an LFO into each
+ * oscillator's pitch. It's the costliest thing a voice can do (it puts the
+ * oscillator on its slow path, about five times the work), and a short note
+ * ends before the vibrato would have faded in, so short notes go without.
+ * Returns the gain to connect to each oscillator's frequency, or null.
+ */
+const VIBRATO_MIN = 0.32
+function vibrato(ac, t, end, dur, rate, depth, type = 'sine', delay = 0) {
+  if (dur < VIBRATO_MIN) return null
+  const lfo = oscAt(ac, type, rate, t, end), lg = ac.createGain()
+  lg.gain.setValueAtTime(0, t); if (delay) lg.gain.setValueAtTime(0, t + delay)
+  lg.gain.linearRampToValueAtTime(depth, t + delay + Math.min(0.35, dur * 0.8)); lfo.connect(lg)
+  return lg
+}
 /** Attack, decay to a sustain level, release from the note's end. */
 function adsr(param, t, dur, peak, a, d, s, r) {
   param.setValueAtTime(0, t); param.linearRampToValueAtTime(peak, t + a)
@@ -623,13 +643,11 @@ const INST = {
     const end = adsr(g.gain, t, dur, 0.22 * v, 0.018, 0.14, 0.72, 0.09)
     flt.frequency.setValueAtTime(f * 1.3, t); flt.frequency.linearRampToValueAtTime(Math.min(9000, f * 9), t + 0.045)
     flt.frequency.setTargetAtTime(Math.min(6000, f * 4.2), t + 0.05, 0.08)
-    const lfo = oscAt(ac, 'sine', 5.4, t, end), lg = ac.createGain()
-    lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.007, t + Math.min(0.35, dur * 0.8))
-    lfo.connect(lg)
+    const lg = vibrato(ac, t, end, dur, 5.4, f * 0.007)
     for (const [type, mul, det, gain] of [['sawtooth', 1, -6, 1], ['sawtooth', 1, 6, 1], ['square', 0.5, 0, 0.35]]) {
       const o = oscAt(ac, type, f * mul, t, end, det), og = ac.createGain(); og.gain.value = gain
       articulate(o, f * mul, t, dur, art)
-      lg.connect(o.frequency); o.connect(og).connect(flt)
+      lg?.connect(o.frequency); o.connect(og).connect(flt)
     }
     flt.connect(g).connect(ch)
   },
@@ -638,12 +656,11 @@ const INST = {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 3
     const end = adsr(g.gain, t, dur, 0.16 * v, 0.006, 0.1, 0.8, 0.06)
     flt.frequency.setValueAtTime(Math.min(10000, f * 10), t); flt.frequency.setTargetAtTime(Math.min(7000, f * 5), t + 0.01, 0.06)
-    const lfo = oscAt(ac, 'triangle', 6.5, t, end), lg = ac.createGain()
-    lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.01, t + Math.min(0.25, dur * 0.7)); lfo.connect(lg)
+    const lg = vibrato(ac, t, end, dur, 6.5, f * 0.01, 'triangle')
     for (const [mul, det, gain] of [[1, -8, 1], [1, 8, 0.8], [2, 0, 0.25]]) {
       const o = oscAt(ac, 'square', f * mul, t, end, det), og = ac.createGain(); og.gain.value = gain
       articulate(o, f * mul, t, dur, art)
-      lg.connect(o.frequency); o.connect(og).connect(flt)
+      lg?.connect(o.frequency); o.connect(og).connect(flt)
     }
     flt.connect(g).connect(ch)
   },
@@ -695,8 +712,10 @@ const INST = {
     const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.26 * v, t + 0.003)
     g.gain.setTargetAtTime(0, t + len - 0.12, 0.05)
     for (const [n, amp] of [[1, 1], [2, 0.5], [3, 0.28], [4, 0.17], [5, 0.1], [6, 0.06]]) {
-      const o = oscAt(ac, 'sine', f * n * Math.sqrt(1 + 0.0004 * n * n), t, end), pg = ac.createGain()
-      pg.gain.setValueAtTime(amp, t); pg.gain.exponentialRampToValueAtTime(amp * 0.002, t + Math.min(len, 1.6 / (0.6 + n * 0.5)))
+      // Each partial stops once it has died away: the upper ones are gone long before the note is.
+      const die = t + Math.min(len, 1.6 / (0.6 + n * 0.5))
+      const o = oscAt(ac, 'sine', f * n * Math.sqrt(1 + 0.0004 * n * n), t, Math.min(end, die + 0.01)), pg = ac.createGain()
+      pg.gain.setValueAtTime(amp, t); pg.gain.exponentialRampToValueAtTime(amp * 0.002, die)
       o.connect(pg).connect(g)
     }
     noiseHit(ac, g, t, { type: 'bandpass', f: Math.min(4000, f * 3), q: 1, len: 0.02, vol: 0.25 })
@@ -708,9 +727,9 @@ const INST = {
    */
   choir(ac, ch, t, f, dur, v) {
     const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.4 * v, Math.min(0.35, dur * 0.5), 0.4, 0.9, 0.4)
-    const lfo = oscAt(ac, 'sine', 4.8, t, end), lg = ac.createGain(); lg.gain.value = f * 0.005; lfo.connect(lg)
+    const lg = vibrato(ac, t, end, dur, 4.8, f * 0.005)
     const src = ac.createGain()
-    for (const det of [-11, 0, 12]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); lg.connect(o.frequency); o.connect(src) }
+    for (const det of [-11, 0, 12]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); lg?.connect(o.frequency); o.connect(src) }
     for (const [ff, q, amp] of [[730, 6, 1], [1150, 7, 0.55], [2650, 8, 0.18]]) {
       const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = q
       const fg = ac.createGain(); fg.gain.value = amp; src.connect(bp).connect(fg).connect(g)
@@ -720,10 +739,10 @@ const INST = {
   /** A violin section: detuned saws, a quick bow attack, bright, with vibrato that comes in as the note holds. */
   violins(ac, ch, t, f, dur, v, art) {
     const g = ac.createGain(), flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = Math.min(7500, f * 6); flt.Q.value = 0.7
-    const end = adsr(g.gain, t, dur, 0.13 * v, 0.03, 0.2, 0.85, 0.12)
-    const lfo = oscAt(ac, 'sine', 5.8, t, end), lg = ac.createGain()
-    lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.008, t + Math.min(0.4, dur * 0.8)); lfo.connect(lg)
-    for (const det of [-12, -4, 5, 13]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(flt) }
+    const end = adsr(g.gain, t, dur, (dur < 0.2 ? 0.18 : 0.13) * v, 0.03, 0.2, 0.85, 0.12)   // two saws sum quieter than four
+    const lg = vibrato(ac, t, end, dur, 5.8, f * 0.008)
+    // Four bows for a held note; a short one (tremolo, a quick run) gets by with two.
+    for (const det of dur < 0.2 ? [-8, 9] : [-12, -4, 5, 13]) { const o = oscAt(ac, 'sawtooth', f, t, end, det); articulate(o, f, t, dur, art); lg?.connect(o.frequency); o.connect(flt) }
     flt.connect(g).connect(ch)
   },
   /**
@@ -735,13 +754,12 @@ const INST = {
     const g = ac.createGain(), end = adsr(g.gain, t, dur, 0.17 * v, 0.025, 0.15, 0.8, 0.07)
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(6000, f * 5.5); lp.Q.value = 1
     const pk = ac.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 1400; pk.gain.value = 7; pk.Q.value = 1.1
-    const lfo = oscAt(ac, 'sine', 5.2, t, end), lg = ac.createGain()
-    lg.gain.setValueAtTime(0, t); lg.gain.setValueAtTime(0, t + Math.min(0.22, dur * 0.5)); lg.gain.linearRampToValueAtTime(f * 0.009, t + Math.min(0.5, dur * 0.9)); lfo.connect(lg)
+    const lg = vibrato(ac, t, end, dur, 5.2, f * 0.009, 'sine', Math.min(0.22, dur * 0.5))
     const growl = ac.createGain(); growl.gain.value = 1
     const gl = oscAt(ac, 'sine', 31, t, end), gd = ac.createGain(); gd.gain.value = 0.16; gl.connect(gd).connect(growl.gain)
     for (const [type, gain, det] of [['sawtooth', 1, -4], ['square', 0.45, 4]]) {
       const o = oscAt(ac, type, f, t, end, det), og = ac.createGain(); og.gain.value = gain
-      articulate(o, f, t, dur, art); lg.connect(o.frequency); o.connect(og).connect(lp)
+      articulate(o, f, t, dur, art); lg?.connect(o.frequency); o.connect(og).connect(lp)
     }
     noiseHit(ac, lp, t, { type: 'bandpass', f: Math.min(5000, f * 3), q: 0.8, len: 0.06, vol: 0.12 })
     lp.connect(pk).connect(growl).connect(g).connect(ch)
@@ -775,7 +793,7 @@ const INST = {
     const len = 2.6, end = t + len + 0.05
     const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0008, t + len)
     for (const [mul, amp, decay] of [[0.5, 0.35, 2.4], [1, 1, 2.2], [2.01, 0.55, 1.4], [2.76, 0.4, 1.0], [4.07, 0.25, 0.6], [5.43, 0.15, 0.35]]) {
-      const o = oscAt(ac, 'sine', f * mul, t, end), og = ac.createGain()
+      const o = oscAt(ac, 'sine', f * mul, t, Math.min(end, t + decay + 0.01)), og = ac.createGain()
       og.gain.setValueAtTime(amp, t); og.gain.exponentialRampToValueAtTime(amp * 0.003, t + decay); o.connect(og).connect(g)
     }
     g.connect(ch)
@@ -803,7 +821,7 @@ function noiseHit(ac, ch, t, { type, f, q = 0.8, len, vol, f1 }) {
   const s = ac.createBufferSource(); s.buffer = noiseBuf(ac)
   const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t); if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + len); fl.Q.value = q
   const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0005, t + len)
-  s.connect(fl).connect(g).connect(ch); s.start(t, Math.random() * 0.5); s.stop(t + len + 0.02)
+  s.connect(fl).connect(g).connect(ch); s.start(t, Math.random() * 0.5); s.stop(t + len + 0.02); voiceEnd = Math.max(voiceEnd, t + len + 0.02)
 }
 function toneHit(ac, ch, t, { type = 'sine', f, f1, len, vol }) {
   const o = oscAt(ac, type, f, t, t + len + 0.02), g = ac.createGain()
@@ -842,15 +860,80 @@ const JIT_AHEAD = 1.2, JIT_AHEAD_HIDDEN = 2.2, LATE_DROP = 0.08
 function jitQueue(ac) {
   if (ac.__q) return ac.__q
   ac.__q = []
-  if (!(ac instanceof OfflineAudioContext)) setInterval(() => jitFlush(ac, ac.currentTime + (document.hidden ? JIT_AHEAD_HIDDEN : JIT_AHEAD)), 25)
+  if (!(ac instanceof OfflineAudioContext)) {
+    setInterval(() => jitFlush(ac, ac.currentTime + (document.hidden ? JIT_AHEAD_HIDDEN : JIT_AHEAD)), 25)
+    watchLoad(ac)
+  }
   return ac.__q
 }
+/*
+ * Retiring finished notes. A note's nodes stay wired into its mixer channel
+ * after it ends, and the audio thread keeps visiting every one of them until
+ * the garbage collector happens by: the work grows with each loop of a song
+ * (a minute of the Champion's theme went from 0.4 to over 1 core before a
+ * collection), and on a phone that's what broke the music up after a few
+ * loops and then made everything late. So each note is built behind its own
+ * gain, and that gain is disconnected once the note is over.
+ */
+function voice(ac, ch, build) {
+  const vg = ac.createGain(); vg.connect(ch)
+  voiceEnd = 0; build(vg)
+  ;(ac.__retire ??= []).push({ end: voiceEnd + 0.05, node: vg })
+}
+/** The same for a drum hit, which may sound on several of the mixer's channels: one retiring gain per channel it uses. */
+function kitVoice(ac, M, build) {
+  const vgs = {}
+  voiceEnd = 0
+  build(new Proxy(M, { get: (m, k) => vgs[k] ??= (() => { const vg = ac.createGain(); vg.connect(m[k]); return vg })() }))
+  for (const vg of Object.values(vgs)) (ac.__retire ??= []).push({ end: voiceEnd + 0.05, node: vg })
+}
+function retire(ac, now) {
+  const r = ac.__retire; if (!r?.length) return
+  let k = 0
+  for (const v of r) if (v.end < now) v.node.disconnect(); else r[k++] = v
+  r.length = k
+}
 function jitFlush(ac, until) {
+  retire(ac, ac instanceof OfflineAudioContext ? until - 1.5 : ac.currentTime)
   const q = ac.__q; if (!q?.length) return
   let n = 0; while (n < q.length && q[n].t < until) n++
-  // Notes for a song that has since been stopped are dropped, not played; so are notes already too late to be in time.
-  const late = ac instanceof OfflineAudioContext ? -Infinity : ac.currentTime - LATE_DROP
-  for (const e of q.splice(0, n)) if (!e.out.__stopped && e.t >= late) e.fn()
+  // Notes for a song that has since been stopped are dropped, not played; so are notes already too late to be in time,
+  // and the parts a slow phone has been spared (offline renders, the videos, always get everything).
+  const offline = ac instanceof OfflineAudioContext, late = offline ? -Infinity : ac.currentTime - LATE_DROP, keep = offline ? 2 : MUSIC_LOAD.keep
+  for (const e of q.splice(0, n)) if (!e.out.__stopped && e.t >= late && e.lvl <= keep) e.fn()
+}
+/* ── keeping up on a slow phone ──
+   Every note is its own little synthesiser, built and played on the audio
+   thread. A rich arrangement (the Champion's tremolo strings and piano runs,
+   Trainer B's horn section) can ask more of a slow phone's audio thread than
+   it has. Then the audio clock itself runs slow: everything, music and
+   effects alike, comes out late and broken up, and stays that way, because
+   the music keeps queueing more. So the audio clock is checked against the
+   real one every second. When it runs slow, the music lightens for the rest
+   of the visit: first the ornaments go (tremolo, runs, ostinatos, comping,
+   glockenspiel, doubled lines), then the colour (harmony, pads, the extra
+   hats), leaving the melody, the bass and the drums. Effects and cries are
+   never thinned. Each part of a song is tagged with a level (0 core, 1 colour,
+   2 ornament), and MUSIC_LOAD.keep is the highest level still played. */
+const MUSIC_LOAD = { tier: 0, keep: 2, slow: 0, rate: 1, changes: [] }
+const LOAD_SLOW = 0.9   // the audio clock at under 90% of real time: the audio thread isn't keeping up
+function lightenMusic(why) {
+  if (MUSIC_LOAD.tier >= 2) return
+  MUSIC_LOAD.tier++; MUSIC_LOAD.keep = 2 - MUSIC_LOAD.tier; MUSIC_LOAD.slow = 0
+  MUSIC_LOAD.changes.push({ tier: MUSIC_LOAD.tier, why, at: performance.now() })
+}
+function watchLoad(ac) {
+  let wall = performance.now(), clock = ac.currentTime, ran = ac.state === 'running'
+  setInterval(() => {
+    const w = performance.now(), c = ac.currentTime, running = ac.state === 'running', dw = (w - wall) / 1000, dc = c - clock
+    const fair = ran && running && !document.hidden && dw >= 0.5   // a paused context or a hidden tab says nothing about load
+    wall = w; clock = c; ran = running
+    if (!fair) { MUSIC_LOAD.slow = 0; return }
+    const rate = MUSIC_LOAD.rate = dc / dw
+    // Two slow seconds in a row, or one badly slow one, and the music lightens a step.
+    if (rate < LOAD_SLOW) MUSIC_LOAD.slow += rate < 0.7 ? 2 : 1; else MUSIC_LOAD.slow = 0
+    if (MUSIC_LOAD.slow >= 2) lightenMusic(rate)
+  }, 1000)
 }
 /** For an offline render of `secs`: flush the queue a second at a time as it renders. */
 function prepareOffline(ac, secs) {
@@ -1082,7 +1165,7 @@ function schedulePart(ac, out, song, t0) {
   const step = 60 / song.bpm / song.div, M = mixer(ac, out, song.vol), q = jitQueue(ac)
   /** Where step i lands: on the grid, or with swing, the off-beats pushed late. */
   const T = (i) => t0 + i * step + (song.swing && i % 2 ? song.swing * step : 0)
-  const at = (t, fn) => q.push({ t, out, fn })   // every note goes through the lookahead queue
+  const at = (t, fn, lvl = 0) => q.push({ t, out, fn, lvl })   // every note goes through the lookahead queue; lvl: 0 core, 1 colour, 2 ornament
   const each = (track, fn) => {
     for (let i = 0; i < track.length; i++) {
       const n = track[i]; if (n === '.' || n === '-') continue
@@ -1091,10 +1174,10 @@ function schedulePart(ac, out, song, t0) {
     }
   }
   const chordAt = (i) => song.chords ? chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]) : null
-  const play = (name, ch, t, m, d, v, art) => at(t, () => INST[name](ac, ch, t, HZ(m), d, v, art))
+  const play = (name, ch, t, m, d, v, art, lvl = 0) => at(t, () => voice(ac, ch, (vg) => INST[name](ac, vg, t, HZ(m), d, v, art)), lvl)
   /** A lead token: its pitch, and its articulation mark if it has one ('~' trill, '^' scoop, 'v' fall, '!' staccato: short and accented). */
   const tok = (n) => { const [, b, art] = /^(.+?)([~^v!]?)$/.exec(n); return [MIDI(b), art] }
-  const hit = (c, t, v) => at(t, () => KIT[c](ac, M, t, v))
+  const hit = (c, t, v, lvl = 0) => at(t, () => kitVoice(ac, M, (m) => KIT[c](ac, m, t, v)), lvl)
   const lastLead = song.lead.reduce((k, n, i) => (n !== '.' && n !== '-' ? i : k), 0)
 
   // Lead melody.
@@ -1103,24 +1186,24 @@ function schedulePart(ac, out, song, t0) {
     const d = art === '!' ? Math.min(d0, step * 0.85) : d0   // staccato: clipped short
     play(song.leadInst ?? 'brass', M.lead, t, m, d, i === lastLead && song.hit ? 1 : (song.leadVel ?? 0.85) * (art === '!' ? 1.15 : 1), art)
     // A second instrument on the melody, an octave up (or wherever leadDoubleOct says), quieter: the unison lines battle themes are built on.
-    if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12 * (song.leadDoubleOct ?? 1), d, song.leadDoubleVel ?? 0.32, art)
+    if (song.leadDouble) play(song.leadDouble, M.lead, t, m + 12 * (song.leadDoubleOct ?? 1), d, song.leadDoubleVel ?? 0.32, art, 2)
     // Or several: [instrument, octaves, velocity] each (violins above and low brass below, say).
-    for (const [inst, oct, vel] of song.doubles ?? []) play(inst, M.lead, t, m + 12 * oct, d, vel, art)
+    for (const [inst, oct, vel] of song.doubles ?? []) play(inst, M.lead, t, m + 12 * oct, d, vel, art, 2)
   })
   // Harmony under the melody: the nearest chord tone 3-9 semitones down.
   if (song.chords) each(song.lead, (t, n, d, i) => {
     const lead = tok(n)[0], pcs = chordAt(i)
-    for (let k = 3; k <= 9; k++) if (pcs.includes(((lead - k) % 12 + 12) % 12)) { play(song.harmInst ?? 'brass', M.harm, t, lead - k, d, 0.55); break }
+    for (let k = 3; k <= 9; k++) if (pcs.includes(((lead - k) % 12 + 12) % 12)) { play(song.harmInst ?? 'brass', M.harm, t, lead - k, d, 0.55, '', 1); break }
   })
   // String pad holding each chord, voiced around middle C.
   if (song.chords) song.chords.forEach((c, k) => {
     const t = t0 + k * song.chordLen * step, dur = Math.min(song.chordLen, song.lead.length - k * song.chordLen) * step
-    for (const pc of chordPcs(c).slice(0, 3)) play(song.padInst ?? 'strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8)
+    for (const pc of chordPcs(c).slice(0, 3)) play(song.padInst ?? 'strings', M.pad, t, 55 + ((pc - 55) % 12 + 12) % 12, dur * 0.98, 0.8, '', 1)
   })
   // Clavinet and horn-section stabs: the chord, short, wherever their one-bar rhythm ('x') says.
   const chordAround = (i, lo) => chordPcs(song.chords[Math.min(song.chords.length - 1, Math.floor(i / song.chordLen))]).slice(0, 4).map((pc) => lo + ((pc - lo) % 12 + 12) % 12)
   for (const [pat, inst, ch, lo, len, vel] of [[song.clav, 'clav', M.keys, 58, 0.8, 0.8], [song.stabs, 'brass', M.harm, 55, 1.3, 0.7]]) {
-    if (pat) for (let i = 0; i < song.lead.length; i++) if (pat[i % pat.length] === 'x') for (const m of chordAround(i, lo)) play(inst, ch, T(i), m, step * len, vel)
+    if (pat) for (let i = 0; i < song.lead.length; i++) if (pat[i % pat.length] === 'x') for (const m of chordAround(i, lo)) play(inst, ch, T(i), m, step * len, vel, '', 2)
   }
   // String tremolo: the strings shaking between the chord's notes, two to a step, wherever a bar is marked 'x'.
   if (song.trem) for (let b = 0; b * song.chordLen < song.lead.length; b++) {
@@ -1128,7 +1211,7 @@ function schedulePart(ac, out, song, t0) {
     const n = Math.min(song.chordLen, song.lead.length - b * song.chordLen), tones = chordAt(b * song.chordLen).slice(0, 3).map((pc) => 60 + ((pc - 60) % 12 + 12) % 12).sort((a, c) => a - c)
     for (let k = 0; k < n * 2; k++) {
       const t = T(b * song.chordLen) + k * step / 2
-      for (const m of k % 2 ? [tones[1], tones[2] + 12] : [tones[0], tones[2]]) play('violins', M.pad, t, m, step * 0.48, 0.34)
+      for (const m of k % 2 ? [tones[1], tones[2] + 12] : [tones[0], tones[2]]) play('violins', M.pad, t, m, step * 0.48, 0.34, '', 2)
     }
   }
   // Piano runs: a bar-long sweep through the chord across four octaves, one letter a bar ('u' up, 'd' down, 'w' up and back, '.' none),
@@ -1139,13 +1222,13 @@ function schedulePart(ac, out, song, t0) {
     for (let m = 48; m <= 96; m++) if (pcs.includes(m % 12)) tones.push(m)
     if (kind === 'f') {
       const hi = tones.filter((m) => m >= 72), t1 = T(b * song.chordLen + n - song.div)
-      for (let k = 0; k < 8; k++) play('piano', M.keys, t1 + k * step * song.div / 8, hi[Math.min(hi.length - 1, k)], step * 0.6, 0.55 + k * 0.06)
+      for (let k = 0; k < 8; k++) play('piano', M.keys, t1 + k * step * song.div / 8, hi[Math.min(hi.length - 1, k)], step * 0.6, 0.55 + k * 0.06, '', 2)
       continue
     }
     for (let k = 0; k < n; k++) {
       const x = kind === 'u' ? k / (n - 1) : kind === 'd' ? 1 - k / (n - 1) : 1 - Math.abs(2 * k / (n - 1) - 1)
       const m = tones[Math.round(x * (tones.length - 1))]
-      play('piano', M.keys, T(b * song.chordLen + k), m, step * 1.6, 0.45 + 0.4 * (kind === 'd' ? 1 - x : x))
+      play('piano', M.keys, T(b * song.chordLen + k), m, step * 1.6, 0.45 + 0.4 * (kind === 'd' ? 1 - x : x), '', 2)
     }
   }
   // Piano ostinato: a repeating figure through the chord (its three notes from middle C up, and the root an octave higher).
@@ -1153,18 +1236,18 @@ function schedulePart(ac, out, song, t0) {
     const k = song.ostinato[i % song.ostinato.length]; if (k === '-') continue
     const tones = chordAt(i).slice(0, 3).map((pc) => 60 + ((pc - 60) % 12 + 12) % 12).sort((a, b) => a - b)
     tones.push(tones[0] + 12)
-    play('piano', M.keys, T(i), tones[+k] + 12 * (song.ostinatoOct ?? 0), step * 1.4, i % song.div ? 0.5 : 0.8)
+    play('piano', M.keys, T(i), tones[+k] + 12 * (song.ostinatoOct ?? 0), step * 1.4, i % song.div ? 0.5 : 0.8, '', 2)
   }
   // Electric piano comping: chord stabs on the off-beats.
   if (song.comp) for (let i = 1; i < song.lead.length; i += 2) {
     const pcs = chordAt(i).slice(0, 2)
-    for (const pc of pcs) play('epiano', M.keys, T(i), 60 + ((pc - 60) % 12 + 12) % 12, step * 0.9, 0.55)
+    for (const pc of pcs) play('epiano', M.keys, T(i), 60 + ((pc - 60) % 12 + 12) % 12, step * 0.9, 0.55, '', 2)
   }
   // Glockenspiel arpeggio up and back through the chord.
   if (song.glock) for (let i = 0; i < song.lead.length; i++) {
     const notes = chordAt(i).slice(0, 3).map((pc) => 72 + ((pc - 72) % 12 + 12) % 12).sort((a, b) => a - b)
     const seq = [notes[0], notes[1], notes[2], notes[0] + 12, notes[2], notes[1]]
-    play('glock', M.glock, T(i), seq[i % seq.length], step, i % 2 ? 0.5 : 0.75)
+    play('glock', M.glock, T(i), seq[i % seq.length], step, i % 2 ? 0.5 : 0.75, '', 2)
   }
   // Generated bass: sixteenth notes bouncing between the chord's root and its octave.
   if (song.bassGen === 'octave16') for (let i = 0; i < song.lead.length; i++) {
@@ -1174,14 +1257,14 @@ function schedulePart(ac, out, song, t0) {
   // Guitar: a palm-muted power chord on the chord's root (not the bass note, so a bass line can walk under it) wherever the bass plays.
   if (song.power) each(song.bass, (t, n, d, i) => {
     const r = 40 + ((chordAt(i)[0] - 40) % 12 + 12) % 12   // E2..D#3
-    play('power', M.gtr, t, r, Math.min(d, step * 1.6) * 0.85, 1)
+    play('power', M.gtr, t, r, Math.min(d, step * 1.6) * 0.85, 1, '', 2)
   })
   // Bass: the written line; on pulse songs, an extra eighth-note pulse on the root.
   each(song.bass, (t, n, d, i) => {
     if (song.pulse && d > step * 1.5) { for (let k = 0; k < d / step - 0.5; k++) play('bass', M.bass, t + k * step, MIDI(n), step * 0.8, k ? 0.6 : 1) }
     else play(song.bassInst ?? 'bass', M.bass, t, MIDI(n), d, 1)
     // Other instruments on the bass line ([instrument, octaves, velocity]): piano octaves over low strings, say.
-    for (const [inst, oct, vel] of song.bassDoubles ?? []) play(inst, M.keys, t, MIDI(n) + 12 * oct, d, vel)
+    for (const [inst, oct, vel] of song.bassDoubles ?? []) play(inst, M.keys, t, MIDI(n) + 12 * oct, d, vel, '', 2)
   })
   // Drums, as written; then sixteenth-note hats between the steps, and a tom fill closing the loop.
   const fillFrom = song.fill ? song.drums.length - song.fill.length : Infinity
@@ -1189,10 +1272,10 @@ function schedulePart(ac, out, song, t0) {
     const t = T(i)
     if (i >= fillFrom) { hit(song.fill[i - fillFrom], t); return }
     // Timpani are tuned to the chord's root, low.
-    if (c === 'P') { const f = HZ(31 + ((chordAt(i)[0] - 31) % 12 + 12) % 12); at(t, () => KIT.P(ac, M, t, 1, f)); return }
+    if (c === 'P') { const f = HZ(31 + ((chordAt(i)[0] - 31) % 12 + 12) % 12); at(t, () => kitVoice(ac, M, (m) => KIT.P(ac, m, t, 1, f))); return }
     if (KIT[c]) hit(c, t)
-    if (song.hats16) hit('h', t + step / 2, 0.5)
-    if (song.hats16 && c !== 'h' && c !== 'C' && i % 2 === 1) hit('h', t, 0.8)
+    if (song.hats16) hit('h', t + step / 2, 0.5, 1)
+    if (song.hats16 && c !== 'h' && c !== 'C' && i % 2 === 1) hit('h', t, 0.8, 1)
   })
   if (song.crash ?? (song.loop && song.hats16)) hit('C', t0)   // a crash on each loop's (or section's) downbeat
   // Jingles end on an orchestra hit: a full brass chord, crash and low tom together.
