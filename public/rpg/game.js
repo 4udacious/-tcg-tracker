@@ -4203,40 +4203,246 @@ async function run(id) {
   }
 
   /* ══════════ attack visuals, shared by 1v1 and 2v2 ══════════ */
-  /**
-   * One hit of one of your moves, from A to T (centres). `el` is the
-   * attacker's sprite. Later hits of a multi-hit move run quicker.
-   */
+  /* ══════════ attack effects ══════════
+     Each move gets a look of its own, chosen by name (FX_BY_NAME) or else by
+     its kind and type: bolts, beams, waves, orbs, jets, lobs, blades, claws,
+     jaws and the rest, each in its type's colours. Every hit then lands with
+     an impact of its type (impactFx): embers, droplets, sparks, shards,
+     leaves, bubbles, debris, rings, wisps, smoke, sparkles or a glint, bigger
+     on a super-effective or critical hit. All of it is plain elements on the
+     effects layer, animated and removed as it ends. */
+  const FXC = { normal: ['#ffffff', '#cbd5e1'], fire: ['#fff7ae', '#f97316'], water: ['#e0f2fe', '#3b82f6'], grass: ['#dcfce7', '#22c55e'],
+    electric: ['#fefce8', '#facc15'], ice: ['#f0f9ff', '#7dd3fc'], fighting: ['#ffedd5', '#ea580c'], poison: ['#f5d0fe', '#a21caf'],
+    ground: ['#fde68a', '#a16207'], flying: ['#ffffff', '#93c5fd'], psychic: ['#fce7f3', '#ec4899'], bug: ['#ecfccb', '#65a30d'],
+    rock: ['#fef3c7', '#a8a29e'], ghost: ['#ede9fe', '#6d28d9'], dragon: ['#e0e7ff', '#6366f1'], dark: ['#d4d4d8', '#27272a'],
+    steel: ['#f8fafc', '#94a3b8'], fairy: ['#fdf2f8', '#f472b6'] }
+  const fxc = (t) => FXC[t] ?? FXC.normal
+  const FX_BY_NAME = {
+    'THUNDER SHOCK': 'bolt', THUNDERBOLT: 'bolt', THUNDER: 'thunder', DISCHARGE: 'discharge',
+    PSYBEAM: 'beam', 'HYPER BEAM': 'beam', 'FLASH CANNON': 'beam', 'ICE BEAM': 'beam', 'AURORA BEAM': 'beam', 'SOLAR BEAM': 'beam', 'POWER GEM': 'beam',
+    'HYPER VOICE': 'sound', SNORE: 'sound', CONFUSION: 'psy', EXTRASENSORY: 'psy', PSYCHIC: 'psy',
+    'BUG BUZZ': 'waves', 'STRUGGLE BUG': 'waves', SNARL: 'waves', 'DARK PULSE': 'waves', 'DRAGON PULSE': 'waves', 'WATER PULSE': 'waves',
+    'SHADOW BALL': 'orb', HEX: 'orb', MOONBLAST: 'orb', 'ENERGY BALL': 'orb', 'FIRE BLAST': 'blast',
+    'DRAGON BREATH': 'jet', FLAMETHROWER: 'jet', 'HEAT WAVE': 'jet', 'WATER GUN': 'jet', 'HYDRO PUMP': 'jet', EMBER: 'embers',
+    'ICY WIND': 'snow', BLIZZARD: 'snow', 'POWDER SNOW': 'snow',
+    'SLUDGE WAVE': 'lob', 'SLUDGE BOMB': 'lob', 'GUNK SHOT': 'lob', 'MUD-SLAP': 'lob', 'MUD SHOT': 'lob', 'SEED BOMB': 'lob',
+    'ROCK THROW': 'lob', 'ROCK BLAST': 'lob', 'ROCK TOMB': 'lob', 'ANCIENT POWER': 'lob', 'ROCK SLIDE': 'lob',
+    'DAZZLING GLEAM': 'gleam', 'FAIRY WIND': 'sparkle', 'DRAINING KISS': 'sparkle', GUST: 'gust',
+    'AIR CUTTER': 'blades', 'AIR SLASH': 'blades', 'WING ATTACK': 'blades', 'TRI ATTACK': 'tri',
+    'RAZOR LEAF': 'leaves', 'PETAL DANCE': 'petals', ABSORB: 'leaves', 'GIGA DRAIN': 'leaves', 'STONE EDGE': 'spikes', 'EARTH POWER': 'erupt',
+    BITE: 'bite', CRUNCH: 'bite', 'BUG BITE': 'bite', 'FIRE FANG': 'bite', 'VOLT TACKLE': 'volt', SPARK: 'volt', NUZZLE: 'volt',
+    'QUICK ATTACK': 'quick', 'FAKE OUT': 'quick', 'FEINT ATTACK': 'quick', 'PHANTOM FORCE': 'phantom', ASTONISH: 'phantom',
+    DIG: 'dig', ROLLOUT: 'roll', 'PLAY ROUGH': 'rough', 'DOUBLE KICK': 'strike', 'DYNAMIC PUNCH': 'strike', 'BRAVE BIRD': 'strike', 'ZEN HEADBUTT': 'strike', 'IRON HEAD': 'strike', HEADBUTT: 'strike', 'BODY SLAM': 'strike',
+    'X-SCISSOR': 'xslash', 'VINE WHIP': 'whip', 'KARATE CHOP': 'chop', 'BRICK BREAK': 'chop', 'CROSS CHOP': 'chop', 'DUAL CHOP': 'chop', 'IRON TAIL': 'chop',
+  }
+  /** Which look a move has: its own by name, else by what it is (fx) and its type. */
+  function fxRecipe(mv) {
+    if (FX_BY_NAME[mv.name]) return FX_BY_NAME[mv.name]
+    if (mv.fx === 'spray') return { electric: 'bolt', psychic: 'psy', dragon: 'jet', dark: 'waves', ghost: 'orb', fairy: 'sparkle', flying: 'gust', poison: 'lob', ground: 'lob', bug: 'waves', steel: 'beam', fire: 'jet', water: 'jet', ice: 'snow', grass: 'leaves', fighting: 'orb', rock: 'lob' }[mv.type] ?? 'sound'
+    if (mv.fx === 'ember') return 'jet'
+    if (mv.fx === 'water') return 'jet'
+    if (mv.fx === 'seed' || mv.fx === 'rock' || mv.fx === 'icicle' || mv.fx === 'needle' || mv.fx === 'shuriken' || mv.fx === 'quake') return mv.fx
+    if (mv.fx === 'slash') return 'claws'
+    return 'strike'
+  }
+  /** One particle: an element at (x, y) styled by `css`, animated by `frames`, removed when done. */
+  function part(x, y, css, frames, opts) {
+    const d = document.createElement('div'); d.style.cssText = `position:absolute;left:${x}px;top:${y}px;pointer-events:none;` + css
+    fx.appendChild(d); anim(d, frames, opts); setTimeout(() => d.remove(), opts.duration + (opts.delay ?? 0) + 60)
+    return d
+  }
+  const rnd = (a, b) => a + Math.random() * (b - a)
+  /** A soft flash of light at c. */
+  const glowAt = (c, col, size = 70, dur = 240) => part(c.x - size / 2, c.y - size / 2, `width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle,#fff 0,${col} 30%,transparent 68%)`,
+    [{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(1.35)', opacity: 0 }], { duration: dur, easing: 'ease-out' })
+  /** A ring spreading from c. */
+  const ringAt = (c, col, size = 76, dur = 380, bw = 4, delay = 0) => part(c.x - size / 2, c.y - size / 2, `width:${size}px;height:${size}px;border-radius:50%;border:${bw}px solid ${col};box-shadow:0 0 10px ${col}`,
+    [{ transform: 'scale(.15)', opacity: 1 }, { transform: 'scale(1.15)', opacity: 0 }], { duration: dur, delay, easing: 'ease-out' })
+  /** Streaks shooting out from c, like a comic-book hit. */
+  function burstAt(c, col, n = 8, len = 34, w = 4, dur = 300) {
+    for (let i = 0; i < n; i++) {
+      const a = i * 360 / n + rnd(-12, 12), L = len * rnd(0.7, 1.15)
+      part(c.x - w / 2, c.y - L, `width:${w}px;height:${L}px;transform-origin:50% 100%;border-radius:${w}px;background:linear-gradient(transparent,${col} 40%,#fff)`,
+        [{ transform: `rotate(${a}deg) scaleY(.15) translateY(0)`, opacity: 1 }, { transform: `rotate(${a}deg) scaleY(1) translateY(-${L * 0.4}px)`, opacity: 0 }], { duration: dur, easing: 'cubic-bezier(.2,.8,.3,1)' })
+    }
+  }
+  /** Bits thrown out from c: `css` for each, flying `dist`, rising (up < 0) or falling (gravity > 0) as they go. */
+  function scatterAt(c, css, n, dist, dur, { gravity = 0, up = 0, spin = 0, size = 8 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, d = dist * rnd(0.5, 1), x = Math.cos(a) * d, y = Math.sin(a) * d * 0.7 + up, r = spin * rnd(-1, 1)
+      part(c.x - size / 2, c.y - size / 2, css, [{ transform: 'translate(0,0) rotate(0) scale(1)', opacity: 1 },
+        { transform: `translate(${x * 0.7}px,${y * 0.7}px) rotate(${r / 2}deg) scale(1)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${x}px,${y + gravity}px) rotate(${r}deg) scale(.6)`, opacity: 0 }], { duration: dur * rnd(0.8, 1.15), delay: rnd(0, 60), easing: 'ease-out' })
+    }
+  }
+  /** Something travelling from A to T in `dur` ms: along an arc (`arc` px up at the middle), spinning, growing. */
+  function travel(A, T, css, dur, { arc = 0, spin = 0, from = 1, to = 1, delay = 0, off = 0, w = 12, h = 12 } = {}) {
+    const dx = T.x - A.x, dy = T.y - A.y, nx = -dy / Math.hypot(dx, dy || 1), ny = dx / Math.hypot(dx, dy || 1)
+    return part(A.x - w / 2, A.y - h / 2, `width:${w}px;height:${h}px;` + css, [
+      { transform: `translate(${nx * off}px,${ny * off}px) rotate(0) scale(${from})`, opacity: 1 },
+      { transform: `translate(${dx * 0.5 + nx * off * 0.5}px,${dy * 0.5 - arc + ny * off * 0.5}px) rotate(${spin / 2}deg) scale(${(from + to) / 2})`, opacity: 1, offset: 0.5 },
+      { transform: `translate(${dx}px,${dy}px) rotate(${spin}deg) scale(${to})`, opacity: 0.95 }], { duration: dur, delay, easing: arc ? 'linear' : 'ease-in' })
+  }
+  const SVGNS = 'http://www.w3.org/2000/svg'
+  /** A jagged bolt from A to T: a glowing coloured line with a white core, flickering. */
+  function boltLine(A, T, col, dur, amp = 12, delay = 0) {
+    const svg = document.createElementNS(SVGNS, 'svg'); svg.setAttribute('style', 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none')
+    const n = 8, pts = []
+    for (let i = 0; i <= n; i++) { const k = i / n, j = i === 0 || i === n ? 0 : rnd(-amp, amp); pts.push(`${A.x + (T.x - A.x) * k + j},${A.y + (T.y - A.y) * k + j * 0.6}`) }
+    for (const [w, c] of [[7, col], [2.5, '#fff']]) { const p = document.createElementNS(SVGNS, 'polyline'); p.setAttribute('points', pts.join(' ')); p.setAttribute('fill', 'none'); p.setAttribute('stroke', c); p.setAttribute('stroke-width', w); p.setAttribute('stroke-linejoin', 'round'); if (w > 3) p.setAttribute('filter', 'drop-shadow(0 0 4px ' + col + ')'); svg.appendChild(p) }
+    fx.appendChild(svg)
+    anim(svg, [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 0.25, offset: 0.35 }, { opacity: 1, offset: 0.5 }, { opacity: 0.4, offset: 0.75 }, { opacity: 0 }], { duration: dur, delay })
+    setTimeout(() => svg.remove(), dur + delay + 60)
+  }
+  /** A beam from A to T: it shoots out, holds and thins away. Rainbow for Psybeam and Aurora Beam. */
+  function beamLine(A, T, col, dur, w = 14, rainbow = false) {
+    const dx = T.x - A.x, dy = T.y - A.y, L = Math.hypot(dx, dy), deg = Math.atan2(dy, dx) * 180 / Math.PI
+    const bg = rainbow ? 'linear-gradient(90deg,#f87171,#fbbf24,#4ade80,#60a5fa,#c084fc,#f472b6)' : `linear-gradient(180deg,transparent,${col} 25%,#fff 50%,${col} 75%,transparent)`
+    const b = part(A.x, A.y - w / 2, `width:${L}px;height:${w}px;transform-origin:0 50%;border-radius:${w}px;background:${bg};box-shadow:0 0 14px ${col}`,
+      [{ transform: `rotate(${deg}deg) scaleX(0) scaleY(1)`, opacity: 1 }, { transform: `rotate(${deg}deg) scaleX(1) scaleY(1)`, opacity: 1, offset: 0.3 },
+        { transform: `rotate(${deg}deg) scaleX(1) scaleY(1.3)`, opacity: 1, offset: 0.7 }, { transform: `rotate(${deg}deg) scaleX(1) scaleY(.1)`, opacity: 0 }], { duration: dur })
+    if (rainbow) b.style.boxShadow = '0 0 14px #fff'
+    glowAt(A, col, 50, dur * 0.5)
+  }
+  /** A jet (flames, water, dragon fire): many blobs streaming from A to T, swelling and wobbling as they go. */
+  function jet(A, T, cols, dur, n = 16, size = 14) {
+    for (let i = 0; i < n; i++) travel(A, T, `border-radius:50% 50% 45% 55%;background:radial-gradient(circle at 40% 40%,${cols[0]},${cols[1]} 55%,transparent 72%);filter:blur(.4px)`, dur * 0.55,
+      { delay: i * dur * 0.4 / n, from: 0.5, to: rnd(1.4, 2.1), off: rnd(-10, 10), w: size, h: size })
+  }
+  /** Rings or crescents rolling from A toward T, growing. */
+  function wavesTo(A, T, col, dur, n = 4, crescent = true, glow = col) {
+    const dx = T.x - A.x, dy = T.y - A.y, deg = Math.atan2(dy, dx) * 180 / Math.PI
+    for (let i = 0; i < n; i++) part(A.x - 14, A.y - 22, `width:28px;height:44px;border-radius:50%;border:5px solid transparent;${crescent ? `border-right-color:${col}` : `border-color:${col}`};filter:drop-shadow(0 0 3px ${glow}) drop-shadow(0 0 6px ${glow})`,
+      [{ transform: `translate(0,0) rotate(${deg}deg) scale(.5)`, opacity: 1 }, { transform: `translate(${dx}px,${dy}px) rotate(${deg}deg) scale(1.8)`, opacity: 0.35 }], { duration: dur * 0.6, delay: i * dur * 0.13, easing: 'ease-out' })
+  }
+  /** A four-point twinkle at c. */
+  const twinkle = (c, col, size, delay) => part(c.x - size / 2, c.y - size / 2, `width:${size}px;height:${size}px;background:${col};clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);filter:drop-shadow(0 0 4px ${col})`,
+    [{ transform: 'scale(0) rotate(0)', opacity: 1 }, { transform: 'scale(1.2) rotate(45deg)', opacity: 1, offset: 0.4 }, { transform: 'scale(0) rotate(90deg)', opacity: 0 }], { duration: 420, delay })
+  /** Lines appearing across the target, as claw marks or a chop: `n` parallel, at `deg`. */
+  function marks(c, col, n, deg, len = 64, w = 5, gap = 13) {
+    for (let i = 0; i < n; i++) {
+      const o = (i - (n - 1) / 2) * gap
+      part(c.x - len / 2 + o * 0.5, c.y - w / 2 + o, `width:${len}px;height:${w}px;border-radius:${w}px;background:linear-gradient(90deg,transparent,${col} 20%,#fff 50%,${col} 80%,transparent);box-shadow:0 0 6px ${col}`,
+        [{ transform: `rotate(${deg}deg) scaleX(0)`, opacity: 1 }, { transform: `rotate(${deg}deg) scaleX(1)`, opacity: 1, offset: 0.35 }, { transform: `rotate(${deg}deg) scaleX(1)`, opacity: 0 }], { duration: 340, delay: i * 45 })
+    }
+  }
+  /** Jaws closing on c: rows of teeth from above and below. */
+  function chomp(c, col = '#f8fafc') {
+    const teeth = 'polygon(0 0,100% 0,100% 30%,92% 100%,84% 30%,76% 100%,68% 30%,60% 100%,52% 30%,44% 100%,36% 30%,28% 100%,20% 30%,12% 100%,4% 30%,0 30%)'
+    for (const [s, y0] of [[1, -38], [-1, 38]]) part(c.x - 34, c.y - 12, `width:68px;height:24px;background:${col};clip-path:${teeth};filter:drop-shadow(0 0 3px #000)`,
+      [{ transform: `translateY(${y0}px) scaleY(${s})`, opacity: 0 }, { transform: `translateY(${y0 * 0.2}px) scaleY(${s})`, opacity: 1, offset: 0.55 }, { transform: `translateY(${y0 * 0.3}px) scaleY(${s})`, opacity: 0 }], { duration: 330, easing: 'ease-in' })
+  }
+  /** Speed lines along the path from A to T. */
+  function speedLines(A, T, col = '#fff') {
+    const dx = T.x - A.x, dy = T.y - A.y, deg = Math.atan2(dy, dx) * 180 / Math.PI
+    for (let i = 0; i < 6; i++) { const k = rnd(0.1, 0.8), o = rnd(-26, 26)
+      part(A.x + dx * k, A.y + dy * k + o, `width:46px;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,${col})`, [{ transform: `rotate(${deg}deg) translateX(-30px)`, opacity: 0 }, { transform: `rotate(${deg}deg) translateX(0)`, opacity: 0.9, offset: 0.4 }, { transform: `rotate(${deg}deg) translateX(30px)`, opacity: 0 }], { duration: 220, delay: i * 20 }) }
+  }
+  /** The attacker's lunge: most of the way to the target and back, `then` at contact. */
+  async function lunge(el, A, T, sp, { reach = 0.78, dur = 380 } = {}) {
+    const dx = T.x - A.x, dy = T.y - A.y
+    anim(el, [{ transform: 'translate(0,0)' }, { transform: `translate(${dx * reach}px,${dy * reach}px)`, offset: 0.5 }, { transform: 'translate(0,0)' }], { duration: dur * sp })
+    await W(dur * 0.5 * sp)
+  }
+
+  /** One hit of one of your moves, from A to T (centres). `el` is the attacker's sprite. Later hits of a multi-hit move run quicker. */
   async function strikeFx(mv, A, T, el, quick = false) {
-    const dx = T.x - A.x, dy = T.y - A.y, sp = quick ? 0.6 : 1
-    const shot = (css, n, gap, dur, spin = 0) => {
-      for (let i = 0; i < n; i++) {
-        const s = document.createElement('div'); s.style.cssText = `position:absolute;left:${A.x - 6}px;top:${A.y - 26}px;` + css; fx.appendChild(s)
-        anim(s, [{ transform: 'translate(0,0) rotate(0)' }, { transform: `translate(${dx + (i - (n - 1) / 2) * 8}px,${dy + 26}px) rotate(${spin}deg)` }], { duration: dur * sp, delay: i * gap * sp, easing: 'ease-in' })
-        setTimeout(() => s.remove(), (dur + i * gap) * sp + 60)
+    const sp = quick ? 0.6 : 1, [c1, c2] = fxc(mv.type), R = fxRecipe(mv), D = 380 * sp
+    const done = (ms) => W(ms * sp + 30)
+    switch (R) {
+      case 'bolt': boltLine(A, T, c2, 300 * sp); boltLine(A, T, c2, 260 * sp, 16, 60 * sp); return done(300)
+      case 'thunder': { const sky = { x: T.x + rnd(-10, 10), y: T.y - 170 }; boltLine(sky, T, c2, 360 * sp, 14); boltLine(sky, T, c2, 300 * sp, 20, 80 * sp); flash('#fef9c3', 0.45, 160); return done(340) }
+      case 'discharge': for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.6; boltLine(A, { x: A.x + Math.cos(a) * 70, y: A.y + Math.sin(a) * 50 }, c2, 240 * sp, 8, i * 30 * sp) } boltLine(A, T, c2, 300 * sp, 12, 120 * sp); return done(420)
+      case 'beam': beamLine(A, T, c2, 460 * sp, mv.name === 'HYPER BEAM' ? 22 : 14, mv.name === 'PSYBEAM' || mv.name === 'AURORA BEAM'); return done(330)
+      case 'sound': wavesTo(A, T, '#f8fafc', D, 4, true, '#c4b5fd'); for (let i = 0; i < 2; i++) ringAt(T, '#f8fafc', 90, 320 * sp, 4, (D * 0.6) + i * 90 * sp); return done(420)
+      case 'psy': glowAt(A, c2, 56, 300 * sp); for (let i = 0; i < 3; i++) ringAt(T, c2, 96, 440 * sp, 3, i * 100 * sp); glowAt(T, c1, 80, 500 * sp); return done(460)
+      case 'waves': { const dark = mv.type === 'dark', col = dark ? '#3b0764' : c2, glow = dark ? '#a855f7' : c2   // dark: black rings with a violet edge, so they show on a dark sky
+        wavesTo(A, T, col, D, 4, mv.type !== 'water', glow); ringAt(T, glow, 84, 340 * sp, 5, D * 0.6); if (dark) glowAt(T, '#581c87', 70, 380 * sp); return done(420) }
+      case 'orb': { const big = mv.name === 'MOONBLAST' || mv.name === 'SHADOW BALL'
+        travel(A, T, `border-radius:50%;background:radial-gradient(circle at 35% 35%,${c1},${c2} 55%,rgba(0,0,0,.4) 80%);box-shadow:0 0 14px ${c2}`, D, { from: 0.4, to: big ? 2.2 : 1.6, w: 18, h: 18 })
+        for (let i = 1; i <= 3; i++) travel(A, T, `border-radius:50%;background:${c2};opacity:.5`, D, { delay: i * 40 * sp, from: 0.3, to: 0.8, w: 10, h: 10 }); return done(380) }
+      case 'blast': travel(A, T, `border-radius:50%;background:radial-gradient(circle,${c1},${c2} 60%);box-shadow:0 0 18px ${c2}`, D, { from: 0.5, to: 2, w: 20, h: 20 }); return done(380)
+      case 'jet': jet(A, T, [c1, c2], 520 * sp, mv.name === 'HYDRO PUMP' || mv.name === 'FLAMETHROWER' ? 22 : 15); return done(470)
+      case 'embers': for (let i = 0; i < 5; i++) travel(A, T, `border-radius:50% 50% 50% 0;background:radial-gradient(${c1},${c2} 60%,#c2410c)`, 360 * sp, { delay: i * 50 * sp, arc: rnd(10, 30), spin: 180, off: rnd(-10, 10), w: 12, h: 12 }); return done(560)
+      case 'snow': for (let i = 0; i < 18; i++) travel(A, T, `border-radius:50%;background:#fff;box-shadow:0 0 6px ${c2}`, 420 * sp, { delay: i * 22 * sp, off: rnd(-26, 26), from: rnd(0.5, 1), to: rnd(0.6, 1.3), w: 7, h: 7 }); return done(820)
+      case 'lob': { const rocky = mv.type === 'rock'
+        const css = rocky ? 'border-radius:40% 55% 45% 50%;background:linear-gradient(#e7d7a8,#8b6d3a);border:1px solid #57401f' : `border-radius:50% 50% 45% 55%;background:radial-gradient(circle at 35% 30%,${c1},${c2} 60%)`
+        for (let i = 0; i < (rocky ? 3 : 4); i++) travel(A, T, css, 420 * sp, { delay: i * 70 * sp, arc: rnd(50, 80), spin: rocky ? 360 : 0, off: rnd(-14, 14), w: rocky ? 16 : 13, h: rocky ? 14 : 13 }); return done(620) }
+      case 'gleam': flash(c1, 0.55, 220); for (let i = 0; i < 7; i++) twinkle({ x: T.x + rnd(-40, 40), y: T.y + rnd(-40, 30) }, c2, rnd(14, 24), i * 40 * sp); return done(400)
+      case 'sparkle': for (let i = 0; i < 6; i++) travel(A, T, `background:${c2};clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)`, 380 * sp, { delay: i * 35 * sp, arc: rnd(-20, 30), spin: 180, off: rnd(-16, 16), w: 14, h: 14 }); return done(560)
+      case 'gust': for (let i = 0; i < 3; i++) travel(A, T, 'border-radius:50%;border:3px solid transparent;border-top-color:#fff;border-left-color:#e0f2fe', D, { delay: i * 60 * sp, spin: 720, from: 0.6, to: 1.8, off: (i - 1) * 12, w: 34, h: 34 }); return done(520)
+      case 'blades': for (let i = 0; i < 2; i++) travel(A, T, 'border-radius:50%;border:4px solid transparent;border-right-color:#fff;filter:drop-shadow(0 0 4px #93c5fd)', 300 * sp, { delay: i * 70 * sp, spin: -30, off: (i ? 10 : -10), w: 30, h: 46 }); return done(380)
+      case 'tri': ['#f97316', '#38bdf8', '#facc15'].forEach((col, i) => travel(A, T, `border-radius:50%;background:radial-gradient(circle,#fff,${col} 60%);box-shadow:0 0 10px ${col}`, D, { off: (i - 1) * 16, from: 0.6, to: 1.3, w: 14, h: 14 })); return done(380)
+      case 'leaves': case 'petals': { const col = R === 'petals' ? '#f9a8d4' : '#4ade80'
+        for (let i = 0; i < 6; i++) travel(A, T, `border-radius:0 100% 0 100%;background:linear-gradient(135deg,${col},${R === 'petals' ? '#db2777' : '#15803d'})`, 380 * sp, { delay: i * 40 * sp, spin: 540, arc: rnd(-20, 30), off: rnd(-16, 16), w: 14, h: 10 }); return done(600) }
+      case 'spikes': for (let i = 0; i < 4; i++) part(T.x - 30 + i * 18, T.y + 10, `width:14px;height:44px;clip-path:polygon(50% 0,100% 100%,0 100%);background:linear-gradient(#e7e5e4,#78716c)`, [{ transform: 'translateY(40px) scaleY(.2)', opacity: 0 }, { transform: 'translateY(-14px) scaleY(1)', opacity: 1, offset: 0.4 }, { transform: 'translateY(-6px) scaleY(1)', opacity: 0 }], { duration: 420 * sp, delay: i * 40 * sp }); return done(420)
+      case 'erupt': scatterAt({ x: T.x, y: T.y + 30 }, 'width:10px;height:10px;border-radius:40%;background:#a16207', 10, 50, 500 * sp, { up: -50, gravity: 30, spin: 200 }); glowAt({ x: T.x, y: T.y + 26 }, '#f97316', 90, 360 * sp); return done(360)
+      case 'seed': for (let i = 0; i < 3; i++) travel(A, T, 'border-radius:50%;background:radial-gradient(circle at 35% 30%,#bbf7d0,#16a34a 60%,#14532d)', 280 * sp, { delay: i * 45 * sp, off: rnd(-8, 8), w: 10, h: 12 }); return done(380)
+      case 'rock': return strikeFx({ ...mv, name: 'ROCK THROW' }, A, T, el, quick)
+      case 'icicle': for (let i = 0; i < 3; i++) travel(A, T, `clip-path:polygon(50% 100%,0 0,100% 0);background:linear-gradient(#f0f9ff,#38bdf8);transform-origin:center`, 280 * sp, { delay: i * 50 * sp, off: (i - 1) * 10, w: 9, h: 22 }); return done(380)
+      case 'needle': for (let i = 0; i < 3; i++) travel(A, T, `background:linear-gradient(90deg,#f5f5f4,#a3a3a3);border-radius:2px`, 240 * sp, { delay: i * 40 * sp, off: (i - 1) * 8, w: 18, h: 3 }); return done(330)
+      case 'shuriken': travel(A, T, 'background:#bfdbfe;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);filter:drop-shadow(0 0 4px #3b82f6)', 300 * sp, { spin: 900, w: 20, h: 20 }); return done(300)
+      case 'quake': {
+        const w = document.createElement('div'); w.className = 'groundwave'; w.style.left = (A.x - 30) + 'px'; w.style.top = (A.y + 30) + 'px'; fx.appendChild(w)
+        anim(w, [{ transform: 'translate(0,0) scale(.5,.7)' }, { transform: `translate(${T.x - A.x}px,${T.y - A.y}px) scale(1.6,1.1)`, opacity: 0.95, offset: 0.9 }, { opacity: 0 }], { duration: 420 * sp, easing: 'ease-in' })
+        setTimeout(() => w.remove(), 460 * sp); shake(4, 400); return W(420 * sp)
       }
-      return W((dur + (n - 1) * gap) * sp + 40)
+      // Contact moves: a lunge, and the look happens at contact.
+      case 'quick': speedLines(A, T); await lunge(el, A, T, sp, { reach: 0.85, dur: 260 }); return
+      case 'phantom': anim(el, [{ opacity: 1 }, { opacity: 0, offset: 0.3 }, { opacity: 0, offset: 0.6 }, { opacity: 1 }], { duration: 520 * sp }); await W(260 * sp); scatterAt(T, `width:14px;height:14px;border-radius:50%;background:radial-gradient(${c1},${c2} 70%,transparent)`, 6, 30, 500 * sp, { up: -30 }); await W(160 * sp); return
+      case 'dig': anim(el, [{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(40px)', opacity: 0, offset: 0.35 }, { transform: 'translateY(40px)', opacity: 0, offset: 0.7 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 560 * sp }); await W(300 * sp); scatterAt({ x: T.x, y: T.y + 34 }, 'width:9px;height:9px;border-radius:40%;background:#a16207', 10, 46, 480 * sp, { up: -40, gravity: 30 }); await W(120 * sp); return
+      case 'roll': anim(el, [{ transform: 'translate(0,0) rotate(0)' }, { transform: `translate(${(T.x - A.x) * 0.8}px,${(T.y - A.y) * 0.8}px) rotate(540deg)`, offset: 0.55 }, { transform: 'translate(0,0) rotate(720deg)' }], { duration: 520 * sp }); await W(290 * sp); return
+      case 'volt': anim(el, [{ filter: 'none' }, { filter: 'brightness(1.6) drop-shadow(0 0 8px #facc15)', offset: 0.3 }, { filter: 'none' }], { duration: 420 * sp })
+        await lunge(el, A, T, sp); for (let i = 0; i < 3; i++) { const a = rnd(0, Math.PI * 2); boltLine(T, { x: T.x + Math.cos(a) * 46, y: T.y + Math.sin(a) * 40 }, '#facc15', 200 * sp, 7, i * 30) } return
+      default: await lunge(el, A, T, sp)   // strike, bite, claws, chops and the rest: the look lands at contact
     }
-    if (mv.fx === 'ember') return shot('width:12px;height:12px;border-radius:50% 50% 50% 0;background:radial-gradient(#fff7ae,#fb923c 60%,#c2410c)', 5, 50, 380, 45)
-    if (mv.fx === 'water') return shot('width:10px;height:10px;border-radius:50%;background:#93c5fd;box-shadow:0 0 6px #3b82f6', 6, 40, 340)
-    if (mv.fx === 'seed') return shot('width:9px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#bbf7d0,#16a34a 60%,#14532d)', 2, 50, 300)
-    if (mv.fx === 'shuriken') return shot('width:16px;height:16px;background:#bfdbfe;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);filter:drop-shadow(0 0 4px #3b82f6)', 1, 0, 300, 720)
-    if (mv.fx === 'rock') return shot('width:14px;height:12px;border-radius:40% 55% 45% 50%;background:linear-gradient(#d6c08a,#8b6d3a)', 1, 0, 320, 300)
-    if (mv.fx === 'icicle') return shot('width:7px;height:18px;clip-path:polygon(50% 100%,0 0,100% 0);background:linear-gradient(#e0f2fe,#38bdf8)', 1, 0, 280)
-    if (mv.fx === 'needle') return shot('width:4px;height:16px;background:linear-gradient(#f5f5f4,#a3a3a3)', 1, 0, 260, 60)
-    if (mv.fx === 'spray') { const c = TYPE_COL[mv.type] ?? '#e2e8f0'; return shot(`width:11px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,${c} 60%);box-shadow:0 0 6px ${c}`, 4, 45, 340) }
-    if (mv.fx === 'quake') {
-      // A shockwave along the ground; nobody leaves their spot.
-      const w = document.createElement('div'); w.className = 'groundwave'; w.style.left = (A.x - 30) + 'px'; w.style.top = (A.y + 30) + 'px'; fx.appendChild(w)
-      anim(w, [{ transform: 'translate(0,0) scale(.5,.7)' }, { transform: `translate(${dx}px,${dy}px) scale(1.6,1.1)`, opacity: .95, offset: .9 }, { opacity: 0 }], { duration: 420 * sp, easing: 'ease-in' })
-      setTimeout(() => w.remove(), 460 * sp); return W(420 * sp)
-    }
-    // Contact: the attacker lunges most of the way, then springs back.
-    anim(el, [{ transform: 'translate(0,0)' }, { transform: `translate(${dx * 0.78}px,${dy * 0.78}px)`, offset: .5 }, { transform: 'translate(0,0)' }], { duration: 380 * sp })
-    await W(200 * sp)
-    if (mv.fx === 'slash') {
-      const s = document.createElement('div'); s.style.cssText = `position:absolute;left:${T.x - 34}px;top:${T.y - 34}px;width:68px;height:68px;border-radius:50%;border:5px solid transparent;border-top-color:#f8fafc;border-right-color:#f8fafc`
-      fx.appendChild(s); anim(s, [{ transform: `rotate(${quick ? 50 : -40}deg)`, opacity: 1 }, { transform: `rotate(${quick ? 230 : 140}deg)`, opacity: 0 }], { duration: 300 }); setTimeout(() => s.remove(), 320)
+    if (R === 'bite') chomp(T, mv.name === 'FIRE FANG' ? '#fed7aa' : '#f8fafc')
+    else if (R === 'claws') marks(T, mv.type === 'dragon' ? c2 : mv.type === 'steel' ? '#e2e8f0' : '#f8fafc', 3, -38)
+    else if (R === 'xslash') { marks(T, c2, 1, -40, 74, 6); marks(T, c2, 1, 40, 74, 6) }
+    else if (R === 'chop') { const col = mv.type === 'steel' ? '#e2e8f0' : c2; if (mv.name === 'CROSS CHOP') { marks(T, col, 1, 45, 70, 7); marks(T, col, 1, -45, 70, 7) } else marks(T, col, 1, 80, 70, 7) }
+    else if (R === 'whip') for (let i = 0; i < 2; i++) part(T.x - 40, T.y - 30 + i * 22, 'width:80px;height:30px;border-radius:50%;border:4px solid transparent;border-bottom-color:#22c55e;filter:drop-shadow(0 0 3px #14532d)', [{ transform: `rotate(${i ? 20 : -20}deg) scaleX(.2)`, opacity: 1 }, { transform: `rotate(${i ? 20 : -20}deg) scaleX(1)`, opacity: 0 }], { duration: 300, delay: i * 70 })
+    else if (R === 'rough') { scatterAt(T, 'width:22px;height:22px;border-radius:50%;background:radial-gradient(#fff,#e5e7eb 60%,transparent 72%)', 7, 30, 420); for (let i = 0; i < 4; i++) twinkle({ x: T.x + rnd(-30, 30), y: T.y + rnd(-30, 20) }, '#f472b6', 16, i * 60) }
+    else { const col = mv.type === 'normal' ? '#fde68a' : c2   // strike: a star of impact and a shock ring at the point of contact
+      twinkle(T, '#fff', 70, 0); twinkle(T, col, 50, 40); ringAt(T, col, 72, 320, 6) }
+    await W(150 * sp)
+  }
+  /*
+   * A foe's ranged attack, on its way to you while your ring closes: started
+   * so that it arrives as the ring does, a cue for the timing. Contact moves
+   * have the foe's lunge instead, and a feint gets none (it would give the
+   * feint away).
+   */
+  const CONTACT_FX = new Set(['strike', 'bite', 'claws', 'xslash', 'chop', 'whip', 'rough', 'quick', 'phantom', 'dig', 'roll', 'volt'])
+  const FX_LEAD = { bolt: 150, thunder: 150, discharge: 250, beam: 200, psy: 250, gleam: 150, spikes: 200, erupt: 150, sound: 300, waves: 300 }
+  function incomingFx(mv, from, to, approach) {
+    const shot = { ...mv, fx: mv.fx ?? 'spray' }, R = fxRecipe(shot)
+    if (CONTACT_FX.has(R)) return
+    setTimeout(() => { if (live()) strikeFx(shot, from, to, null) }, Math.max(0, approach - (FX_LEAD[R] ?? 420)))
+  }
+  window.__fx = { strike: (...a) => strikeFx(...a), impact: (...a) => impactFx(...a), recipe: (mv) => fxRecipe(mv), place: (...a) => place(...a) }   // for tests: the effects, by hand
+  /** Where a hit lands: a flash and a starburst in the move's colours, and what its type throws off. Bigger on a super-effective or critical hit. */
+  function impactFx(c, type, big = false) {
+    const [c1, c2] = fxc(type), k = big ? 1.35 : 1
+    glowAt(c, c2, 76 * k, 240); burstAt(c, c2, big ? 11 : 8, 34 * k, big ? 5 : 4)
+    if (big) ringAt(c, c2, 96, 380, 4)
+    const blob = (col, s = 8) => `width:${s}px;height:${s}px;border-radius:50%;background:${col};box-shadow:0 0 6px ${col}`
+    switch (type) {
+      case 'fire': scatterAt(c, `width:9px;height:12px;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;background:radial-gradient(${c1},${c2} 60%,#c2410c)`, 7, 30, 620, { up: -46, size: 10 }); break
+      case 'water': scatterAt(c, blob('#93c5fd', 7), 9, 44, 520, { gravity: 40, size: 7 }); break
+      case 'electric': for (let i = 0; i < 4; i++) { const a = rnd(0, Math.PI * 2); boltLine(c, { x: c.x + Math.cos(a) * 44, y: c.y + Math.sin(a) * 36 }, c2, 180, 6, i * 25) } break
+      case 'ice': scatterAt(c, `width:8px;height:14px;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:linear-gradient(#fff,${c2})`, 9, 46, 520, { spin: 360, size: 10 }); break
+      case 'grass': scatterAt(c, 'width:12px;height:8px;border-radius:0 100% 0 100%;background:#4ade80', 8, 46, 620, { spin: 400, gravity: 20, size: 12 }); break
+      case 'poison': scatterAt(c, `width:10px;height:10px;border-radius:50%;border:2px solid ${c2};background:${c1}55`, 7, 30, 640, { up: -40, size: 10 }); break
+      case 'rock': case 'ground': scatterAt(c, `width:9px;height:8px;border-radius:30%;background:${type === 'rock' ? '#a8a29e' : '#a16207'}`, 9, 44, 560, { gravity: 46, spin: 300, size: 9 })
+        part(c.x - 40, c.y + 22, 'width:80px;height:20px;border-radius:50%;background:radial-gradient(ellipse,rgba(214,184,120,.8),transparent 70%)', [{ transform: 'scale(.4)', opacity: 1 }, { transform: 'scale(1.5)', opacity: 0 }], { duration: 520 }); break
+      case 'psychic': ringAt(c, c2, 70, 420, 3, 80); break
+      case 'ghost': case 'dark': scatterAt(c, `width:18px;height:18px;border-radius:50%;background:radial-gradient(${type === 'ghost' ? '#a78bfa' : '#52525b'},transparent 70%)`, 6, 26, 700, { up: -36, size: 18 }); break
+      case 'fairy': for (let i = 0; i < 5; i++) twinkle({ x: c.x + rnd(-36, 36), y: c.y + rnd(-34, 24) }, c2, rnd(12, 20), i * 45); break
+      case 'steel': twinkle({ x: c.x + 14, y: c.y - 14 }, '#fff', 30, 40); break
+      case 'dragon': ringAt(c, '#a5b4fc', 84, 360, 3, 60); break
+      case 'fighting': ringAt(c, c2, 80, 300, 6); break
+      case 'bug': scatterAt(c, blob('#a3e635', 5), 8, 40, 420, { size: 5 }); break
+      case 'flying': scatterAt(c, 'width:6px;height:14px;border-radius:50%;background:#f8fafc;box-shadow:0 0 3px #94a3b8', 6, 40, 620, { gravity: 30, spin: 300, size: 8 }); break
     }
   }
   /** One ball per Pokémon: red while it can fight, grey once fainted, glowing for the one out now. */
@@ -4842,7 +5048,7 @@ async function run(id) {
       const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult)
       const from = T.mon.hp
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
-      sparks(T.c.x, T.c.y, mv.type === 'fire' ? '#fb923c' : TYPE_COL[mv.type] ?? '#e2e8f0', 8)
+      impactFx(T.c, mv.type, eff > 1 || acc.crit)
       await Promise.all([blink(T.el, 2), hpTo(T, from - dmg)])
       pop(`-${from - T.mon.hp}`, T.c.x + 30, T.c.y - 30, acc.crit ? 'gold' : '')
       if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
@@ -4944,6 +5150,7 @@ async function run(id) {
         anim(w, [{ transform: 'translate(0,0) scale(.4,.6)', opacity: .9 }, { transform: `translate(${dx}px,${dy}px) scale(1.4,1)`, opacity: .9, offset: .95 }, { opacity: 0 }], { duration: approach + 60, easing: 'ease-in' }); setTimeout(() => w.remove(), approach + 120)
         if (mv.fx === 'quake' && !ownPartner) anim(actor.el, [{ transform: 'translateY(0)' }, { transform: 'translateY(-14px)', offset: .82 }, { transform: 'translateY(0)' }], { duration: approach, easing: 'ease-in' })
       } else if (mv.ranged) anim(actor.el, [{ transform: 'scale(1)' }, { transform: 'scale(1.08) translateY(-6px)', offset: .5 }, { transform: 'scale(1)' }], { duration: approach })
+      if (mv.ranged && mv.kind !== 'low' && !ownPartner) incomingFx(mv, actor.c, T.c, approach)
       else { const k = approach / (approach + 160); anim(actor.el, [{ transform: 'translate(0,0)' }, { transform: `translate(${dx * .8}px,${dy * .8}px)`, offset: k }, { transform: 'translate(0,0)' }], { duration: approach + 160, easing: 'ease-in' }) }
       await W(approach); rg.clear()
       if (!first) await W(240)
@@ -4964,6 +5171,7 @@ async function run(id) {
         if (hit && mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
         const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, mult * taken)
         sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .2 : .1, 140); if (!auto) buzz(hit ? (eff > 1 ? 60 : 30) : 15)
+        impactFx(T.c, mv.type, hit && eff > 1)
         const from = T.mon.hp
         await Promise.all([hit ? blink(T.el, 2) : null, hpTo(T, Math.max(demo ? 1 : 0, from - dmg))])
         pop(`-${from - T.mon.hp}`, T.c.x + 36, T.c.y - 40, hit ? 'red' : 'red small')
@@ -6624,7 +6832,7 @@ async function run(id) {
           const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
           sfx(r.eff > 1 ? 'hitSuper' : r.eff < 1 ? 'hitWeak' : 'hit')
           if (r.eff > 1 || acc.crit) shake(6, 320)
-          sparks(C.e.x, C.e.y, mv.type === 'fire' ? '#fb923c' : '#e2e8f0', 9)
+          impactFx(C.e, mv.type, r.eff > 1 || acc.crit)
           pop(`-${from - foe.hp}`, C.e.x + 34, C.e.y - 30, acc.crit ? 'gold' : '')
           await Promise.all([blink($('enemy'), hits > 1 ? 2 : 3), drain('e', from, foe.hp, foe.max)])
           if (mv.drain) await sapHP(me, 'p', C.p, Math.round((from - foe.hp) * mv.drain))
@@ -6978,6 +7186,7 @@ async function run(id) {
         if (mv.fx === 'orb') { const o = document.createElement('div'); o.style.cssText = `position:absolute;left:${C.e.x - 14}px;top:${C.e.y - 14}px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle,#e9d5ff 0,#7c3aed 45%,#2e1065 100%);box-shadow:0 0 14px #8b5cf6`; fx.appendChild(o); anim(o, [{ transform: 'translate(0,0) scale(.4)' }, { transform: 'translate(0,0) scale(1)', offset: .45 }, { transform: `translate(${C.p.x - C.e.x}px,${C.p.y - C.e.y}px) scale(1.2)` }], { duration: approach, easing: 'ease-in' }); setTimeout(() => o.remove(), approach + 30) }
         if (kind_ === 'low') lowFx(mv.kind === 'low' ? mv : { ...mv, fx: 'sweep' }, approach, E)
         else if (mv.ranged) anim(E, [{ transform: 'scale(1)' }, { transform: 'scale(1.08) translateY(-6px)', offset: .5 }, { transform: 'scale(1)' }], { duration: approach })
+        if (mv.ranged && !feint && kind_ !== 'low') incomingFx(mv, C.e, C.p, approach)
         else { const k = approach / (approach + 160); anim(E, [{ transform: 'translate(0,0)' }, { transform: 'translate(12px,-6px)', offset: k * .8 }, { transform: 'translate(-96px,70px)', offset: k }, { transform: 'translate(0,0)' }], { duration: approach + 160, easing: 'ease-in' }) }
         await W(approach + feint); rg.clear()
         if (!first) await W(kind_ === 'low' ? 260 : 230)
@@ -6999,6 +7208,7 @@ async function run(id) {
           const { dmg, eff } = damage(foe, me, mv, taken)
           const from = me.hp; me.hp = Math.max(0, me.hp - dmg)
           sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .25 : .12, 160); buzz(hit ? (eff > 1 ? 60 : 30) : 15)
+          impactFx(C.p, mv.type, hit && eff > 1)
           pop(`-${dmg}`, C.p.x + 40, C.p.y - 40, hit ? 'red' : 'red small')
           await Promise.all([hit ? blink($('player')) : null, drain('p', from, me.hp, me.stats.hp)])
           if (mv.drain) await sapHP(foe, 'e', C.e, Math.round((from - me.hp) * mv.drain))
