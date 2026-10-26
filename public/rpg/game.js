@@ -3780,15 +3780,16 @@ KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig }
  * two to smooth the curve (Bugsy and Chuck were spikes; the late gyms and the
  * Elite Four were soft). lvAdj is added to every level on their team.
  * Aim, for an average player arriving at the leader's level: about 3 wins in 4
- * (Lance about 1 in 2).
+ * (Lance about 1 in 2). Lance, the Champion, is the toughest of the Johto
+ * League: the highest ace and the most above you once you out-level them all.
  */
 const JOHTO_ADJ = [-1, -2, -1, -1, -3, 0, 2, 2]
-// Kanto comes after the Champion, against a full, evolved party: well above you (Blue, the last, least).
+// Kanto comes after the Champion, against a full, evolved party: well above you. (Blue's own minimum puts him above them all.)
 const KANTO_ADJ = [6, 6, 10, 8, 10, 10, 12, 5]
 GYMS.forEach((L, i) => Object.assign(L, i < 8
   ? { lvAdj: JOHTO_ADJ[i], tellRate: i < 3 ? 0.15 : i < 6 ? 0.3 : 0.4, ringFast: i < 3 ? 0.9 : i < 6 ? 0.85 : 0.8 }
   : { lvAdj: KANTO_ADJ[i - 8], tellRate: 0.45, ringFast: 0.8 }))
-ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 1 }[L.short] ?? 6, tellRate: L.role === 'CHAMPION' ? 0.5 : 0.45, ringFast: 0.8 }))
+ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?? 6, tellRate: L.role === 'CHAMPION' ? 0.5 : 0.45, ringFast: 0.8 }))
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {

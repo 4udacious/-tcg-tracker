@@ -473,7 +473,8 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
         missing: KANTO_ELITE.flatMap((L) => L.team).filter((n) => { const s = speciesByName(n); return !s || !ART[s.id] }),
         art: KANTO_ELITE.every((L) => ART[L.vs] && ART[L.face] && ART[L.body]), sig: KANTO_ELITE.every((L) => L.sig?.length >= 3),
         themes: [LEAGUES.kanto.battle(KANTO_ELITE[0]), LEAGUES.kanto.battle(KANTO_ELITE[4])], songs: !!(SONGS.kantoElite && SONGS.red),
-        blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj }
+        blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj,
+        johto: ELITE.map((L) => [L.short, L.min + L.lvAdj, L.lvAdj]) }
     })
     assert.deepEqual(r.now, [null, 'elite', null, 'kanto', null], 'the Johto League with 8 badges; the Kanto League as Champion with all 16; none once Red is beaten')
     assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
@@ -485,6 +486,8 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
     assert.deepEqual(r.blue, [81, 81, 81, 81, 81, 83], 'Blue: the ace 3 above your best, the rest 2 below, as every leader (no more mirroring)')
     assert.match(r.blueTitle, /EVERY TYPE/)
+    const [lance, ...four] = [r.johto.at(-1), ...r.johto.slice(0, 4)]
+    assert.ok(four.every(([, ace, adj]) => lance[1] > ace && lance[2] > adj), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
