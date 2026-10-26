@@ -957,53 +957,13 @@ SONGS.wild = { file: null, loop: true, bpm: 160, div: 2, chordLen: 8,
     'D2 D2 D3 D2 D2 D3 D2 D3', 'Bb1 Bb1 Bb2 Bb1 Bb1 Bb2 Bb1 Bb2', 'G1 G1 G2 G1 G1 G2 G1 G2', 'A1 A1 A2 A1 A2 G2 E2 C#2'),
   drums: 'KhSgKKSh'.repeat(7) + 'KhShSSSS',
   leadInst: 'brass', harmInst: 'strings', glock: true, hats16: true, fill: 'SSTt' }
-/*
- * Rival battles run long, so both rival themes are built from sections, each
- * with its own chords, melody, instruments and drum feel. `intro` plays once;
- * `sections` then loop. Anything a section doesn't set comes from the song.
- */
-const ROCK = 'KhSKhKSh'.repeat(7) + 'KSKSKSSS'
-const HALF = 'KhhhShhh'.repeat(7) + 'KhhhSSSS'
-/** Rival A: cocky, rock-flavoured, E minor. Verse, higher verse, a half-time bridge in G, a build. About 40 s a loop. */
-SONGS.rival = { file: null, loop: true, bpm: 168, div: 2, chordLen: 8, leadInst: 'synth', harmInst: 'brass', comp: true, hats16: true, fill: 'TTtt',
-  intro: { chords: ['Em', 'B'], lead: bars('E5 . - E5 . - E5 .', 'B4 . - B4 . - - -'), bass: bars('E2 . - E2 . - E2 .', 'B1 . - B1 . - - -'),
-    drums: 'K.K.SKSK' + 'KSKSSSSS', hats16: false, comp: false, fill: '' },
-  sections: [
-    { // A: the verse
-      chords: 'Em C D B Em C Am B7'.split(' '),
-      lead: bars('E5 . B4 E5 G5 . F#5 E5', 'G5 . . E5 C5 . E5 G5', 'F#5 . A5 . D6 . C6 A5', 'B5 . . . A5 . F#5 D#5',
-        'E5 G5 B5 . A5 G5 F#5 E5', 'E5 . G5 . C6 . B5 G5', 'A5 . C6 . E6 . D6 C6', 'B5 . A5 . F#5 D#5 B4 -'),
-      bass: bars('E2 . E3 E2 . E2 B2 D3', 'C2 . C3 C2 . C2 G2 B2', 'D2 . D3 D2 . D2 A2 C3', 'B1 . B2 B1 . B1 F#2 A2',
-        'E2 . E3 E2 . E2 B2 D3', 'C2 . C3 C2 . C2 G2 B2', 'A1 . A2 A1 . A1 E2 G2', 'B1 . B2 B1 D#2 F#2 A2 B2'),
-      drums: ROCK },
-    { // A': the verse again, answered higher, with the glockenspiel in
-      chords: 'Em C D B Em C Am B7'.split(' '), glock: true,
-      lead: bars('B5 . G5 B5 E6 . D6 B5', 'C6 . . G5 E5 . G5 C6', 'A5 . F#5 . D6 . F#6 .', 'D#6 . . . B5 . F#5 .',
-        'G5 . B5 . E6 . G6 .', 'E6 . C6 . G5 . E5 .', 'C6 . A5 . E5 . A5 C6', 'B5 . . . - - - -'),
-      bass: bars('E2 . E3 E2 . E2 B2 D3', 'C2 . C3 C2 . C2 G2 B2', 'D2 . D3 D2 . D2 A2 C3', 'B1 . B2 B1 . B1 F#2 A2',
-        'E2 . E3 E2 . E2 B2 D3', 'C2 . C3 C2 . C2 G2 B2', 'A1 . A2 A1 . A1 E2 G2', 'B1 . B2 B1 D#2 F#2 A2 B2'),
-      drums: ROCK },
-    { // Bridge: half-time, G major, long brass lines over the strings
-      chords: 'G D Em C G D C B'.split(' '), leadInst: 'brass', harmInst: 'strings', comp: false, hats16: false, crash: true, fill: 'TTtt',
-      lead: bars('D6 . . . B5 . . .', 'A5 . . . F#5 . . .', 'G5 . . . B5 . E6 .', 'E6 . . . . . . .',
-        'G5 . B5 . D6 . G6 .', 'F#6 . . . D6 . A5 .', 'E6 . . . C6 . G5 .', 'F#5 . . . D#6 . . .'),
-      bass: bars('G2 . . . G2 . D2 .', 'D2 . . . D2 . A1 .', 'E2 . . . E2 . B1 .', 'C2 . . . C2 . G1 .',
-        'G2 . . . G2 . D2 .', 'D2 . . . D2 . A1 .', 'C2 . . . C2 . G1 .', 'B1 . . . B1 . F#2 .'),
-      drums: HALF },
-    { // Build: stabs and a snare roll back into the verse
-      chords: 'Am Am B B'.split(' '), comp: false, glock: true, fill: 'SSSS',
-      lead: bars('E5 . E5 . A5 . E5 .', 'C6 . C6 . A5 . E5 .', 'F#5 . F#5 . B5 . D#6 .', 'F#6 . . . - - - -'),
-      bass: bars('A1 A1 A2 A1 A1 A2 A1 A2', 'A1 A1 A2 A1 A1 A2 A1 A2', 'B1 B1 B2 B1 B1 B2 B1 B2', 'B1 . . . B1 . . .'),
-      drums: 'KhKhKhKh' + 'KhKhKhKh' + 'KSKSKSKS' + 'SSSSSSSS' },
-  ] }
-
 /**
  * Rival encounter: plays under the rival's dialogue before the battle, every
  * time they turn up. Cheeky, swung, at a walking tempo and sitting quieter
  * than the battle music so it stays under the text. A one-bar brass "hey!"
  * as they step up, then an eight-bar loop for as long as they talk. E minor,
- * ending each loop on B7, so it hands over cleanly to either rival battle
- * theme (A is in E minor, B in A minor). The lead is the rival's synth.
+ * ending each loop on B7, so it hands over cleanly to the rival battle
+ * theme, in E minor. The lead is the rival's synth.
  */
 SONGS.rivalTalk = { file: null, loop: true, bpm: 132, div: 2, chordLen: 8, swing: 0.32, vol: 0.75,
   leadInst: 'synth', leadVel: 0.7, harmInst: 'strings', comp: true, hats16: false, crash: false, fill: '',
@@ -1125,28 +1085,6 @@ SONGS.gym = { file: null, loop: true, bpm: 150, div: 4, chordLen: 16,
       drums: 'KghgSghgKghgSghg'.repeat(7) + 'KghgSgSgPPPPSSSS' },
   ] }
 
-/** Rival B: darker and electronic, A minor, a sixteenth-note synth bass under everything. About 45 s a loop. */
-const AVERSE = { chords: 'Am F C G Am F E7 E7'.split(' '),
-  lead: bars('A4 . C5 E5 A5 . G5 E5', 'F5 . . A5 C6 . A5 F5', 'G5 . E5 C5 G5 . E5 G5', 'B5 . . . D6 . B5 G5',
-    'A5 . E5 A5 C6 . B5 A5', 'A5 . F5 . C6 . A5 F5', 'G#5 . B5 . D6 . B5 G#5', 'E5 . . . - - - -'),
-  drums: 'KhSKKhSh'.repeat(7) + 'KhSKSSSS' }
-SONGS.rivalB = { file: null, loop: true, bpm: 172, div: 2, chordLen: 8, leadInst: 'brass', harmInst: 'strings', comp: false, hats16: true, fill: 'TTtt',
-  bassGen: 'octave16', bass: [],
-  intro: { chords: ['Am', 'E7'], lead: bars('- - - - - - - -', '- - - - - - - -'), drums: 'K.h.K.h.' + 'K.h.SSSS', hats16: true, fill: '' },
-  sections: [
-    { ...AVERSE },
-    { // Bridge: the lift into C major, soaring brass
-      chords: 'F G Em Am F G E E'.split(' '), crash: true, comp: true, fill: 'TTtt',
-      lead: bars('C6 . . . A5 . . .', 'B5 . . . D6 . . .', 'E6 . . . B5 . G5 .', 'A5 . . . . . . .',
-        'F5 . A5 . C6 . F6 .', 'D6 . . . B5 . G5 .', 'G#5 . . . B5 . . .', 'E6 . . . D6 . B5 .'),
-      drums: 'KhhhShhh'.repeat(4) + 'KhSKKhSh'.repeat(3) + 'KhSKSSSS' },
-    { // Breakdown: call and response, synth asks and brass answers
-      chords: 'Dm Am Dm Am Bb C E7 E7'.split(' '), leadInst: 'synth', glock: true, crash: true, fill: 'SSSS',
-      lead: bars('D5 F5 A5 . - - - -', '- - - - E5 A5 C6 .', 'D6 . A5 F5 - - - -', '- - - - C6 . B5 A5',
-        'Bb5 . D6 . F6 . D6 Bb5', 'C6 . E6 . G6 . E6 C6', 'B5 . G#5 . E5 . D6 .', 'B5 . . . - - - -'),
-      drums: 'K.h.K.h.'.repeat(4) + 'KhSKKhSh'.repeat(3) + 'SSSSSSSS' },
-    { ...AVERSE, leadInst: 'synth', leadOct: -1, glock: true },   // the verse again, an octave down on the synth
-  ] }
 Object.assign(SONGS.encounter, { leadInst: 'brass', comp: false, hats16: true, glock: true, pulse: true })
 Object.assign(SONGS.win, { leadInst: 'epiano', leadOct: 0, comp: true, glock: true, harmInst: 'strings' })
 Object.assign(SONGS.vs, { leadInst: 'brass', hit: true })
@@ -1619,6 +1557,70 @@ SONGS.champion = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 
       lead: bars('F6 . . . . . . . E6 . . . . . . .', 'Eb6 . . . . . . . D6 . . . . . . .', 'Db6 . . . . . . . C6 . . . . . . .', 'C6~ . . . . . . . . . . . - - - -'),
       bass: bars(octs('C2'), octs('C2'), octs('C2'), 'C2 . . . . . . . C2 . . . . . . .'),
       drums: 'K.h.S.h.K.h.S.hK'.repeat(3) + 'K...S...SSSSPPPP' },
+  ] }
+
+/*
+ * The rival's battle: one theme for every fight with them, and a serious one.
+ * The rival who was all swagger in their encounter music (SONGS.rivalTalk)
+ * means it now. E minor, so it takes over from that tune's closing B7.
+ * Written to sound unlike the other battles: the Gym has the 3+3+2 drive
+ * and the Champion the piano; this one is a double kick and a palm-muted
+ * guitar chugging an eighth and two sixteenths (straight time, unlike the
+ * Elite Four's 12/8 gallop), the rival's own four notes from their encounter tune
+ * (E, G, F-sharp, E) made dark, and the Phrygian F major (a semitone above
+ * the key) for menace.
+ *   - Intro: the four notes, low and in unison, brass over cellos and basses,
+ *     the drums gathering, a timpani roll onto B7.
+ *   - Verse: the chug under everything, the motif on brass and violins in
+ *     unison, through C, A minor and B, then the F major and B7.
+ *   - Chorus: long climbing lines over a straight rock beat and pounding
+ *     octaves, the strings in tremolo as it peaks.
+ *   - Breakdown: half time and hushed: tubular bells toll the motif slowly
+ *     over cellos and basses, tremolo strings creep in, a snare roll builds.
+ *   - The verse again, led by the rival's synth (their instrument in the
+ *     encounter music), low brass under it and horn stabs, back to the top.
+ * 168 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a 46 s loop.
+ */
+/** A bar of the chug on one note: an eighth and two sixteenths, four times (straight time, not the Elite Four's 12/8 gallop). */
+const chug = (n) => `${n} . ${n} ${n} `.repeat(4).trim()
+const RIVAL_CHUG = 'KhKKShKKKhKKShKK'
+const RIVAL_VERSE = {
+  chords: 'Em C Am B Em C F B7'.split(' '),
+  lead: bars('E5^ . . . . . G5 . F#5 . E5 . B4 . . .', 'C5 . . . E5 . G5 . C6 . . . B5 . G5 .',
+    'A5 . . . . . G5 . E5 . . . C5 . E5 .', 'D#5 . . . F#5 . . . B5 . . . A5 . F#5 .',
+    'E6^ . . . . . D6 . B5 . . . G5 . B5 .', 'C6 . . . B5 . G5 . E5 . . . G5 . C6 .',
+    'F6 . . . E6 . C6 . A5 . . . F5 . A5 .', 'D#6~ . . . . . . . B5 . A5 . F#5 . D#5 .'),
+  bass: bars(chug('E2'), chug('C2'), chug('A1'), chug('B1'), chug('E2'), chug('C2'), chug('F2'), chug('B1')),
+  drums: RIVAL_CHUG.repeat(7) + 'KhKKShKKTTttSSSS' }
+SONGS.rival = { file: null, loop: true, bpm: 168, div: 4, chordLen: 16, vol: 0.9,
+  leadInst: 'brass', doubles: [['violins', 0, 0.3]], harmInst: 'strings', power: true, comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chords: 'Em Em F B7'.split(' '), doubles: [['lowstrings', -1, 0.6]], power: false,
+    lead: bars('E4! - E4! - E4! - G4 . F#4 . . . E4 . D#4 .', 'E4! - E4! - E4! - B4 . C5 . . . B4 . A4 .',
+      'F4 . . . . . . . A4 . . . C5 . F5 .', 'D#5 . . . . . . . F#5 . A5 . B5 . D#5 .'),
+    bass: bars('E1 . . . . . . . . . . . . . . .', 'E1 . . . . . . . . . . . . . . .', chug('F2'), chug('B1')),
+    drums: 'K.......K...S...' + 'K.......K..KS.SS' + RIVAL_CHUG + 'PPPPPPPPSSSSSSSS' },
+  sections: [
+    { ...RIVAL_VERSE },
+    { // Chorus: long climbing lines, straight rock, pounding octaves, tremolo as it peaks
+      chords: 'Am D G Em C D B7 B7'.split(' '), doubles: [['violins', 0, 0.32], ['brass', -1, 0.4]], trem: '. . . . x x x x'.split(' '),
+      lead: bars('A5 . . . . . . . C6 . . . E6 . . .', 'F#6 . . . . . E6 . D6 . . . A5 . . .',
+        'B5 . . . . . . . D6 . . . G6 . . .', 'G6 . . . F#6 . E6 . B5 . . . . . . .',
+        'C6 . . . . . . . E6 . . . G6 . . .', 'A6 . . . . . G6 . F#6 . . . D6 . . .',
+        'D#6^ . . . . . . . F#6 . . . A6 . G6 F#6', 'F#6~ . . . . . . . . . . . - - - -'),
+      bass: bars(octs('A1'), octs('D2'), octs('G1'), octs('E2'), octs('C2'), octs('D2'), octs('B1'), octs('B1')),
+      drums: 'K.h.S.h.K.hKS.h.'.repeat(7) + 'K.h.S.h.TTttSSSS' },
+    { // Breakdown: half time and hushed, bells tolling the motif, tremolo creeping in, a snare roll
+      chords: 'Em Em C C Am Am B B'.split(' '), leadInst: 'bells', leadVel: 1.1, doubles: [], bassInst: 'lowstrings',
+      power: false, crash: false, trem: '. . . . x x x x'.split(' '),
+      lead: bars('E5 . . . . . . . G5 . . . . . . .', 'F#5 . . . . . . . E5 . . . . . . .',
+        'C5 . . . . . . . E5 . . . . . . .', 'G5 . . . . . . . E5 . . . . . . .',
+        'A5 . . . . . . . C6 . . . . . . .', 'B5 . . . . . . . A5 . . . . . . .',
+        'F#5 . . . . . . . A5 . . . . . . .', 'B5 . . . D#6 . . . F#6 . . . A6 . . .'),
+      bass: bars(octs('E1'), octs('E1'), octs('C2'), octs('C2'), octs('A1'), octs('A1'), octs('B1'), octs('B1')),
+      drums: 'K.h.h.h.S.h.h.h.'.repeat(6) + 'K.h.S.h.K.hKS.SS' + 'S.S.S.S.SSSSSSSS' },
+    { // The verse again, on the rival's synth, low brass under it and horn stabs
+      ...RIVAL_VERSE, leadInst: 'synth', doubles: [['brass', -1, 0.45]], stabs: 'x.....x.....x...',
+      drums: RIVAL_CHUG.repeat(7) + 'KhKKShKKPPPPSSSS' },
   ] }
 
 /*
