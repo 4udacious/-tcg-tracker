@@ -389,6 +389,143 @@ for (const [mode, label] of [['demo', 'Watch'], ['duo', 'Watch 2v2'], ['gym', 'W
   })
 }
 
+test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const PORY = ['PORYGON', 'PORYGON2', 'PORYGON-Z']
+      const battles = RIVAL_BATTLES.map((B, n) => {
+        const T = rivalTrainer(n), sp = B.team.map(speciesByName)
+        return { n, phase: T.phase, theme: RIVAL_LOOKS[T.phase].theme, restores: T.restores, size: B.team.length, last: B.team.at(-1),
+          pory: B.team.filter((x) => PORY.includes(x)), mewtwo: B.team.includes('MEWTWO'), missing: B.team.filter((x, i) => !sp[i] || !ART[sp[i].id] || !ART[sp[i].id + 'b'] || !ART['cry:' + sp[i].id]),
+          types: new Set(sp.flatMap((s) => s?.types ?? [])).size, art: ['vs', 'face', 'body', 'down', 'faceDown'].every((k) => ART[T[k]]), moves: T.movesFor(speciesByName(B.team.at(-1))) }
+      })
+      // Which battle is due at each point in the game.
+      const due = (johto, kanto, champion, red = false) => RIVAL_BATTLES.map((B) => B.due({ johto, kanto, champion, red })).lastIndexOf(true)
+      const mins = RIVAL_BATTLES.map((B) => B.min)
+      // Levels: as a Gym Leader's, against a party whose best is Lv 30.
+      window.__vvm.party.splice(0, 9, individual(speciesByName('PIKACHU'), 30, Math.random))
+      const lv = window.__vvm.rivalTeam(rivalTrainer(0)).map((m) => m.level)
+      return { last7: RIVAL_BATTLES[6].last, intro7: RIVAL_BATTLES[6].intro, team6: RIVAL_BATTLES[5].team, team7: RIVAL_BATTLES[6].team, battles: battles.map((b) => ({ ...b, moves: !!b.moves })), dueAt: [due(0, 0, false), due(1, 0, false), due(3, 0, false), due(5, 0, false), due(7, 0, false), due(8, 0, true), due(8, 1, true), due(8, 6, true), due(8, 7, true), due(8, 8, true), due(8, 8, true, true)], mins, lv, songs: ['rival', 'rival2', 'rival3', 'rivalTalk'].every((n) => SONGS[n]) }
+    })
+    const b = r.battles
+    assert.equal(b.length, 7)
+    assert.deepEqual(b.map((x) => x.phase), [1, 1, 1, 2, 2, 3, 3], 'phase 1: battles 1-3, phase 2: 4-5, phase 3: 6-7')
+    assert.deepEqual(b.map((x) => x.theme), ['rival', 'rival', 'rival', 'rival2', 'rival2', 'rival3', 'rival3'])
+    assert.ok(r.songs, 'the three rival themes and the encounter music exist')
+    assert.deepEqual(b.map((x) => x.restores), [1, 1, 1, 1, 2, 2, 3], 'two Full Restores in battles 5 and 6, three in 7')
+    assert.deepEqual(b.map((x) => x.pory.join()), ['PORYGON', 'PORYGON', 'PORYGON', 'PORYGON2', 'PORYGON2', 'PORYGON-Z', 'PORYGON-Z'], 'Porygon in every team, evolving with the phases')
+    assert.deepEqual(b.map((x) => x.mewtwo), [false, false, false, false, false, false, true], 'Mewtwo joins for the last battle')
+    assert.ok(b.every((x) => ['PORYGON', 'PORYGON2', 'PORYGON-Z', 'MEWTWO'].includes(x.last)), 'the ace is always Porygon or Mewtwo')
+    assert.deepEqual(r.team6, ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'], 'battle 6: Alakazam, Porygon-Z the ace')
+    assert.match(r.last7.join(' '), /Meet Mewtwo/, 'Alex unveils Mewtwo just before sending it out')
+    assert.doesNotMatch(r.intro7.join(' '), /Mewtwo/i, 'the last battle\'s opening only teases it')
+    assert.deepEqual(r.team7, ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'], 'the last battle: Zapdos, and Alex closes with Mewtwo')
+    assert.ok(b.every((x, i) => !i || x.size >= b[i - 1].size), 'the team only grows')
+    assert.ok(b.every((x) => x.types >= x.size), `balanced: as many types as Pokémon (${b.map((x) => `${x.types}/${x.size}`).join(' ')})`)
+    assert.deepEqual(b.flatMap((x) => x.missing), [], 'every Pokémon has its sprites and cry')
+    assert.ok(b.every((x) => x.art), 'every look has its art (or Alex\'s standing in)')
+    assert.ok(b.every((x) => x.moves), 'the aces fight with their own moves')
+    assert.deepEqual(r.dueAt, [-1, 0, 1, 2, 3, 3, 4, 4, 5, 5, 6], 'due after 1, 3, 5 and 7 Johto badges, then after Brock (Kanto\'s first), Blaine (the seventh), and after Red')
+    assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), 'each battle is tougher than the last')
+    assert.deepEqual(r.lv, [31, 31, 33], 'levels as a Gym Leader\'s: the ace 3 above your best, the rest 2 below it')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('rival: after the first badge, Alex is at the machine on your next tap; the battle plays and is saved', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    // (A lost tutorial leaves your starter fainted, and Alex waits for a Pokémon that can fight: heal first.)
+    const before = await page.evaluate(() => { const v = window.__vvm; const was = v.rivalDue(); v.badges.push(0); for (const m of v.party) m.hp = m.stats.hp; return { was, now: v.rivalDue() } })
+    assert.deepEqual(before, { was: false, now: true }, 'no rival battle before a badge; the first is due after one')
+    // An ordinary tap ("Random"): Alex takes it.
+    assert.ok(await bot.encounter(''), 'a battle happened on the next tap')
+    const r = await page.evaluate(() => ({ rival: window.__vvm.rival, due: window.__vvm.rivalDue(), music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name),
+      saved: Object.values(localStorage).some((v) => v.includes('"rival":{"step"')) }))
+    assert.ok(r.music.includes('rivalTalk') && r.music.includes('rival'), `the encounter music, then the first rival theme: ${r.music.join(', ')}`)
+    if (r.rival.step === 1) assert.deepEqual(r.rival, { step: 1, wait: 0, lost: false }, 'won: on to battle 2')
+    else assert.deepEqual([r.rival.step, r.rival.lost, r.rival.wait, r.due], [0, true, 3, false], 'lost: the same battle again, a few taps later')
+    assert.ok(r.saved, 'the rival\'s progress is in the save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; Blue scales like the others', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, blue = GYMS.find((L) => L.short === 'BLUE')
+      const now = []
+      now.push(v.leagueNow())   // a new game: no League yet
+      for (let i = 0; i < 8; i++) v.badges.push(i); now.push(v.leagueNow())   // all of Johto's badges: the Johto League
+      v.setLeague({ champion: true }); now.push(v.leagueNow())   // Champion, Kanto's gyms to go: none
+      for (let i = 8; i < 16; i++) v.badges.push(i); now.push(v.leagueNow())   // all sixteen: the Kanto League
+      const key = v.leagueKey()
+      v.setLeague({ red: true }); now.push(v.leagueNow())   // Red beaten: none
+      return { now, key, name: ITEMS[key]?.name, who: KANTO_ELITE.map((L) => L.short), mins: KANTO_ELITE.map((L) => L.min), red: KANTO_ELITE.at(-1),
+        missing: KANTO_ELITE.flatMap((L) => L.team).filter((n) => { const s = speciesByName(n); return !s || !ART[s.id] }),
+        art: KANTO_ELITE.every((L) => ART[L.vs] && ART[L.face] && ART[L.body]), sig: KANTO_ELITE.every((L) => L.sig?.length >= 3),
+        themes: [LEAGUES.kanto.battle(KANTO_ELITE[0]), LEAGUES.kanto.battle(KANTO_ELITE[4])], songs: !!(SONGS.kantoElite && SONGS.red),
+        blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title }
+    })
+    assert.deepEqual(r.now, [null, 'elite', null, 'kanto', null], 'the Johto League with 8 badges; the Kanto League as Champion with all 16; none once Red is beaten')
+    assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
+    assert.deepEqual(r.who, ['LORELEI', 'BRUNO', 'AGATHA', 'LANCE', 'RED'])
+    assert.ok(r.mins.every((m, i) => m > 70 && (!i || m > r.mins[i - 1])), `above Blue, each tougher than the last: ${r.mins}`)
+    assert.equal(r.red.restores, 2); assert.equal(r.red.team.at(-1), 'PIKACHU')
+    assert.deepEqual(r.missing, []); assert.ok(r.art, 'everyone has art (placeholders for the new faces)'); assert.ok(r.sig, 'every ace has its signature moves')
+    assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
+    assert.deepEqual(r.blue, [81, 81, 81, 81, 81, 83], 'Blue: the ace 3 above your best, the rest 2 below, as every leader (no more mirroring)')
+    assert.match(r.blueTitle, /EVERY TYPE/)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to her theme, and the ladder moves on or starts over', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm
+      for (let i = 0; i < 16; i++) if (!v.badges.includes(i)) v.badges.push(i)
+      v.setLeague({ champion: true }); v.setRival(7)   // (Alex is done, so the taps are only for this)
+      KANTO_ELITE[0].team = ['LAPRAS']   // a short battle: this is about the ladder, not the fight
+      for (const n of ['GARCHOMP', 'TYRANITAR', 'GENGAR', 'GYARADOS', 'ARCANINE']) { const m = individual(speciesByName(n), 90, Math.random); m.hp = m.stats.hp; v.party.push(m) }
+      for (const m of v.party) m.hp = m.stats.hp
+      v.bag[v.leagueKey()] = 1; v.renderTools()
+    })
+    // Back to idle from the screen the tutorial ends on, then open the Bag.
+    await page.evaluate(() => document.getElementById('home').click())
+    for (let i = 0; i < 20 && !(await page.$('#sheetBody [data-tab]')); i++) {
+      await page.waitForTimeout(400)
+      await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
+    }
+    await page.dispatchEvent('#sheetBody [data-tab="other"]', 'click'); await page.waitForTimeout(200)
+    await page.dispatchEvent('#sheetBody [data-item="summon:kanto"]', 'click'); await page.waitForTimeout(300)
+    const ladder = await page.textContent('#sheetBody')
+    assert.match(ladder, /LORELEI.*BRUNO.*AGATHA.*LANCE.*RED/s, 'the ladder shows all five')
+    assert.match(ladder, /CHALLENGE LORELEI/)
+    await page.dispatchEvent('#sheetBody [data-elite="kanto"]', 'click')
+    let fought = false
+    for (let i = 0; i < 60 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
+    assert.ok(fought, 'Lorelei came out')
+    for (let i = 0; i < 700; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+    const r = await page.evaluate(() => ({ league: window.__vvm.league, ticket: window.__vvm.bag['summon:kanto'] ?? 0, music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name) }))
+    assert.ok(r.music.includes('kantoElite'), `the Kanto Elite Four theme: ${r.music.join(', ')}`)
+    if (r.league.kanto === 1) assert.equal(r.ticket, 1, 'won: the ticket stays for Bruno')
+    else assert.deepEqual([r.league.kanto, r.ticket], [0, 0], 'lost: the ticket is used up, and the next starts from Lorelei')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('play: the tutorial, then wild battles with new moves, then a save', { skip: quick }, async () => {
   const g = await openGame()
   try {
