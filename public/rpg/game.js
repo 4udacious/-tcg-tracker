@@ -3153,7 +3153,7 @@ const RIVAL_BATTLES = [
     intro: ['Champion, huh. Congratulations. Really.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.kanto >= 7, min: 70, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'MEWTWO', 'PORYGON-Z'],
+  { due: (p) => p.kanto >= 7, min: 70, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['Seven Kanto badges. Just Blue left, and me first.', 'Meet Mewtwo. Made in a lab, like Porygon was. This is everything I have.'],
     outro: ['...You did it. You really are better.', 'Thanks for not letting me win the wrong way. Go take Blue down, Champion.'],
     gloat: ['I won... and you made me earn every inch of it.', 'Rest up. I want the real you for the rematch.'] },

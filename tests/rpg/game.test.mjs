@@ -420,7 +420,7 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
     assert.deepEqual(b.map((x) => x.mewtwo), [false, false, false, false, false, false, true], 'Mewtwo joins for the last battle')
     assert.ok(b.every((x) => ['PORYGON', 'PORYGON2', 'PORYGON-Z', 'MEWTWO'].includes(x.last)), 'the ace is always Porygon or Mewtwo')
     assert.deepEqual(r.team6, ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'], 'battle 6: Alakazam, Porygon-Z the ace')
-    assert.deepEqual(r.team7, ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'MEWTWO', 'PORYGON-Z'], 'the last battle: Zapdos in place of Magnezone')
+    assert.deepEqual(r.team7, ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'], 'the last battle: Zapdos, and Alex closes with Mewtwo')
     assert.ok(b.every((x, i) => !i || x.size >= b[i - 1].size), 'the team only grows')
     assert.ok(b.every((x) => x.types >= x.size), `balanced: as many types as Pokémon (${b.map((x) => `${x.types}/${x.size}`).join(' ')})`)
     assert.deepEqual(b.flatMap((x) => x.missing), [], 'every Pokémon has its sprites and cry')
