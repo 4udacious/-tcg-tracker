@@ -4933,17 +4933,31 @@ async function run(id) {
    * trainers, Brian): 2 to 3 below. A trainer's ace, their last Pokémon, is one
    * above the rest. Gym leaders, the Elite Four and Lance set their own (above
    * you on purpose). Aim: you win about 3 trainer battles in 4.
+   *
+   * Trainers (and wild Pokémon) only keep pace with you up to your next
+   * challenge, though: never above that challenge's ace at its lowest (the
+   * next gym leader's, the Elite Four member you're on, or, in the Kanto
+   * League, the member you're on there). Training up for a gym still works;
+   * out-levelling it to farm doesn't pay, since their Pokémon stop growing
+   * and EXP follows the foe's level.
    */
   const leadLevel = () => (party.find((m) => m.hp > 0) ?? party[0])?.level ?? 5
   // Balanced from Lv 10 (sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
   const levelBand = (T, lv = leadLevel()) => (T === HERB || T === PAUL ? (lv < 10 ? [-1, 1] : [0, 2]) : (lv < 10 ? [-3, -2] : [-1, 0]))
+  /** The highest a trainer's ace (or a wild Pokémon) can be: your next challenge's ace at its lowest. No cap once there's no challenge left. */
+  function trainerCap() {
+    const n = nextChallenge(badges, champion)
+    const L = n === 'elite' ? ELITE[eliteStep] : n != null ? GYMS[n] : leagueNow() === 'kanto' ? KANTO_ELITE[kantoStep] : null
+    return L ? L.min + (L.lvAdj ?? 0) : LEVEL_CAP
+  }
   /**
-   * A wild Pokémon's level: up to 3 below your lead, never above the level
-   * its species evolves at (an unevolved Pokémon past that wouldn't be one).
+   * A wild Pokémon's level: up to 3 below your lead, and, like a trainer's,
+   * never above your next challenge's (trainerCap()). Roaming legendaries keep
+   * their own level.
    */
   function wildLevel(species) {
     // Not capped at the species' evolution level any more: one caught above it evolves at its next level-up.
-    return Math.max(2, Math.min(LEVEL_CAP, leadLevel() - 3 + Math.floor(Math.random() * 4)))
+    return Math.max(2, Math.min(LEVEL_CAP, trainerCap(), leadLevel() - 3 + Math.floor(Math.random() * 4)))
   }
   function deckFor(T, lv, force) {
     const tl = trainerLevel()
@@ -4956,8 +4970,9 @@ async function run(id) {
       while (out.length < Math.min(size, avail.length)) { const n = avail[Math.floor(rand() * avail.length)]; if (!out.includes(n)) out.push(n) }
       return out
     })()
-    // Levels from the band for this kind of trainer, around `lv` (your lead); their ace, last, one above the rest.
-    const [lo, hi] = levelBand(T, lv), base = lv + lo + Math.floor(rand() * (hi - lo + 1))
+    // Levels from the band for this kind of trainer, around `lv` (your lead); their ace, last, one above the rest,
+    // and never above your next challenge's (trainerCap()).
+    const [lo, hi] = levelBand(T, lv), base = Math.min(lv + lo + Math.floor(rand() * (hi - lo + 1)), trainerCap() - 1)
     return names.map((n, i) => individual(DATA.trainer.find((t) => t.name === n), Math.max(2, Math.min(LEVEL_CAP, base + (i === names.length - 1 && names.length > 1 ? 1 : 0))), rand))
   }
   /** A partner's timing ring, tapped by them: usually GREAT, sometimes PERFECT, now and then GOOD. */
@@ -8323,7 +8338,7 @@ async function run(id) {
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
-    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() },
+    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }

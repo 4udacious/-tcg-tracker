@@ -526,6 +526,38 @@ test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to he
   } finally { await g.close() }
 })
 
+test('trainers and wild Pokémon keep pace with you only up to your next challenge, so out-levelling a gym doesn\'t pay', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    const KANTO_MINS = await page.evaluate(() => KANTO_ELITE.map((L) => L.min))
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, top = (T, lv) => { let hi = 0; for (let i = 0; i < 40; i++) hi = Math.max(hi, ...v.deckFor(T, lv).map((m) => m.level)); return hi }
+      const out = { capNone: v.trainerCap() }
+      out.under = top(HERB, 8)   // below the cap: as before, around your lead
+      out.over = [top(HERB, 40), top(BRIAN, 40)]   // far above it: held at the next gym's level
+      // Wild ones the same: around your lead below the cap, held at it above.
+      const wild = (lv) => { v.party.splice(0, 9, individual(speciesByName('PIKACHU'), lv, Math.random)); let lo = 99, hi = 0; for (let i = 0; i < 40; i++) { const l = v.wildLevel(speciesByName('PIDGEY')); lo = Math.min(lo, l); hi = Math.max(hi, l) } return [lo, hi] }
+      out.wildUnder = wild(10); out.wildOver = wild(40)
+      v.badges.push(0, 1, 2); out.capMorty = v.trainerCap(); out.overMorty = top(PAUL, 60)
+      out.gymAces = GYMS.slice(0, 4).map((L) => L.min + (L.lvAdj ?? 0))
+      // The Kanto League: all sixteen badges as Champion.
+      for (let i = 3; i < 16; i++) v.badges.push(i); v.setLeague({ champion: true })
+      out.kanto = [v.trainerCap()]; v.setLeague({ kanto: 2 }); out.kanto.push(v.trainerCap()); v.setLeague({ red: true }); out.kanto.push(v.trainerCap())
+      return out
+    })
+    assert.equal(r.capNone, r.gymAces[0], 'before any badge, the cap is the first gym\'s ace')
+    assert.ok(r.under <= 10, `below the cap, levels still follow your lead (${r.under})`)
+    assert.deepEqual(r.over, [r.gymAces[0], r.gymAces[0]], 'a Lv 40 lead meets trainers no higher than the first gym')
+    assert.ok(r.wildUnder[0] >= 7 && r.wildUnder[1] <= 10, `wild Pokémon below the cap: up to 3 under your lead (${r.wildUnder})`)
+    assert.deepEqual(r.wildOver, [r.gymAces[0], r.gymAces[0]], 'a Lv 40 lead meets wild Pokémon no higher than the first gym')
+    assert.equal(r.capMorty, r.gymAces[3]); assert.equal(r.overMorty, r.gymAces[3], 'with three badges, the fourth gym sets the cap')
+    assert.deepEqual(r.kanto, [KANTO_MINS[0], KANTO_MINS[2], 100], 'in the Kanto League, the member you\'re on; no cap once Red is beaten')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('play: the tutorial, then wild battles with new moves, then a save', { skip: quick }, async () => {
   const g = await openGame()
   try {
