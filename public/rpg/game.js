@@ -3093,7 +3093,9 @@ const ALEX = {
  * ══════════ Alex, the rival ══════════
  * The trainer who helped you through your first battle turns rival: seven
  * battles across the whole game, each one waiting at the machine on your
- * next tap once you reach its milestone (`due`, from your progress). Lose
+ * next tap once you reach its milestone (`due`, from your progress): after
+ * 1, 3, 5 and 7 Johto badges, then in Kanto after Brock's badge (the first),
+ * Blaine's (the seventh, the last before Blue) and Blue's. Lose
  * and Alex comes back a few taps later for the same battle; only a win moves
  * the story on.
  *
@@ -3111,8 +3113,8 @@ const ALEX = {
  * Levels as a Gym Leader's (leaderLevels): the ace at the battle's `min` or
  * 3 above your best, the rest 2 below it. Alex fights like a leader (`hard`:
  * the best move each turn, tells, quicker rings, a line before the last
- * Pokémon) with `restores` Full Restores: one in battles 1-4, two in 5 and
- * 6, three in 7.
+ * Pokémon, or the battle's own `last` words) with `restores` Full
+ * Restores: one in battles 1-4, two in 5 and 6, three in 7.
  */
 const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 /** Each phase's look (the art Alex uploads replace), theme and scene. Until a look's art is in, Alex's current art stands in. */
@@ -3145,17 +3147,18 @@ const RIVAL_BATTLES = [
     intro: ["You noticed. Porygon's different now. I installed the UPGRADE.", "Friends? We were. Now you're just the number I have to beat."],
     outro: ["...That doesn't make sense. The numbers were on my side.", "I'll find what's missing. Whatever it takes."],
     gloat: ["The upgrade works. You don't.", "Go home. The machine's mine today."] },
-  { due: (p) => p.johto >= 8, min: 47, restores: 2, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
-    intro: ['The Elite Four. You think you are ready for them?', "You're not getting to the Plateau without getting past me first."],
-    outro: ['Go on, then. Go meet your Champion.', '...Whatever it takes. I said that, and I meant it.'],
-    gloat: ['The League can wait. Forever, maybe.', "You're not ready. I am."] },
-  { due: (p) => p.champion, min: 58, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
-    intro: ['Champion, huh. Congratulations. Really.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
+  { due: (p) => p.kanto >= 1, min: 62, restores: 2, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
+    intro: ["Champion. And now you're collecting Kanto badges too.", "I skipped the League. I've been upgrading instead. Let's see whose time was better spent."],
+    outro: ["...You're the Champion for a reason. I get it now.", 'Whatever it takes. I said that, and I meant it.'],
+    gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
+  { due: (p) => p.kanto >= 7, min: 78, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
+    intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.kanto >= 7, min: 70, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
-    intro: ['Seven Kanto badges. Just Blue left, and me first.', 'Meet Mewtwo. Made in a lab, like Porygon was. This is everything I have.'],
-    outro: ['...You did it. You really are better.', 'Thanks for not letting me win the wrong way. Go take Blue down, Champion.'],
+  { due: (p) => p.kanto >= 8, min: 80, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+    intro: ['You beat Blue. Every badge in two regions. There is only me left.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
+    last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
+    outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
     gloat: ['I won... and you made me earn every inch of it.', 'Rest up. I want the real you for the rematch.'] },
 ]
 /** What Alex says in a rematch (after losing that battle to Alex), by phase. */
@@ -7271,7 +7274,7 @@ async function run(id) {
       if (kind === 'trainer' && !roster.length) return { result: 'won', exp: winExp }
       await winExp()
       if (kind !== 'trainer' || !roster.length) return { result: kind === 'wild' ? 'fainted' : 'won' }
-      if (trainer.hard && roster.length === 1) { await trainerOn(trainer); await talk(trainer, [pickOf(LAST_MON).replaceAll('{mon}', roster[0].name)]); await trainerOff() }
+      if (trainer.hard && roster.length === 1) { await trainerOn(trainer); await talk(trainer, trainer.last ?? [pickOf(LAST_MON).replaceAll('{mon}', roster[0].name)]); await trainerOff() }   // a battle's own words, if it has them (Alex unveiling Mewtwo)
       await sendInFoe(roster.shift())
       return null
     }

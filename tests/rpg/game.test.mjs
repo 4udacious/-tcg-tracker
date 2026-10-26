@@ -408,7 +408,7 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
       // Levels: as a Gym Leader's, against a party whose best is Lv 30.
       window.__vvm.party.splice(0, 9, individual(speciesByName('PIKACHU'), 30, Math.random))
       const lv = window.__vvm.rivalTeam(rivalTrainer(0)).map((m) => m.level)
-      return { team6: RIVAL_BATTLES[5].team, team7: RIVAL_BATTLES[6].team, battles: battles.map((b) => ({ ...b, moves: !!b.moves })), dueAt: [due(0, 0, false), due(1, 0, false), due(3, 0, false), due(5, 0, false), due(7, 0, false), due(8, 0, false), due(8, 0, true), due(8, 7, true)], mins, lv, songs: ['rival', 'rival2', 'rival3', 'rivalTalk'].every((n) => SONGS[n]) }
+      return { last7: RIVAL_BATTLES[6].last, intro7: RIVAL_BATTLES[6].intro, team6: RIVAL_BATTLES[5].team, team7: RIVAL_BATTLES[6].team, battles: battles.map((b) => ({ ...b, moves: !!b.moves })), dueAt: [due(0, 0, false), due(1, 0, false), due(3, 0, false), due(5, 0, false), due(7, 0, false), due(8, 0, true), due(8, 1, true), due(8, 6, true), due(8, 7, true), due(8, 8, true)], mins, lv, songs: ['rival', 'rival2', 'rival3', 'rivalTalk'].every((n) => SONGS[n]) }
     })
     const b = r.battles
     assert.equal(b.length, 7)
@@ -420,13 +420,15 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
     assert.deepEqual(b.map((x) => x.mewtwo), [false, false, false, false, false, false, true], 'Mewtwo joins for the last battle')
     assert.ok(b.every((x) => ['PORYGON', 'PORYGON2', 'PORYGON-Z', 'MEWTWO'].includes(x.last)), 'the ace is always Porygon or Mewtwo')
     assert.deepEqual(r.team6, ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'], 'battle 6: Alakazam, Porygon-Z the ace')
+    assert.match(r.last7.join(' '), /Meet Mewtwo/, 'Alex unveils Mewtwo just before sending it out')
+    assert.doesNotMatch(r.intro7.join(' '), /Mewtwo/i, 'the last battle\'s opening only teases it')
     assert.deepEqual(r.team7, ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'], 'the last battle: Zapdos, and Alex closes with Mewtwo')
     assert.ok(b.every((x, i) => !i || x.size >= b[i - 1].size), 'the team only grows')
     assert.ok(b.every((x) => x.types >= x.size), `balanced: as many types as Pokémon (${b.map((x) => `${x.types}/${x.size}`).join(' ')})`)
     assert.deepEqual(b.flatMap((x) => x.missing), [], 'every Pokémon has its sprites and cry')
     assert.ok(b.every((x) => x.art), 'every look has its art (or Alex\'s standing in)')
     assert.ok(b.every((x) => x.moves), 'the aces fight with their own moves')
-    assert.deepEqual(r.dueAt, [-1, 0, 1, 2, 3, 4, 5, 6], 'due after 1, 3, 5, 7 and 8 badges, as Champion, and after 7 Kanto badges')
+    assert.deepEqual(r.dueAt, [-1, 0, 1, 2, 3, 3, 4, 4, 5, 6], 'due after 1, 3, 5 and 7 Johto badges, then after Brock (Kanto\'s first), Blaine (the seventh) and Blue')
     assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), 'each battle is tougher than the last')
     assert.deepEqual(r.lv, [31, 31, 33], 'levels as a Gym Leader\'s: the ace 3 above your best, the rest 2 below it')
     assert.deepEqual(g.errors, [])
