@@ -1560,7 +1560,8 @@ SONGS.champion = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 
   ] }
 
 /*
- * The rival's first battle (SONGS.rival2, below, is the second), and a serious one.
+ * The rival's first battle (SONGS.rival2 and rival3, below, are the second
+ * and the last), and a serious one.
  * The rival who was all swagger in their encounter music (SONGS.rivalTalk)
  * means it now. E minor, so it takes over from that tune's closing B7.
  * Written to sound unlike the other battles: the Gym has the 3+3+2 drive
@@ -1681,6 +1682,51 @@ SONGS.rival2 = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 0.
     { // The corrupted verse once more, on the rival's synth, violins and low brass with it, horn stabs
       ...RIVAL2_VERSE, leadInst: 'synth', doubles: [['brass', -1, 0.45], ['violins', 0, 0.25]], stabs: 'x.....x.....x...',
       drums: RIVAL_CHUG.repeat(7) + 'KhKKShKKPPPPSSSS' },
+  ] }
+
+/*
+ * The rival's last battle. The first theme was the rival serious, the second
+ * the same music gone wrong (the motif corrupted, F for F-sharp); this one
+ * settles it. It begins in the old darkness, puts the motif right, and at its
+ * height turns to E major for the first time: E, G-sharp, F-sharp, E, the
+ * rival's four notes as a salute.
+ *   - Intro: the corrupted motif on the bells, answered by the true one, then
+ *     the first theme's hammered unison and a run up B7.
+ *   - The duel: the first theme's verse with everything: brass and violins,
+ *     low brass, the guitar's chug, a choir, tremolo as it turns to B7.
+ *   - The first theme's chorus in full, tremolo throughout and a choir.
+ *   - The reckoning: new, in E major. The motif in major over E, B, C-sharp
+ *     minor and A, climbing to A6 and settling onto B7.
+ *   - The last stand: the bass climbs by semitones from B to E (the second
+ *     theme's descent turned round), the motif hammered a step higher each
+ *     bar, timpani rolling into B7 and back to the duel.
+ * 172 bpm, sixteenth-note grid, 16 steps a bar: a 6 s intro, then a 45 s loop.
+ */
+SONGS.rival3 = { file: null, loop: true, bpm: 172, div: 4, chordLen: 16, vol: 0.9,
+  leadInst: 'brass', doubles: [['violins', 0, 0.3], ['brass', -1, 0.42]], harmInst: 'strings', padInst: 'choir', power: true,
+  comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chords: 'Em Em Em B7'.split(' '), leadInst: 'bells', leadVel: 1.1, doubles: [['lowstrings', -2, 0.5]], power: false,
+    lead: bars('E5 . . . G5 . . . F5 . . . E5 . . .', 'E5 . . . G5 . . . F#5 . . . E5 . . .',
+      'E4! - E4! - E4! - G4 . F#4 . . . E4 . D#4 .', 'B4 . D#5 . F#5 . A5 . B5 . D#6 . F#6 . A6 .'),
+    bass: bars('E1 . . . . . . . . . . . . . . .', 'E1 . . . . . . . . . . . . . . .', chug('E2'), chug('B1')),
+    drums: 'P.......P.......' + 'P.......P.......' + RIVAL_CHUG + 'PPPPPPPPSSSSSSSS' },
+  sections: [
+    { ...RIVAL_VERSE, trem: '. . . . . . x x'.split(' ') },   // the duel
+    { ...SONGS.rival.sections[1], doubles: [['violins', 0, 0.32], ['brass', -1, 0.42]], trem: 'x x x x x x x x'.split(' ') },   // the first chorus, in full
+    { // The reckoning: the motif in E major, at last
+      chords: 'E B C#m A E B A B7'.split(' '), trem: 'x x x x x x x x'.split(' '), doubles: [['violins', 0, 0.32], ['brass', -1, 0.45], ['bells', 0, 0.2]],
+      lead: bars('E5^ . . . . . G#5 . F#5 . E5 . B4 . . .', 'D#5 . . . F#5 . B5 . D#6 . . . C#6 . B5 .',
+        'C#6 . . . . . B5 . G#5 . . . E5 . G#5 .', 'A5 . . . . . . . C#6 . . . E6 . . .',
+        'E6^ . . . . . D#6 . B5 . . . G#5 . B5 .', 'B5 . . . A5 . G#5 . F#5 . . . D#5 . F#5 .',
+        'A5 . . . C#6 . E6 . A6 . . . G#6 . F#6 .', 'F#6~ . . . . . . . D#6 . B5 . A5 . F#5 .'),
+      bass: bars(octs('E2'), octs('B1'), octs('C#2'), octs('A1'), octs('E2'), octs('B1'), octs('A1'), octs('B1')),
+      drums: 'K.h.S.h.K.hKS.h.'.repeat(7) + 'K.h.S.h.TTttSSSS' },
+    { // The last stand: the bass climbing from B to E, the motif hammered higher each bar
+      chords: 'B C A D B Em B7 B7'.split(' '), doubles: [['brass', -1, 0.45], ['violins', 1, 0.22]], trem: '. . . . x x x x'.split(' '),
+      lead: bars(hammer('B4', 'C5'), hammer('C5', 'D5'), hammer('C#5', 'E5'), hammer('D5', 'F#5'), hammer('D#5', 'F#5'), hammer('E5', 'G5'),
+        'F#5 . . . A5 . . . B5 . . . D#6 . . .', 'F#6~ . . . . . . . . . . . - - - -'),
+      bass: bars(chug('B1'), chug('C2'), chug('C#2'), chug('D2'), chug('D#2'), chug('E2'), chug('B1'), 'B1 . . . . . . . B1 . B1 . B1 . B1 .'),
+      drums: RIVAL_CHUG.repeat(5) + 'KhKKShKKP.P.P.P.' + RIVAL_CHUG + 'PPPPPPPPSSSSSSSS' },
   ] }
 
 /*
