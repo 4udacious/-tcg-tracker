@@ -3682,8 +3682,7 @@ const ELITE_CARD = { short: 'THE ELITE FOUR', city: 'INDIGO PLATEAU', summonName
  * (Lorelei, Bruno, Agatha and Lance, the last two back with new teams) and
  * then Red, at Mt. Silver, on one ticket, as the Johto League's ladder is.
  * Lose and the next ticket starts again from Lorelei; beat Red and it's done.
- * Their own battle theme (SONGS.kantoElite) and Red's (SONGS.red); Lorelei,
- * Agatha and Red stand in placeholder art until theirs arrives.
+ * Their own battle theme (SONGS.kantoElite) and Red's (SONGS.red).
  */
 const KANTO_ELITE = [
   { short: 'LORELEI', full: 'ELITE FOUR LORELEI', type: 'ice', color: '#7dd3fc', scene: 'castle', min: 78, tokens: '10.00',
@@ -3723,7 +3722,7 @@ const LEAGUES = {
   elite: { members: ELITE, card: ELITE_CARD, sub: 'the Elite Four and Champion Lance, one at a time', battle: (L) => (L.short === 'LANCE' ? 'champion' : 'elite') },
   kanto: { members: KANTO_ELITE, card: KANTO_CARD, sub: 'the Kanto Elite Four, then Red, one at a time', battle: (L) => (L.red ? 'red' : 'kantoElite') },
 }
-// Placeholder art for the new faces, until theirs arrives.
+// The new faces' art: their Pokémon Masters EX renders (from Bulbagarden Archives), framed as the others'.
 for (const k of ['lorelei', 'agatha', 'red']) Object.assign(ART, { [`gymVs:${k}`]: `/rpg/a/gym-${k}-vs.jpg`, [`gymFace:${k}`]: `/rpg/a/gym-${k}-face.jpg`, [`gymBody:${k}`]: `/rpg/a/gym-${k}-body.png` })
 
 /** A leader's art keys (build.mjs embeds `gymBody:<key>` and friends). */
