@@ -389,6 +389,67 @@ for (const [mode, label] of [['demo', 'Watch'], ['duo', 'Watch 2v2'], ['gym', 'W
   })
 }
 
+test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const PORY = ['PORYGON', 'PORYGON2', 'PORYGON-Z']
+      const battles = RIVAL_BATTLES.map((B, n) => {
+        const T = rivalTrainer(n), sp = B.team.map(speciesByName)
+        return { n, phase: T.phase, theme: RIVAL_LOOKS[T.phase].theme, restores: T.restores, size: B.team.length, last: B.team.at(-1),
+          pory: B.team.filter((x) => PORY.includes(x)), mewtwo: B.team.includes('MEWTWO'), missing: B.team.filter((x, i) => !sp[i] || !ART[sp[i].id] || !ART[sp[i].id + 'b'] || !ART['cry:' + sp[i].id]),
+          types: new Set(sp.flatMap((s) => s?.types ?? [])).size, art: ['vs', 'face', 'body', 'down', 'faceDown'].every((k) => ART[T[k]]), moves: T.movesFor(speciesByName(B.team.at(-1))) }
+      })
+      // Which battle is due at each point in the game.
+      const due = (johto, kanto, champion) => RIVAL_BATTLES.map((B) => B.due({ johto, kanto, champion })).lastIndexOf(true)
+      const mins = RIVAL_BATTLES.map((B) => B.min)
+      // Levels: as a Gym Leader's, against a party whose best is Lv 30.
+      window.__vvm.party.splice(0, 9, individual(speciesByName('PIKACHU'), 30, Math.random))
+      const lv = window.__vvm.rivalTeam(rivalTrainer(0)).map((m) => m.level)
+      return { battles: battles.map((b) => ({ ...b, moves: !!b.moves })), dueAt: [due(0, 0, false), due(1, 0, false), due(3, 0, false), due(5, 0, false), due(7, 0, false), due(8, 0, false), due(8, 0, true), due(8, 7, true)], mins, lv, songs: ['rival', 'rival2', 'rival3', 'rivalTalk'].every((n) => SONGS[n]) }
+    })
+    const b = r.battles
+    assert.equal(b.length, 7)
+    assert.deepEqual(b.map((x) => x.phase), [1, 1, 1, 2, 2, 3, 3], 'phase 1: battles 1-3, phase 2: 4-5, phase 3: 6-7')
+    assert.deepEqual(b.map((x) => x.theme), ['rival', 'rival', 'rival', 'rival2', 'rival2', 'rival3', 'rival3'])
+    assert.ok(r.songs, 'the three rival themes and the encounter music exist')
+    assert.deepEqual(b.map((x) => x.restores), [1, 1, 1, 1, 2, 2, 3], 'two Full Restores in battles 5 and 6, three in 7')
+    assert.deepEqual(b.map((x) => x.pory.join()), ['PORYGON', 'PORYGON', 'PORYGON', 'PORYGON2', 'PORYGON2', 'PORYGON-Z', 'PORYGON-Z'], 'Porygon in every team, evolving with the phases')
+    assert.deepEqual(b.map((x) => x.mewtwo), [false, false, false, false, false, true, true], 'Mewtwo joins in phase 3')
+    assert.ok(b.every((x) => ['PORYGON', 'PORYGON2', 'PORYGON-Z', 'MEWTWO'].includes(x.last)), 'the ace is always Porygon or Mewtwo')
+    assert.ok(b.every((x, i) => !i || x.size >= b[i - 1].size), 'the team only grows')
+    assert.ok(b.every((x) => x.types >= x.size), `balanced: as many types as Pokémon (${b.map((x) => `${x.types}/${x.size}`).join(' ')})`)
+    assert.deepEqual(b.flatMap((x) => x.missing), [], 'every Pokémon has its sprites and cry')
+    assert.ok(b.every((x) => x.art), 'every look has its art (or Alex\'s standing in)')
+    assert.ok(b.every((x) => x.moves), 'the aces fight with their own moves')
+    assert.deepEqual(r.dueAt, [-1, 0, 1, 2, 3, 4, 5, 6], 'due after 1, 3, 5, 7 and 8 badges, as Champion, and after 7 Kanto badges')
+    assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), 'each battle is tougher than the last')
+    assert.deepEqual(r.lv, [31, 31, 33], 'levels as a Gym Leader\'s: the ace 3 above your best, the rest 2 below it')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('rival: after the first badge, Alex is at the machine on your next tap; the battle plays and is saved', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const before = await page.evaluate(() => { const v = window.__vvm; const was = v.rivalDue(); v.badges.push(0); return { was, now: v.rivalDue() } })
+    assert.deepEqual(before, { was: false, now: true }, 'no rival battle before a badge; the first is due after one')
+    // An ordinary tap ("Random"): Alex takes it.
+    assert.ok(await bot.encounter(''), 'a battle happened on the next tap')
+    const r = await page.evaluate(() => ({ rival: window.__vvm.rival, due: window.__vvm.rivalDue(), music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name),
+      saved: Object.values(localStorage).some((v) => v.includes('"rival":{"step"')) }))
+    assert.ok(r.music.includes('rivalTalk') && r.music.includes('rival'), `the encounter music, then the first rival theme: ${r.music.join(', ')}`)
+    if (r.rival.step === 1) assert.deepEqual(r.rival, { step: 1, wait: 0, lost: false }, 'won: on to battle 2')
+    else assert.deepEqual([r.rival.step, r.rival.lost, r.rival.wait, r.due], [0, true, 3, false], 'lost: the same battle again, a few taps later')
+    assert.ok(r.saved, 'the rival\'s progress is in the save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('play: the tutorial, then wild battles with new moves, then a save', { skip: quick }, async () => {
   const g = await openGame()
   try {

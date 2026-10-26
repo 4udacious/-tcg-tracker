@@ -3089,6 +3089,102 @@ const ALEX = {
   won: ["That's how it's done! You're a natural.", "They'll be back. They always are. Now you know how to send them packing."],
   lost: ['Ah, they got us this time.', "Heal up and we'll go again. I'm not going anywhere."],
 }
+/*
+ * ══════════ Alex, the rival ══════════
+ * The trainer who helped you through your first battle turns rival: seven
+ * battles across the whole game, each one waiting at the machine on your
+ * next tap once you reach its milestone (`due`, from your progress). Lose
+ * and Alex comes back a few taps later for the same battle; only a win moves
+ * the story on.
+ *
+ * Three phases, each with its own look (art), battle theme and scene:
+ *   1. battles 1-3, the friendly rival: SONGS.rival, look 1.
+ *   2. battles 4-5, colder, Porygon upgraded: SONGS.rival2, look 2.
+ *   3. battles 6-7, Mewtwo joins: SONGS.rival3, look 3.
+ * Alex's team is built around Porygon, which evolves along the way
+ * (Porygon2 in phase 2, Porygon-Z in phase 3), with made and engineered
+ * Pokémon around it (Magnemite's line, Rotom, Starmie) and Mewtwo, cloned in
+ * a lab, at the end. Each team covers its types: water, fire, electric and
+ * steel, rock and dark, psychic and normal by the end. Ace last.
+ *
+ * Levels as a Gym Leader's (leaderLevels): the ace at the battle's `min` or
+ * 3 above your best, the rest 2 below it. Alex fights like a leader (`hard`:
+ * the best move each turn, tells, quicker rings, a line before the last
+ * Pokémon) with `restores` Full Restores: one in battles 1-4, two in 5 and
+ * 6, three in 7.
+ */
+const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
+/** Each phase's look (the art Alex uploads replace), theme and scene. Until a look's art is in, Alex's current art stands in. */
+const RIVAL_LOOKS = {
+  1: { theme: 'rival', scene: 'factory', color: '#60a5fa', tellRate: 0.3, ringFast: 0.86, ivs: 20, title: 'RIVAL' },
+  2: { theme: 'rival2', scene: 'distortion', color: '#a855f7', tellRate: 0.4, ringFast: 0.82, ivs: 22, title: 'RIVAL' },
+  3: { theme: 'rival3', scene: 'hall', color: '#f59e0b', tellRate: 0.45, ringFast: 0.78, ivs: 25, title: 'RIVAL · FINAL' },
+}
+for (const p of [1, 2, 3]) {
+  const L = RIVAL_LOOKS[p]
+  Object.assign(L, { vs: `rival${p}Vs`, face: `rival${p}Face`, body: `rival${p}Body`, down: `rival${p}Down`, faceDown: `rival${p}FaceDown` })
+  for (const [k, stand] of [['vs', 'alexVs'], ['face', 'alexFace'], ['body', 'alexBody'], ['down', 'alexBody'], ['faceDown', 'alexFace']]) ART[L[k]] ??= ART[stand]
+}
+/** Your progress, as the milestones read it. */
+const rivalProgress = (badges, champion) => ({ johto: badges.filter((n) => n < 8).length, kanto: badges.filter((n) => n >= 8).length, champion })
+const RIVAL_BATTLES = [
+  { due: (p) => p.johto >= 1, min: 15, restores: 1, tokens: '3.00', team: ['MAGNEMITE', 'GROWLITHE', 'PORYGON'],
+    intro: ['Hey! Remember me? I handed you your first Potions.', "You've got a badge now. So do I. Let's see which of us is getting better faster."],
+    outro: ["Ha! Okay, okay. You're getting good.", 'Porygon and I will be ready next time. Count on it.'],
+    gloat: ["Not bad! But Porygon's been studying you.", "Go heal up. I'll be around."] },
+  { due: (p) => p.johto >= 3, min: 23, restores: 1, tokens: '4.00', team: ['STARYU', 'GROWLITHE', 'MAGNEMITE', 'PORYGON'],
+    intro: ["Three badges? Same. I've been keeping count.", 'I rebuilt my whole team around Porygon. Let me show you what it can do now.'],
+    outro: ['You read every move. How?', '...I need to rethink the whole setup.'],
+    gloat: ['See? The new setup works.', "Don't fall behind now. That'd be boring."] },
+  { due: (p) => p.johto >= 5, min: 31, restores: 1, tokens: '5.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'GROWLITHE', 'PORYGON'],
+    intro: ["Five badges. You're keeping up. I hate that.", "Staryu evolved last night. Let's see you handle the full lineup."],
+    outro: ['Again?! I ran every matchup. Every single one.', "...Fine. There's an upgrade I've been putting off. Not anymore."],
+    gloat: ['Told you. Every matchup.', 'Keep training. I want you at your best when I win.'] },
+  { due: (p) => p.johto >= 7, min: 40, restores: 1, tokens: '6.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'ARCANINE', 'PORYGON2'],
+    intro: ["You noticed. Porygon's different now. I installed the UPGRADE.", "Friends? We were. Now you're just the number I have to beat."],
+    outro: ["...That doesn't make sense. The numbers were on my side.", "I'll find what's missing. Whatever it takes."],
+    gloat: ["The upgrade works. You don't.", "Go home. The machine's mine today."] },
+  { due: (p) => p.johto >= 8, min: 47, restores: 2, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
+    intro: ['The Elite Four. You think you are ready for them?', "You're not getting to the Plateau without getting past me first."],
+    outro: ['Go on, then. Go meet your Champion.', '...Whatever it takes. I said that, and I meant it.'],
+    gloat: ['The League can wait. Forever, maybe.', "You're not ready. I am."] },
+  { due: (p) => p.champion, min: 58, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'PORYGON-Z', 'MEWTWO'],
+    intro: ['Champion, huh. Congratulations. Really.', "I found something in a lab outside Cerulean. It doesn't lose. Neither do I, anymore."],
+    outro: ['Even Mewtwo couldn\'t... How are you still standing?', 'No. Not like this. One more battle. The last one.'],
+    gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
+  { due: (p) => p.kanto >= 7, min: 70, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'MEWTWO', 'PORYGON-Z'],
+    intro: ['Seven Kanto badges. Just Blue left, and me first.', 'Last battle. Everything I have. No more upgrades, just us.'],
+    outro: ['...You did it. You really are better.', 'Thanks for not letting me win the wrong way. Go take Blue down, Champion.'],
+    gloat: ['I won... and you made me earn every inch of it.', 'Rest up. I want the real you for the rematch.'] },
+]
+/** What Alex says in a rematch (after losing that battle to Alex), by phase. */
+const RIVAL_AGAIN = {
+  1: ['Back for more? Good.', 'Round two. Same stakes.'],
+  2: ['You came back. Predictable.', 'The result will be too.'],
+  3: ['You came back.', "Then let's finish this properly."],
+}
+/** Taps before Alex comes back for a rematch. */
+const RIVAL_REMATCH_TAPS = 3
+/*
+ * The moves Alex's signature Pokémon fight with; the rest of the team uses
+ * the moves for their type, the stronger set (STRONG_MOVES) from phase 2.
+ */
+const RIVAL_MOVES = {
+  PORYGON: [S_('TRI ATTACK', 'normal', 45, 'spec', 'zap', { ranged: true }), S_('PSYBEAM', 'psychic', 45, 'spec', 'shadow', { ranged: true }), L_('DISCHARGE', 'electric', 40, 'spec', 'current', 'zap')],
+  PORYGON2: [S_('TRI ATTACK', 'normal', 65, 'spec', 'zap', { ranged: true }), S_('ICE BEAM', 'ice', 65, 'spec', 'whoosh', { ranged: true }), L_('DISCHARGE', 'electric', 55, 'spec', 'current', 'zap')],
+  'PORYGON-Z': [S_('TRI ATTACK', 'normal', 80, 'spec', 'zap', { ranged: true }), S_('ICE BEAM', 'ice', 70, 'spec', 'whoosh', { ranged: true }), L_('DISCHARGE', 'electric', 60, 'spec', 'current', 'zap'), S_('DARK PULSE', 'dark', 70, 'spec', 'shadow', { ranged: true })],
+  MEWTWO: [S_('PSYSTRIKE', 'psychic', 85, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('AURA SPHERE', 'fighting', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('PSYWAVE', 'psychic', 60, 'spec', 'wave', 'shadow'), S_('SHADOW BALL', 'ghost', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' })],
+}
+/** Mewtwo: only Alex has one (it isn't wild, and doesn't evolve from anything). */
+DATA.forms.push({ id: 150, name: 'MEWTWO', types: ['psychic'], base: { hp: 106, attack: 110, defense: 90, 'special-attack': 154, 'special-defense': 90, speed: 130 }, capture: 3 })
+Object.assign(ART, { 150: '/rpg/a/150.gif', '150b': '/rpg/a/150-back.gif', 'cry:150': '/rpg/a/cries/150.ogg' })
+/** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
+function rivalTrainer(n) {
+  const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: `${L.title} · BATTLE ${n + 1} OF 7`, role: 'RIVAL', rival: true, hard: true,
+    vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: L.tellRate, ringFast: L.ringFast,
+    movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
+}
 /* The scalpers, the first time: they size you up before Alex steps in. */
 const FIRST_TAUNT = { HERB: ['Look who it is. Got any Pokémon, kid?', "...No? Then this restock's ours."], PAUL: ["Herb, be nice. They just got here.", "...The restock's still ours, though."] }
 /* What Alex says the first time each thing happens in that battle. */
@@ -3630,6 +3726,9 @@ async function run(id) {
    * to Will. Beating Lance spends it too, and makes you Champion.
    */
   let eliteStep = 0   // 0-4: who's next (Will, Koga, Bruno, Karen, Lance)
+  // Alex: the next rival battle (0-6; 7 when all are won), taps until a rematch, and whether you lost this one already.
+  let rivalStep = 0, rivalWait = 0, rivalLost = false
+  const rivalDue = () => rivalStep < RIVAL_BATTLES.length && rivalWait <= 0 && RIVAL_BATTLES[rivalStep].due(rivalProgress(badges, champion))
   let pendingSummon = null   // a summon chosen in the Bag, to fight once the sheet closes
   const cart = new Map()   // the machine's cart: shelf key -> how many
   let pendingEvoItem = false   // an evolution item used in the Bag: the evolution plays once the sheet closes
@@ -6182,9 +6281,12 @@ async function run(id) {
     if (api) await syncMachine()   // the real stock state and holder, as of now
     const state = machine.state
     tickRest()   // beaten trainers' rest counts down with your taps
+    if (rivalWait > 0) rivalWait--   // so does Alex's, after beating you
     let { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
     // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
+    // A rival battle that's due takes this tap: Alex is waiting at the machine (with trainer battles on, and a Pokémon that can fight).
+    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some((m) => m.hp > 0))) { enc = 'rival'; pity = false }
     // An empty tap may still turn up something small ("Your next tap" can ask for one; the demo's pinned taps never do).
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
@@ -6218,6 +6320,7 @@ async function run(id) {
     if (pity) feed(`<b>You</b>: after two empty taps, this one was sure to turn something up.`)
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
     if (enc === 'scalper') return scalperEncounter(force.plan, state)
+    if (enc === 'rival') return rivalEncounter(state)
     if (enc === 'duo') return duoEncounter(force.plan, flavor() < 0.5 ? 'tag' : 'solo', state)
   }
   /** Back to idle, giving up the purchase screen if you had it. */
@@ -6869,8 +6972,8 @@ async function run(id) {
       await say(name, `${by > 0 ? 'rose' : 'fell'}${Math.abs(by) > 1 ? ' sharply' : ''}!`, 300)
     }
     foe.max = foe.stats.hp; foe.turn = 0
-    const movesFor = (f) => (f.roamer && LEGEND_MOVES[f.name]) || (kind === 'trainer' && trainer?.sig && !roster.length && trainer.sig) || (kind === 'trainer' && trainer?.region === 'kanto' && strongMoves(f)) || (kind === 'trainer' && TRAINER_MOVES[f.name]) || (f.name === 'MAGIKARP' ? MAGIKARP : WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal)   // a leader's ace (their last) fights with the leader's own moves
-    let restored = false   // a Gym Leader's one Full Restore
+    const movesFor = (f) => (f.roamer && LEGEND_MOVES[f.name]) || (kind === 'trainer' && trainer?.movesFor?.(f)) || (kind === 'trainer' && trainer?.sig && !roster.length && trainer.sig) || (kind === 'trainer' && trainer?.region === 'kanto' && strongMoves(f)) || (kind === 'trainer' && TRAINER_MOVES[f.name]) || (f.name === 'MAGIKARP' ? MAGIKARP : WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal)   // a leader's ace (their last) fights with the leader's own moves
+    let restores = trainer?.hard ? trainer.restores ?? 1 : 0   // Full Restores in the bag: a Gym Leader's one, Alex's one to three
     let sigUsed = false    // a leader's signature status move, once a battle
     let quipped = false    // a leader's first tell always gets a quip; later ones, half the time
     let fled = false       // a roaming legendary ran
@@ -7034,7 +7137,7 @@ async function run(id) {
           await Promise.all([blink($('enemy'), hits > 1 ? 2 : 3), drain('e', from, foe.hp, foe.max)])
           if (mv.drain) await sapHP(me, 'p', C.p, Math.round((from - foe.hp) * mv.drain))
           if (mv.recoil && me.hp > 1) { await setHPOf(me, Math.max(1, me.hp - Math.max(1, Math.round((from - foe.hp) * mv.recoil)))); await say(me.name, 'is damaged by recoil!', 250) }   // it can't knock itself out
-          if (mv.knockOff && trainer?.hard && !restored && foe.hp > 0) { restored = true; sfx('flinch'); await say(`${me.name} knocked away`, `${trainer.short}'s FULL RESTORE!`, 400) }
+          if (mv.knockOff && restores > 0 && foe.hp > 0) { restores--; sfx('flinch'); await say(`${me.name} knocked away`, `${trainer.short}'s FULL RESTORE!`, 400) }
           if (acc.crit) addBond(me, 2)
           landed++; crit ||= acc.crit; eff = r.eff; if (acc.label !== 'MISS') clean = true
           if (foe.hp > 0 && foe.status === 'frz' && mv.type === 'fire') { foe.status = null; showTags(); await say(who(foe), STATUS_TEXT.thaw, 300) }
@@ -7270,9 +7373,10 @@ async function run(id) {
         await announce(`${who(foe)} used`, 'TELEPORT!', 300); foeLast = 'TELEPORT'
         await specialMove(SUPPORT.TELEPORT, foe, { label: 'GOOD', mult: 1 }); return
       }
-      // A Gym Leader keeps a Full Restore for their last Pokémon.
-      if (trainer?.hard && !roster.length && !restored && foe.hp < foe.max * 0.35) {
-        restored = true
+      // A Full Restore when a Pokémon is low: a Gym Leader keeps their one for the last Pokémon; with more
+      // (Alex, later on), any Pokémon may get one, but the last of them is always kept for the last Pokémon.
+      if (restores > 0 && (!roster.length || restores > 1) && foe.hp < foe.max * 0.35) {
+        restores--
         await say(`${trainer.short} used`, 'a FULL RESTORE!', 300); sfx('heal')
         const from = foe.hp; foe.hp = foe.max; await drain('e', from, foe.hp, foe.max)
         await say(`${foe.name}'s HP was restored!`); return
@@ -7657,6 +7761,54 @@ async function run(id) {
     await backToMachine(state)
   }
 
+  /* ══════════ Alex, the rival ══════════ */
+  /** Alex's team for a rival battle: levels as a Gym Leader's (leaderLevels), IVs at least the phase's floor. */
+  function rivalTeam(R) {
+    const lv = leaderLevels(R, party.map((m) => m.level)), floor = RIVAL_LOOKS[R.phase].ivs
+    return R.team.map((name, i) => {
+      const m = individual(speciesByName(name), lv[i], rand)
+      for (const k of STAT_KEYS) m.ivs[k] = Math.max(floor, m.ivs[k])
+      m.stats = statsAt(m, m.level); m.hp = m.stats.hp
+      return m
+    })
+  }
+  /**
+   * The next rival battle (RIVAL_BATTLES), with Alex waiting at the machine:
+   * the encounter music under the VS splash and their words, then the phase's
+   * theme. A win pays tokens (and maybe a pack; always after the last) and
+   * moves the story on; a loss brings Alex back for the same battle a few taps later.
+   */
+  async function rivalEncounter(state = 'in') {
+    const n = Math.min(rivalStep, RIVAL_BATTLES.length - 1), R = rivalTrainer(n), look = RIVAL_LOOKS[R.phase]
+    toolsEnabled(false)
+    Sound.music('rivalTalk')
+    await wipeTrainer(async () => {
+      setScene([look.scene]); showLayer('battle')
+      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', look.color)
+      $('vsImg').src = ART[R.vs]; $('vsName').textContent = R.full; vs.querySelector('.name span').textContent = R.title; vs.style.display = 'block'
+      vsIn(vs)
+    })
+    await W(1300)
+    await talk(R, rivalLost ? RIVAL_AGAIN[R.phase] : R.intro)
+    vsHide()
+    Sound.music(look.theme)
+    const team = rivalTeam(R)
+    const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: R })
+    if (out.result === 'won') {
+      Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
+      await trainerOn(R, 'down'); await talk(R, R.outro, 'faceDown'); await trainerOff()
+      await out.exp?.()
+      await payTokens(R.tokens, 'rival')
+      if (n === RIVAL_BATTLES.length - 1 || flavor() < 0.5) { const p = await givePack('rival'); if (p) { sfx('click'); await say('ALEX gave you', `${p}!`, 700) } }
+      rivalStep = n + 1; rivalLost = false; rivalWait = 0
+      renderTools()
+    } else {
+      await trainerOn(R); await talk(R, R.gloat); await trainerOff()
+      rivalLost = true; rivalWait = RIVAL_REMATCH_TAPS
+      await say('ALEX headed off.', "There'll be a rematch soon.")
+    }
+    Sound.stopMusic(); saveGame(); await backToMachine(state)
+  }
   async function scalperEncounter(demoPlan, state = 'in') {
     toolsEnabled(false)
     if (demoPlan?.who) scalper = demoPlan.who
@@ -7894,7 +8046,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, freeHeal, gifted, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -7961,6 +8113,7 @@ async function run(id) {
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
     champion = !!s.champion; eliteStep = s.eliteStep ?? 0; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
+    ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
     tutorialDone = true
@@ -8023,7 +8176,8 @@ async function run(id) {
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
-    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() },
+    badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
