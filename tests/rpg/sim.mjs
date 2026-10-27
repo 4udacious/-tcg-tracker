@@ -3,6 +3,7 @@
 //
 //   npm run sim:rpg                 (2000 battles a matchup)
 //   SIM_N=500 npm run sim:rpg       (quicker, noisier)
+//   SIM_ONLY=LANCE npm run sim:rpg  (only the challenges whose name matches)
 //
 // It runs inside the game page, so it uses the game's own numbers: the same
 // damage formula, type chart, stats, leader levels (leaderLevels), teams, IVs,
@@ -15,7 +16,7 @@
 // theirs; a rampage's confusion is in), switching to a better matchup mid-battle, Move Discs, Revives.
 import { openGame } from './harness.mjs'
 
-const N = +(process.env.SIM_N ?? 2000)
+const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
 
 /*
  * The player, by skill: `strike` is the spread (ms, one standard deviation)
@@ -29,7 +30,7 @@ const SKILLS = {
   skilled: { strike: 60, defend: 50, fooled: 0.15, potions: 3 },
 }
 
-function simulate({ N, SKILLS }) {
+function simulate({ N, SKILLS, ONLY }) {
   const R = Math.random
   const gauss = () => { let u = 0; while (!u) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()) }
   // Your ring, as the game grades it (accuracy()).
@@ -132,7 +133,7 @@ function simulate({ N, SKILLS }) {
     ...KANTO_ELITE.map((L) => ({ name: L.short, group: 'Kanto League', T: L, team: leaderTeam(L), last: !!L.red })),
     ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, RIVAL_LOOKS[T.phase].ivs, speciesByName), last: n === 6 } }),
   ]
-  list.forEach((c) => {
+  list.filter((c) => new RegExp(ONLY, 'i').test(c.name)).forEach((c) => {
     const lv = arrive(c.T), size = sizeAt(lv)
     const out = { name: c.name, group: c.group, arrive: lv, ace: leaderLevels(c.T, [lv]).at(-1), aim: c.last ? 0.5 : 0.75 }
     for (const [k, skill] of Object.entries(SKILLS)) {
@@ -149,7 +150,7 @@ const g = await openGame()
 try {
   await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
   const t0 = Date.now()
-  const rows = await g.page.evaluate(simulate, { N, SKILLS })
+  const rows = await g.page.evaluate(simulate, { N, SKILLS, ONLY })
   const pct = (x) => `${Math.round(x * 100)}%`.padStart(5)
   const flag = (r) => { const d = r.average - r.aim; return Math.abs(d) <= 0.1 ? '' : d > 0 ? '  easier than the aim' : '  harder than the aim' }
   let group = ''

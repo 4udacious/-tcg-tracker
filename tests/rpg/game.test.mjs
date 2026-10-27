@@ -477,7 +477,11 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
         blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj,
         johto: ELITE.map((L) => [L.short, L.min + L.lvAdj, L.lvAdj]),
         // How far above a party at their floor each sits, once out-levelled: Kanto's gyms, Blaine, the Kanto Elite Four, Blue, Red, Alex's last.
-        over: [...GYMS.slice(8, 15), ...KANTO_ELITE.slice(0, 4), GYMS[15], KANTO_ELITE[4], RIVAL_BATTLES[6]].map((L) => { const f = L.min + (L.lvAdj ?? 0), b = Math.min(f, 80); return leaderLevels(L, [b]).at(-1) - b }) }
+        // (Lance is apart: his dragons hit hardest, so he sits lower, tuned in sim.mjs.)
+        over: [...GYMS.slice(8, 15), ...KANTO_ELITE.slice(0, 3), GYMS[15], KANTO_ELITE[4], RIVAL_BATTLES[6]].map((L) => { const f = L.min + (L.lvAdj ?? 0), b = Math.min(f, 80); return leaderLevels(L, [b]).at(-1) - b }),
+        lanceOver: KANTO_ELITE[3].over,
+        // The Kanto League's other Pokémon fight with the stronger moves, as Kanto's gyms do.
+        strong: KANTO_ELITE.every((L) => L.region === 'kanto') && strongMoves(speciesByName('GYARADOS')).some((m) => m.power >= 65) }
     })
     assert.deepEqual(r.now, [null, 'elite', null, 'kanto', null], 'the Johto League with 8 badges; the Kanto League as Champion with all 16; none once Red is beaten')
     assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
@@ -489,6 +493,8 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
     assert.deepEqual(r.blue, [90, 90, 90, 90, 90, 92], 'Blue out-levelled: the ace 12 above your best, the rest 2 below (no more mirroring)')
     assert.ok(r.over.every((x, i) => !i || x >= r.over[i - 1]) && r.over[0] < 10 && r.over.at(-1) <= 15, `out-levelled, Kanto climbs steadily, no offsets stacking: ${r.over}`)
+    assert.ok(r.lanceOver < Math.min(...r.over.slice(7, 10)), `Kanto's Lance sits lower than the rest of the Elite Four: ${r.lanceOver}`)
+    assert.ok(r.strong, 'the Kanto League uses the stronger moves')
     assert.match(r.blueTitle, /EVERY TYPE/)
     const [lance, ...four] = [r.johto.at(-1), ...r.johto.slice(0, 4)]
     assert.ok(four.every(([, ace, adj]) => lance[1] > ace && lance[2] > adj), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)

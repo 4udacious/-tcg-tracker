@@ -3777,7 +3777,7 @@ const KANTO_ELITE = [
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
 ]
-KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, over: [10, 10, 11, 11, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : 0.45, ringFast: L.red ? 0.75 : 0.78,
+KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', over: [10, 10, 11, 8, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : L.short === 'LANCE' ? 0.35 : 0.45, ringFast: L.red ? 0.75 : L.short === 'LANCE' ? 0.9 : 0.78,   // Lance: his dragons hit hardest, so he tells less
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const KANTO_CARD = { short: 'THE KANTO LEAGUE', city: 'INDIGO PLATEAU', summonName: 'KANTO LEAGUE TICKET', face: 'gymFace:red', color: '#ef4444', tag: 'LEAGUE' }
 /** The two Leagues, by their ticket's summon id: Johto's ('elite') and Kanto's ('kanto'). */
@@ -3839,7 +3839,12 @@ const summonItem = (n) => (ITEMS[summonKey(n)] ??= LEAGUES[n]
   ? { name: LEAGUES[n].card.summonName, sub: LEAGUES[n].sub, cls: 't-summon', summon: n, league: true }
   : { name: GYMS[n].summonName, sub: `summons ${GYMS[n].short} of ${GYMS[n].city}`, cls: 't-summon', summon: n })
 
-/* The Elite Four's aces fight with their signature moves (the rest with their type's). */
+/*
+ * The Elite Four's aces fight with their signature moves (the rest with their type's).
+ * Lance's other two Dragonite get a set of their own, without the ace's OUTRAGE: three
+ * rampages in one team made him all but unbeatable (tests/rpg/sim.mjs: 7% for an average player).
+ */
+TRAINER_MOVES.DRAGONITE = [S_('DRAGON CLAW', 'dragon', 70, 'phys', 'whoosh'), S_('WING ATTACK', 'flying', 60, 'phys', 'whoosh'), L_('TWISTER', 'dragon', 45, 'spec', 'wave', 'whoosh')]
 ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 
@@ -3850,18 +3855,20 @@ KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig }
  * Elite Four were soft). lvAdj is added to every level on their team.
  * Aim, for an average player arriving at the leader's level: about 3 wins in 4
  * (Lance about 1 in 2). Lance, the Champion, is the toughest of the Johto
- * League: the highest ace and the most above you once you out-level them all.
+ * League: the highest floor, and the strongest team.
  */
 const JOHTO_ADJ = [-1, -2, -1, -1, -3, 0, 2, 2]
 // Kanto comes after the Champion, against a full, evolved party: well above you. (Blue's own minimum puts him above them all.)
 const KANTO_ADJ = [6, 6, 10, 8, 10, 10, 12, 5]
 // Out-levelled, Kanto's leaders sit this far above your best (not 3 plus their offset): a steady climb, Blaine 9, Blue 12,
-// with the Kanto Elite Four (10-11) between them and Red (13).
+// with the Kanto Elite Four (10-11; Lance 8, his dragons hitting hardest) between them and Red (13).
 const KANTO_OVER = [6, 6, 7, 7, 8, 8, 9, 12]
 GYMS.forEach((L, i) => Object.assign(L, i < 8
   ? { lvAdj: JOHTO_ADJ[i], tellRate: i < 3 ? 0.15 : i < 6 ? 0.3 : 0.4, ringFast: i < 3 ? 0.9 : i < 6 ? 0.85 : 0.8 }
   : { lvAdj: KANTO_ADJ[i - 8], over: KANTO_OVER[i - 8], tellRate: 0.45, ringFast: 0.8 }))
-ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?? 6, tellRate: L.role === 'CHAMPION' ? 0.5 : 0.45, ringFast: 0.8 }))
+// Lance: the highest floor, but out-levelled only 7 above you, fewer tells and slower rings (sim.mjs: he was
+// winnable 1 time in 15; now a little under 1 in 2).
+ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?? 6, ...(L.role === 'CHAMPION' ? { over: 7, tellRate: 0.4, ringFast: 0.9 } : { tellRate: 0.45, ringFast: 0.8 }) }))
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {
