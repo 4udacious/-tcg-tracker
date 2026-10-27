@@ -3267,7 +3267,10 @@ const ALEX = {
  * Kanto's leaders), the rest 2 below it. Alex fights like a leader (`hard`:
  * the best move each turn, tells, quicker rings, a line before the last
  * Pokémon, or the battle's own `last` words) with `restores` Full
- * Restores: one in battles 1-4, two in 5 and 6, three in 7.
+ * Restores: one in battles 1-4, two in 5 and 6, three in 7. A battle's own
+ * `tellRate`, `ringFast` and `ivs` override its phase's: battles 6 and 7,
+ * with the biggest teams, tell less and ring slower (sim.mjs: 3 wins in 4,
+ * then about 1 in 2 for the last).
  */
 const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 /** Each phase's look (its art: rival-<phase>-vs.jpg, -face, -body, and -defeated and -face-down for a loss), theme and scene. */
@@ -3304,11 +3307,11 @@ const RIVAL_BATTLES = [
     intro: ["Champion. And now you're collecting Kanto badges too.", "I skipped the League. I've been upgrading instead. Let's see whose time was better spent."],
     outro: ["...You're the Champion for a reason. I get it now.", 'Whatever it takes. I said that, and I meant it.'],
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
-  { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
+  { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tellRate: 0.35, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, min: 90, over: 14, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, min: 90, over: 14, restores: 3, tellRate: 0.25, ringFast: 0.98, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
@@ -3343,7 +3346,7 @@ for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id 
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
   return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: `${L.title} · BATTLE ${n + 1} OF 7`, role: 'RIVAL', rival: true, hard: true,
-    vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: L.tellRate, ringFast: L.ringFast,
+    vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
 /* The scalpers, the first time: they size you up before Alex steps in. */
@@ -3772,12 +3775,12 @@ const KANTO_ELITE = [
     intro: ["We meet again. Here, I'm the last of Kanto's Elite Four.", 'Beat me, and the road to Mt. Silver opens. Someone is waiting up there.'],
     outro: ["You've earned it. Mt. Silver is open to you.", 'Red is at the top. Go. I want to know how it ends.'],
     gloat: ['Dragons still rule here.', 'Start again from Lorelei.'] },
-  { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 2, red: true, city: 'MT. SILVER',
+  { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 3, red: true, city: 'MT. SILVER',
     team: ['ESPEON', 'SNORLAX', 'VENUSAUR', 'CHARIZARD', 'BLASTOISE', 'PIKACHU'],
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
 ]
-KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', over: [10, 10, 11, 8, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : L.short === 'LANCE' ? 0.35 : 0.45, ringFast: L.red ? 0.75 : L.short === 'LANCE' ? 0.9 : 0.78,   // Lance: his dragons hit hardest, so he tells less
+KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', over: [10, 10, 11, 8, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.6 : L.short === 'LANCE' ? 0.35 : 0.45, ringFast: L.red ? 0.66 : L.short === 'LANCE' ? 0.9 : 0.78,   // Lance: his dragons hit hardest, so he tells less; Red: the most tells and the fastest rings in the game (sim.mjs: about 1 win in 2)
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const KANTO_CARD = { short: 'THE KANTO LEAGUE', city: 'INDIGO PLATEAU', summonName: 'KANTO LEAGUE TICKET', face: 'gymFace:red', color: '#ef4444', tag: 'LEAGUE' }
 /** The two Leagues, by their ticket's summon id: Johto's ('elite') and Kanto's ('kanto'). */
@@ -8042,7 +8045,7 @@ async function run(id) {
   /* ══════════ Alex, the rival ══════════ */
   /** Alex's team for a rival battle: levels as a Gym Leader's (leaderLevels), IVs at least the phase's floor. */
   function rivalTeam(R) {
-    const lv = leaderLevels(R, party.map((m) => m.level)), floor = RIVAL_LOOKS[R.phase].ivs
+    const lv = leaderLevels(R, party.map((m) => m.level)), floor = R.ivs
     return R.team.map((name, i) => {
       const m = individual(speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(floor, m.ivs[k])

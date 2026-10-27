@@ -131,7 +131,7 @@ function simulate({ N, SKILLS, ONLY }) {
     ...ELITE.map((L) => ({ name: L.short, group: 'Johto League', T: L, team: leaderTeam(L), last: L.role === 'CHAMPION' })),
     ...GYMS.slice(8).map((L) => ({ name: L.short, group: 'Kanto gyms', T: L, team: leaderTeam(L) })),
     ...KANTO_ELITE.map((L) => ({ name: L.short, group: 'Kanto League', T: L, team: leaderTeam(L), last: !!L.red })),
-    ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, RIVAL_LOOKS[T.phase].ivs, speciesByName), last: n === 6 } }),
+    ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, T.ivs, speciesByName), last: n === 6 } }),
   ]
   list.filter((c) => new RegExp(ONLY, 'i').test(c.name)).forEach((c) => {
     const lv = arrive(c.T), size = sizeAt(lv)

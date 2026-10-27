@@ -488,7 +488,7 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
     assert.deepEqual(r.who, ['LORELEI', 'BRUNO', 'AGATHA', 'LANCE', 'RED'])
     assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), `each tougher than the last: ${r.mins}`)
     assert.ok(r.blueAce > Math.max(...r.mins.slice(0, 4)) && r.blueAce < r.mins[4], `Blue (${r.blueAce}) above the Kanto Elite Four and below Red`)
-    assert.equal(r.red.restores, 2); assert.equal(r.red.team.at(-1), 'PIKACHU')
+    assert.equal(r.red.restores, 3); assert.equal(r.red.team.at(-1), 'PIKACHU')
     assert.deepEqual(r.missing, []); assert.ok(r.art, 'everyone has art (placeholders for the new faces)'); assert.ok(r.sig, 'every ace has its signature moves')
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
     assert.deepEqual(r.blue, [90, 90, 90, 90, 90, 92], 'Blue out-levelled: the ace 12 above your best, the rest 2 below (no more mirroring)')
