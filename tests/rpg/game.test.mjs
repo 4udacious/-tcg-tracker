@@ -585,6 +585,28 @@ test('the EXP. SHARE switches off and on from the Bag, and after Alex\'s last ba
   } finally { await g.close() }
 })
 
+test('every leader\'s team: real species with sprites and cries, the mid-game on the stronger moves below its ace', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const leaders = [...GYMS, ...ELITE, ...KANTO_ELITE]
+      return {
+        missing: leaders.flatMap((L) => L.team.filter((n) => { const s = DATA.trainer.find((t) => t.name === n) ?? speciesByName(n); return !s || !ART[s.id] || !ART[s.id + 'b'] || !ART['cry:' + s.id] }).map((n) => `${L.short}: ${n}`)),
+        strong: [...GYMS.slice(3, 8), ...ELITE.slice(0, 4)].every((L) => L.strong) && !GYMS[0].strong && !GYMS[1].strong && !GYMS[2].strong,
+        mamoswine: !!TRAINER_MOVES.MAMOSWINE && GYMS[6].team.at(-1) === 'MAMOSWINE',
+        sizes: [...GYMS.slice(8, 15), ...ELITE.slice(0, 4), ...KANTO_ELITE.slice(0, 3)].map((L) => L.team.length),
+      }
+    })
+    assert.deepEqual(r.missing, [], 'every leader\'s Pokémon has its sprites and cry')
+    assert.ok(r.strong, 'Morty to Clair and the Johto Elite Four use the stronger moves; Falkner, Bugsy and Whitney don\'t')
+    assert.ok(r.mamoswine, 'Pryce\'s ace is Mamoswine, with his signature moves')
+    assert.ok(r.sizes.every((n) => n === 6), `the Kanto gyms and both Elite Fours bring six: ${r.sizes}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('trainers and wild Pokémon keep pace with you only up to your next challenge, so out-levelling a gym doesn\'t pay', async () => {
   const g = await openGame()
   try {
