@@ -3252,6 +3252,8 @@ const RIVAL_BATTLES = [
     outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
     gloat: ['I won... and you made me earn every inch of it.', 'Rest up. I want the real you for the rematch.'] },
 ]
+/** After your first battle with Alex, win or lose: the EXP. SHARE (if you haven't one already). */
+const RIVAL_GIFT = ["Here. Take this EXP. SHARE.", "Your whole team should be keeping up, not just your lead. Makes it a fairer fight next time."]
 /** What Alex says in a rematch (after losing that battle to Alex), by phase. */
 const RIVAL_AGAIN = {
   1: ['Back for more? Good.', 'Round two. Same stakes.'],
@@ -8008,8 +8010,15 @@ async function run(id) {
     } else {
       await trainerOn(R); await talk(R, R.gloat); await trainerOff()
       rivalLost = true; rivalWait = RIVAL_REMATCH_TAPS
-      await say('ALEX headed off.', "There'll be a rematch soon.")
     }
+    // The first battle, win or lose: Alex hands over the EXP. SHARE.
+    if (n === 0 && !bag.expshare) {
+      await trainerOn(R); await talk(R, RIVAL_GIFT); await trainerOff()
+      bag.expshare = 1; renderTools(); sfx('levelup')
+      await say('ALEX gave you', 'the EXP. SHARE!', 900)
+      await say('Pokémon that sit out a battle', 'now get half of its EXP.', 700)
+    }
+    if (out.result !== 'won') await say('ALEX headed off.', "There'll be a rematch soon.")
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
   async function scalperEncounter(demoPlan, state = 'in') {
