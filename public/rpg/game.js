@@ -3665,31 +3665,31 @@ const GYMS = [
     outro: ["Ugh, you're good. Really good.", 'Fine! The CASCADE BADGE is yours.'],
     gloat: ['Washed out! Told you so.', 'Go dry off and try again.'] },
   { short: 'LT. SURGE', full: 'GYM LEADER LT. SURGE', city: 'VERMILION CITY', type: 'electric', badge: 'THUNDER', color: '#fde047', scene: 'city', min: 59, tokens: '10.00', key: 'lt_surge',
-    team: ['ELECTRODE', 'MAGNEZONE', 'JOLTEON', 'AMPHAROS', 'ELECTIVIRE', 'RAICHU'],
+    team: ['RAICHU', 'ELECTRODE', 'JOLTEON', 'AMPHAROS', 'MAGNEZONE', 'ELECTIVIRE'],
     sig: [S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), L_('DISCHARGE', 'electric', 55, 'spec', 'current', 'zap'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['Lt. Surge, Vermilion City! Ten-hut! My Pokémon run on pure voltage!', "Let's see if the Champion can take a shock!"],
     outro: ["Whoa! You're the real deal, kid!", 'The THUNDER BADGE. You earned every volt of it.'],
     gloat: ["Zapped! That's how we do it in Vermilion!", 'Come back with something insulated!'] },
   { short: 'ERIKA', full: 'GYM LEADER ERIKA', city: 'CELADON CITY', type: 'grass', badge: 'RAINBOW', color: '#bef264', scene: 'meadow', min: 61, tokens: '10.00',
-    team: ['TANGROWTH', 'JUMPLUFF', 'VICTREEBEL', 'VILEPLUME', 'ROSERADE', 'BELLOSSOM'],
+    team: ['BELLOSSOM', 'VILEPLUME', 'ROSERADE', 'LEAFEON', 'VENUSAUR', 'TANGROWTH'],
     sig: [S_('PETAL BLIZZARD', 'grass', 70, 'phys', 'whoosh', { ranged: true }), L_('GRASS KNOT', 'grass', 55, 'spec', 'vines', 'thud'), S_('MOONBLAST', 'fairy', 70, 'spec', 'whoosh', { ranged: true })],
     intro: ["Oh... I must have dozed off. I'm Erika, of Celadon City.", 'I use grass types. Shall we begin? Gently, of course.'],
     outro: ["Oh my. You're very strong. I concede.", 'Please accept the RAINBOW BADGE.'],
     gloat: ['The flowers bloomed for me today.', 'Do come and visit the garden again.'] },
   { short: 'JANINE', full: 'GYM LEADER JANINE', city: 'FUCHSIA CITY', type: 'poison', badge: 'SOUL', color: '#f5d0fe', scene: 'marsh', min: 63, tokens: '10.00',
-    team: ['CROBAT', 'WEEZING', 'NIDOQUEEN', 'MUK', 'TOXICROAK', 'VENOMOTH'],
+    team: ['TENTACRUEL', 'GENGAR', 'WEEZING', 'TOXICROAK', 'NIDOQUEEN', 'CROBAT'],
     sig: [S_('BUG BUZZ', 'bug', 70, 'spec', 'whoosh', { ranged: true }), S_('PSYBEAM', 'psychic', 55, 'spec', 'shadow', { ranged: true }), L_('SLUDGE WAVE', 'poison', 55, 'spec', 'wave', 'whoosh')],
     intro: ["I'm Janine! My father Koga taught me everything about poison.", "I'm a ninja too, you know. You won't see me coming!"],
     outro: ['Aww... Father warned me you were strong.', 'Here. The SOUL BADGE.'],
     gloat: ['Ha! Father would be proud of that one!', "Train harder. I'll be waiting in Fuchsia."] },
   { short: 'SABRINA', full: 'GYM LEADER SABRINA', city: 'SAFFRON CITY', type: 'psychic', badge: 'MARSH', color: '#fbcfe8', scene: 'hall', min: 65, tokens: '10.00',
-    team: ['SLOWBRO', 'MR. MIME', 'HYPNO', 'EXEGGUTOR', 'ESPEON', 'ALAKAZAM'],
+    team: ['MR. MIME', 'SLOWKING', 'SLOWBRO', 'EXEGGUTOR', 'ALAKAZAM', 'ESPEON'],
     sig: [S_('PSYCHIC', 'psychic', 80, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('SHADOW BALL', 'ghost', 65, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('PSYWAVE', 'psychic', 50, 'spec', 'wave', 'shadow')],
     intro: ['I am Sabrina. I knew you would summon me today.', 'I also know how this ends. Shall we confirm it?'],
     outro: ['...That was not the future I saw.', 'The MARSH BADGE. Take it.'],
     gloat: ['As I foresaw.', 'Your future holds another try. Not yet a win.'] },
   { short: 'BLAINE', full: 'GYM LEADER BLAINE', city: 'CINNABAR ISLAND', type: 'fire', badge: 'VOLCANO', color: '#fb923c', scene: 'flint', min: 67, tokens: '10.00',
-    team: ['NINETALES', 'FLAREON', 'HOUNDOOM', 'MAGMORTAR', 'ARCANINE', 'RAPIDASH'],
+    team: ['RAPIDASH', 'HOUNDOOM', 'FLAREON', 'CHARIZARD', 'MAGMORTAR', 'ARCANINE'],
     sig: [S_('FLARE BLITZ', 'fire', 80, 'phys', 'whoosh'), L_('FLAME WHEEL', 'fire', 50, 'phys', 'roll', 'whoosh'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['Blaine! My gym burned down, so a vending machine will have to do!', 'Pop quiz: what melts a Champion? My fire types!'],
     outro: ["I've burned out! What a battle!", 'You have earned the VOLCANO BADGE!'],
@@ -3871,11 +3871,11 @@ const JOHTO_TELL = [0.15, 0.15, 0.16, 0.24, 0.13, 0.21, 0.47, 0.23]
 const JOHTO_RING = [0.9, 0.9, 0.96, 0.9, 0.98, 0.93, 0.74, 0.92]
 // Kanto comes after the Champion, against a full, evolved party: well above you. (Blue's own minimum puts him above them all.)
 const KANTO_ADJ = [6, 6, 10, 8, 10, 10, 12, 5]
-// Out-levelled, Kanto's leaders sit this far above your best (not 3 plus their offset): a steady climb, Brock 7 to Blaine 10,
+// Out-levelled, Kanto's leaders sit this far above your best (not 3 plus their offset): a steady climb, Brock 7 to Janine, Sabrina and Blaine 10,
 // Blue 12, with the Kanto Elite Four (10-11; Lance 8, his dragons hitting hardest) between them and Red (13).
-const KANTO_OVER = [7, 7, 8, 8, 9, 9, 10, 12]
-const KANTO_TELL = [0.49, 0.57, 0.55, 0.55, 0.55, 0.55, 0.55, 0.45]
-const KANTO_RING = [0.73, 0.68, 0.7, 0.7, 0.7, 0.7, 0.7, 0.8]
+const KANTO_OVER = [7, 7, 9, 9, 10, 10, 10, 12]
+const KANTO_TELL = [0.49, 0.57, 0.55, 0.49, 0.54, 0.52, 0.56, 0.45]
+const KANTO_RING = [0.73, 0.68, 0.69, 0.73, 0.7, 0.71, 0.69, 0.8]
 GYMS.forEach((L, i) => Object.assign(L, i < 8
   ? { lvAdj: JOHTO_ADJ[i], tellRate: JOHTO_TELL[i], ringFast: JOHTO_RING[i], strong: i >= 3 }
   : { lvAdj: KANTO_ADJ[i - 8], over: KANTO_OVER[i - 8], tellRate: KANTO_TELL[i - 8], ringFast: KANTO_RING[i - 8] }))
