@@ -5351,8 +5351,8 @@ async function run(id) {
       }).join('') + `<button class="btn fback t-run" data-act="back">◀ BACK · PP is shared by both</button>`
     }
     function drawTargets(list) {
-      $('pFight').classList.remove('six')
-      $('pFight').innerHTML = list.map((t, i) => `<button class="btn fm${i} t-${t.mon.types[0]} tgt" data-act="t${i}"><img src="${ART[t.mon.id]}" alt=""><span>${t.mon.name}<small>${Math.round(t.mon.hp / t.mon.stats.hp * 100)}% HP</small></span></button>`).join('') +
+      $('pFight').classList.toggle('six', list.length > 4)   // an item on the bench: up to six to choose from
+      $('pFight').innerHTML = list.map((t, i) => `<button class="btn fm${i} t-${t.mon.types[0]} tgt" data-act="t${i}"><img src="${ART[t.mon.id]}" alt=""><span>${t.mon.name}<small>${t.bench ? 'bench · ' : ''}${Math.round(t.mon.hp / t.mon.stats.hp * 100)}% HP</small></span></button>`).join('') +
         `<button class="btn fback t-run" data-act="back">◀ BACK</button>`
     }
     async function commands(step) {
@@ -5373,12 +5373,13 @@ async function run(id) {
         if (top === 'run') { panel(null); await say("There's no running", 'from a trainer battle!'); k--; continue }
         if (top === 'bag') {
           // Items go first, before any attack, and are spent as soon as they're chosen.
-          // Potions only for someone who's hurt, as in 1v1: no wasting one on full HP.
-          const hurt = alive('p').filter((x) => !x.ally && x.mon.hp < x.mon.stats.hp)
+          // Potions only for someone who's hurt, as in 1v1: no wasting one on full HP. On the field or on the bench.
+          const benched = bench().map((mon) => ({ mon, bench: true }))
+          const hurt = [...alive('p').filter((x) => !x.ally && x.mon.hp < x.mon.stats.hp), ...benched.filter((b) => b.mon.hp < b.mon.stats.hp)]
           // Revive: anyone of yours who's fainted (and isn't already being revived this turn).
           const down = party.filter((m) => m.hp <= 0 && !acts.some((a) => a.move.item === 'revive' && a.target.mon === m)).map((mon) => ({ mon }))
           // Everything you have, scrolling. A cure lights up when one of yours has the status it fixes.
-          const sickFor = (k) => alive('p').filter((x) => !x.ally && x.mon.status && ITEMS[k].cure.includes(x.mon.status))
+          const sickFor = (k) => [...alive('p').filter((x) => !x.ally), ...benched].filter((x) => x.mon.status && ITEMS[k].cure.includes(x.mon.status))
           $('pBag').classList.remove('six')
           $('pBag').innerHTML = bagPanel(BATTLE_ITEMS.filter((k) => bag[k] > 0).map((k) => {
             const it = ITEMS[k], ball = k === 'ball' || k === 'great'
@@ -5919,7 +5920,23 @@ async function run(id) {
         await say(`${m.name} was revived!`, 'It can come in when a spot opens.')
         return
       }
-      const it = act.move.item, T = act.target?.gone ? sides.p.slots[act.target.i] : act.target
+      const it = act.move.item
+      // One on the bench: healed or cured where it sits (or on the field, if it's been switched in this turn).
+      if (act.target?.bench) {
+        const m = act.target.mon, out = alive('p').find((x) => x.mon === m)
+        if (!out) {
+          await say('You used', `a ${ITEMS[it].name} on ${m.name}!`, 200)
+          if (ITEMS[it].cure) {
+            if (!m.status || !ITEMS[it].cure.includes(m.status)) { await say("It didn't have any effect."); return }
+            m.status = null; sfx('heal'); await say(`${m.name} is cured.`); return
+          }
+          if (m.hp <= 0 || m.hp >= m.stats.hp) { await say("It didn't have any effect."); return }
+          const from = m.hp; m.hp = Math.min(m.stats.hp, m.hp + Math.ceil(m.stats.hp * ITEMS[it].heal)); sfx('heal')
+          await say(`${m.name} recovered`, `${m.hp - from} HP.`); return
+        }
+        act.target = out
+      }
+      const T = act.target?.gone ? sides.p.slots[act.target.i] : act.target
       await say('You used', `a ${ITEMS[it].name} on ${T.mon.name}!`, 200)
       if (ITEMS[it].cure) {
         if (!T.mon.status || !ITEMS[it].cure.includes(T.mon.status)) { await say("It didn't have any effect."); return }
@@ -7233,12 +7250,25 @@ async function run(id) {
       $('pBag').classList.remove('six')
       $('pBag').innerHTML = bagPanel(BATTLE_ITEMS.filter((k) => bag[k] > 0).map((k) => {
         const it = ITEMS[k], ball = k === 'ball' || k === 'great'
+        // Potions and cures for anyone in the party who needs one, out now or on the bench.
+        const helps = !ball && !it.revive && helpedBy(k).length > 0
         const why = ball ? (kind === 'trainer' ? "not on a trainer's" : it.sub) : it.revive ? (down ? it.sub : 'nobody has fainted')
-          : it.cure ? (me.status && it.cure.includes(me.status) ? it.sub : me.status ? `won't fix ${STATUS_NAME[me.status]}` : 'no status to cure') : me.hp < me.stats.hp ? it.sub : 'HP is full'
-        const off = ball ? kind === 'trainer' : it.revive ? !down : it.cure ? !(me.status && it.cure.includes(me.status)) : me.hp >= me.stats.hp
+          : helps ? it.sub : it.cure ? 'nobody has that status' : 'everyone is at full HP'
+        const off = ball ? kind === 'trainer' : it.revive ? !down : !helps
         return bagButton(k, bag[k], off, why)
       }))
       bagMore($('pBag'))
+    }
+    /** Who in your party an item can help: a Potion anyone hurt, a cure anyone with the status it fixes (not the fainted). */
+    const helpedBy = (k) => party.filter((m) => m.hp > 0 && (ITEMS[k].cure ? !!m.status && ITEMS[k].cure.includes(m.status) : m.hp < m.stats.hp))
+    /** Choose one of `list` (your Pokémon, up to six) for an item; null for back. */
+    async function pickMon(list, line, sub = (m) => `${m.hp}/${m.stats.hp} HP`) {
+      $('pParty').classList.toggle('six', list.length > 4)
+      $('pParty').innerHTML = list.map((d, i) => `<button class="btn fm${i} t-party pmon" data-act="r${i}"><img src="${ART[d.id]}" alt=""><span style="flex:1;min-width:0">${d.name}<small>${sub(d)}${d === me ? ' · out now' : ''}</small></span></button>`).join('') +
+        `<button class="btn fback t-run" data-act="back">◀ BACK</button>`
+      panel('pParty'); msg0(line, '')
+      const r = await choose('pParty', null); panel(null)
+      return r === 'back' ? null : list[+r.slice(1)]
     }
     /** The party panel: all six (switching), or, `sending` after a faint, who goes in next (no going back). */
     function drawParty(sending = false) {
@@ -7771,31 +7801,31 @@ async function run(id) {
           if (r === 'caught') { await winExp(); return { result: 'caught' } }   // catching earns EXP too
           if (r === 'blocked') continue
           used = true
-        } else if (ITEMS[it].cure) {
-          if (!me.status || !ITEMS[it].cure.includes(me.status)) { await say("It won't have any effect."); continue }
-          bag[it]--; renderTools(); sfx('heal'); me.status = null; showTags()
-          await say(`You used a ${ITEMS[it].name}!`, `${me.name} is cured.`); used = true
-        } else if (it === 'revive') {
+        } else if (it !== 'revive') {
+          // A Potion or a cure, for whoever needs it: the one out, or one on the bench (you choose, unless it's only the one out).
+          const up = helpedBy(it)
+          if (!up.length) { await say(ITEMS[it].cure ? "It won't have any effect." : 'Everyone is at full HP.'); continue }
+          let m = up.includes(me) ? me : up[0]
+          if (!demo && (up.length > 1 || m !== me)) { m = await pickMon(up, `${ITEMS[it].name}: on which Pokémon?`); if (!m) continue }
+          bag[it]--; renderTools(); sfx('heal')
+          if (ITEMS[it].cure) {
+            m.status = null; if (m === me) showTags()
+            await say(`You used a ${ITEMS[it].name}!`, `${m.name} is cured.`)
+          } else {
+            const from = m.hp; m.hp = Math.min(m.stats.hp, m.hp + Math.ceil(m.stats.hp * ITEMS[it].heal))
+            if (m === me) await drain('p', from, m.hp, m.stats.hp)
+            await say(`${m.name} recovered`, `${m.hp - from} HP.`)
+          }
+          used = true
+        } else {
           // On one of your others who's fainted: back at half HP, ready to switch in.
           const down = party.filter((m) => m.hp <= 0)
           if (!down.length) { await say('Nobody has fainted.'); continue }
           let m = down[0]
-          if (down.length > 1) {
-            $('pParty').innerHTML = down.slice(0, 4).map((d, i) => `<button class="btn fm${i} t-party pmon" data-act="r${i}"><img src="${ART[d.id]}" alt=""><span style="flex:1;min-width:0">${d.name}<small>fainted</small></span></button>`).join('') + `<button class="btn fback t-run" data-act="back">◀ BACK</button>`
-            panel('pParty'); msg0('Revive which Pokémon?', '')
-            const r = await choose('pParty', null)
-            if (r === 'back') continue
-            m = down[+r.slice(1)]; panel(null)
-          }
+          if (down.length > 1) { m = await pickMon(down, 'Revive which Pokémon?', () => 'fainted'); if (!m) continue }
           bag.revive--; renderTools(); sfx('heal')
           m.hp = Math.ceil(m.stats.hp * ITEMS.revive.revive); m.status = null
           await say(`${m.name} was revived!`, `It's back with ${m.hp} HP.`); used = true
-        } else {
-          if (me.hp === me.stats.hp) { await say(`${me.name}'s HP is full.`); continue }
-          bag[it]--; renderTools(); sfx('heal')
-          const from = me.hp; me.hp = Math.min(me.stats.hp, me.hp + Math.ceil(me.stats.hp * ITEMS[it].heal))
-          await drain('p', from, me.hp, me.stats.hp)
-          await say(`${me.name} recovered`, `${me.hp - from} HP.`); used = true
         }
       }
       if (top === 'party') {
