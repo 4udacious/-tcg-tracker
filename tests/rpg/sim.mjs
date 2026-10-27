@@ -14,6 +14,7 @@
 //
 // Left out, so read the numbers as a guide: statuses and stat moves (yours and
 // theirs; a rampage's confusion is in), switching to a better matchup mid-battle, Move Discs, Revives.
+import { pathToFileURL } from 'node:url'
 import { openGame } from './harness.mjs'
 
 const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
@@ -24,13 +25,16 @@ const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
  * rings spread it more), `fooled` the chance a tell (feint, second ring,
  * low-high) makes them press at the wrong time. Potions: used under 35% HP.
  */
-const SKILLS = {
+/** Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2). */
+export const AIMS = { 'ALEX 7': 0.35 }
+
+export const SKILLS = {
   casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1 },
   average: { strike: 100, defend: 80, fooled: 0.35, potions: 2 },
   skilled: { strike: 60, defend: 50, fooled: 0.15, potions: 3 },
 }
 
-function simulate({ N, SKILLS, ONLY }) {
+export function simulate({ N, SKILLS, ONLY, AIMS }) {
   const R = Math.random
   const gauss = () => { let u = 0; while (!u) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()) }
   // Your ring, as the game grades it (accuracy()).
@@ -133,9 +137,9 @@ function simulate({ N, SKILLS, ONLY }) {
     ...KANTO_ELITE.map((L) => ({ name: L.short, group: 'Kanto League', T: L, team: leaderTeam(L), last: !!L.red })),
     ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, T.ivs, speciesByName), last: n === 6 } }),
   ]
-  list.filter((c) => new RegExp(ONLY, 'i').test(c.name)).forEach((c) => {
+  list.filter((c) => new RegExp(ONLY, 'i').test(`${c.group}:${c.name}`)).forEach((c) => {
     const lv = arrive(c.T), size = sizeAt(lv)
-    const out = { name: c.name, group: c.group, arrive: lv, ace: leaderLevels(c.T, [lv]).at(-1), aim: c.last ? 0.5 : 0.75 }
+    const out = { name: c.name, group: c.group, arrive: lv, ace: leaderLevels(c.T, [lv]).at(-1), aim: AIMS[c.name] ?? (c.last ? 0.5 : 0.75) }
     for (const [k, skill] of Object.entries(SKILLS)) {
       let w = 0
       for (let b = 0; b < N; b++) w += battle(skill, c.T, c.team, partyFor(size, lv)) ? 1 : 0
@@ -146,11 +150,12 @@ function simulate({ N, SKILLS, ONLY }) {
   return rows
 }
 
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 const g = await openGame()
 try {
   await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
   const t0 = Date.now()
-  const rows = await g.page.evaluate(simulate, { N, SKILLS, ONLY })
+  const rows = await g.page.evaluate(simulate, { N, SKILLS, ONLY, AIMS })
   const pct = (x) => `${Math.round(x * 100)}%`.padStart(5)
   const flag = (r) => { const d = r.average - r.aim; return Math.abs(d) <= 0.1 ? '' : d > 0 ? '  easier than the aim' : '  harder than the aim' }
   let group = ''
@@ -162,3 +167,4 @@ try {
   }
   if (g.errors.length) console.log('\nPage errors:', g.errors)
 } finally { await g.close() }
+}

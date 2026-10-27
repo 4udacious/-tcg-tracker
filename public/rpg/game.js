@@ -3268,9 +3268,10 @@ const ALEX = {
  * the best move each turn, tells, quicker rings, a line before the last
  * Pokémon, or the battle's own `last` words) with `restores` Full
  * Restores: one in battles 1-4, two in 5 and 6, three in 7. A battle's own
- * `tellRate`, `ringFast` and `ivs` override its phase's: battles 6 and 7,
- * with the biggest teams, tell less and ring slower (sim.mjs: 3 wins in 4,
- * then about 1 in 2 for the last).
+ * `tellRate`, `ringFast` and `ivs` override its phase's. Battle 6 tells less
+ * and rings slower (sim.mjs: 3 wins in 4). Battle 7, the hardest fight in the
+ * game, has Red's rings, the fastest, but few tells and softer IVs: about 1
+ * win in 3 for an average player.
  */
 const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 /** Each phase's look (its art: rival-<phase>-vs.jpg, -face, -body, and -defeated and -face-down for a loss), theme and scene. */
@@ -3311,7 +3312,7 @@ const RIVAL_BATTLES = [
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, min: 90, over: 14, restores: 3, tellRate: 0.25, ringFast: 0.98, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, min: 90, over: 14, restores: 3, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
