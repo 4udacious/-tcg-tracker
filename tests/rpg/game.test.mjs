@@ -565,6 +565,69 @@ test('trainers and wild Pokémon keep pace with you only up to your next challen
   } finally { await g.close() }
 })
 
+test('names: Nidoran\'s ♀ and ♂ are in the game font and sit on the line', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      await document.fonts.load('20px Pix', '♀♂N'); await document.fonts.ready
+      const ctx = document.createElement('canvas').getContext('2d'); ctx.font = '20px Pix'
+      const m = (s) => { const x = ctx.measureText(s); return { below: x.actualBoundingBoxDescent, above: x.actualBoundingBoxAscent } }
+      return { f: m('♀'), m: m('♂'), N: m('N') }
+    })
+    for (const k of ['f', 'm']) {
+      assert.ok(r[k].below <= 0.5, `${k === 'f' ? '♀' : '♂'} doesn't drop below the baseline (${r[k].below})`)
+      assert.ok(Math.abs(r[k].above - r.N.above) <= 1, `${k === 'f' ? '♀' : '♂'} is as tall as the capitals (${r[k].above} vs ${r.N.above})`)
+    }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('in battle, a Potion can go to a Pokémon on the bench, in 1v1 and 2v2', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const shown = (p) => page.evaluate((p) => getComputedStyle(document.getElementById(p)).display !== 'none' && !!document.querySelector(`#${p} [data-act]`), p)
+    const tap = (sel) => page.dispatchEvent(sel, sel.startsWith('#pBag [data-act="potion"]') ? 'click' : 'pointerdown')   // (the Bag's scrolling list answers clicks)
+    /** A team: the first ones full, the last on 1 HP; a Potion in the Bag; then a tap for `kind`, up to the command menu. */
+    async function setUp(kind, names) {
+      await page.evaluate((names) => {
+        const v = window.__vvm
+        v.party.splice(0, 9, ...names.map((n) => { const m = individual(speciesByName(n), 20, Math.random); m.hp = m.stats.hp; return m }))
+        v.party.at(-1).hp = 1; v.bag.potion = 1; v.renderTools()
+      }, names)
+      await page.selectOption('#nextTap', kind); await page.evaluate(() => document.activeElement?.blur())
+      for (let tries = 0; tries < 5 && !(await shown('pMain')); tries++) {
+        await page.evaluate(() => document.getElementById('home').click())
+        for (let i = 0; i < 40 && !(await shown('pMain')); i++) { await page.keyboard.press('x'); await page.waitForTimeout(250) }
+      }
+      assert.ok(await shown('pMain'), `${kind}: the command menu came up`)
+    }
+    const hurtHp = () => page.evaluate(() => window.__vvm.party.at(-1).hp)
+
+    // 1v1: the one out is at full HP, so the Potion goes to the bench, chosen from your party.
+    await setUp('wild', ['PIKACHU', 'EEVEE'])
+    await tap('#pMain [data-act="bag"]'); await page.waitForTimeout(300)
+    assert.doesNotMatch(await page.getAttribute('#pBag [data-act="potion"]', 'class'), /\boff\b/, 'the Potion is usable: someone on the bench is hurt')
+    await tap('#pBag [data-act="potion"]'); await page.waitForTimeout(300)
+    assert.ok(await shown('pParty'), 'it asks which Pokémon')
+    assert.match(await page.textContent('#pParty'), /EEVEE/); assert.doesNotMatch(await page.textContent('#pParty'), /PIKACHU/, 'only the ones it can help')
+    await tap('#pParty [data-act="r0"]')
+    for (let i = 0; i < 20 && (await hurtHp()) === 1; i++) await page.waitForTimeout(200)
+    assert.ok((await hurtHp()) > 1, 'the benched EEVEE recovered HP')
+    assert.equal(await page.evaluate(() => window.__vvm.bag.potion), 0)
+    for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+
+    // 2v2: two out, one on the bench on 1 HP; the Potion's only target is the bench, so it goes straight there.
+    await setUp('duo', ['PIKACHU', 'EEVEE', 'PSYDUCK'])
+    await tap('#pMain [data-act="bag"]'); await page.waitForTimeout(300)
+    await tap('#pBag [data-act="potion"]'); await page.waitForTimeout(300)
+    for (let i = 0; i < 300 && (await hurtHp()) === 1 && (await bot.inBattle()); i++) await bot.step()
+    assert.ok((await hurtHp()) > 1, 'the benched PSYDUCK recovered HP in the 2v2')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('play: the tutorial, then wild battles with new moves, then a save', { skip: quick }, async () => {
   const g = await openGame()
   try {
