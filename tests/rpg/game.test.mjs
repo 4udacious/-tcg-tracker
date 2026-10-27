@@ -477,18 +477,24 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
         blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj,
         johto: ELITE.map((L) => [L.short, L.min + L.lvAdj, L.lvAdj]),
         // How far above a party at their floor each sits, once out-levelled: Kanto's gyms, Blaine, the Kanto Elite Four, Blue, Red, Alex's last.
-        over: [...GYMS.slice(8, 15), ...KANTO_ELITE.slice(0, 4), GYMS[15], KANTO_ELITE[4], RIVAL_BATTLES[6]].map((L) => { const f = L.min + (L.lvAdj ?? 0), b = Math.min(f, 80); return leaderLevels(L, [b]).at(-1) - b }) }
+        // (Lance is apart: his dragons hit hardest, so he sits lower, tuned in sim.mjs.)
+        over: [...GYMS.slice(8, 15), ...KANTO_ELITE.slice(0, 3), GYMS[15], KANTO_ELITE[4], RIVAL_BATTLES[6]].map((L) => { const f = L.min + (L.lvAdj ?? 0), b = Math.min(f, 80); return leaderLevels(L, [b]).at(-1) - b }),
+        lanceOver: KANTO_ELITE[3].over,
+        // The Kanto League's other Pokémon fight with the stronger moves, as Kanto's gyms do.
+        strong: KANTO_ELITE.every((L) => L.region === 'kanto') && strongMoves(speciesByName('GYARADOS')).some((m) => m.power >= 65) }
     })
     assert.deepEqual(r.now, [null, 'elite', null, 'kanto', null], 'the Johto League with 8 badges; the Kanto League as Champion with all 16; none once Red is beaten')
     assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
     assert.deepEqual(r.who, ['LORELEI', 'BRUNO', 'AGATHA', 'LANCE', 'RED'])
     assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), `each tougher than the last: ${r.mins}`)
     assert.ok(r.blueAce > Math.max(...r.mins.slice(0, 4)) && r.blueAce < r.mins[4], `Blue (${r.blueAce}) above the Kanto Elite Four and below Red`)
-    assert.equal(r.red.restores, 2); assert.equal(r.red.team.at(-1), 'PIKACHU')
+    assert.equal(r.red.restores, 3); assert.equal(r.red.team.at(-1), 'PIKACHU')
     assert.deepEqual(r.missing, []); assert.ok(r.art, 'everyone has art (placeholders for the new faces)'); assert.ok(r.sig, 'every ace has its signature moves')
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
     assert.deepEqual(r.blue, [90, 90, 90, 90, 90, 92], 'Blue out-levelled: the ace 12 above your best, the rest 2 below (no more mirroring)')
     assert.ok(r.over.every((x, i) => !i || x >= r.over[i - 1]) && r.over[0] < 10 && r.over.at(-1) <= 15, `out-levelled, Kanto climbs steadily, no offsets stacking: ${r.over}`)
+    assert.ok(r.lanceOver < Math.min(...r.over.slice(7, 10)), `Kanto's Lance sits lower than the rest of the Elite Four: ${r.lanceOver}`)
+    assert.ok(r.strong, 'the Kanto League uses the stronger moves')
     assert.match(r.blueTitle, /EVERY TYPE/)
     const [lance, ...four] = [r.johto.at(-1), ...r.johto.slice(0, 4)]
     assert.ok(four.every(([, ace, adj]) => lance[1] > ace && lance[2] > adj), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)
@@ -530,6 +536,73 @@ test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to he
     assert.ok(r.music.includes('kantoElite'), `the Kanto Elite Four theme: ${r.music.join(', ')}`)
     if (r.league.kanto === 1) assert.equal(r.ticket, 1, 'won: the ticket stays for Bruno')
     else assert.deepEqual([r.league.kanto, r.ticket], [0, 0], 'lost: the ticket is used up, and the next starts from Lorelei')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the EXP. SHARE switches off and on from the Bag, and after Alex\'s last battle your team goes into the Hall of Fame', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm
+      v.bag.expshare = 1
+      for (let i = 0; i < 16; i++) if (!v.badges.includes(i)) v.badges.push(i)
+      for (const n of ['TYPHLOSION', 'GYARADOS']) { const m = individual(speciesByName(n), 80, Math.random); m.hp = m.stats.hp; v.party.push(m) }
+    })
+    // The switch: in the Bag's OTHER pocket, kept in the save.
+    await page.evaluate(() => document.getElementById('home').click())
+    for (let i = 0; i < 20 && !(await page.$('#sheetBody [data-tab]')); i++) {
+      await page.waitForTimeout(400)
+      await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
+    }
+    await page.dispatchEvent('#sheetBody [data-tab="other"]', 'click'); await page.waitForTimeout(200)
+    assert.match(await page.textContent('#sheetBody [data-share]'), /ON/)
+    await page.dispatchEvent('#sheetBody [data-share]', 'click'); await page.waitForTimeout(200)
+    const off = await page.evaluate(() => ({ on: window.__vvm.shareOn, row: document.querySelector('#sheetBody [data-share]').textContent, saved: JSON.parse(localStorage.getItem('vvm-save')).shareOn }))
+    assert.deepEqual([off.on, off.saved], [false, false], 'switched off, and saved off')
+    assert.match(off.row, /OFF/)
+    await page.dispatchEvent('#sheetBody [data-share]', 'click'); await page.waitForTimeout(200)
+    assert.equal(await page.evaluate(() => window.__vvm.shareOn), true, 'and back on')
+    await page.click('#sheetClose').catch(() => {}); await page.waitForTimeout(400)
+    // The Hall of Fame: every Pokémon, the badges, the credits, to its own anthem; then kept in the Party sheet.
+    const seen = await page.evaluate(async () => {
+      const v = window.__vvm, shown = []
+      const watch = setInterval(() => { const b = document.querySelector('#hof .hofone b'); if (b && !shown.includes(b.textContent)) shown.push(b.textContent) }, 100)
+      const done = v.hallOfFame()
+      const tap = setInterval(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' })), 700)
+      await done; clearInterval(watch); clearInterval(tap)
+      return { shown, party: v.party.map((m) => m.name), fame: v.fame, music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name), left: !!document.getElementById('hof'), saved: JSON.parse(localStorage.getItem('vvm-save')).fame }
+    })
+    assert.deepEqual(seen.shown, seen.party, 'each of your Pokémon in turn')
+    assert.deepEqual(seen.fame.team.map((m) => m.name), seen.party)
+    assert.deepEqual(seen.saved.team, seen.fame.team, 'the Hall of Fame is saved')
+    assert.ok(seen.music.includes('hallOfFame'), 'to its own music')
+    assert.equal(seen.left, false, 'and it clears away after')
+    assert.equal(await page.evaluate(() => KANTO_ELITE.map((L) => L.introSong).join()), 'e4Lorelei,e4Bruno,e4Agatha,e4KantoLance,', 'the Kanto Elite Four each have their own intro')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('every leader\'s team: real species with sprites and cries, the mid-game on the stronger moves below its ace', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const leaders = [...GYMS, ...ELITE, ...KANTO_ELITE]
+      return {
+        missing: leaders.flatMap((L) => L.team.filter((n) => { const s = DATA.trainer.find((t) => t.name === n) ?? speciesByName(n); return !s || !ART[s.id] || !ART[s.id + 'b'] || !ART['cry:' + s.id] }).map((n) => `${L.short}: ${n}`)),
+        strong: [...GYMS.slice(3, 8), ...ELITE.slice(0, 4)].every((L) => L.strong) && !GYMS[0].strong && !GYMS[1].strong && !GYMS[2].strong,
+        mamoswine: !!TRAINER_MOVES.MAMOSWINE && GYMS[6].team.at(-1) === 'MAMOSWINE',
+        sizes: [...GYMS.slice(8, 15), ...ELITE.slice(0, 4), ...KANTO_ELITE.slice(0, 3)].map((L) => L.team.length),
+      }
+    })
+    assert.deepEqual(r.missing, [], 'every leader\'s Pokémon has its sprites and cry')
+    assert.ok(r.strong, 'Morty to Clair and the Johto Elite Four use the stronger moves; Falkner, Bugsy and Whitney don\'t')
+    assert.ok(r.mamoswine, 'Pryce\'s ace is Mamoswine, with his signature moves')
+    assert.ok(r.sizes.every((n) => n === 6), `the Kanto gyms and both Elite Fours bring six: ${r.sizes}`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

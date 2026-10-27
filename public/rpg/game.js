@@ -1326,6 +1326,68 @@ SONGS.e4Karen = { file: null, loop: true, bpm: 96, div: 2, chordLen: 8, swing: 0
       'F2 . C2 . F2 . Ab2 .', 'Db2 . Ab1 . Db2 . F2 .', 'Bb1 . F2 . Bb1 . Db2 .', 'C2 . G1 . C2 . E2 .'),
     drums: 'K.h.S.h.'.repeat(7) + 'K.h.S.Sg' }] }
 
+/** Lorelei, ice (the Kanto League): a waltz in C minor, violins with bells over cold strings, the bass an oom-pah-pah. */
+SONGS.e4Lorelei = { file: null, loop: true, bpm: 112, div: 2, chordLen: 6, vol: 0.82,
+  leadInst: 'violins', doubles: [['bells', 0, 0.3]], harmInst: 'strings', comp: false, hats16: false, crash: false, fill: '',
+  intro: { chords: ['Cm', 'G7'], lead: bars('C6 . G5 . Eb5 .', 'D5 . . . . .'), bass: bars('C2 . . . . .', 'G1 . . . . .'), drums: 'K.....' + 'T.t.T.', crash: true },
+  sections: [{
+    chords: 'Cm Ab Fm G7 Cm Ab Bb G7'.split(' '),
+    lead: bars('C6 . . Eb6 . D6', 'C6 . . . G5 .', 'Ab5 . . C6 . Bb5', 'G5 . . . . .',
+      'Eb6 . . G6 . F6', 'Eb6 . . C6 . Ab5', 'D6 . . F6 . Eb6', 'D6 . . B5 . .'),
+    bass: bars('C2 . G2 . G2 .', 'Ab1 . Eb2 . Eb2 .', 'F1 . C2 . C2 .', 'G1 . D2 . D2 .',
+      'C2 . G2 . G2 .', 'Ab1 . Eb2 . Eb2 .', 'Bb1 . F2 . F2 .', 'G1 . B1 . D2 .'),
+    drums: 'K.h.h.'.repeat(7) + 'K.T.tt' }] }
+
+/** Agatha, ghost (the Kanto League): B-flat minor, slow, an organ over a choir, slipping by semitones. */
+SONGS.e4Agatha = { file: null, loop: true, bpm: 84, div: 2, chordLen: 8, vol: 0.8,
+  leadInst: 'organ', harmInst: 'strings', padInst: 'choir', comp: false, hats16: false, crash: false, fill: '',
+  intro: { chords: ['Bbm', 'A7'], lead: bars('F5 . . . E5 . . .', 'F5 . . . . . . -'), bass: bars('Bb1 . . . . . . .', 'A1 . . . . . . .'), drums: 'K.......' + 't...T...' },
+  sections: [{
+    chords: 'Bbm Bbm Gb F Bbm Gb Ebm F7'.split(' '),
+    lead: bars('Bb4 . Db5 . F5 . E5 .', 'F5 . . . Db5 . Bb4 .', 'Bb4 . Db5 . Gb5 . F5 .', 'F5 . . . . . A4 .',
+      'Bb4 . F5 . Bb5 . A5 .', 'Gb5 . . . Db5 . Bb4 .', 'Eb5 . Gb5 . Bb5 . Gb5 .', 'A4 . . . C5 . Eb5 .'),
+    bass: bars('Bb1 . . . F1 . . .', 'Bb1 . . . A1 . . .', 'Gb1 . . . Db2 . . .', 'F1 . . . C2 . . .',
+      'Bb1 . . . F1 . . .', 'Gb1 . . . Db2 . . .', 'Eb1 . . . Bb1 . . .', 'F1 . . . A1 . . .'),
+    drums: 'K.....t.'.repeat(7) + 'K...TtTt' }] }
+
+/** Lance, dragon (the Kanto League, back for more): a C minor fanfare, brass over low brass, tuned timpani, tremolo strings. */
+SONGS.e4KantoLance = { file: null, loop: true, bpm: 108, div: 2, chordLen: 8, vol: 0.85,
+  leadInst: 'brass', doubles: [['brass', -1, 0.4]], harmInst: 'strings', comp: false, hats16: false, crash: false, fill: '',
+  intro: { chords: ['Cm', 'G'], lead: bars('C5 . G4 . C5 . Eb5 .', 'D5 . . . . . . .'), bass: bars('C2 . . . . . . .', 'G1 . . . . . . .'), drums: 'P.......' + 'P.P.PPSS', crash: true },
+  sections: [{
+    chords: 'Cm Ab Eb Bb Cm Ab Fm G'.split(' '), trem: '. . . . x x x x'.split(' '),
+    lead: bars('G5 . . . C6 . . .', 'Eb6 . . . D6 . C6 .', 'Bb5 . . . G5 . . .', 'F5 . . . D5 . Bb4 .',
+      'C5 . Eb5 . G5 . C6 .', 'Eb6 . . . C6 . Ab5 .', 'F5 . Ab5 . C6 . F6 .', 'D6 . . . B5 . G5 .'),
+    bass: bars('C2 . . . G1 . . .', 'Ab1 . . . Eb2 . . .', 'Eb2 . . . Bb1 . . .', 'Bb1 . . . F2 . . .',
+      'C2 . . . G1 . . .', 'Ab1 . . . Eb2 . . .', 'F1 . . . C2 . . .', 'G1 . . . D2 . . .'),
+    drums: 'P...S...'.repeat(7) + 'P.T.tTSS' }] }
+
+/**
+ * The Hall of Fame, after Alex's last battle: E major, where the rival's final
+ * theme turned at its height. A stately anthem on brass and violins over a
+ * choir, then the rival's four notes (E, G-sharp, F-sharp, E) as a farewell,
+ * bells ringing above them. 92 bpm, eighth-note grid.
+ */
+SONGS.hallOfFame = { file: null, loop: true, bpm: 92, div: 2, chordLen: 8, vol: 0.85,
+  leadInst: 'brass', doubles: [['violins', 0, 0.35]], harmInst: 'strings', padInst: 'choir', comp: false, hats16: false, crash: true, fill: '',
+  intro: { chords: ['E', 'B'], doubles: [['bells', 0, 0.3]], lead: bars('E5 . B4 . E5 . G#5 .', 'B5 . . . . . . .'), bass: bars('E1 . . . . . . .', 'B1 . . . . . . .'), drums: 'P.......' + 'P.P.PPSS' },
+  sections: [
+    { // The anthem
+      chords: 'E A E B C#m A B E'.split(' '),
+      lead: bars('B4 . E5 . G#5 . B5 .', 'C#6 . . . B5 . A5 .', 'G#5 . . . E5 . G#5 .', 'F#5 . . . . . . .',
+        'E5 . G#5 . C#6 . E6 .', 'E6 . . . C#6 . A5 .', 'B5 . . . D#6 . F#6 .', 'E6~ . . . . . . .'),
+      bass: bars('E2 . . . B1 . . .', 'A1 . . . E2 . . .', 'E2 . . . G#1 . . .', 'B1 . . . F#1 . . .',
+        'C#2 . . . G#1 . . .', 'A1 . . . E2 . . .', 'B1 . . . F#1 . . .', 'E2 . . . B1 . . .'),
+      drums: 'P...S...'.repeat(7) + 'P.T.tTSS' },
+    { // The rival's farewell: the motif in E major, bells above it
+      chords: 'E C#m A B E C#m A B7'.split(' '), doubles: [['violins', 0, 0.35], ['bells', 1, 0.2]], trem: '. . . . x x x x'.split(' '),
+      lead: bars('E5 . . . G#5 . F#5 .', 'E5 . . . B4 . . .', 'C#5 . E5 . A5 . G#5 .', 'F#5 . . . . . . .',
+        'E6 . . . G#6 . F#6 .', 'E6 . . . C#6 . . .', 'A5 . C#6 . E6 . D#6 .', 'B5~ . . . . . . .'),
+      bass: bars('E2 . . . B1 . . .', 'C#2 . . . G#1 . . .', 'A1 . . . E2 . . .', 'B1 . . . F#1 . . .',
+        'E2 . . . B1 . . .', 'C#2 . . . G#1 . . .', 'A1 . . . E2 . . .', 'B1 . . . B1 . B1 .'),
+      drums: 'K...S...'.repeat(7) + 'P.P.PPSS' },
+  ] }
+
 /**
  * The Elite Four battle: B minor at 172 bpm, about 45 s a loop. A driving
  * verse, the verse again higher with the glockenspiel, a broad bridge in
@@ -3201,11 +3263,16 @@ const ALEX = {
  * by the end. Ace last.
  *
  * Levels as a Gym Leader's (leaderLevels): the ace at the battle's `min` or
- * `over` above your best (3, then 6, 9 and 14 in Kanto, climbing with
- * Kanto's leaders), the rest 2 below it. Alex fights like a leader (`hard`:
+ * `over` above your best (3 in the first, 7 or 8 in battles 2-4, then 6, 9
+ * and 14 in Kanto, climbing with Kanto's leaders), the rest 2 below it. Alex fights like a leader (`hard`:
  * the best move each turn, tells, quicker rings, a line before the last
  * Pokémon, or the battle's own `last` words) with `restores` Full
- * Restores: one in battles 1-4, two in 5 and 6, three in 7.
+ * Restores: one in battles 1-4, two in 5 and 6, three in 7. A battle's own
+ * `tellRate`, `ringFast` and `ivs` override its phase's. Battles 2-4 tell
+ * more and ring faster than the friendly first one; battle 6 tells less
+ * and rings slower (sim.mjs: 3 wins in 4). Battle 7, the hardest fight in the
+ * game, has Red's rings, the fastest, but few tells and softer IVs: about 1
+ * win in 3 for an average player.
  */
 const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 /** Each phase's look (its art: rival-<phase>-vs.jpg, -face, -body, and -defeated and -face-down for a loss), theme and scene. */
@@ -3226,15 +3293,15 @@ const RIVAL_BATTLES = [
     intro: ['Hey! Remember me? I handed you your first Potions.', "You've got a badge now. So do I. Let's see which of us is getting better faster."],
     outro: ["Ha! Okay, okay. You're getting good.", 'Porygon and I will be ready next time. Count on it.'],
     gloat: ["Not bad! But Porygon's been studying you.", "Go heal up. I'll be around."] },
-  { due: (p) => p.johto >= 3, min: 23, restores: 1, tokens: '4.00', team: ['STARYU', 'GROWLITHE', 'MAGNEMITE', 'PORYGON'],
+  { due: (p) => p.johto >= 3, min: 23, over: 8, restores: 1, tellRate: 0.45, ringFast: 0.76, tokens: '4.00', team: ['STARYU', 'GROWLITHE', 'MAGNEMITE', 'PORYGON'],
     intro: ["Three badges? Same. I've been keeping count.", 'I rebuilt my whole team around Porygon. Let me show you what it can do now.'],
     outro: ['You read every move. How?', '...I need to rethink the whole setup.'],
     gloat: ['See? The new setup works.', "Don't fall behind now. That'd be boring."] },
-  { due: (p) => p.johto >= 5, min: 31, restores: 1, tokens: '5.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'GROWLITHE', 'PORYGON'],
+  { due: (p) => p.johto >= 5, min: 31, over: 7, restores: 1, tellRate: 0.45, ringFast: 0.76, tokens: '5.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'GROWLITHE', 'PORYGON'],
     intro: ["Five badges. You're keeping up. I hate that.", "Staryu evolved last night. Let's see you handle the full lineup."],
     outro: ['Again?! I ran every matchup. Every single one.', "...Fine. There's an upgrade I've been putting off. Not anymore."],
     gloat: ['Told you. Every matchup.', 'Keep training. I want you at your best when I win.'] },
-  { due: (p) => p.johto >= 7, min: 40, restores: 1, tokens: '6.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'ARCANINE', 'PORYGON2'],
+  { due: (p) => p.johto >= 7, min: 40, over: 7, restores: 1, tellRate: 0.45, ringFast: 0.76, tokens: '6.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'ARCANINE', 'PORYGON2'],
     intro: ["You noticed. Porygon's different now. I installed the UPGRADE.", "Friends? We were. Now you're just the number I have to beat."],
     outro: ["...That doesn't make sense. The numbers were on my side.", "I'll find what's missing. Whatever it takes."],
     gloat: ["The upgrade works. You don't.", "Go home. The machine's mine today."] },
@@ -3242,11 +3309,11 @@ const RIVAL_BATTLES = [
     intro: ["Champion. And now you're collecting Kanto badges too.", "I skipped the League. I've been upgrading instead. Let's see whose time was better spent."],
     outro: ["...You're the Champion for a reason. I get it now.", 'Whatever it takes. I said that, and I meant it.'],
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
-  { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
+  { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tellRate: 0.35, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, min: 90, over: 14, restores: 3, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, min: 90, over: 14, restores: 3, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
@@ -3281,7 +3348,7 @@ for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id 
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
   return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: `${L.title} · BATTLE ${n + 1} OF 7`, role: 'RIVAL', rival: true, hard: true,
-    vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: L.tellRate, ringFast: L.ringFast,
+    vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
 /* The scalpers, the first time: they size you up before Alex steps in. */
@@ -3552,32 +3619,32 @@ const GYMS = [
     outro: ["Huh! That's going straight in my notebook.", 'You earned it. Here, take the HIVE BADGE.'],
     gloat: ['My research says I win this one!', 'Keep studying. You were close.'] },
   { short: 'WHITNEY', full: 'GYM LEADER WHITNEY', city: 'GOLDENROD CITY', type: 'normal', badge: 'PLAIN', color: '#f9a8d4', scene: 'hall', min: 21,
-    team: ['CLEFAIRY', 'AIPOM', 'LICKITUNG', 'MILTANK'],
+    team: ['CLEFABLE', 'AMBIPOM', 'LICKILICKY', 'MILTANK'],
     intro: ["I'm Whitney! Isn't my Miltank the cutest?", "Don't let that fool you, though. We play to win!"],
     outro: ["No fair! You weren't supposed to win!", "...Ugh, fine. Here's the PLAIN BADGE. Don't gloat."],
     gloat: ['Ha! Nobody stops Miltank.', 'Better luck next time, cutie!'] },
   { short: 'MORTY', full: 'GYM LEADER MORTY', city: 'ECRUTEAK CITY', type: 'ghost', badge: 'FOG', color: '#c4b5fd', scene: 'distortion', min: 25,
-    team: ['GASTLY', 'HAUNTER', 'MISDREAVUS', 'GENGAR'],
+    team: ['HAUNTER', 'MIMIKYU', 'MISMAGIUS', 'GENGAR'],
     intro: ["I'm Morty. I had a feeling someone would call on me today.", "Let's see whether the future I saw was the right one."],
     outro: ["So that's how it goes. I didn't foresee this.", 'You have earned the FOG BADGE.'],
     gloat: ['I saw this ending before we began.', "Your path isn't clear yet. Keep walking it."] },
   { short: 'CHUCK', full: 'GYM LEADER CHUCK', city: 'CIANWOOD CITY', type: 'fighting', badge: 'STORM', color: '#fdba74', scene: 'bertha', min: 29,
-    team: ['PRIMEAPE', 'MACHOKE', 'HITMONLEE', 'HITMONCHAN', 'POLIWRATH'],
+    team: ['TOXICROAK', 'MACHAMP', 'HITMONLEE', 'HITMONCHAN', 'POLIWRATH'],
     intro: ["HOOAH! I'm Chuck! My Pokémon and I train harder than anyone!", "Let's see what you've got! No holding back!"],
     outro: ["HOOAH... I lost?! What a fight!", 'You deserve this. The STORM BADGE is yours!'],
     gloat: ['HOOAH! More training for you!', "Come back stronger, and we'll go again!"] },
   { short: 'JASMINE', full: 'GYM LEADER JASMINE', city: 'OLIVINE CITY', type: 'steel', badge: 'MINERAL', color: '#cbd5e1', scene: 'factory', min: 33,
-    team: ['MAGNEMITE', 'MAGNEMITE', 'SKARMORY', 'FORRETRESS', 'STEELIX'],
+    team: ['MAGNETON', 'SKARMORY', 'FORRETRESS', 'MAGNEZONE', 'STEELIX'],
     intro: ["...Oh. Hello. I'm Jasmine. I use steel types.", "...They're very sturdy. I hope you're ready."],
     outro: ["...You were wonderful.", '...Please take the MINERAL BADGE.'],
     gloat: ["...Sorry. Steel doesn't bend easily.", '...Do come back again.'] },
   { short: 'PRYCE', full: 'GYM LEADER PRYCE', city: 'MAHOGANY TOWN', type: 'ice', badge: 'GLACIER', color: '#bae6fd', scene: 'ice', min: 37,
-    team: ['SEEL', 'DEWGONG', 'SWINUB', 'JYNX', 'LAPRAS', 'PILOSWINE'],
+    team: ['DEWGONG', 'CLOYSTER', 'JYNX', 'GLACEON', 'LAPRAS', 'MAMOSWINE'],
     intro: ["I am Pryce. I have trained ice Pokémon longer than you have been alive.", "Patience and cold. Let us see if you have learned either."],
     outro: ["Hm. The ice gives way to you. I am impressed.", 'Take the GLACIER BADGE, young one.'],
     gloat: ['The cold is patient. You were not.', 'Warm up, and think on what went wrong.'] },
   { short: 'CLAIR', full: 'GYM LEADER CLAIR', city: 'BLACKTHORN CITY', type: 'dragon', badge: 'RISING', color: '#a5b4fc', scene: 'cynthia', min: 41,
-    team: ['HORSEA', 'SEADRA', 'GYARADOS', 'DRAGONAIR', 'DRAGONAIR', 'KINGDRA'],
+    team: ['GYARADOS', 'AERODACTYL', 'DRAGONAIR', 'DRAGONAIR', 'AMPHAROS', 'KINGDRA'],
     intro: ["I'm Clair. The best dragon trainer you'll ever meet.", "You summoned me, so I hope you're not wasting my time."],
     outro: ["...I lost? To you?", "...Fine. The RISING BADGE. You've earned it, I suppose."],
     gloat: ['Of course. Dragons are the strongest.', 'Train more before you dare face me again.'] },
@@ -3586,43 +3653,43 @@ const GYMS = [
      leader (`sig`), not the species, so Guard Marcus's Arcanine and the like
      keep fighting the way they always have. */
   { short: 'BROCK', full: 'GYM LEADER BROCK', city: 'PEWTER CITY', type: 'rock', badge: 'BOULDER', color: '#d6d3d1', scene: 'mountain', min: 55, tokens: '10.00',
-    team: ['GOLEM', 'RHYDON', 'OMASTAR', 'KABUTOPS', 'STEELIX'],   // a rematch: his HGSS team, evolved
+    team: ['GOLEM', 'OMASTAR', 'KABUTOPS', 'AERODACTYL', 'RHYPERIOR', 'STEELIX'],   // a rematch: his HGSS team, evolved and filled out
     sig: [L_('EARTHQUAKE', 'ground', 70, 'phys', 'quake', 'quake'), S_('ROCK SLIDE', 'rock', 65, 'phys', 'thud', { ranged: true }), L_('ROLLOUT', 'rock', 30, 'phys', 'roll', 'thud', { hits: 3 })],
     intro: ["I'm Brock, Pewter City's Gym Leader. Rock types are all about grit.", "You beat the Champion? Then my defense is the real test."],
     outro: ['My rock-hard defense... crumbled. That was great.', "Here. The BOULDER BADGE. You've earned it."],
     gloat: ["Rock doesn't move. That's the whole point.", 'Work on your offense and come back.'] },
   { short: 'MISTY', full: 'GYM LEADER MISTY', city: 'CERULEAN CITY', type: 'water', badge: 'CASCADE', color: '#67e8f9', scene: 'water', min: 57, tokens: '10.00',
-    team: ['GOLDUCK', 'SEAKING', 'QUAGSIRE', 'LAPRAS', 'STARMIE'],
+    team: ['GOLDUCK', 'VAPOREON', 'POLITOED', 'GYARADOS', 'LAPRAS', 'STARMIE'],
     sig: [S_('PSYCHIC', 'psychic', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('SURF', 'water', 65, 'spec', 'wave', 'whoosh'), S_('SWIFT', 'normal', 40, 'spec', 'whoosh', { ranged: true, hits: 2 })],
     intro: ["Misty, Cerulean City's Gym Leader. Water types, all the way.", "Champion or not, I'm going to soak you!"],
     outro: ["Ugh, you're good. Really good.", 'Fine! The CASCADE BADGE is yours.'],
     gloat: ['Washed out! Told you so.', 'Go dry off and try again.'] },
   { short: 'LT. SURGE', full: 'GYM LEADER LT. SURGE', city: 'VERMILION CITY', type: 'electric', badge: 'THUNDER', color: '#fde047', scene: 'city', min: 59, tokens: '10.00', key: 'lt_surge',
-    team: ['ELECTRODE', 'MAGNETON', 'ELECTRODE', 'ELECTABUZZ', 'RAICHU'],
+    team: ['ELECTRODE', 'MAGNEZONE', 'JOLTEON', 'AMPHAROS', 'ELECTIVIRE', 'RAICHU'],
     sig: [S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), L_('DISCHARGE', 'electric', 55, 'spec', 'current', 'zap'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['Lt. Surge, Vermilion City! Ten-hut! My Pokémon run on pure voltage!', "Let's see if the Champion can take a shock!"],
     outro: ["Whoa! You're the real deal, kid!", 'The THUNDER BADGE. You earned every volt of it.'],
     gloat: ["Zapped! That's how we do it in Vermilion!", 'Come back with something insulated!'] },
   { short: 'ERIKA', full: 'GYM LEADER ERIKA', city: 'CELADON CITY', type: 'grass', badge: 'RAINBOW', color: '#bef264', scene: 'meadow', min: 61, tokens: '10.00',
-    team: ['TANGELA', 'JUMPLUFF', 'VICTREEBEL', 'VILEPLUME', 'BELLOSSOM'],
+    team: ['TANGROWTH', 'JUMPLUFF', 'VICTREEBEL', 'VILEPLUME', 'ROSERADE', 'BELLOSSOM'],
     sig: [S_('PETAL BLIZZARD', 'grass', 70, 'phys', 'whoosh', { ranged: true }), L_('GRASS KNOT', 'grass', 55, 'spec', 'vines', 'thud'), S_('MOONBLAST', 'fairy', 70, 'spec', 'whoosh', { ranged: true })],
     intro: ["Oh... I must have dozed off. I'm Erika, of Celadon City.", 'I use grass types. Shall we begin? Gently, of course.'],
     outro: ["Oh my. You're very strong. I concede.", 'Please accept the RAINBOW BADGE.'],
     gloat: ['The flowers bloomed for me today.', 'Do come and visit the garden again.'] },
   { short: 'JANINE', full: 'GYM LEADER JANINE', city: 'FUCHSIA CITY', type: 'poison', badge: 'SOUL', color: '#f5d0fe', scene: 'marsh', min: 63, tokens: '10.00',
-    team: ['CROBAT', 'WEEZING', 'ARIADOS', 'MUK', 'VENOMOTH'],
+    team: ['CROBAT', 'WEEZING', 'NIDOQUEEN', 'MUK', 'TOXICROAK', 'VENOMOTH'],
     sig: [S_('BUG BUZZ', 'bug', 70, 'spec', 'whoosh', { ranged: true }), S_('PSYBEAM', 'psychic', 55, 'spec', 'shadow', { ranged: true }), L_('SLUDGE WAVE', 'poison', 55, 'spec', 'wave', 'whoosh')],
     intro: ["I'm Janine! My father Koga taught me everything about poison.", "I'm a ninja too, you know. You won't see me coming!"],
     outro: ['Aww... Father warned me you were strong.', 'Here. The SOUL BADGE.'],
     gloat: ['Ha! Father would be proud of that one!', "Train harder. I'll be waiting in Fuchsia."] },
   { short: 'SABRINA', full: 'GYM LEADER SABRINA', city: 'SAFFRON CITY', type: 'psychic', badge: 'MARSH', color: '#fbcfe8', scene: 'hall', min: 65, tokens: '10.00',
-    team: ['SLOWBRO', 'JYNX', 'MR. MIME', 'ESPEON', 'ALAKAZAM'],
+    team: ['SLOWBRO', 'MR. MIME', 'HYPNO', 'EXEGGUTOR', 'ESPEON', 'ALAKAZAM'],
     sig: [S_('PSYCHIC', 'psychic', 80, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('SHADOW BALL', 'ghost', 65, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('PSYWAVE', 'psychic', 50, 'spec', 'wave', 'shadow')],
     intro: ['I am Sabrina. I knew you would summon me today.', 'I also know how this ends. Shall we confirm it?'],
     outro: ['...That was not the future I saw.', 'The MARSH BADGE. Take it.'],
     gloat: ['As I foresaw.', 'Your future holds another try. Not yet a win.'] },
   { short: 'BLAINE', full: 'GYM LEADER BLAINE', city: 'CINNABAR ISLAND', type: 'fire', badge: 'VOLCANO', color: '#fb923c', scene: 'flint', min: 67, tokens: '10.00',
-    team: ['MAGCARGO', 'NINETALES', 'MAGMAR', 'ARCANINE', 'RAPIDASH'],
+    team: ['NINETALES', 'FLAREON', 'HOUNDOOM', 'MAGMORTAR', 'ARCANINE', 'RAPIDASH'],
     sig: [S_('FLARE BLITZ', 'fire', 80, 'phys', 'whoosh'), L_('FLAME WHEEL', 'fire', 50, 'phys', 'roll', 'whoosh'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['Blaine! My gym burned down, so a vending machine will have to do!', 'Pop quiz: what melts a Champion? My fire types!'],
     outro: ["I've burned out! What a battle!", 'You have earned the VOLCANO BADGE!'],
@@ -3644,25 +3711,25 @@ GYMS.forEach((L, i) => Object.assign(L, { gym: i, region: i < 8 ? 'johto' : 'kan
    from Will. Each win pays as you go. */
 const ELITE = [
   { short: 'WILL', full: 'ELITE FOUR WILL', type: 'psychic', color: '#f0abfc', scene: 'lucian', min: 44, tokens: '6.00',
-    team: ['JYNX', 'EXEGGUTOR', 'SLOWBRO', 'XATU', 'XATU'],
+    team: ['JYNX', 'EXEGGUTOR', 'SLOWBRO', 'ESPEON', 'ALAKAZAM', 'XATU'],
     sig: [S_('PSYCHIC', 'psychic', 75, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('AIR SLASH', 'flying', 65, 'spec', 'whoosh', { ranged: true }), L_('PSYWAVE', 'psychic', 45, 'spec', 'wave', 'shadow')],
     intro: ["Will, of the Elite Four. I've studied psychic power on every continent.", "A vending machine summons me, and you expect to win? Let's see your mind."],
     outro: ['...My psychic power, outmatched. Remarkable.', 'Go on. Koga is next, and he is far less polite.'],
     gloat: ['Your thoughts were loud. I heard every move coming.', 'Clear your head before you try the League again.'] },
   { short: 'KOGA', full: 'ELITE FOUR KOGA', type: 'poison', color: '#d8b4fe', scene: 'aaron', min: 46, tokens: '6.00',
-    team: ['ARIADOS', 'VENOMOTH', 'FORRETRESS', 'MUK', 'CROBAT'],
+    team: ['NIDOKING', 'VENOMOTH', 'FORRETRESS', 'WEEZING', 'MUK', 'CROBAT'],
     sig: [S_('CROSS POISON', 'poison', 70, 'phys', 'crunch'), S_('AIR SLASH', 'flying', 65, 'spec', 'whoosh', { ranged: true }), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['Fwahahaha! Koga of the Elite Four. A ninja is never where you expect.', "Poison and patience. You'll be tangled before you notice."],
     outro: ['Hmm... You saw through every technique. Well done.', 'Bruno is next. Mind your footing.'],
     gloat: ['Fwahaha! Caught in the web, as planned.', 'Return when you can see what is hidden.'] },
   { short: 'BRUNO', full: 'ELITE FOUR BRUNO', type: 'fighting', color: '#fda4af', scene: 'bertha', min: 48, tokens: '6.00',
-    team: ['HITMONTOP', 'HITMONLEE', 'HITMONCHAN', 'ONIX', 'MACHAMP'],
+    team: ['STEELIX', 'HITMONTOP', 'HITMONLEE', 'HITMONCHAN', 'POLIWRATH', 'MACHAMP'],
     sig: [S_('CROSS CHOP', 'fighting', 80, 'phys', 'thud'), L_('LOW SWEEP', 'fighting', 50, 'phys', 'sweep', 'thud'), S_('BULLET PUNCH', 'steel', 40, 'phys', 'thud', { fast: true })],
     intro: ['Bruno of the Elite Four! My Pokémon and I train until the mountains crack!', 'No tricks. No excuses. Hit us with everything!'],
     outro: ['Hah! Beaten fair and square. That was a real fight!', "Karen is next. She's tougher than she looks."],
     gloat: ['HAAH! Your guard was down!', 'Train your body, then come back!'] },
   { short: 'KAREN', full: 'ELITE FOUR KAREN', type: 'dark', color: '#94a3b8', scene: 'castle', min: 50, tokens: '6.00',
-    team: ['UMBREON', 'VILEPLUME', 'GENGAR', 'MURKROW', 'HOUNDOOM'],
+    team: ['UMBREON', 'HONCHKROW', 'VILEPLUME', 'GENGAR', 'MIMIKYU', 'HOUNDOOM'],
     sig: [S_('FLAMETHROWER', 'fire', 75, 'spec', 'whoosh', { ranged: true }), S_('CRUNCH', 'dark', 70, 'phys', 'crunch'), L_('FLAME WHEEL', 'fire', 50, 'phys', 'roll', 'whoosh')],
     intro: ['Karen, of the Elite Four. I use dark types, and I raise them with love.', 'Strength is in how you treat your Pokémon. Show me yours.'],
     outro: ['Well, well. You really do care for your team.', "Go on. The Champion is waiting for you."],
@@ -3687,19 +3754,19 @@ const ELITE_CARD = { short: 'THE ELITE FOUR', city: 'INDIGO PLATEAU', summonName
  */
 const KANTO_ELITE = [
   { short: 'LORELEI', full: 'ELITE FOUR LORELEI', type: 'ice', color: '#7dd3fc', scene: 'castle', min: 78, tokens: '10.00',
-    team: ['DEWGONG', 'CLOYSTER', 'SLOWBRO', 'JYNX', 'LAPRAS'],
+    team: ['DEWGONG', 'CLOYSTER', 'SLOWBRO', 'JYNX', 'GLACEON', 'LAPRAS'],
     sig: [S_('BLIZZARD', 'ice', 80, 'spec', 'whoosh', { ranged: true }), L_('SURF', 'water', 65, 'spec', 'wave', 'whoosh'), S_('ICE SHARD', 'ice', 45, 'phys', 'whoosh', { fast: true, ranged: true })],
     intro: ['Lorelei, of the Kanto Elite Four. You came a long way to freeze.', "My ice doesn't crack. Let's see if you do."],
     outro: ['...You thawed every one of them.', 'Bruno is next. Warm up while you can.'],
     gloat: ['Frozen solid. As I expected.', 'Come back when you can take the cold.'] },
   { short: 'BRUNO', full: 'ELITE FOUR BRUNO', type: 'fighting', color: '#fda4af', scene: 'bertha', min: 80, tokens: '10.00',
-    team: ['STEELIX', 'HITMONLEE', 'PRIMEAPE', 'POLIWRATH', 'LUCARIO'],
+    team: ['STEELIX', 'HITMONLEE', 'HERACROSS', 'MACHAMP', 'POLIWRATH', 'LUCARIO'],
     sig: [S_('AURA SPHERE', 'fighting', 80, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('CLOSE COMBAT', 'fighting', 85, 'phys', 'thud'), S_('EXTREME SPEED', 'normal', 50, 'phys', 'whoosh', { fast: true })],
     intro: ['Bruno again! A new team, the same fists!', "I trained on Kanto's mountains for this. Show me you've grown too!"],
     outro: ['HAAH! You have! Well fought!', 'Agatha is next. Keep your nerve.'],
     gloat: ['Not yet! Train harder!', 'Come back stronger!'] },
   { short: 'AGATHA', full: 'ELITE FOUR AGATHA', type: 'ghost', color: '#c4b5fd', scene: 'distortion', min: 82, tokens: '10.00',
-    team: ['CROBAT', 'ARBOK', 'MISMAGIUS', 'HAUNTER', 'GENGAR'],
+    team: ['CROBAT', 'ARBOK', 'MIMIKYU', 'MISMAGIUS', 'HAUNTER', 'GENGAR'],
     sig: [S_('SHADOW BALL', 'ghost', 80, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('SLUDGE BOMB', 'poison', 75, 'spec', 'whoosh', { ranged: true }), L_('SHADOW SNEAK', 'ghost', 45, 'phys', 'shadow', 'shadow', { fast: true })],
     intro: ['Agatha. I was battling before your parents were born.', "Ghosts don't tire, child. Let's see how long you last."],
     outro: ['Hmph. Not bad for a youngster.', 'Lance is waiting. Go on, then.'],
@@ -3710,12 +3777,12 @@ const KANTO_ELITE = [
     intro: ["We meet again. Here, I'm the last of Kanto's Elite Four.", 'Beat me, and the road to Mt. Silver opens. Someone is waiting up there.'],
     outro: ["You've earned it. Mt. Silver is open to you.", 'Red is at the top. Go. I want to know how it ends.'],
     gloat: ['Dragons still rule here.', 'Start again from Lorelei.'] },
-  { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 2, red: true, city: 'MT. SILVER',
+  { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 3, red: true, city: 'MT. SILVER',
     team: ['ESPEON', 'SNORLAX', 'VENUSAUR', 'CHARIZARD', 'BLASTOISE', 'PIKACHU'],
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
 ]
-KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, over: [10, 10, 11, 11, 13][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : 0.45, ringFast: L.red ? 0.75 : 0.78,
+KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', over: [10, 10, 11, 8, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: [0.49, 0.37, 0.43, 0.35, 0.6][i], ringFast: [0.73, 0.82, 0.78, 0.9, 0.66][i],   // Lance: his dragons hit hardest, so he tells least; Red: the most tells and the fastest rings in the game
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const KANTO_CARD = { short: 'THE KANTO LEAGUE', city: 'INDIGO PLATEAU', summonName: 'KANTO LEAGUE TICKET', face: 'gymFace:red', color: '#ef4444', tag: 'LEAGUE' }
 /** The two Leagues, by their ticket's summon id: Johto's ('elite') and Kanto's ('kanto'). */
@@ -3767,39 +3834,56 @@ Object.assign(TRAINER_MOVES, {
   GENGAR: [S_('SHADOW BALL', 'ghost', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('SHADOW SNEAK', 'ghost', 40, 'phys', 'shadow', 'shadow', { fast: true }), S_('SLUDGE BOMB', 'poison', 70, 'spec', 'whoosh', { ranged: true })],
   POLIWRATH: [S_('DYNAMIC PUNCH', 'fighting', 75, 'phys', 'thud'), L_('SURF', 'water', 60, 'spec', 'wave', 'whoosh'), S_('DOUBLE SLAP', 'normal', 20, 'phys', 'thud', { hits: 3 })],
   STEELIX: [L_('EARTHQUAKE', 'ground', 70, 'phys', 'quake', 'quake'), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('ROCK THROW', 'rock', 55, 'phys', 'thud', { ranged: true })],
-  PILOSWINE: [L_('EARTHQUAKE', 'ground', 70, 'phys', 'quake', 'quake'), S_('ICE SHARD', 'ice', 45, 'phys', 'whoosh', { fast: true, ranged: true }), S_('BLIZZARD', 'ice', 75, 'spec', 'whoosh', { ranged: true })],
+  MAMOSWINE: [L_('EARTHQUAKE', 'ground', 70, 'phys', 'quake', 'quake'), S_('ICE SHARD', 'ice', 45, 'phys', 'whoosh', { fast: true, ranged: true }), S_('BLIZZARD', 'ice', 75, 'spec', 'whoosh', { ranged: true })],
   KINGDRA: [S_('DRAGON PULSE', 'dragon', 70, 'spec', 'shadow', { ranged: true }), L_('SURF', 'water', 65, 'spec', 'wave', 'whoosh'), S_('TWISTER', 'dragon', 35, 'spec', 'whoosh', { ranged: true, hits: 2 })],
 })
 /** A challenge's summon as a Bag item key: 'summon:3', 'summon:elite'. */
+TRAINER_MOVES.PILOSWINE = TRAINER_MOVES.MAMOSWINE   // Pryce's ace before it evolved: the same set
 const summonKey = (n) => 'summon:' + n
 /** A challenge's summon as a Bag item, registered the first time one turns up. */
 const summonItem = (n) => (ITEMS[summonKey(n)] ??= LEAGUES[n]
   ? { name: LEAGUES[n].card.summonName, sub: LEAGUES[n].sub, cls: 't-summon', summon: n, league: true }
   : { name: GYMS[n].summonName, sub: `summons ${GYMS[n].short} of ${GYMS[n].city}`, cls: 't-summon', summon: n })
 
-/* The Elite Four's aces fight with their signature moves (the rest with their type's). */
+/*
+ * The Elite Four's aces fight with their signature moves (the rest with their type's).
+ * Lance's other two Dragonite get a set of their own, without the ace's OUTRAGE: three
+ * rampages in one team made him all but unbeatable (tests/rpg/sim.mjs: 7% for an average player).
+ */
+TRAINER_MOVES.DRAGONITE = [S_('DRAGON CLAW', 'dragon', 70, 'phys', 'whoosh'), S_('WING ATTACK', 'flying', 60, 'phys', 'whoosh'), L_('TWISTER', 'dragon', 45, 'spec', 'wave', 'whoosh')]
 ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 
 /*
- * Balance (sim.mjs, thousands of simulated battles): early leaders tell less
- * and their rings close a little slower; a few are moved up or down a level or
- * two to smooth the curve (Bugsy and Chuck were spikes; the late gyms and the
- * Elite Four were soft). lvAdj is added to every level on their team.
+ * Balance (tests/rpg/sim.mjs, `npm run sim:rpg`: thousands of simulated battles).
  * Aim, for an average player arriving at the leader's level: about 3 wins in 4
- * (Lance about 1 in 2). Lance, the Champion, is the toughest of the Johto
- * League: the highest ace and the most above you once you out-level them all.
+ * (Lance and Red about 1 in 2, Alex's last 1 in 3). Each leader's `tellRate`
+ * (how often an attack comes with a tell) and `ringFast` (how fast their rings
+ * close; lower is faster) are tuned one by one to that aim: the first gyms
+ * gentle, Kanto's gyms nearly as quick as Red, Red the quickest of all. From
+ * Morty on, the Johto leaders below their ace fight with the stronger moves,
+ * as Kanto's do (`strong`). lvAdj is added to every level on their team.
+ * Lance, the Champion, is the toughest of the Johto League: the highest
+ * floor, and the strongest team.
  */
 const JOHTO_ADJ = [-1, -2, -1, -1, -3, 0, 2, 2]
+const JOHTO_TELL = [0.15, 0.15, 0.16, 0.24, 0.13, 0.21, 0.47, 0.23]
+const JOHTO_RING = [0.9, 0.9, 0.96, 0.9, 0.98, 0.93, 0.74, 0.92]
 // Kanto comes after the Champion, against a full, evolved party: well above you. (Blue's own minimum puts him above them all.)
 const KANTO_ADJ = [6, 6, 10, 8, 10, 10, 12, 5]
-// Out-levelled, Kanto's leaders sit this far above your best (not 3 plus their offset): a steady climb, Blaine 9, Blue 12,
-// with the Kanto Elite Four (10-11) between them and Red (13).
-const KANTO_OVER = [6, 6, 7, 7, 8, 8, 9, 12]
+// Out-levelled, Kanto's leaders sit this far above your best (not 3 plus their offset): a steady climb, Brock 7 to Blaine 10,
+// Blue 12, with the Kanto Elite Four (10-11; Lance 8, his dragons hitting hardest) between them and Red (13).
+const KANTO_OVER = [7, 7, 8, 8, 9, 9, 10, 12]
+const KANTO_TELL = [0.49, 0.57, 0.55, 0.55, 0.55, 0.55, 0.55, 0.45]
+const KANTO_RING = [0.73, 0.68, 0.7, 0.7, 0.7, 0.7, 0.7, 0.8]
 GYMS.forEach((L, i) => Object.assign(L, i < 8
-  ? { lvAdj: JOHTO_ADJ[i], tellRate: i < 3 ? 0.15 : i < 6 ? 0.3 : 0.4, ringFast: i < 3 ? 0.9 : i < 6 ? 0.85 : 0.8 }
-  : { lvAdj: KANTO_ADJ[i - 8], over: KANTO_OVER[i - 8], tellRate: 0.45, ringFast: 0.8 }))
-ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?? 6, tellRate: L.role === 'CHAMPION' ? 0.5 : 0.45, ringFast: 0.8 }))
+  ? { lvAdj: JOHTO_ADJ[i], tellRate: JOHTO_TELL[i], ringFast: JOHTO_RING[i], strong: i >= 3 }
+  : { lvAdj: KANTO_ADJ[i - 8], over: KANTO_OVER[i - 8], tellRate: KANTO_TELL[i - 8], ringFast: KANTO_RING[i - 8] }))
+// Lance: the highest floor, but out-levelled only 7 above you, fewer tells and slower rings (sim.mjs: he was
+// winnable 1 time in 15; now a little under 1 in 2).
+const ELITE_TELL = { WILL: 0.44, KOGA: 0.35, BRUNO: 0.35, KAREN: 0.46 }, ELITE_RING = { WILL: 0.77, KOGA: 0.83, BRUNO: 0.83, KAREN: 0.76 }
+ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?? 6,
+  ...(L.role === 'CHAMPION' ? { over: 7, tellRate: 0.4, ringFast: 0.9 } : { tellRate: ELITE_TELL[L.short], ringFast: ELITE_RING[L.short], strong: true }) }))
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {
@@ -3875,6 +3959,8 @@ async function run(id) {
    */
   let eliteStep = 0   // 0-4: who's next (Will, Koga, Bruno, Karen, Lance)
   let kantoStep = 0, redBeaten = false   // the Kanto League: who's next (Lorelei ... Red), and whether Red is beaten
+  let shareOn = true   // the EXP. SHARE's switch, in the Bag
+  let fame = null   // the Hall of Fame, after Alex's last battle: { at, team: [{ id, name, level }] }
   /** The League whose ticket you can use now: Johto's ('elite') with all 8 Johto badges, Kanto's ('kanto') as Champion with all 16; or null. */
   const leagueNow = () => (!champion ? (badges.length >= 8 ? 'elite' : null) : badges.length >= GYMS.length && !redBeaten ? 'kanto' : null)
   /** Where you are on a League's ladder. */
@@ -4365,7 +4451,8 @@ async function run(id) {
     const hurt = party.some((m) => m.hp < m.stats.hp || m.status)
     const caseFor = (region, label) => { const gs = GYMS.filter((g) => g.region === region), got = gs.filter((g) => badges.includes(g.gym)).length
       return `<div class="badgecase"><b>${label} ${got}/${gs.length}</b><span>${gs.map((g) => `<img class="${badges.includes(g.gym) ? 'on' : ''}" src="${badgeArt(g.badge)}" alt="${g.badge} BADGE" title="${g.badge} BADGE (${g.short})">`).join('')}</span></div>` }
-    const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '')   // Kanto shows once it's unlocked
+    const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '') +   // Kanto shows once it's unlocked
+      (fame ? `<div class="badgecase champ fame"><b>HALL OF FAME</b><span>${fame.team.map((m) => `<img class="on" src="${ART[m.id]}" alt="${m.name}" title="${m.name} Lv ${m.level}">`).join('')}</span></div>` : '')
     return caseRow + `<button class="heal" data-heal ${freeHeal && hurt ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${freeHeal ? (hurt ? 'Heal the whole party, free — 1 left today' : 'Everyone is at full HP') : 'Free heal used today. Potions still work.'}</small></span></button>` +
       party.map((m, i) => `<div class="prow${m.hp <= 0 ? ' fainted' : ''}">
         <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${ART[m.id]}" alt=""><span class="mid">
@@ -4410,7 +4497,7 @@ async function run(id) {
     const tabs = `<div class="bagtabs" role="tablist">${BAG_TABS.map(([t, label]) => { const n = all.filter(([k, it]) => pocketOf(k, it) === t).reduce((a, [k]) => a + bag[k], 0)
       return `<button role="tab" aria-selected="${t === bagTab}" class="${t === bagTab ? 'on' : ''}" data-tab="${t}">${label}${n ? `<i>${n}</i>` : ''}</button>` }).join('')}</div>`
     return tabs + (held.length ? '' : `<p class="note">${all.length ? POCKET_EMPTY[bagTab] : 'Your Bag is empty.'}</p>`) + held.map(([k, it]) => {
-      if (it.key) return `<div class="irow key"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · always on: Pokémon that sit out a battle still get half its EXP</span></span></div>`
+      if (it.key) return `<button class="irow key" data-share="1" aria-pressed="${shareOn}"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · ${shareOn ? 'Pokémon that sit out a battle get half its EXP' : 'off: only the Pokémon that battle get EXP'} · tap to switch</span></span><span class="onoff ${shareOn ? 'on' : ''}">${shareOn ? 'ON' : 'OFF'}</span></button>`
       if (LEAGUES[it.summon]) {
         const id = it.summon, st = leagueStep(id), L = LEAGUES[id].members[st], ok = leagueNow() === id
         const why = id === 'elite' ? (champion ? "you're already Champion" : 'needs all 8 Johto badges') : redBeaten ? "you've beaten Red" : 'needs all 16 badges'
@@ -4593,6 +4680,7 @@ async function run(id) {
       if (a.up != null && a.up > 0) { [party[a.up - 1], party[a.up]] = [party[a.up], party[a.up - 1]]; sfx('move') }
       if (a.down != null && a.down < party.length - 1) { [party[a.down + 1], party[a.down]] = [party[a.down], party[a.down + 1]]; sfx('move') }
       if (a.tab != null) { bagTab = a.tab; sfx('move') }
+      if (a.share != null) { shareOn = !shareOn; sfx('select'); toast = `EXP. SHARE switched ${shareOn ? 'on' : 'off'}.`; saveGame() }
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: LEAGUES[s] ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
       // The Elite Four ticket isn't spent here: only a loss, or beating Lance, uses it up.
@@ -4635,7 +4723,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -4955,7 +5043,7 @@ async function run(id) {
    * and EXP follows the foe's level.
    */
   const leadLevel = () => (party.find((m) => m.hp > 0) ?? party[0])?.level ?? 5
-  // Balanced from Lv 10 (sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
+  // Balanced from Lv 10 (tests/rpg/sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
   const levelBand = (T, lv = leadLevel()) => (T === HERB || T === PAUL ? (lv < 10 ? [-1, 1] : [0, 2]) : (lv < 10 ? [-3, -2] : [-1, 0]))
   /** The highest a trainer's ace (or a wild Pokémon) can be: your next challenge's ace at its lowest. No cap once there's no challenge left. */
   function trainerCap() {
@@ -5104,7 +5192,7 @@ async function run(id) {
    * with one line for the lot; only level-ups and new moves are announced.
    */
   async function shareExp(amount, fought) {
-    if (!bag.expshare) return
+    if (!bag.expshare || !shareOn) return
     const rest = party.filter((m) => m.hp > 0 && !fought.includes(m)); if (!rest.length) return
     const half = Math.max(1, Math.round(amount / 2))
     await say(`The rest of your party got ${half} EXP.`, 'thanks to the EXP. SHARE.', 300)
@@ -6116,7 +6204,7 @@ async function run(id) {
     // leaderLevels(): the ace at their floor or above your best, the rest 2 below.
     const L = GYMS[n], lv = leaderLevels(L, party.map((m) => m.level))
     return L.team.map((name, i) => {
-      const m = individual(DATA.trainer.find((t) => t.name === name), lv[i], rand)
+      const m = individual(DATA.trainer.find((t) => t.name === name) ?? speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k])
       m.stats = statsAt(m, m.level); m.hp = m.stats.hp
       return m
@@ -6162,7 +6250,7 @@ async function run(id) {
   function eliteTeam(L) {
     const lv = leaderLevels(L, party.map((m) => m.level))
     return L.team.map((name, i) => {
-      const m = individual(DATA.trainer.find((t) => t.name === name), lv[i], rand)
+      const m = individual(DATA.trainer.find((t) => t.name === name) ?? speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k])
       m.stats = statsAt(m, m.level); m.hp = m.stats.hp
       return m
@@ -6179,7 +6267,7 @@ async function run(id) {
     const setStep = (n) => { if (id === 'kanto') kantoStep = n; else eliteStep = n }
     toolsEnabled(false)
     // Each member's own intro under the splash and their words; Red says nothing, under the start of their theme.
-    Sound.music(L.red ? G.battle(L) : LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')
+    Sound.music(L.red ? G.battle(L) : L.introSong ?? LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')
     await wipeTrainer(async () => {
       setScene([L.scene]); showLayer('battle')
       const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', L.color)
@@ -7164,7 +7252,7 @@ async function run(id) {
       await say(name, `${by > 0 ? 'rose' : 'fell'}${Math.abs(by) > 1 ? ' sharply' : ''}!`, 300)
     }
     foe.max = foe.stats.hp; foe.turn = 0
-    const movesFor = (f) => (f.roamer && LEGEND_MOVES[f.name]) || (kind === 'trainer' && trainer?.movesFor?.(f)) || (kind === 'trainer' && trainer?.sig && !roster.length && trainer.sig) || (kind === 'trainer' && trainer?.region === 'kanto' && strongMoves(f)) || (kind === 'trainer' && TRAINER_MOVES[f.name]) || (f.name === 'MAGIKARP' ? MAGIKARP : WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal)   // a leader's ace (their last) fights with the leader's own moves
+    const movesFor = (f) => (f.roamer && LEGEND_MOVES[f.name]) || (kind === 'trainer' && trainer?.movesFor?.(f)) || (kind === 'trainer' && trainer?.sig && !roster.length && trainer.sig) || (kind === 'trainer' && (trainer?.region === 'kanto' || (trainer?.strong && roster.length)) && strongMoves(f)) || (kind === 'trainer' && TRAINER_MOVES[f.name]) || (f.name === 'MAGIKARP' ? MAGIKARP : WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal)   // a leader's ace (their last) fights with the leader's own moves
     let restores = trainer?.hard ? trainer.restores ?? 1 : 0   // Full Restores in the bag: a Gym Leader's one, Alex's one to three
     let sigUsed = false    // a leader's signature status move, once a battle
     let quipped = false    // a leader's first tell always gets a quip; later ones, half the time
@@ -7969,7 +8057,7 @@ async function run(id) {
   /* ══════════ Alex, the rival ══════════ */
   /** Alex's team for a rival battle: levels as a Gym Leader's (leaderLevels), IVs at least the phase's floor. */
   function rivalTeam(R) {
-    const lv = leaderLevels(R, party.map((m) => m.level)), floor = RIVAL_LOOKS[R.phase].ivs
+    const lv = leaderLevels(R, party.map((m) => m.level)), floor = R.ivs
     return R.team.map((name, i) => {
       const m = individual(speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(floor, m.ivs[k])
@@ -7983,6 +8071,45 @@ async function run(id) {
    * theme. A win pays tokens (and maybe a pack; always after the last) and
    * moves the story on; a loss brings Alex back for the same battle a few taps later.
    */
+  /**
+   * The Hall of Fame, after Alex's last battle: each of your Pokémon in turn,
+   * with its cry, then the team together, every badge, and the credits. The
+   * team is kept (`fame`) and shows in the Party sheet from then on.
+   */
+  async function hallOfFame() {
+    fame = { at: Date.now(), team: party.map((m) => ({ id: m.id, name: m.name, level: m.level })) }
+    saveGame()
+    Sound.music('hallOfFame')
+    showLayer('battle'); panel(null)
+    const h =document.createElement('div'); h.className = 'hof'; h.id = 'hof'
+    h.innerHTML = '<b class="hoft">HALL OF FAME</b><div class="hofone"></div><div class="hofteam"></div><div class="hofbadges"></div>'
+    $('ts').appendChild(h)
+    await anim(h, [{ opacity: 0 }, { opacity: 1 }], { duration: 700 }).finished
+    const one = h.querySelector('.hofone'), row = h.querySelector('.hofteam')
+    await say('Welcome to the HALL OF FAME!', '', 900)
+    for (const m of party) {
+      one.innerHTML = `<img src="${ART[m.id]}" alt=""><b>${m.name}</b><span>Lv ${m.level} · ${m.types.map((t) => `<i style="background:${TYPE_COL[t]}">${t}</i>`).join('')}</span>`
+      anim(one, [{ opacity: 0, transform: 'translateX(60px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)' })
+      cry(m)
+      await say(`${m.name}, Lv ${m.level}.`, pickOf(['A true champion.', 'Never backed down.', 'There at every badge.', 'ALEX never saw it coming.']), demo ? 600 : 1300)
+      const s = document.createElement('img'); s.src = ART[m.id]; s.alt = m.name; row.appendChild(s)
+      anim(s, [{ transform: 'scale(0)' }, { transform: 'scale(1.2)', offset: .7 }, { transform: 'none' }], { duration: 360 })
+    }
+    one.innerHTML = ''
+    const bx = h.querySelector('.hofbadges')
+    bx.innerHTML = GYMS.filter((g) => badges.includes(g.gym)).map((g) => `<img src="${badgeArt(g.badge)}" alt="${g.badge} BADGE">`).join('')
+    bx.querySelectorAll('img').forEach((b, i) => anim(b, [{ opacity: 0, transform: 'translateY(-14px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 70, fill: 'backwards' }))
+    sfx('levelup')
+    await say(`${badges.length} badges. Johto and Kanto.`, 'The Champion, RED... and ALEX.', 1400)
+    // The credits, on the lower screen.
+    for (const [a, b] of [['CONGRATULATIONS!', 'Your team is in the HALL OF FAME.'], ['ALEX, the rival', '"See you around, Champion."'],
+      ['Pokémon art and cries', 'PokéAPI · Pokémon Showdown'], ['Trainer art', 'Bulbagarden Archives'], ['Music', 'Played live by the VVM, note by note'],
+      ['Pokémon', '© Nintendo · Creatures · GAME FREAK'], ['THE END', 'Thanks for playing!']]) await say(a, b, demo ? 500 : 1500)
+    if (!demo) { $('msg').classList.add('wait'); try { await waitFor(['a']) } finally { $('msg').classList.remove('wait') } }
+    await anim(h, [{ opacity: 1 }, { opacity: 0 }], { duration: 700 }).finished
+    h.remove()
+    await say('The machine hums on.', 'Battles and packs are still here.', 900)
+  }
   async function rivalEncounter(state = 'in') {
     const n = Math.min(rivalStep, RIVAL_BATTLES.length - 1), R = rivalTrainer(n), look = RIVAL_LOOKS[R.phase]
     toolsEnabled(false)
@@ -8019,6 +8146,7 @@ async function run(id) {
       await say('Pokémon that sit out a battle', 'now get half of its EXP.', 700)
     }
     if (out.result !== 'won') await say('ALEX headed off.', "There'll be a rematch soon.")
+    else if (n === RIVAL_BATTLES.length - 1) await hallOfFame()
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
   async function scalperEncounter(demoPlan, state = 'in') {
@@ -8258,7 +8386,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, freeHeal, gifted, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -8324,7 +8452,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
-    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
+    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
@@ -8390,7 +8518,7 @@ async function run(id) {
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
-    leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+    leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
