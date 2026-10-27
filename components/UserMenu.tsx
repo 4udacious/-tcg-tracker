@@ -57,6 +57,7 @@ export default function UserMenu({ name, nameColor, iconFile, role }: {
             <p className="font-mono text-[11px] text-muted capitalize">{role}</p>
           </div>
           <MenuLink href="/profile" onSelect={close} icon={<Icon d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.1a7.5 7.5 0 0115 0" />}>Trainer card</MenuLink>
+          <MenuLink href="/checklist.html" page onSelect={close} icon={<Icon d="M9 12.75L11.25 15 15 9.75M4.5 4.5h15v15h-15z" />}>Standard checklist</MenuLink>
           <MenuLink href="/settings" onSelect={close} icon={<Icon d="M10.3 4.3c.4-1.7 2.9-1.7 3.3 0a1.7 1.7 0 002.6 1.1c1.5-.9 3.3.8 2.3 2.3a1.7 1.7 0 001.1 2.6c1.7.4 1.7 2.9 0 3.3a1.7 1.7 0 00-1.1 2.6c.9 1.5-.8 3.3-2.3 2.3a1.7 1.7 0 00-2.6 1.1c-.4 1.7-2.9 1.7-3.3 0a1.7 1.7 0 00-2.6-1.1c-1.5.9-3.3-.8-2.3-2.3a1.7 1.7 0 00-1.1-2.6c-1.7-.4-1.7-2.9 0-3.3a1.7 1.7 0 001.1-2.6c-.9-1.5.8-3.3 2.3-2.3a1.7 1.7 0 002.6-1.1zM15 12a3 3 0 11-6 0 3 3 0 016 0z" />}>Settings</MenuLink>
           <MenuButton onClick={toggleTheme}
             icon={<Icon d={dark ? 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.4 6.4l-.7-.7M6.3 6.3l-.7-.7m12.8 0l-.7.7M6.3 17.7l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z' : 'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z'} />}

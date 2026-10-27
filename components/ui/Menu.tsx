@@ -55,16 +55,20 @@ export function Menu({ trigger, label, children, width = 'w-72', onOpenChange }:
 
 const ROW = 'flex items-center gap-3 w-full min-h-11 px-3 py-2 rounded-xl text-left text-sm hover:bg-ink/5 transition-colors'
 
-export function MenuLink({ href, icon, children, onSelect, aside }: {
-  href: string; icon?: ReactNode; children: ReactNode; onSelect?: () => void; aside?: ReactNode
+/** `page`: a static page in public/ rather than an app route, opened with a plain link instead of client-side navigation. */
+export function MenuLink({ href, icon, children, onSelect, aside, page }: {
+  href: string; icon?: ReactNode; children: ReactNode; onSelect?: () => void; aside?: ReactNode; page?: boolean
 }) {
-  return (
-    <Link href={href} role="menuitem" onClick={onSelect} className={ROW}>
+  const inner = (
+    <>
       {icon && <span className="w-5 h-5 shrink-0 text-muted flex items-center justify-center" aria-hidden>{icon}</span>}
       <span className="flex-1 min-w-0">{children}</span>
       {aside}
-    </Link>
+    </>
   )
+  return page
+    ? <a href={href} role="menuitem" onClick={onSelect} className={ROW}>{inner}</a>
+    : <Link href={href} role="menuitem" onClick={onSelect} className={ROW}>{inner}</Link>
 }
 
 export function MenuButton({ onClick, icon, children, aside, danger }: {
