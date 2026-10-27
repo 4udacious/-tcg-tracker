@@ -441,15 +441,16 @@ test('rival: after the first badge, Alex is at the machine on your next tap; the
     const { page, bot } = g
     await bot.finishTutorial()
     // (A lost tutorial leaves your starter fainted, and Alex waits for a Pokémon that can fight: heal first.)
-    const before = await page.evaluate(() => { const v = window.__vvm; const was = v.rivalDue(); v.badges.push(0); for (const m of v.party) m.hp = m.stats.hp; return { was, now: v.rivalDue() } })
+    const before = await page.evaluate(() => { const v = window.__vvm; delete v.bag.expshare; const was = v.rivalDue(); v.badges.push(0); for (const m of v.party) m.hp = m.stats.hp; return { was, now: v.rivalDue() } })
     assert.deepEqual(before, { was: false, now: true }, 'no rival battle before a badge; the first is due after one')
     // An ordinary tap ("Random"): Alex takes it.
     assert.ok(await bot.encounter(''), 'a battle happened on the next tap')
-    const r = await page.evaluate(() => ({ rival: window.__vvm.rival, due: window.__vvm.rivalDue(), music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name),
+    const r = await page.evaluate(() => ({ rival: window.__vvm.rival, due: window.__vvm.rivalDue(), music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name), expshare: window.__vvm.bag.expshare,
       saved: Object.values(localStorage).some((v) => v.includes('"rival":{"step"')) }))
     assert.ok(r.music.includes('rivalTalk') && r.music.includes('rival'), `the encounter music, then the first rival theme: ${r.music.join(', ')}`)
     if (r.rival.step === 1) assert.deepEqual(r.rival, { step: 1, wait: 0, lost: false }, 'won: on to battle 2')
     else assert.deepEqual([r.rival.step, r.rival.lost, r.rival.wait, r.due], [0, true, 3, false], 'lost: the same battle again, a few taps later')
+    assert.equal(r.expshare, 1, 'after the first battle, win or lose, Alex gave you the EXP. SHARE')
     assert.ok(r.saved, 'the rival\'s progress is in the save')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
