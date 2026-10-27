@@ -11,3 +11,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 When you change `game.js`, bump the `?v=` tag on its `<script>` in `index.html` so browsers fetch the new file instead of a cached copy.
 
 After changing the battle game, run `npm run test:rpg` (about 6 minutes; `RPG_QUICK=1` for the 1-minute checks). It plays the game in Chromium (`tests/rpg/`): every species' sprites and cries, the battle rules, all three Watch demos, and a played battle and save. Set `CHROMIUM_PATH` if Playwright's own Chromium isn't installed (`npx playwright install chromium`).
+
+To check difficulty after changing levels, teams or moves, run `npm run sim:rpg` (about 30 seconds). It simulates thousands of battles against every leader, Elite Four member, Red and Alex, at three player skill levels, and reports win rates against the aim: about 3 wins in 4, or 1 in 2 for Lance (the Champion), Red and Alex's last battle (`tests/rpg/sim.mjs`).

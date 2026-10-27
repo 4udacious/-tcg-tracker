@@ -1326,6 +1326,68 @@ SONGS.e4Karen = { file: null, loop: true, bpm: 96, div: 2, chordLen: 8, swing: 0
       'F2 . C2 . F2 . Ab2 .', 'Db2 . Ab1 . Db2 . F2 .', 'Bb1 . F2 . Bb1 . Db2 .', 'C2 . G1 . C2 . E2 .'),
     drums: 'K.h.S.h.'.repeat(7) + 'K.h.S.Sg' }] }
 
+/** Lorelei, ice (the Kanto League): a waltz in C minor, violins with bells over cold strings, the bass an oom-pah-pah. */
+SONGS.e4Lorelei = { file: null, loop: true, bpm: 112, div: 2, chordLen: 6, vol: 0.82,
+  leadInst: 'violins', doubles: [['bells', 0, 0.3]], harmInst: 'strings', comp: false, hats16: false, crash: false, fill: '',
+  intro: { chords: ['Cm', 'G7'], lead: bars('C6 . G5 . Eb5 .', 'D5 . . . . .'), bass: bars('C2 . . . . .', 'G1 . . . . .'), drums: 'K.....' + 'T.t.T.', crash: true },
+  sections: [{
+    chords: 'Cm Ab Fm G7 Cm Ab Bb G7'.split(' '),
+    lead: bars('C6 . . Eb6 . D6', 'C6 . . . G5 .', 'Ab5 . . C6 . Bb5', 'G5 . . . . .',
+      'Eb6 . . G6 . F6', 'Eb6 . . C6 . Ab5', 'D6 . . F6 . Eb6', 'D6 . . B5 . .'),
+    bass: bars('C2 . G2 . G2 .', 'Ab1 . Eb2 . Eb2 .', 'F1 . C2 . C2 .', 'G1 . D2 . D2 .',
+      'C2 . G2 . G2 .', 'Ab1 . Eb2 . Eb2 .', 'Bb1 . F2 . F2 .', 'G1 . B1 . D2 .'),
+    drums: 'K.h.h.'.repeat(7) + 'K.T.tt' }] }
+
+/** Agatha, ghost (the Kanto League): B-flat minor, slow, an organ over a choir, slipping by semitones. */
+SONGS.e4Agatha = { file: null, loop: true, bpm: 84, div: 2, chordLen: 8, vol: 0.8,
+  leadInst: 'organ', harmInst: 'strings', padInst: 'choir', comp: false, hats16: false, crash: false, fill: '',
+  intro: { chords: ['Bbm', 'A7'], lead: bars('F5 . . . E5 . . .', 'F5 . . . . . . -'), bass: bars('Bb1 . . . . . . .', 'A1 . . . . . . .'), drums: 'K.......' + 't...T...' },
+  sections: [{
+    chords: 'Bbm Bbm Gb F Bbm Gb Ebm F7'.split(' '),
+    lead: bars('Bb4 . Db5 . F5 . E5 .', 'F5 . . . Db5 . Bb4 .', 'Bb4 . Db5 . Gb5 . F5 .', 'F5 . . . . . A4 .',
+      'Bb4 . F5 . Bb5 . A5 .', 'Gb5 . . . Db5 . Bb4 .', 'Eb5 . Gb5 . Bb5 . Gb5 .', 'A4 . . . C5 . Eb5 .'),
+    bass: bars('Bb1 . . . F1 . . .', 'Bb1 . . . A1 . . .', 'Gb1 . . . Db2 . . .', 'F1 . . . C2 . . .',
+      'Bb1 . . . F1 . . .', 'Gb1 . . . Db2 . . .', 'Eb1 . . . Bb1 . . .', 'F1 . . . A1 . . .'),
+    drums: 'K.....t.'.repeat(7) + 'K...TtTt' }] }
+
+/** Lance, dragon (the Kanto League, back for more): a C minor fanfare, brass over low brass, tuned timpani, tremolo strings. */
+SONGS.e4KantoLance = { file: null, loop: true, bpm: 108, div: 2, chordLen: 8, vol: 0.85,
+  leadInst: 'brass', doubles: [['brass', -1, 0.4]], harmInst: 'strings', comp: false, hats16: false, crash: false, fill: '',
+  intro: { chords: ['Cm', 'G'], lead: bars('C5 . G4 . C5 . Eb5 .', 'D5 . . . . . . .'), bass: bars('C2 . . . . . . .', 'G1 . . . . . . .'), drums: 'P.......' + 'P.P.PPSS', crash: true },
+  sections: [{
+    chords: 'Cm Ab Eb Bb Cm Ab Fm G'.split(' '), trem: '. . . . x x x x'.split(' '),
+    lead: bars('G5 . . . C6 . . .', 'Eb6 . . . D6 . C6 .', 'Bb5 . . . G5 . . .', 'F5 . . . D5 . Bb4 .',
+      'C5 . Eb5 . G5 . C6 .', 'Eb6 . . . C6 . Ab5 .', 'F5 . Ab5 . C6 . F6 .', 'D6 . . . B5 . G5 .'),
+    bass: bars('C2 . . . G1 . . .', 'Ab1 . . . Eb2 . . .', 'Eb2 . . . Bb1 . . .', 'Bb1 . . . F2 . . .',
+      'C2 . . . G1 . . .', 'Ab1 . . . Eb2 . . .', 'F1 . . . C2 . . .', 'G1 . . . D2 . . .'),
+    drums: 'P...S...'.repeat(7) + 'P.T.tTSS' }] }
+
+/**
+ * The Hall of Fame, after Alex's last battle: E major, where the rival's final
+ * theme turned at its height. A stately anthem on brass and violins over a
+ * choir, then the rival's four notes (E, G-sharp, F-sharp, E) as a farewell,
+ * bells ringing above them. 92 bpm, eighth-note grid.
+ */
+SONGS.hallOfFame = { file: null, loop: true, bpm: 92, div: 2, chordLen: 8, vol: 0.85,
+  leadInst: 'brass', doubles: [['violins', 0, 0.35]], harmInst: 'strings', padInst: 'choir', comp: false, hats16: false, crash: true, fill: '',
+  intro: { chords: ['E', 'B'], doubles: [['bells', 0, 0.3]], lead: bars('E5 . B4 . E5 . G#5 .', 'B5 . . . . . . .'), bass: bars('E1 . . . . . . .', 'B1 . . . . . . .'), drums: 'P.......' + 'P.P.PPSS' },
+  sections: [
+    { // The anthem
+      chords: 'E A E B C#m A B E'.split(' '),
+      lead: bars('B4 . E5 . G#5 . B5 .', 'C#6 . . . B5 . A5 .', 'G#5 . . . E5 . G#5 .', 'F#5 . . . . . . .',
+        'E5 . G#5 . C#6 . E6 .', 'E6 . . . C#6 . A5 .', 'B5 . . . D#6 . F#6 .', 'E6~ . . . . . . .'),
+      bass: bars('E2 . . . B1 . . .', 'A1 . . . E2 . . .', 'E2 . . . G#1 . . .', 'B1 . . . F#1 . . .',
+        'C#2 . . . G#1 . . .', 'A1 . . . E2 . . .', 'B1 . . . F#1 . . .', 'E2 . . . B1 . . .'),
+      drums: 'P...S...'.repeat(7) + 'P.T.tTSS' },
+    { // The rival's farewell: the motif in E major, bells above it
+      chords: 'E C#m A B E C#m A B7'.split(' '), doubles: [['violins', 0, 0.35], ['bells', 1, 0.2]], trem: '. . . . x x x x'.split(' '),
+      lead: bars('E5 . . . G#5 . F#5 .', 'E5 . . . B4 . . .', 'C#5 . E5 . A5 . G#5 .', 'F#5 . . . . . . .',
+        'E6 . . . G#6 . F#6 .', 'E6 . . . C#6 . . .', 'A5 . C#6 . E6 . D#6 .', 'B5~ . . . . . . .'),
+      bass: bars('E2 . . . B1 . . .', 'C#2 . . . G#1 . . .', 'A1 . . . E2 . . .', 'B1 . . . F#1 . . .',
+        'E2 . . . B1 . . .', 'C#2 . . . G#1 . . .', 'A1 . . . E2 . . .', 'B1 . . . B1 . B1 .'),
+      drums: 'K...S...'.repeat(7) + 'P.P.PPSS' },
+  ] }
+
 /**
  * The Elite Four battle: B minor at 172 bpm, about 45 s a loop. A driving
  * verse, the verse again higher with the glockenspiel, a broad bridge in
@@ -3715,7 +3777,7 @@ const KANTO_ELITE = [
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
 ]
-KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, over: [10, 10, 11, 11, 13][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : 0.45, ringFast: L.red ? 0.75 : 0.78,
+KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, over: [10, 10, 11, 11, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: L.red ? 0.5 : 0.45, ringFast: L.red ? 0.75 : 0.78,
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const KANTO_CARD = { short: 'THE KANTO LEAGUE', city: 'INDIGO PLATEAU', summonName: 'KANTO LEAGUE TICKET', face: 'gymFace:red', color: '#ef4444', tag: 'LEAGUE' }
 /** The two Leagues, by their ticket's summon id: Johto's ('elite') and Kanto's ('kanto'). */
@@ -3782,7 +3844,7 @@ ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 
 /*
- * Balance (sim.mjs, thousands of simulated battles): early leaders tell less
+ * Balance (tests/rpg/sim.mjs, `npm run sim:rpg`: thousands of simulated battles): early leaders tell less
  * and their rings close a little slower; a few are moved up or down a level or
  * two to smooth the curve (Bugsy and Chuck were spikes; the late gyms and the
  * Elite Four were soft). lvAdj is added to every level on their team.
@@ -3875,6 +3937,8 @@ async function run(id) {
    */
   let eliteStep = 0   // 0-4: who's next (Will, Koga, Bruno, Karen, Lance)
   let kantoStep = 0, redBeaten = false   // the Kanto League: who's next (Lorelei ... Red), and whether Red is beaten
+  let shareOn = true   // the EXP. SHARE's switch, in the Bag
+  let fame = null   // the Hall of Fame, after Alex's last battle: { at, team: [{ id, name, level }] }
   /** The League whose ticket you can use now: Johto's ('elite') with all 8 Johto badges, Kanto's ('kanto') as Champion with all 16; or null. */
   const leagueNow = () => (!champion ? (badges.length >= 8 ? 'elite' : null) : badges.length >= GYMS.length && !redBeaten ? 'kanto' : null)
   /** Where you are on a League's ladder. */
@@ -4365,7 +4429,8 @@ async function run(id) {
     const hurt = party.some((m) => m.hp < m.stats.hp || m.status)
     const caseFor = (region, label) => { const gs = GYMS.filter((g) => g.region === region), got = gs.filter((g) => badges.includes(g.gym)).length
       return `<div class="badgecase"><b>${label} ${got}/${gs.length}</b><span>${gs.map((g) => `<img class="${badges.includes(g.gym) ? 'on' : ''}" src="${badgeArt(g.badge)}" alt="${g.badge} BADGE" title="${g.badge} BADGE (${g.short})">`).join('')}</span></div>` }
-    const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '')   // Kanto shows once it's unlocked
+    const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '') +   // Kanto shows once it's unlocked
+      (fame ? `<div class="badgecase champ fame"><b>HALL OF FAME</b><span>${fame.team.map((m) => `<img class="on" src="${ART[m.id]}" alt="${m.name}" title="${m.name} Lv ${m.level}">`).join('')}</span></div>` : '')
     return caseRow + `<button class="heal" data-heal ${freeHeal && hurt ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${freeHeal ? (hurt ? 'Heal the whole party, free — 1 left today' : 'Everyone is at full HP') : 'Free heal used today. Potions still work.'}</small></span></button>` +
       party.map((m, i) => `<div class="prow${m.hp <= 0 ? ' fainted' : ''}">
         <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${ART[m.id]}" alt=""><span class="mid">
@@ -4410,7 +4475,7 @@ async function run(id) {
     const tabs = `<div class="bagtabs" role="tablist">${BAG_TABS.map(([t, label]) => { const n = all.filter(([k, it]) => pocketOf(k, it) === t).reduce((a, [k]) => a + bag[k], 0)
       return `<button role="tab" aria-selected="${t === bagTab}" class="${t === bagTab ? 'on' : ''}" data-tab="${t}">${label}${n ? `<i>${n}</i>` : ''}</button>` }).join('')}</div>`
     return tabs + (held.length ? '' : `<p class="note">${all.length ? POCKET_EMPTY[bagTab] : 'Your Bag is empty.'}</p>`) + held.map(([k, it]) => {
-      if (it.key) return `<div class="irow key"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · always on: Pokémon that sit out a battle still get half its EXP</span></span></div>`
+      if (it.key) return `<button class="irow key" data-share="1" aria-pressed="${shareOn}"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · ${shareOn ? 'Pokémon that sit out a battle get half its EXP' : 'off: only the Pokémon that battle get EXP'} · tap to switch</span></span><span class="onoff ${shareOn ? 'on' : ''}">${shareOn ? 'ON' : 'OFF'}</span></button>`
       if (LEAGUES[it.summon]) {
         const id = it.summon, st = leagueStep(id), L = LEAGUES[id].members[st], ok = leagueNow() === id
         const why = id === 'elite' ? (champion ? "you're already Champion" : 'needs all 8 Johto badges') : redBeaten ? "you've beaten Red" : 'needs all 16 badges'
@@ -4593,6 +4658,7 @@ async function run(id) {
       if (a.up != null && a.up > 0) { [party[a.up - 1], party[a.up]] = [party[a.up], party[a.up - 1]]; sfx('move') }
       if (a.down != null && a.down < party.length - 1) { [party[a.down + 1], party[a.down]] = [party[a.down], party[a.down + 1]]; sfx('move') }
       if (a.tab != null) { bagTab = a.tab; sfx('move') }
+      if (a.share != null) { shareOn = !shareOn; sfx('select'); toast = `EXP. SHARE switched ${shareOn ? 'on' : 'off'}.`; saveGame() }
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: LEAGUES[s] ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
       // The Elite Four ticket isn't spent here: only a loss, or beating Lance, uses it up.
@@ -4635,7 +4701,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -4955,7 +5021,7 @@ async function run(id) {
    * and EXP follows the foe's level.
    */
   const leadLevel = () => (party.find((m) => m.hp > 0) ?? party[0])?.level ?? 5
-  // Balanced from Lv 10 (sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
+  // Balanced from Lv 10 (tests/rpg/sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
   const levelBand = (T, lv = leadLevel()) => (T === HERB || T === PAUL ? (lv < 10 ? [-1, 1] : [0, 2]) : (lv < 10 ? [-3, -2] : [-1, 0]))
   /** The highest a trainer's ace (or a wild Pokémon) can be: your next challenge's ace at its lowest. No cap once there's no challenge left. */
   function trainerCap() {
@@ -5104,7 +5170,7 @@ async function run(id) {
    * with one line for the lot; only level-ups and new moves are announced.
    */
   async function shareExp(amount, fought) {
-    if (!bag.expshare) return
+    if (!bag.expshare || !shareOn) return
     const rest = party.filter((m) => m.hp > 0 && !fought.includes(m)); if (!rest.length) return
     const half = Math.max(1, Math.round(amount / 2))
     await say(`The rest of your party got ${half} EXP.`, 'thanks to the EXP. SHARE.', 300)
@@ -6179,7 +6245,7 @@ async function run(id) {
     const setStep = (n) => { if (id === 'kanto') kantoStep = n; else eliteStep = n }
     toolsEnabled(false)
     // Each member's own intro under the splash and their words; Red says nothing, under the start of their theme.
-    Sound.music(L.red ? G.battle(L) : LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')
+    Sound.music(L.red ? G.battle(L) : L.introSong ?? LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')
     await wipeTrainer(async () => {
       setScene([L.scene]); showLayer('battle')
       const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', L.color)
@@ -7983,6 +8049,45 @@ async function run(id) {
    * theme. A win pays tokens (and maybe a pack; always after the last) and
    * moves the story on; a loss brings Alex back for the same battle a few taps later.
    */
+  /**
+   * The Hall of Fame, after Alex's last battle: each of your Pokémon in turn,
+   * with its cry, then the team together, every badge, and the credits. The
+   * team is kept (`fame`) and shows in the Party sheet from then on.
+   */
+  async function hallOfFame() {
+    fame = { at: Date.now(), team: party.map((m) => ({ id: m.id, name: m.name, level: m.level })) }
+    saveGame()
+    Sound.music('hallOfFame')
+    showLayer('battle'); panel(null)
+    const h =document.createElement('div'); h.className = 'hof'; h.id = 'hof'
+    h.innerHTML = '<b class="hoft">HALL OF FAME</b><div class="hofone"></div><div class="hofteam"></div><div class="hofbadges"></div>'
+    $('ts').appendChild(h)
+    await anim(h, [{ opacity: 0 }, { opacity: 1 }], { duration: 700 }).finished
+    const one = h.querySelector('.hofone'), row = h.querySelector('.hofteam')
+    await say('Welcome to the HALL OF FAME!', '', 900)
+    for (const m of party) {
+      one.innerHTML = `<img src="${ART[m.id]}" alt=""><b>${m.name}</b><span>Lv ${m.level} · ${m.types.map((t) => `<i style="background:${TYPE_COL[t]}">${t}</i>`).join('')}</span>`
+      anim(one, [{ opacity: 0, transform: 'translateX(60px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)' })
+      cry(m)
+      await say(`${m.name}, Lv ${m.level}.`, pickOf(['A true champion.', 'Never backed down.', 'There at every badge.', 'ALEX never saw it coming.']), demo ? 600 : 1300)
+      const s = document.createElement('img'); s.src = ART[m.id]; s.alt = m.name; row.appendChild(s)
+      anim(s, [{ transform: 'scale(0)' }, { transform: 'scale(1.2)', offset: .7 }, { transform: 'none' }], { duration: 360 })
+    }
+    one.innerHTML = ''
+    const bx = h.querySelector('.hofbadges')
+    bx.innerHTML = GYMS.filter((g) => badges.includes(g.gym)).map((g) => `<img src="${badgeArt(g.badge)}" alt="${g.badge} BADGE">`).join('')
+    bx.querySelectorAll('img').forEach((b, i) => anim(b, [{ opacity: 0, transform: 'translateY(-14px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 70, fill: 'backwards' }))
+    sfx('levelup')
+    await say(`${badges.length} badges. Johto and Kanto.`, 'The Champion, RED... and ALEX.', 1400)
+    // The credits, on the lower screen.
+    for (const [a, b] of [['CONGRATULATIONS!', 'Your team is in the HALL OF FAME.'], ['ALEX, the rival', '"See you around, Champion."'],
+      ['Pokémon art and cries', 'PokéAPI · Pokémon Showdown'], ['Trainer art', 'Bulbagarden Archives'], ['Music', 'Played live by the VVM, note by note'],
+      ['Pokémon', '© Nintendo · Creatures · GAME FREAK'], ['THE END', 'Thanks for playing!']]) await say(a, b, demo ? 500 : 1500)
+    if (!demo) { $('msg').classList.add('wait'); try { await waitFor(['a']) } finally { $('msg').classList.remove('wait') } }
+    await anim(h, [{ opacity: 1 }, { opacity: 0 }], { duration: 700 }).finished
+    h.remove()
+    await say('The machine hums on.', 'Battles and packs are still here.', 900)
+  }
   async function rivalEncounter(state = 'in') {
     const n = Math.min(rivalStep, RIVAL_BATTLES.length - 1), R = rivalTrainer(n), look = RIVAL_LOOKS[R.phase]
     toolsEnabled(false)
@@ -8019,6 +8124,7 @@ async function run(id) {
       await say('Pokémon that sit out a battle', 'now get half of its EXP.', 700)
     }
     if (out.result !== 'won') await say('ALEX headed off.', "There'll be a rematch soon.")
+    else if (n === RIVAL_BATTLES.length - 1) await hallOfFame()
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
   async function scalperEncounter(demoPlan, state = 'in') {
@@ -8258,7 +8364,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, freeHeal, gifted, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -8324,7 +8430,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
-    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
+    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
@@ -8390,7 +8496,7 @@ async function run(id) {
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
-    leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+    leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {

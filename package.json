@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:rpg": "node --test \"tests/rpg/*.test.mjs\""
+    "test:rpg": "node --test \"tests/rpg/*.test.mjs\"",
+    "sim:rpg": "node tests/rpg/sim.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
