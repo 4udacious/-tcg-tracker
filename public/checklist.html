@@ -88,7 +88,8 @@ body{margin:0}img{max-width:100%}
 <header>
   <a class="back" href="/timers">← TCG Tracker</a>
   <h1>Standard <span>Legal</span> Checklist</h1>
-  <p class="lede">Every card you can play in the <b>2026–27 Standard format</b> (live since April 10, 2026): cards with regulation mark <span class="mk">H</span> <span class="mk">I</span> or <span class="mk">J</span>, plus basic Energy and G-mark Trainers or Energy whose name matches a newer reprint. Tick what you own. Ticks are saved in this browser.</p>
+  <p class="lede">Every card you can play in the <b>2026–27 Standard format</b> (live since April 10, 2026): cards with regulation mark <span class="mk">H</span> <span class="mk">I</span> or <span class="mk">J</span>, plus basic Energy and G-mark Trainers or Energy whose name matches a newer reprint. Tick what you own. Ticks are saved to your account, so they follow you to any device.</p>
+  <p class="note" id="sync" role="status" aria-live="polite"></p>
   <div class="summary">
     <div class="stat"><b id="sOwn">0</b><small>Owned</small></div>
     <div class="stat"><b id="sTot">0</b><small id="sTotL">Printings</small></div>
@@ -130,8 +131,57 @@ const DATA={"sets":[["Scarlet & Violet Black Star Promos","PR-SV","2023/01/01","
 const SETS=DATA.sets, CARDS=DATA.cards.map(r=>({id:r[0],name:r[1],set:r[2],num:r[3],kind:r[4],sub:r[5],rar:r[6],mark:r[7],flag:r[8],type:r[9]}));
 const KEY='ptcg-standard-2026-27';
 let own=new Set(), ownName=new Set();
-try{const s=JSON.parse(localStorage.getItem(KEY)||'{}');own=new Set(s.c||[]);ownName=new Set(s.n||[]);}catch(e){}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({c:[...own],n:[...ownName]}));}catch(e){}}
+/*
+ * Ticks live on the account (/api/checklist); this browser keeps a copy, as a
+ * cache and for when the account can't be reached. `rev` is the account
+ * save's revision this page last saw, `base` the ticks it held then, and
+ * `dirty` marks ticks changed here but not saved to the account yet (kept
+ * across visits, so ticks made offline go up next time).
+ */
+let rev=null, base=null, dirty=false, acct=false;
+try{const s=JSON.parse(localStorage.getItem(KEY)||'{}');own=new Set(s.c||[]);ownName=new Set(s.n||[]);rev=s.r??null;base=s.b??null;dirty=!!s.d;}catch(e){}
+const snap=()=>({c:[...own],n:[...ownName]});
+function keep(){try{localStorage.setItem(KEY,JSON.stringify({...snap(),r:rev,b:base,d:dirty}));}catch(e){}}
+const sync=t=>{const el=document.getElementById('sync');if(el)el.textContent=t;};
+const LOCAL_ONLY='Couldn\u2019t reach your account just now. Ticks are kept in this browser and will be saved to your account next time.';
+let pushT=null, pushing=false, again=false;
+function save(){dirty=true;keep();if(acct){clearTimeout(pushT);pushT=setTimeout(push,600);sync('Saving\u2026');}}
+/* Your changes since `base`, applied on top of the account's newer ticks. */
+function rebase(server){
+  const sc=new Set(server?.c||[]), sn=new Set(server?.n||[]), bc=new Set(base?.c||[]), bn=new Set(base?.n||[]);
+  for(const x of own)if(!bc.has(x))sc.add(x);
+  for(const x of bc)if(!own.has(x))sc.delete(x);
+  for(const x of ownName)if(!bn.has(x))sn.add(x);
+  for(const x of bn)if(!ownName.has(x))sn.delete(x);
+  own=sc;ownName=sn;base={c:[...(server?.c||[])],n:[...(server?.n||[])]};
+}
+async function push(){
+  if(pushing){again=true;return;}
+  pushing=true;
+  try{
+    for(let tries=0;tries<4;tries++){
+      const r=await fetch('/api/checklist',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({data:snap(),rev})});
+      const j=r.ok&&(r.headers.get('content-type')||'').includes('json')?await r.json():null;
+      if(!j){sync(LOCAL_ONLY);break;}
+      if(j.ok){rev=j.rev;base=snap();dirty=false;keep();sync('Saved to your account.');break;}
+      if(j.reason==='conflict'){rebase(j.data);rev=j.rev;keep();const y=scrollY;render();scrollTo(0,y);continue;}
+      sync(LOCAL_ONLY);break;
+    }
+  }catch(e){sync(LOCAL_ONLY);}
+  pushing=false;
+  if(again){again=false;push();}
+}
+async function load(){
+  try{
+    const r=await fetch('/api/checklist',{credentials:'same-origin',headers:{accept:'application/json'}});
+    if(!r.ok||!(r.headers.get('content-type')||'').includes('json'))throw 0;
+    const j=await r.json();acct=true;
+    if(j.data&&!dirty){own=new Set(j.data.c||[]);ownName=new Set(j.data.n||[]);rev=j.rev;base=snap();keep();const y=scrollY;render();scrollTo(0,y);sync('Saved to your account.');}
+    else if(j.data){rebase(j.data);rev=j.rev;keep();render();sync('Saving\u2026');push();}   // changed here while offline
+    else if(own.size||ownName.size){rev=null;base={c:[],n:[]};sync('Moving your ticks to your account\u2026');push();}   // first visit since ticks moved to the account
+    else{rev=null;base={c:[],n:[]};sync('Ticks save to your account.');}
+  }catch(e){sync(LOCAL_ONLY);}
+}
 const st={q:'',kind:'',mark:'',view:'set',missing:false};
 const open=new Set();
 const $=id=>document.getElementById(id);
@@ -217,6 +267,7 @@ let armed=false;$('clear').addEventListener('click',e=>{if(!armed){armed=true;e.
 try{const v=localStorage.getItem(KEY+'-view');if(v==='name'){st.view='name';$('view').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v==='name'));}}catch(e){}
 open.add(SETS.length-1);
 render();
+load();
 </script>
 </body>
 </html>
