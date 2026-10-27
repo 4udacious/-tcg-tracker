@@ -3208,7 +3208,7 @@ const ALEX = {
  * Restores: one in battles 1-4, two in 5 and 6, three in 7.
  */
 const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
-/** Each phase's look (the art Alex uploads replace), theme and scene. Until a look's art is in, Alex's current art stands in. */
+/** Each phase's look (its art: rival-<phase>-vs.jpg, -face, -body, and -defeated and -face-down for a loss), theme and scene. */
 const RIVAL_LOOKS = {
   1: { theme: 'rival', scene: 'factory', color: '#60a5fa', tellRate: 0.3, ringFast: 0.86, ivs: 20, title: 'RIVAL' },
   2: { theme: 'rival2', scene: 'distortion', color: '#a855f7', tellRate: 0.4, ringFast: 0.82, ivs: 22, title: 'RIVAL' },
@@ -3217,7 +3217,7 @@ const RIVAL_LOOKS = {
 for (const p of [1, 2, 3]) {
   const L = RIVAL_LOOKS[p]
   Object.assign(L, { vs: `rival${p}Vs`, face: `rival${p}Face`, body: `rival${p}Body`, down: `rival${p}Down`, faceDown: `rival${p}FaceDown` })
-  for (const [k, stand] of [['vs', 'alexVs'], ['face', 'alexFace'], ['body', 'alexBody'], ['down', 'alexBody'], ['faceDown', 'alexFace']]) ART[L[k]] ??= ART[stand]
+  for (const [k, file] of [['vs', 'vs.jpg'], ['face', 'face.jpg'], ['body', 'body.png'], ['down', 'defeated.png'], ['faceDown', 'face-down.jpg']]) ART[L[k]] = `/rpg/a/rival-${p}-${file}`
 }
 /** Your progress, as the milestones read it. */
 const rivalProgress = (badges, champion, red = false) => ({ johto: badges.filter((n) => n < 8).length, kanto: badges.filter((n) => n >= 8).length, champion, red })
