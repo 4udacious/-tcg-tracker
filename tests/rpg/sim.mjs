@@ -64,7 +64,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
   /* ── one battle ── */
   function battle(skill, T, teamOf, party) {
     const foes = teamOf(party.map((m) => m.level))
-    const movesFor = (f, last) => T.movesFor?.(f) || (T.sig && last && T.sig) || (T.region === 'kanto' && strongMoves(f)) || TRAINER_MOVES[f.name] || WILD_MOVES[f.types[0]] || WILD_MOVES.normal
+    const movesFor = (f, last) => T.movesFor?.(f) || (T.sig && last && T.sig) || ((T.region === 'kanto' || T.strong) && strongMoves(f)) || TRAINER_MOVES[f.name] || WILD_MOVES[f.types[0]] || WILD_MOVES.normal
     let restores = T.restores ?? 1, potions = skill.potions, pp = 3
     let me = party[0], fi = 0, foe = foes[0], fm = movesFor(foe, foes.length === 1), charged = null, conf = 0
     const switchIn = () => { me = party.filter((m) => m.hp > 0).sort((a, b) => bestHit(b, foe) - bestHit(a, foe))[0] }
