@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import VvmItemsClient, { type SetItem } from './VvmItemsClient'
 import VvmSuppliesClient, { type SupplyRow } from './VvmSuppliesClient'
+import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,7 @@ export default async function AdminVvmPage() {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
@@ -25,6 +26,11 @@ export default async function AdminVvmPage() {
       .select('key, kind, name, description, contents, token_price, appearance_rate, is_active, sort_order, updated_at')
       .order('sort_order'),
     supabase.from('vending_settings').select('wild_live, battle_rewards_open').single(),
+    // Empty (and the section hidden) before v62.
+    supabase
+      .from('vending_boxes')
+      .select('id, set_code, name, description, packs, token_price, total_quantity, claimed_quantity, per_user_limit, appearance_rate, is_active, restocked_at')
+      .order('sort_order'),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -63,6 +69,7 @@ export default async function AdminVvmPage() {
   return (
     <div className="space-y-8">
       <VvmItemsClient sets={[...bySet.values()]} />
+      <VvmBoxesClient boxes={((boxes as Omit<BoxRow, 'image_url'>[] | null) ?? []).map((b) => ({ ...b, image_url: bySet.get(b.set_code)?.image_url ?? null }))} />
       <VvmSuppliesClient supplies={(supplies as SupplyRow[] | null) ?? []} />
       <BattlesLiveClient
         wild={!!(settings as { wild_live: boolean } | null)?.wild_live}

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import VendingClient, { type RecentBuy, type TicketStockRow, type SupplyStockRow } from './VendingClient'
+import VendingClient, { type RecentBuy, type TicketStockRow, type SupplyStockRow, type BoxStockRow } from './VendingClient'
 import { loadBalance } from '@/lib/vending/data'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +27,7 @@ export default async function VendingPage({
 
   const showStock = state && (state.status === 'in_stock' || state.status === 'out_of_stock')
 
-  const [{ data: stock }, { data: ticketStock }, { data: supplyStock }, balance, { data: me }, { data: recentBuys }] =
+  const [{ data: stock }, { data: ticketStock }, { data: supplyStock }, { data: boxStock }, balance, { data: me }, { data: recentBuys }] =
     await Promise.all([
       showStock
         ? supabase.rpc('get_vending_stock', { p_cycle: state.cycle_no })
@@ -37,6 +37,9 @@ export default async function VendingPage({
         : Promise.resolve({ data: [] }),
       showStock
         ? supabase.rpc('get_vending_supply_stock', { p_cycle: state.cycle_no })
+        : Promise.resolve({ data: [] }),
+      showStock
+        ? supabase.rpc('get_vending_box_stock', { p_cycle: state.cycle_no })
         : Promise.resolve({ data: [] }),
       loadBalance(supabase),
       supabase.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
@@ -49,6 +52,7 @@ export default async function VendingPage({
       initialStock={stock ?? []}
       initialTickets={(ticketStock as TicketStockRow[] | null) ?? []}
       initialSupplies={(supplyStock as SupplyStockRow[] | null) ?? []}
+      initialBoxes={(boxStock as BoxStockRow[] | null) ?? []}
       balance={balance.total}
       allowance={balance.allowance}
       earned={balance.earned}
