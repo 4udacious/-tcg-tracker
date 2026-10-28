@@ -107,8 +107,10 @@ export interface BoxStockRow {
   per_user_limit: number | null
   /** How many the signed-in member has already bought. */
   owned: number
-  /** The set's pack wrappers, fanned out on the tile. */
+  /** The set's pack wrappers, fanned out on the tile when there's no box image. */
   pack_images: string[] | null
+  /** The box itself (v63; absent before). */
+  image_url?: string | null
 }
 
 /** Most boxes a member may add right now: the shelf, what's left, and their own cap. */
@@ -236,7 +238,7 @@ export default function VendingClient({
   const [detail, setDetail] = useState<ItemDetail | null>(null)
   // Checkout happens on the machine's screen: the order first, then PAY.
   const [reviewing, setReviewing] = useState(false)
-  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; restocked: boolean } | null>(null)
+  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; boxes: number; restocked: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
   const [watchers, setWatchers] = useState<Watcher[]>([])
   const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
@@ -469,7 +471,7 @@ export default function VendingClient({
       title: b.name,
       subtitle: `${b.packs} packs · ${fmt(price)} token${price === 1 ? '' : 's'} · ${b.remaining} left${limitNote}`,
       description: b.description,
-      image: b.pack_images?.[0] ?? null,
+      image: b.image_url ?? b.pack_images?.[0] ?? null,
       accent: BOX_COLOUR,
       fit: 'contain',
       onAdd: iAmHolder && boxCeiling(b) > (boxCart[b.box_id] ?? 0) ? () => addBoxToCart(b, 1) : undefined,
@@ -539,7 +541,7 @@ export default function VendingClient({
       ...(boxItems.length > 0 ? { p_boxes: boxItems } : {}),
     })
     const r = (Array.isArray(data) ? data[0] : data) as
-      | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; balance: number; restocked: boolean }
+      | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; boxes_bought?: number; balance: number; restocked: boolean }
       | null
     if (r?.ok) {
       setTokens(num(r.balance))
@@ -549,7 +551,7 @@ export default function VendingClient({
       setBoxCart({})
       haptic([20, 40, 20])
       setReceipt({
-        packs: r.packs_bought, tickets: r.tickets_bought ?? 0,
+        packs: r.packs_bought, tickets: r.tickets_bought ?? 0, boxes: r.boxes_bought ?? 0,
         supplies: r.supplies_bought ?? 0, restocked: r.restocked,
       })
       // Read the real cooldown back rather than assuming a duration - it is
@@ -599,7 +601,7 @@ export default function VendingClient({
   const orderLines = [
     ...Object.entries(boxCart).map(([id, qty]) => {
       const b = boxes.find((x) => x.box_id === Number(id))
-      return { key: `b-${id}`, name: `${b?.name ?? 'Booster box'} (${b?.packs ?? 0} packs)`, qty, cost: money(num(b?.token_price ?? 0) * qty), image: b?.pack_images?.[0] ?? null, icon: null }
+      return { key: `b-${id}`, name: `${b?.name ?? 'Booster box'} (${b?.packs ?? 0} packs)`, qty, cost: money(num(b?.token_price ?? 0) * qty), image: b?.image_url ?? b?.pack_images?.[0] ?? null, icon: null }
     }),
     ...Object.entries(cart).map(([code, qty]) => {
       const s = stock.find((x) => x.set_code === code)
@@ -660,7 +662,7 @@ export default function VendingClient({
 
           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border-2 border-black">
             {receipt ? (
-              <DispensingScreen items={receipt.packs + receipt.tickets + receipt.supplies} restocked={receipt.restocked} />
+              <DispensingScreen items={receipt.packs + receipt.tickets + receipt.supplies + receipt.boxes} restocked={receipt.restocked} />
             ) : status === 'out_of_stock' ? (
               <StockScreen stock={stock} tickets={tickets} supplies={supplies} boxes={boxes} soldOut cart={{}} ticketCart={{}} supplyCart={{}} boxCart={{}} onAdd={() => {}} onAddTicket={() => {}} onAddSupply={() => {}} onAddBox={() => {}} onInspect={showPackDetail} onInspectTicket={showTicketDetail} onInspectSupply={showSupplyDetail} onInspectBox={showBoxDetail} interactive={false} />
             ) : status === 'in_stock' ? (
@@ -727,6 +729,7 @@ export default function VendingClient({
               receipt.packs > 0 ? `${receipt.packs} pack${receipt.packs === 1 ? '' : 's'}` : null,
               receipt.tickets > 0 ? `${receipt.tickets} raffle ticket${receipt.tickets === 1 ? '' : 's'}` : null,
               receipt.supplies > 0 ? `${receipt.supplies} battle suppl${receipt.supplies === 1 ? 'y' : 'ies'}` : null,
+              receipt.boxes > 0 ? `${receipt.boxes} sealed booster box${receipt.boxes === 1 ? '' : 'es'}` : null,
             ].filter(Boolean).join(' and ')}.
           </p>
           {receipt.restocked && <p className="text-xs text-signal font-medium">The machine restocked behind you.</p>}
@@ -737,7 +740,7 @@ export default function VendingClient({
           </p>
           <div className="flex gap-2 pt-1">
             <Button full onClick={() => { setReceipt(null); router.push('/collection') }}>
-              {receipt.packs > 0 ? 'Open them' : 'See them'}
+              {receipt.packs > 0 || receipt.boxes > 0 ? 'Open them' : 'See them'}
             </Button>
             <Button variant="outline" onClick={() => setReceipt(null)}>Done</Button>
           </div>
@@ -1017,7 +1020,7 @@ function StockScreen({
       )}
       <div className="flex-1 min-h-0 overflow-y-auto p-2">
         <div className="grid grid-cols-2 gap-2">
-          {/* Booster boxes lead the shelf when one turns up: the set's wrappers fanned out. */}
+          {/* Booster boxes lead the shelf when one turns up: the box itself, or the set's wrappers fanned out. */}
           {boxes.map((b) => {
             const taken = boxCart[b.box_id] ?? 0
             const ceiling = boxCeiling(b)
@@ -1032,7 +1035,11 @@ function StockScreen({
                 <button type="button" onClick={() => onInspectBox(b)} className="block w-full cursor-pointer" aria-label={`About ${b.name}`}>
                   <div className={`relative w-full aspect-[2/3] rounded-sm overflow-hidden ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
                     style={{ background: 'radial-gradient(circle at 50% 35%, #f5f3ff, #ddd6fe)' }}>
-                    {arts.map((src, i) => (
+                    {b.image_url ? (
+                      <div className="absolute inset-0 bg-white flex items-center justify-center">
+                        <img src={b.image_url} alt="" loading="lazy" className="w-full object-contain" />
+                      </div>
+                    ) : arts.map((src, i) => (
                       <img key={src} src={src} alt="" loading="lazy"
                         className="absolute top-[12%] h-[76%] w-auto object-contain drop-shadow"
                         style={{ left: `${10 + i * 22}%`, transform: `rotate(${(i - 1) * 9}deg)`, zIndex: i === 1 ? 2 : 1 }} />

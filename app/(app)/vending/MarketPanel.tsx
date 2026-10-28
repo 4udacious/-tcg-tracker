@@ -11,7 +11,7 @@ import HoloMark, { rarityLabel } from './HoloMark'
 import { SET_NAMES } from './ShowcaseRoom'
 import { num, fmt, money, takeHome, CENT } from './tokens'
 import { MarketNotices, MarketFeed } from './MarketActivity'
-import type { CollectionCard, CardCopy, UnopenedPack } from './CollectionPanel'
+import type { CollectionCard, CardCopy, UnopenedPack, OwnedBox } from './CollectionPanel'
 
 export interface MarketListing {
   id: number
@@ -29,6 +29,8 @@ export interface MarketListing {
   item_count: number
   card_count: number
   pack_count: number
+  /** Sealed booster boxes in it (v63; absent before). */
+  box_count?: number
   preview_image: string | null
   preview_name: string | null
   preview_grade: number | null
@@ -49,7 +51,7 @@ function listingName(l: MarketListing): string {
 }
 
 interface ListingItem extends Condition {
-  item_kind: 'card' | 'pack'
+  item_kind: 'card' | 'pack' | 'box'
   name: string
   number: string | null
   rarity: string | null
@@ -92,12 +94,13 @@ function noMinimum(l: MarketListing): boolean {
 }
 
 export default function MarketPanel({
-  listings, myListings, collection, packs, balance, feePercent, userId, onNoticesRead,
+  listings, myListings, collection, packs, boxes, balance, feePercent, userId, onNoticesRead,
 }: {
   listings: MarketListing[]
   myListings: MarketListing[]
   collection: CollectionCard[]
   packs: UnopenedPack[]
+  boxes: OwnedBox[]
   balance: number
   feePercent: number
   userId: string
@@ -263,7 +266,7 @@ export default function MarketPanel({
 
       {composing && (
         <Compose
-          collection={collection} packs={packs} feePercent={feePercent}
+          collection={collection} packs={packs} boxes={boxes} feePercent={feePercent}
           onClose={() => setComposing(false)}
           onDone={() => { setComposing(false); startTransition(() => router.refresh()) }}
           onError={fail}
@@ -486,9 +489,11 @@ function ListingDetail({
             <p className="font-mono text-[10px] text-muted">
               {/* A titled listing still says what its headline item is. */}
               {l.title && l.preview_name && `${l.preview_name} · `}
-              {l.card_count > 0 && `${l.card_count} card${l.card_count === 1 ? '' : 's'}`}
-              {l.card_count > 0 && l.pack_count > 0 && ' · '}
-              {l.pack_count > 0 && `${l.pack_count} pack${l.pack_count === 1 ? '' : 's'}`}
+              {[
+                (l.box_count ?? 0) > 0 && `${l.box_count} sealed box${l.box_count === 1 ? '' : 'es'}`,
+                l.card_count > 0 && `${l.card_count} card${l.card_count === 1 ? '' : 's'}`,
+                l.pack_count > 0 && `${l.pack_count} pack${l.pack_count === 1 ? '' : 's'}`,
+              ].filter(Boolean).join(' · ')}
               {' · '}{l.seller_display ?? l.seller_name}
             </p>
           </div>
@@ -502,7 +507,16 @@ function ListingDetail({
           <ul className={`grid gap-2 ${items.length === 1 ? 'grid-cols-1 max-w-[9rem] mx-auto' : 'grid-cols-3'}`}>
             {items.map((it, i) => (
               <li key={i}>
-                {it.item_kind === 'pack' ? (
+                {it.item_kind === 'box' ? (
+                  <div className="relative">
+                    <div className="w-full aspect-[245/342] rounded bg-white flex items-center justify-center overflow-hidden">
+                      <img src={it.image_url} alt={it.name} className="w-full object-contain" />
+                    </div>
+                    <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
+                      sealed box{it.number ? ` · ${it.number} packs` : ''}
+                    </span>
+                  </div>
+                ) : it.item_kind === 'pack' ? (
                   <div className="relative">
                     <img src={it.image_url} alt={it.name}
                          className="w-full aspect-[245/342] object-contain rounded bg-paper" />
@@ -739,9 +753,10 @@ function Settled({ listing: l, mine, feePercent }: {
 }
 
 /** Building a listing: pick the goods, then say how it sells. */
-function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
+function Compose({ collection, packs, boxes, feePercent, onClose, onDone, onError }: {
   collection: CollectionCard[]
   packs: UnopenedPack[]
+  boxes: OwnedBox[]
   feePercent: number
   onClose: () => void
   onDone: () => void
@@ -749,11 +764,12 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
 }) {
   const [cards, setCards] = useState<Set<number>>(new Set())
   const [chosenPacks, setChosenPacks] = useState<Set<number>>(new Set())
+  const [chosenBoxes, setChosenBoxes] = useState<Set<number>>(new Set())
   const [kind, setKind] = useState<'fixed' | 'auction'>('fixed')
   const [price, setPrice] = useState('10')
   // An auction with no minimum opens at the smallest unit, 0.01.
   const [noMin, setNoMin] = useState(false)
-  // null = everything. 'sealed' = unopened packs. Otherwise a set code.
+  // null = everything. 'sealed' = unopened packs and boxes. Otherwise a set code.
   const [filter, setFilter] = useState<string | null>(null)
   // One price for the lot, or a price each.
   const [split, setSplit] = useState(false)
@@ -789,10 +805,10 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     const sets = [...counts.entries()]
       .map(([code, n]) => ({ code, label: SET_NAMES[code] ?? code, n }))
       .sort((a, b) => a.code.localeCompare(b.code))
-    return packs.length > 0
-      ? [{ code: 'sealed', label: 'Sealed', n: packs.length }, ...sets]
+    return packs.length + boxes.length > 0
+      ? [{ code: 'sealed', label: 'Sealed', n: packs.length + boxes.length }, ...sets]
       : sets
-  }, [copies, packs])
+  }, [copies, packs, boxes])
 
   const shownCopies = useMemo(
     () => (filter === null ? copies
@@ -804,8 +820,12 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     () => (filter === null || filter === 'sealed' ? packs : []),
     [packs, filter]
   )
+  const shownBoxes = useMemo(
+    () => (filter === null || filter === 'sealed' ? boxes : []),
+    [boxes, filter]
+  )
 
-  const total = cards.size + chosenPacks.size
+  const total = cards.size + chosenPacks.size + chosenBoxes.size
   // Separate listings only once there is more than one thing to separate; a
   // lone item with "Price each" left on from earlier is still one listing.
   const separate = split && total > 1
@@ -815,7 +835,10 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
 
   /** Everything picked, in the order it will be listed. */
   const picked = useMemo(() => {
-    const out: { key: string; label: string; cardId?: number; packId?: number }[] = []
+    const out: { key: string; label: string; cardId?: number; packId?: number; boxId?: number }[] = []
+    for (const b of boxes) {
+      if (chosenBoxes.has(b.id)) out.push({ key: `b${b.id}`, label: `${b.name} (sealed)`, boxId: b.id })
+    }
     for (const { card, copy } of copies) {
       if (cards.has(copy.id)) {
         out.push({
@@ -831,7 +854,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
       }
     }
     return out
-  }, [copies, packs, cards, chosenPacks])
+  }, [copies, packs, boxes, cards, chosenPacks, chosenBoxes])
 
   const priceFor = (key: string) => (open ? String(CENT) : prices[key] ?? price)
 
@@ -844,6 +867,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
   const reasonText = (reason?: string) =>
     reason === 'bad_cards' ? 'One of those cards is no longer available.'
     : reason === 'bad_packs' ? 'One of those packs is no longer available.'
+    : reason === 'bad_boxes' ? 'One of those boxes is no longer available.'
     : reason === 'empty_listing' ? 'Pick at least one thing to sell.'
     : reason === 'bad_price' ? `Every price has to be at least ${CENT} tokens.`
     : reason === 'bad_title' ? 'Titles can be up to 60 characters.'
@@ -851,13 +875,15 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
 
   async function createOne(
     supabase: ReturnType<typeof createClient>,
-    price: number, cardIds: number[], packIds: number[]
+    price: number, cardIds: number[], packIds: number[], boxIds: number[]
   ) {
     const { data, error } = await supabase.rpc('market_create_listing', {
       p_kind: kind,
       p_price: price,
       p_card_ids: cardIds,
       p_pack_ids: packIds,
+      // Only when there are some, so card and pack listings keep working before v63.
+      ...(boxIds.length > 0 ? { p_box_ids: boxIds } : {}),
       p_hours: kind === 'auction' ? hours : null,
       p_note: note.trim() || null,
       // One title cannot name several listings, so separate ones keep their
@@ -873,7 +899,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
     const supabase = createClient()
 
     if (!separate) {
-      const r = await createOne(supabase, n, [...cards], [...chosenPacks])
+      const r = await createOne(supabase, n, [...cards], [...chosenPacks], [...chosenBoxes])
       setBusy(false)
       if (!r.ok) { onError(reasonText(r.reason)); return }
       onDone()
@@ -891,7 +917,8 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
       const r = await createOne(
         supabase, each,
         item.cardId ? [item.cardId] : [],
-        item.packId ? [item.packId] : []
+        item.packId ? [item.packId] : [],
+        item.boxId ? [item.boxId] : []
       )
       if (!r.ok) { firstFailure = r.reason; break }
       made += 1
@@ -933,9 +960,9 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
             <p className="text-xs font-medium text-ink">
               {total > 0
                 ? <span className="text-muted">{total} picked</span>
-                : 'Pick the cards or packs you want to sell.'}
+                : 'Pick the cards, packs or sealed boxes you want to sell.'}
             </p>
-            {copies.length === 0 && packs.length === 0 ? (
+            {copies.length === 0 && packs.length === 0 && boxes.length === 0 ? (
               <p className="text-sm text-muted">Nothing to sell yet.</p>
             ) : (
               <>
@@ -950,7 +977,7 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                     aria-pressed={filter === null}
                   >
                     All <span className={filter === null ? 'text-white/60' : ''}>
-                      {copies.length + packs.length}
+                      {copies.length + packs.length + boxes.length}
                     </span>
                   </button>
                   {tabs.map((t) => (
@@ -996,6 +1023,29 @@ function Compose({ collection, packs, feePercent, onClose, onDone, onError }: {
                             {copy.grade}
                           </span>
                         )}
+                      </button>
+                    </li>
+                  )
+                })}
+                {/* Sealed boxes first: the box photo on white, the way it's sold. */}
+                {shownBoxes.map((b) => {
+                  const on = chosenBoxes.has(b.id)
+                  return (
+                    <li key={`b${b.id}`}>
+                      <button
+                        onClick={() => toggle(chosenBoxes, b.id, setChosenBoxes)}
+                        className={`relative block w-full rounded transition-all ${
+                          on ? 'ring-2 ring-white scale-95 shadow-[0_0_0_4px_rgba(15,23,42,0.45)]' : ''
+                        }`}
+                        aria-pressed={on}
+                        aria-label={`${on ? 'Remove' : 'Add'} sealed ${b.name}, ${b.packs} packs`}
+                      >
+                        <div className="w-full aspect-[245/342] rounded bg-white flex items-center justify-center overflow-hidden">
+                          {b.image_url && <img src={b.image_url} alt="" className="w-full object-contain" />}
+                        </div>
+                        <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
+                          sealed box
+                        </span>
                       </button>
                     </li>
                   )

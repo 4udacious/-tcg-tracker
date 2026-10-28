@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket, OwnedItem } from '@/app/(app)/vending/CollectionPanel'
+import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket, OwnedItem, OwnedBox } from '@/app/(app)/vending/CollectionPanel'
 import type { ShowcaseItem, Lighting } from '@/app/(app)/vending/ShowcaseRoom'
 import type { MarketListing } from '@/app/(app)/vending/MarketPanel'
 
@@ -42,6 +42,23 @@ export async function loadPacks(supabase: SupabaseClient, userId: string): Promi
   return ((data as PackRow[] | null) ?? []).map((r) => {
     const p = one(r.vending_packs)
     return { id: r.id, set_name: p?.set_name ?? '', pack_name: p?.pack_name ?? '', image_url: p?.image_url ?? '', acquired_at: r.acquired_at }
+  })
+}
+
+/** Sealed booster boxes, not listed on the market (empty before v63). */
+export async function loadBoxes(supabase: SupabaseClient, userId: string): Promise<OwnedBox[]> {
+  const { data } = await supabase
+    .from('user_boxes')
+    .select('id, packs, acquired_at, vending_boxes(name, image_url, set_code)')
+    .eq('user_id', userId)
+    .is('opened_at', null)
+    .is('market_listing_id', null)
+    .order('acquired_at')
+  type B = { name: string; image_url: string | null; set_code: string }
+  type Row = { id: number; packs: number; acquired_at: string; vending_boxes: B | B[] | null }
+  return ((data as Row[] | null) ?? []).map((r) => {
+    const b = one(r.vending_boxes)
+    return { id: r.id, packs: r.packs, acquired_at: r.acquired_at, name: b?.name ?? 'Booster Box', image_url: b?.image_url ?? null, set_code: b?.set_code ?? '' }
   })
 }
 

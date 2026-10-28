@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ShowcaseRoom, { type ShowcaseItem, type Lighting, SLOTS, SET_NAMES, lightRgb, hueRgb } from './ShowcaseRoom'
 import ConditionedCard from './ConditionedCard'
-import type { CollectionCard } from './CollectionPanel'
+import type { CollectionCard, OwnedBox } from './CollectionPanel'
 import HoloMark, { rarityLabel } from './HoloMark'
 import { Sheet } from '@/components/ui/Sheet'
 
@@ -18,11 +18,13 @@ const SHELF_OPTIONS: { value: string; label: string }[] = [
 
 /** The owner's view: the same room, plus the means to arrange it. */
 export default function ShowcasePanel({
-  initialItems, initialLighting, collection,
+  initialItems, initialLighting, collection, boxes = [],
 }: {
   initialItems: ShowcaseItem[]
   initialLighting: Lighting
   collection: CollectionCard[]
+  /** Sealed booster boxes, which can stand on a shelf too. */
+  boxes?: OwnedBox[]
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -38,7 +40,9 @@ export default function ShowcasePanel({
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
-  const placed = useMemo(() => new Set(items.map((i) => i.user_card_id)), [items])
+  // What is already out, keyed by kind and id: a card and a box can share an id.
+  const keyOf = (i: ShowcaseItem) => (i.item_kind === 'box' ? `b${i.user_box_id}` : `c${i.user_card_id}`)
+  const placed = useMemo(() => new Set(items.map(keyOf)), [items])
 
   /** Every copy owned, flattened, with what the room needs to draw it. */
   const candidates = useMemo(() => {
@@ -67,9 +71,17 @@ export default function ShowcasePanel({
     }
     // Slabs first, best grade down, then the rest - the things people want to
     // show off should not be below a hundred commons.
-    return out.sort((a, b) =>
+    out.sort((a, b) =>
       (b.grade ?? -1) - (a.grade ?? -1) || a.name.localeCompare(b.name))
-  }, [collection])
+    // Sealed boxes lead: there are only ever a few, and they are the showpieces.
+    const sealed: ShowcaseItem[] = boxes.map((b) => ({
+      slot: -1, item_kind: 'box', user_box_id: b.id, user_card_id: null, card_id: null,
+      name: b.name, number: '', rarity: '', image_url: b.image_url ?? '', set_code: b.set_code,
+      center_x: 0, center_y: 0, corners: 100, edges: 100, surface: 100, border_wear: 100, wear_seed: 0,
+      crease: 0, holes: 0, rips: 0, grade: null,
+    }))
+    return [...sealed, ...out]
+  }, [collection, boxes])
 
   /** Only the sets this trainer actually owns something from, with counts. */
   const setTabs = useMemo(() => {
@@ -98,15 +110,16 @@ export default function ShowcasePanel({
   async function place(slot: number, pick: ShowcaseItem) {
     setBusy(true); setNote(null)
     const supabase = createClient()
-    const { error } = await supabase.rpc('set_showcase_slot', {
-      p_slot: slot, p_user_card_id: pick.user_card_id,
-    })
+    const box = pick.item_kind === 'box'
+    const { error } = box
+      ? await supabase.rpc('set_showcase_box_slot', { p_slot: slot, p_user_box_id: pick.user_box_id })
+      : await supabase.rpc('set_showcase_slot', { p_slot: slot, p_user_card_id: pick.user_card_id })
     setBusy(false)
-    if (error) { setNote('Could not place that card.'); return }
+    if (error) { setNote(box ? 'Could not place that box.' : 'Could not place that card.'); return }
     setItems((prev) => [
-      // A card can only stand in one place, so clear it from any other slot
-      // the way the database just did.
-      ...prev.filter((i) => i.slot !== slot && i.user_card_id !== pick.user_card_id),
+      // A card (or box) can only stand in one place, so clear it from any
+      // other slot the way the database just did.
+      ...prev.filter((i) => i.slot !== slot && keyOf(i) !== keyOf(pick)),
       { ...pick, slot },
     ])
     setPicking(null)
@@ -254,7 +267,7 @@ export default function ShowcasePanel({
 
       {/* ── Picker ── */}
       <Sheet open={picking !== null} onClose={() => setPicking(null)} wide
-        title={picking !== null ? `Slot ${picking + 1}: choose a card` : ''}>
+        title={picking !== null ? `Slot ${picking + 1}: choose a card${boxes.length ? ' or box' : ''}` : ''}>
         {picking !== null && (
           <>
 
@@ -270,7 +283,7 @@ export default function ShowcasePanel({
 
             {candidates.length === 0 ? (
               <p className="text-sm text-muted mt-4">
-                Nothing to display yet. Open a pack first.
+                Nothing to display yet. Open a pack, or buy a sealed box.
               </p>
             ) : (
               <>
@@ -308,9 +321,28 @@ export default function ShowcasePanel({
 
               <ul className="grid grid-cols-4 gap-2 mt-3 overflow-y-auto">
                 {shown.map((c) => {
-                  const already = placed.has(c.user_card_id)
+                  const already = placed.has(keyOf(c))
+                  if (c.item_kind === 'box') {
+                    return (
+                      <li key={keyOf(c)}>
+                        <button
+                          onClick={() => place(picking, c)}
+                          disabled={busy}
+                          className="block w-full relative rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal disabled:opacity-40"
+                          aria-label={`Put the sealed ${c.name} in slot ${picking + 1}`}
+                        >
+                          <div className={`w-full aspect-[245/342] rounded bg-white flex items-center justify-center overflow-hidden ${already ? 'opacity-45' : ''}`}>
+                            {c.image_url && <img src={c.image_url} alt="" className="w-full object-contain" />}
+                          </div>
+                          <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
+                            {already ? 'on shelf' : 'sealed box'}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  }
                   return (
-                    <li key={c.user_card_id}>
+                    <li key={keyOf(c)}>
                       <button
                         onClick={() => place(picking, c)}
                         disabled={busy}
