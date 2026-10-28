@@ -19,18 +19,11 @@ interface Settings {
   interest_reward_tokens: number
 }
 
-/** Presets for the post-purchase cooldown, in hours. */
-const COOLDOWN_OPTIONS: { value: number; label: string }[] = [
-  { value: 0, label: 'None' },
-  { value: 0.25, label: '15 min' },
-  { value: 0.5, label: '30 min' },
-  { value: 1, label: '1 hour' },
-  { value: 2, label: '2 hours' },
-  { value: 3, label: '3 hours' },
-  { value: 6, label: '6 hours' },
-  { value: 12, label: '12 hours' },
-  { value: 24, label: '24 hours' },
-]
+/** The cooldown, stored in hours, as whole hours and minutes for the fields (to the minute, as the checkout applies it). */
+function splitHours(h: number) {
+  const total = Math.round(h * 60)
+  return { hours: String(Math.floor(total / 60)), minutes: String(total % 60) }
+}
 
 interface BalanceRow {
   user_id: string
@@ -89,7 +82,9 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
   const [allowance, setAllowance] = useState(String(settings.monthly_allowance))
   const [cap, setCap] = useState(settings.per_cycle_pack_cap == null ? '' : String(settings.per_cycle_pack_cap))
   const [expire, setExpire] = useState(settings.tokens_expire_monthly)
-  const [cooldown, setCooldown] = useState(Number(settings.cooldown_hours ?? 3))
+  const [coolHours, setCoolHours] = useState(splitHours(Number(settings.cooldown_hours ?? 3)).hours)
+  const [coolMinutes, setCoolMinutes] = useState(splitHours(Number(settings.cooldown_hours ?? 3)).minutes)
+  const cooldown = (Number(coolHours) || 0) + (Number(coolMinutes) || 0) / 60
   const [perReport, setPerReport] = useState(String(settings.tokens_per_timer_report ?? 1))
   const [earnCap, setEarnCap] = useState(String(settings.max_earned_tokens_per_month ?? 15))
   const [gradeCost, setGradeCost] = useState(String(settings.grading_cost ?? 3))
@@ -133,6 +128,9 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
     if (!Number.isFinite(gd) || gd < 0) { showToast('Grading wait must be 0 days or more.', false); return }
     const mf = Number(marketFee)
     if (!Number.isInteger(mf) || mf < 0 || mf > 50) { showToast('Market fee must be a whole number between 0 and 50.', false); return }
+    const ch = coolHours.trim() === '' ? 0 : Number(coolHours), cm = coolMinutes.trim() === '' ? 0 : Number(coolMinutes)
+    if (!Number.isInteger(ch) || ch < 0 || ch > 720) { showToast('Cooldown hours must be a whole number from 0 to 720.', false); return }
+    if (!Number.isInteger(cm) || cm < 0 || cm > 59) { showToast('Cooldown minutes must be a whole number from 0 to 59.', false); return }
     const ir = Number(interestReward)
     if (!Number.isFinite(ir) || ir < 0) { showToast('Interest reward must be 0 or more.', false); return }
     setBusy(true)
@@ -344,21 +342,15 @@ export default function TokensClient({ settings, balances, period, recent }: Pro
             How long a member waits before they can use the machine again. This is the main brake on one
             person clearing every restock.
           </p>
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {COOLDOWN_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setCooldown(o.value)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  cooldown === o.value
-                    ? 'bg-signal text-white border-signal'
-                    : 'bg-paper border-card-border text-ink hover:border-ink/30'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 pt-0.5">
+            <input type="number" inputMode="numeric" min={0} max={720} step={1} value={coolHours}
+              onChange={(e) => setCoolHours(e.target.value)} aria-label="Cooldown hours"
+              className="w-24 bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal" />
+            <span className="text-xs text-muted">hours</span>
+            <input type="number" inputMode="numeric" min={0} max={59} step={1} value={coolMinutes}
+              onChange={(e) => setCoolMinutes(e.target.value)} aria-label="Cooldown minutes"
+              className="w-24 bg-paper border border-card-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal" />
+            <span className="text-xs text-muted">minutes</span>
           </div>
           {cooldown === 0 && (
             <p className="text-xs text-[#f97316]">
