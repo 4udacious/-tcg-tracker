@@ -25,6 +25,16 @@ export interface UnopenedPack {
   acquired_at: string
 }
 
+/** A sealed booster box the member holds (v63): opened into its packs, sold, or shown. */
+export interface OwnedBox {
+  id: number
+  name: string
+  image_url: string | null
+  set_code: string
+  packs: number
+  acquired_at: string
+}
+
 /** One pulled copy, with its own condition. */
 export interface CardCopy {
   id: number
@@ -234,6 +244,7 @@ export interface OwnedItem {
 
 interface Props {
   packs: UnopenedPack[]
+  boxes: OwnedBox[]
   collection: CollectionCard[]
   setTotals: SetTotal[]
   tickets: OwnedTicket[]
@@ -377,7 +388,7 @@ function rarityRing(r: string): string {
 }
 
 export default function CollectionPanel({
-  packs, collection, setTotals, tickets, items, gradingCost, gradingDays, cleaningCost, cleaningDays,
+  packs, boxes, collection, setTotals, tickets, items, gradingCost, gradingDays, cleaningCost, cleaningDays,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -440,6 +451,13 @@ export default function CollectionPanel({
   // until the server props catch up and inviting a second tap that would be
   // refused with "already open".
   const [openedIds, setOpenedIds] = useState<Set<number>>(new Set())
+
+  // Sealed boxes opened here drop out at once, as packs do; the first tap on
+  // Open asks again, since a box opened is a box that can't be sold sealed.
+  const [openedBoxIds, setOpenedBoxIds] = useState<Set<number>>(new Set())
+  const [confirmBox, setConfirmBox] = useState<number | null>(null)
+  const [boxNote, setBoxNote] = useState<string | null>(null)
+  const visibleBoxes = useMemo(() => boxes.filter((b) => !openedBoxIds.has(b.id)), [boxes, openedBoxIds])
 
   const visiblePacks = useMemo(
     () => packs.filter((p) => !openedIds.has(p.id)),
@@ -602,6 +620,18 @@ export default function CollectionPanel({
     setReveal(cards)
     setRevealed(0)
     setLastFlipped(false)
+  }
+
+  async function openBox(b: OwnedBox) {
+    if (confirmBox !== b.id) { setConfirmBox(b.id); setBoxNote(null); return }
+    setConfirmBox(null); setOpening(true); setError(null)
+    playPackSound('rip')
+    const { data, error: err } = await createClient().rpc('open_box', { p_user_box_id: b.id })
+    setOpening(false)
+    if (err) { setError(err.message.replace(/^.*?:\s*/, '')); return }
+    setOpenedBoxIds((prev) => new Set(prev).add(b.id))
+    setBoxNote(`${Number(data ?? b.packs)} sealed packs from your ${b.name} are in Unopened below.`)
+    startTransition(() => router.refresh())
   }
 
   function closeReveal() {
@@ -792,6 +822,47 @@ export default function CollectionPanel({
 
   return (
     <div className="space-y-5">
+      {/* ── Sealed booster boxes ── */}
+      {(visibleBoxes.length > 0 || boxNote) && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-base">Sealed boxes</h2>
+            <span className="font-mono text-[10px] text-muted">
+              {visibleBoxes.length} box{visibleBoxes.length === 1 ? '' : 'es'}
+            </span>
+          </div>
+          {boxNote && (
+            <p className="text-sm text-signal bg-signal/10 border border-signal/30 rounded-xl px-3 py-2">{boxNote}</p>
+          )}
+          {visibleBoxes.length > 0 && (
+            <ul className="grid grid-cols-2 gap-2">
+              {visibleBoxes.map((b) => (
+                <li key={b.id} className="bg-card border border-card-border rounded-xl p-2 flex flex-col gap-1.5">
+                  <div className="w-full aspect-[541/480] rounded-lg bg-white overflow-hidden flex items-center justify-center">
+                    {b.image_url
+                      ? <img src={b.image_url} alt="" loading="lazy" className="w-full h-full object-contain" />
+                      : <span className="text-xs text-muted">{b.name}</span>}
+                  </div>
+                  <p className="text-xs font-semibold leading-tight truncate">{b.name}</p>
+                  <p className="text-[10px] text-muted leading-tight">
+                    {b.packs} packs, sealed · sell it or put it on your shelf
+                  </p>
+                  <button
+                    onClick={() => openBox(b)}
+                    disabled={opening}
+                    className={`min-h-9 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 ${
+                      confirmBox === b.id ? 'bg-red-600 text-white' : 'border border-card-border text-ink hover:bg-paper'
+                    }`}
+                  >
+                    {confirmBox === b.id ? `Open it? ${b.packs} packs, can't reseal` : 'Open box'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {/* ── Unopened packs ── */}
       <section className="space-y-2">
         <div className="flex items-baseline justify-between gap-2">

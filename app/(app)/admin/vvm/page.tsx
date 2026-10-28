@@ -29,7 +29,7 @@ export default async function AdminVvmPage() {
     // Empty (and the section hidden) before v62.
     supabase
       .from('vending_boxes')
-      .select('id, set_code, name, description, packs, token_price, total_quantity, claimed_quantity, per_user_limit, appearance_rate, is_active, restocked_at')
+      .select('*')
       .order('sort_order'),
   ])
 
@@ -69,7 +69,7 @@ export default async function AdminVvmPage() {
   return (
     <div className="space-y-8">
       <VvmItemsClient sets={[...bySet.values()]} />
-      <VvmBoxesClient boxes={((boxes as Omit<BoxRow, 'image_url'>[] | null) ?? []).map((b) => ({ ...b, image_url: bySet.get(b.set_code)?.image_url ?? null }))} />
+      <VvmBoxesClient boxes={((boxes as (Omit<BoxRow, 'image_url'> & { image_url?: string | null })[] | null) ?? []).map((b) => ({ ...b, image_url: b.image_url ?? bySet.get(b.set_code)?.image_url ?? null }))} />
       <VvmSuppliesClient supplies={(supplies as SupplyRow[] | null) ?? []} />
       <BattlesLiveClient
         wild={!!(settings as { wild_live: boolean } | null)?.wild_live}

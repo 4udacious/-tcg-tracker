@@ -6,8 +6,9 @@ import Slab from './Slab'
 
 export interface ShowcaseItem extends Condition {
   slot: number
-  user_card_id: number
-  card_id: number
+  /** null when the slot holds a sealed box. */
+  user_card_id: number | null
+  card_id: number | null
   name: string
   number: string
   rarity: string
@@ -15,6 +16,9 @@ export interface ShowcaseItem extends Condition {
   set_code: string
   /** null when the card is raw rather than slabbed. */
   grade: number | null
+  /** A card, or a sealed booster box (v63; absent before means a card). */
+  item_kind?: 'card' | 'box'
+  user_box_id?: number | null
 }
 
 export interface Lighting {
@@ -83,6 +87,14 @@ export function lightColor(l: Lighting): string {
 }
 
 function Item({ item }: { item: ShowcaseItem }) {
+  // A sealed box stands on the shelf as itself: wider than a card, so it
+  // sits on the plank at its own height rather than squeezed into a card's.
+  if (item.item_kind === 'box') {
+    return (
+      <img src={item.image_url} alt={item.name}
+           className="w-full object-contain drop-shadow-[0_6px_8px_rgba(0,0,0,0.55)]" />
+    )
+  }
   const setName = SET_NAMES[item.set_code] ?? item.set_code
   if (item.grade != null) {
     return (
