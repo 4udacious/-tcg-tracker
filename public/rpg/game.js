@@ -3313,7 +3313,7 @@ const RIVAL_BATTLES = [
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, min: 90, over: 14, restores: 3, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, min: 90, over: 14, restores: 3, switches: 2, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
@@ -3734,7 +3734,7 @@ const ELITE = [
     intro: ['Karen, of the Elite Four. I use dark types, and I raise them with love.', 'Strength is in how you treat your Pokémon. Show me yours.'],
     outro: ['Well, well. You really do care for your team.', "Go on. The Champion is waiting for you."],
     gloat: ['Not bad, but not enough. Love them harder.', 'Come back when your team trusts you completely.'] },
-  { short: 'LANCE', full: 'CHAMPION LANCE', role: 'CHAMPION', type: 'dragon', color: '#f87171', scene: 'cynthia', min: 53, tokens: '20.00',
+  { short: 'LANCE', full: 'CHAMPION LANCE', role: 'CHAMPION', switches: 2, type: 'dragon', color: '#f87171', scene: 'cynthia', min: 53, tokens: '20.00',
     team: ['GYARADOS', 'DRAGONITE', 'CHARIZARD', 'AERODACTYL', 'DRAGONITE', 'DRAGONITE'],
     sig: [S_('OUTRAGE', 'dragon', 80, 'phys', 'thud', { rampage: true }), L_('EARTHQUAKE', 'ground', 70, 'phys', 'quake', 'quake'), S_('EXTREME SPEED', 'normal', 50, 'phys', 'whoosh', { fast: true })],
     intro: ["I've been waiting. I'm Lance: the Champion, and a dragon master.", "Four down in one go. Let's see if you can finish it."],
@@ -3777,7 +3777,7 @@ const KANTO_ELITE = [
     intro: ["We meet again. Here, I'm the last of Kanto's Elite Four.", 'Beat me, and the road to Mt. Silver opens. Someone is waiting up there.'],
     outro: ["You've earned it. Mt. Silver is open to you.", 'Red is at the top. Go. I want to know how it ends.'],
     gloat: ['Dragons still rule here.', 'Start again from Lorelei.'] },
-  { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 3, red: true, city: 'MT. SILVER',
+  { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', switches: 2, type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 3, red: true, city: 'MT. SILVER',
     team: ['ESPEON', 'SNORLAX', 'VENUSAUR', 'CHARIZARD', 'BLASTOISE', 'PIKACHU'],
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
@@ -3807,6 +3807,28 @@ const LEVEL_CAP = 100
  * rest 2 below it. `over` is 3 plus the offset unless a leader sets their own
  * (Kanto's, so their offsets don't stack on top of your level).
  */
+/**
+ * Whether a leader who switches (`switches`: Lance, Red, Alex's last battle)
+ * pulls its Pokémon out: only once your best move is super effective on it,
+ * and only for one on the bench (`bench`, never the ace, kept for last) with
+ * over 40% of its HP that takes no more than 60% of the damage and trades
+ * better against yours. Returns that Pokémon, or null. The game and the
+ * balance simulator (tests/rpg/sim.mjs) both call this.
+ */
+function switchPick(cur, bench, me, myMoves, movesOf_) {
+  const hits = (moves) => moves.filter((m) => m && (m.power ?? 0) > 0)
+  const hit = (moves, att, def) => Math.max(0, ...hits(moves).map((m) => m.power * (m.hits ?? 1) * soften(gameMult(m.type, def.types)) * (att.types.includes(m.type) ? 1.5 : 1)))
+  if (Math.max(0, ...hits(myMoves).map((m) => soften(gameMult(m.type, cur.types)))) <= 1) return null
+  const taken = hit(myMoves, me, cur), trade = (f, took) => hit(movesOf_(f), f, me) / Math.max(1, took)
+  let best = null, bestTrade = trade(cur, taken)
+  for (const f of bench) {
+    const took = hit(myMoves, me, f)
+    if (f.hp <= f.stats.hp * 0.4 || took > taken * 0.6) continue
+    const t = trade(f, took)
+    if (t > bestTrade) { best = f; bestTrade = t }
+  }
+  return best
+}
 function leaderLevels(L, partyLevels) {
   const best = Math.max(1, ...partyLevels), last = L.team.length - 1, adj = L.lvAdj ?? 0
   const ace = Math.min(LEVEL_CAP, Math.max(L.min + adj, best + (L.over ?? 3 + adj)))
@@ -7254,6 +7276,7 @@ async function run(id) {
     foe.max = foe.stats.hp; foe.turn = 0
     const movesFor = (f) => (f.roamer && LEGEND_MOVES[f.name]) || (kind === 'trainer' && trainer?.movesFor?.(f)) || (kind === 'trainer' && trainer?.sig && !roster.length && trainer.sig) || (kind === 'trainer' && (trainer?.region === 'kanto' || (trainer?.strong && roster.length)) && strongMoves(f)) || (kind === 'trainer' && TRAINER_MOVES[f.name]) || (f.name === 'MAGIKARP' ? MAGIKARP : WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal)   // a leader's ace (their last) fights with the leader's own moves
     let restores = trainer?.hard ? trainer.restores ?? 1 : 0   // Full Restores in the bag: a Gym Leader's one, Alex's one to three
+    let switches = trainer?.switches ?? 0   // times this trainer may still pull a Pokémon out (switchPick)
     let sigUsed = false    // a leader's signature status move, once a battle
     let quipped = false    // a leader's first tell always gets a quip; later ones, half the time
     let fled = false       // a roaming legendary ran
@@ -7572,6 +7595,14 @@ async function run(id) {
       await say(`${trainer.short} called back`, `${foe.name}!`, 200)
       await sendInFoe(roster.shift())
     }
+    /** A leader pulls its Pokémon out for `to`: the one coming back goes on the bench, ahead of the ace. */
+    async function foeSwitchTo(to) {
+      await say(`${trainer.short} withdrew`, `${foe.name}!`, 200)
+      await anim($('enemy'), [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.1)' }], { duration: 320 }).finished
+      $('enemy').style.visibility = 'hidden'; stg.delete(foe); foe.charged = null
+      roster.splice(roster.indexOf(to), 1); roster.splice(roster.length - 1, 0, foe)
+      await sendInFoe(to)
+    }
     /** A trainer's next Pokémon comes out. */
     async function sendInFoe(next) {
       foe = next; foe.max = foe.stats.hp; foe.turn = 0; foeMoves = movesFor(foe); showTags()   // the new one starts with no stage changes
@@ -7665,6 +7696,11 @@ async function run(id) {
       if (kind === 'wild' && TELEPORTERS.has(foe.name) && !ST(foe).trapped && chance() < TELEPORT_CHANCE) {
         await announce(`${who(foe)} used`, 'TELEPORT!', 300); foeLast = 'TELEPORT'
         await specialMove(SUPPORT.TELEPORT, foe, { label: 'GOOD', mult: 1 }); return
+      }
+      // The toughest leaders pull a Pokémon out of a bad matchup (switchPick), most of the time.
+      if (switches > 0 && roster.length > 1 && !ST(foe).trapped && !foe.charged && !demo && rand() < 0.7) {
+        const to = switchPick(foe, roster.slice(0, -1), me, movesOf(me).map((n) => MOVEDEX[n]), movesFor)
+        if (to) { switches--; await foeSwitchTo(to); return }
       }
       // A Full Restore when a Pokémon is low: a Gym Leader keeps their one for the last Pokémon; with more
       // (Alex, later on), any Pokémon may get one, but the last of them is always kept for the last Pokémon.

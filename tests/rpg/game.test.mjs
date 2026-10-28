@@ -3,6 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { openGame } from './harness.mjs'
+import { simulate, SKILLS, AIMS } from './sim.mjs'
 
 const quick = !!process.env.RPG_QUICK
 
@@ -603,6 +604,42 @@ test('every leader\'s team: real species with sprites and cries, the mid-game on
     assert.ok(r.strong, 'Morty to Clair and the Johto Elite Four use the stronger moves; Falkner, Bugsy and Whitney don\'t')
     assert.ok(r.mamoswine, 'Pryce\'s ace is Mamoswine, with his signature moves')
     assert.ok(r.sizes.every((n) => n === 6), `the Kanto gyms and both Elite Fours bring six: ${r.sizes}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('balance: every leader, Elite Four member, Red and Alex within 15 points of their aim (sim.mjs, average player)', async () => {
+  const g = await openGame()
+  try {
+    await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
+    const rows = await g.page.evaluate(simulate, { N: 1000, SKILLS: { average: SKILLS.average }, ONLY: '', AIMS })
+    assert.ok(rows.length >= 33, `every fight simulated (${rows.length})`)
+    const off = rows.filter((r) => Math.abs(r.average - r.aim) > 0.15).map((r) => `${r.group} ${r.name}: ${Math.round(r.average * 100)}% (aim ${Math.round(r.aim * 100)}%)`)
+    assert.deepEqual(off, [], 'a fight drifted from its aim: re-tune it with `npm run sim:rpg`, or set its own aim in sim.mjs (AIMS)')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the toughest leaders switch out of a bad matchup, never to their ace, and only some leaders do', async () => {
+  const g = await openGame()
+  try {
+    await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const mon = (n, lv = 60) => { const m = individual(speciesByName(n), lv, () => 0.5); m.hp = m.stats.hp; return m }
+      const me = mon('TYPHLOSION'), mine = [MOVEDEX.EMBER, MOVEDEX.TACKLE]
+      const moves = (f) => WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal
+      const grass = mon('VENUSAUR'), water = mon('BLASTOISE'), grass2 = mon('VILEPLUME'), weakWater = mon('BLASTOISE'); weakWater.hp = 1
+      return {
+        toWater: switchPick(grass, [grass2, water], me, mine, moves)?.name,   // fire on grass: out, to the one that resists it and hits back, not another grass
+        hurtSkipped: switchPick(grass, [weakWater], me, mine, moves)?.name ?? null,   // not to one about to faint
+        stays: switchPick(water, [grass], me, mine, moves)?.name ?? null,   // fire on water isn't super effective: it stays in
+        who: [...GYMS, ...ELITE, ...KANTO_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].filter((T) => T.switches).map((T) => T.short + (T.rival ? ' ' + T.title : '')),
+      }
+    })
+    assert.equal(r.toWater, 'BLASTOISE')
+    assert.equal(r.hurtSkipped, null)
+    assert.equal(r.stays, null)
+    assert.deepEqual(r.who, ['LANCE', 'RED', 'ALEX RIVAL · FINAL · BATTLE 7 OF 7'])
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
