@@ -3428,7 +3428,7 @@ const STORY_THEMES = ['gym', 'gym', 'elite', 'elite']
 /** Herb or Paul (`who`) as the battle needs them for their battle n (0-3). */
 function storyTrainer(who, n) {
   const S = STORY[who], B = S.battles[n], T = S.T
-  return { ...T, ...B, story: who, step: n, full: T.full, title: 'GLITCHER', role: 'GLITCHER', hard: true, strong: n > 0,
+  return { ...T, ...B, story: who, step: n, full: T.full, title: 'TEAM UNEMPLOYED', role: 'TEAM UNEMPLOYED', hard: true, strong: n > 0,
     tellRate: B.tellRate ?? 0.3, ringFast: B.ringFast ?? 0.86, ivs: B.ivs ?? 20, scene: STORY_SCENES[n], theme: STORY_THEMES[n], color: S.color,
     movesFor: (f) => (n > 0 && f.name === B.team.at(-1) ? STORY_ACE_MOVES[f.name] : null) }
 }
