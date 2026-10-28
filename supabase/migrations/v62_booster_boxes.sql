@@ -6,7 +6,11 @@
 -- don't draw on that. Like everything else on the shelf, a box only turns up
 -- now and then: at each restock it's stocked (one of it) with a chance of
 -- appearance_rate percent, while any are left. per_user_limit caps how many
--- one member may ever buy (one Base Set box each).
+-- one member may buy from each batch (one Base Set box each): an admin's
+-- Restock (admin_update_box) starts a new batch, and everyone may buy again.
+--
+-- Admins set it all on the VVM admin page: boxes in stock and Restock,
+-- appearance rate, price, packs, the per-member limit, on or off.
 --
 -- Bought, a box lands as its packs, unopened, in the buyer's packs (each
 -- with a random wrapper of the set, as single packs get), and counts as
@@ -30,7 +34,11 @@ create table if not exists public.vending_boxes (
   appearance_rate   integer not null default 15 check (appearance_rate between 0 and 100),
   is_active         boolean not null default true,
   sort_order        integer not null default 0,
+  -- Start of the current batch: the per-member limit counts boxes bought since.
+  restocked_at      timestamptz not null default now(),
   created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  updated_by        uuid,
   unique (set_code, name)
 );
 
@@ -52,7 +60,8 @@ create table if not exists public.user_vending_boxes (
 );
 create index if not exists user_vending_boxes_user_box on public.user_vending_boxes (user_id, box_id);
 
--- Read and written through the functions below; members may see their own purchases.
+-- Read and written through the functions below; members may see their own
+-- purchases, admins the boxes themselves (for the VVM admin page).
 alter table public.vending_boxes enable row level security;
 alter table public.vending_box_stock enable row level security;
 alter table public.user_vending_boxes enable row level security;
@@ -60,6 +69,9 @@ drop policy if exists user_vending_boxes_select on public.user_vending_boxes;
 create policy user_vending_boxes_select on public.user_vending_boxes
   for select using (user_id = auth.uid() or public.is_mod());
 revoke all on public.vending_boxes, public.vending_box_stock from anon, authenticated;
+grant select on public.vending_boxes to authenticated;
+drop policy if exists vending_boxes_admin_select on public.vending_boxes;
+create policy vending_boxes_admin_select on public.vending_boxes for select using (public.is_admin());
 revoke all on public.user_vending_boxes from anon;
 revoke insert, update, delete, truncate, references, trigger on public.user_vending_boxes from authenticated;
 
@@ -69,7 +81,50 @@ values ('base1', 'Base Set Booster Box',
         36, 36, 5, 1, 15, 1)
 on conflict (set_code, name) do nothing;
 
-/* The boxes on the shelf this cycle, with what's left of each and how many you've bought. */
+/*
+ * The VVM admin page's save for a box. p_total is how many boxes there are in
+ * all; p_restock sets the sold count back to zero and starts a new batch
+ * (everyone may buy their box again). p_limit null means no per-member limit.
+ */
+create or replace function public.admin_update_box(
+  p_id bigint, p_total integer, p_restock boolean, p_appearance_rate integer, p_token_price numeric,
+  p_packs integer, p_limit integer, p_active boolean, p_description text)
+returns void
+language plpgsql security definer set search_path to 'public' as $$
+declare
+  b public.vending_boxes;
+begin
+  if not public.is_admin() then raise exception 'Only admins can change booster boxes'; end if;
+  select * into b from public.vending_boxes where id = p_id for update;
+  if b.id is null then raise exception 'No such box'; end if;
+  if p_total is null or p_total < 0 then raise exception 'Boxes in stock must be 0 or more'; end if;
+  if not p_restock and p_total < b.claimed_quantity then
+    raise exception 'Already % sold: stock can''t go below that without a restock', b.claimed_quantity;
+  end if;
+  if p_appearance_rate is null or p_appearance_rate not between 0 and 100 then raise exception 'Appearance rate must be 0 to 100'; end if;
+  if p_token_price is null or p_token_price < 0 then raise exception 'Price must be 0 or more'; end if;
+  if p_packs is null or p_packs < 1 then raise exception 'A box needs at least one pack'; end if;
+  if p_limit is not null and p_limit < 1 then raise exception 'The limit must be 1 or more, or none'; end if;
+
+  update public.vending_boxes
+     set total_quantity   = p_total,
+         claimed_quantity = case when p_restock then 0 else claimed_quantity end,
+         -- The actual time, not the transaction's: a box bought earlier never counts in the new batch.
+         restocked_at     = case when p_restock then clock_timestamp() else restocked_at end,
+         appearance_rate  = p_appearance_rate,
+         token_price      = round(p_token_price, 2),
+         packs            = p_packs,
+         per_user_limit   = p_limit,
+         is_active        = coalesce(p_active, is_active),
+         description      = nullif(trim(coalesce(p_description, '')), ''),
+         updated_at       = now(),
+         updated_by       = auth.uid()
+   where id = p_id;
+end $$;
+revoke execute on function public.admin_update_box(bigint, integer, boolean, integer, numeric, integer, integer, boolean, text) from public, anon;
+grant execute on function public.admin_update_box(bigint, integer, boolean, integer, numeric, integer, integer, boolean, text) to authenticated;
+
+/* The boxes on the shelf this cycle, with what's left of each and how many you've bought this batch. */
 create or replace function public.get_vending_box_stock(p_cycle bigint)
 returns table (box_id bigint, set_code text, set_name text, name text, description text, packs integer,
                token_price numeric, quantity integer, remaining integer, per_user_limit integer, owned integer, pack_images text[])
@@ -80,7 +135,8 @@ language sql stable security definer set search_path to 'public' as $$
          s.quantity,
          (b.total_quantity - b.claimed_quantity),
          b.per_user_limit,
-         coalesce((select count(*)::int from public.user_vending_boxes u where u.box_id = b.id and u.user_id = auth.uid()), 0),
+         coalesce((select count(*)::int from public.user_vending_boxes u
+                    where u.box_id = b.id and u.user_id = auth.uid() and u.bought_at >= b.restocked_at), 0),
          (select array_agg(vp.image_url order by vp.sort_order) from public.vending_packs vp where vp.set_code = b.set_code and vp.is_active)
     from public.vending_box_stock s
     join public.vending_boxes b on b.id = s.box_id
@@ -339,7 +395,8 @@ begin
       return query select false, 'box_sold_out', 0, 0::numeric, public.token_balance(me), false, 0, 0, 0; return;
     end if;
     if v_box.per_user_limit is not null then
-      select count(*)::int into v_owned from public.user_vending_boxes u where u.box_id = it.box_id and u.user_id = me;
+      select count(*)::int into v_owned from public.user_vending_boxes u
+       where u.box_id = it.box_id and u.user_id = me and u.bought_at >= v_box.restocked_at;
       if v_owned + it.qty > v_box.per_user_limit then
         return query select false, 'box_limit_reached', 0, 0::numeric, public.token_balance(me), false, 0, 0, 0; return;
       end if;
