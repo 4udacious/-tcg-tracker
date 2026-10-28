@@ -88,7 +88,7 @@ export function makeVvmApi(userId: string) {
     /** Packs by set, raffle tickets and supplies, all in one checkout. */
     async checkout(packs: { set_code: string; qty: number }[], tickets: { ticket_id: number; qty: number }[], supplies: { key: string; qty: number }[]) {
       const { data, error } = await db.rpc('vending_checkout', { p_items: packs, p_tickets: tickets, ...(supplies.length ? { p_supplies: supplies } : {}) })
-      const r = one(data as { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; balance: number; restocked: boolean } | null)
+      const r = one(data as { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; balance: number; restocked: boolean; packs_stuck?: number; packs_freed?: number } | null)
       if (r?.ok) holding = false   // checkout releases the machine
       return r ? { ...r, balance: n(r.balance) } : { ok: false, reason: error?.message ?? 'error', packs_bought: 0, tickets_bought: 0, supplies_bought: 0, balance: await balance(), restocked: false }
     },

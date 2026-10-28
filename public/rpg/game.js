@@ -4459,7 +4459,7 @@ async function run(id) {
   async function payCart() {
     const total = cartTotal(), items = [...cart], n = cartCount()
     if (!n || wallet + 1e-9 < total) return
-    let collected = []
+    let collected = [], stuck = 0, freed = 0
     if (vvm()) {
       // The real checkout: the server checks the stock, your tokens and that you still hold the machine.
       const pick = (kind, f) => items.filter(([k]) => realKey(k)[0] === kind).map(([k, qty]) => f(realKey(k)[1], qty))
@@ -4470,21 +4470,32 @@ async function run(id) {
         await syncMachine(); paintCart(); return
       }
       wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`; machine.lockedBy = null
+      stuck = r.packs_stuck ?? 0; freed = r.packs_freed ?? 0   // a pack that jammed (no refund), one someone else left stuck that fell out for you
       collected = await collectItems()
     } else {
       wallet = Math.round((wallet - total) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
       for (const [k, q] of items) for (let i = 0; i < q; i++) giveSupply(k)
     }
-    const packsBought = items.filter(([k]) => k.startsWith('set:')).reduce((a, [, q]) => a + q, 0)
+    const packsBought = items.filter(([k]) => k.startsWith('set:')).reduce((a, [, q]) => a + q, 0) - stuck + freed
     cart.clear(); renderTools(); window.__saveSoon?.()
     const co = $('checkout'); co.classList.add('disp')
     for (let i = 1; i <= n; i++) {
       co.innerHTML = `<p class="dsm">COLLECTING</p><p class="dbig">${i} OF ${n} TOTAL ITEM${n === 1 ? '' : 'S'}</p><div class="dline"></div><p class="dsm dim">PLEASE WAIT</p>`
       sfx('click'); await W(i === n ? 700 : 450)
     }
+    if (stuck) {
+      sfx('blocked'); anim(co, [{ transform: 'none' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'none' }], { duration: 300, iterations: 2 })
+      co.innerHTML = `<p class="dsm">VEND ERROR</p><p class="dbig">1 ITEM NOT DISPENSED</p><div class="dline"></div><p class="dsm dim">A pack jammed. No refunds. It's still in there...</p>`
+      await W(2200)
+    }
+    if (freed) {
+      sfx('click'); await W(300); sfx('click')
+      co.innerHTML = `<p class="dsm">CLUNK!</p><p class="dbig">+1 PACK</p><div class="dline"></div><p class="dsm dim">Someone's stuck pack fell out with yours. Free!</p>`
+      await W(2200)
+    }
     sfx('tokens')
     co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${vvm() ? [packsBought ? `${packsBought} pack${packsBought === 1 ? '' : 's'} to your collection` : '', collected.length ? `${collected.length} to your Bag` : ''].filter(Boolean).join(' · ') || 'in your account' : `${n} item${n === 1 ? '' : 's'} added to your Bag`}</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
-    feed(`<b>You</b> bought ${items.map(([k, q]) => `${q} ${nameOf(k)}`).join(', ')} for ${total.toFixed(2)} tokens.`)
+    feed(`<b>You</b> bought ${items.map(([k, q]) => `${q} ${nameOf(k)}`).join(', ')} for ${total.toFixed(2)} tokens.${stuck ? ' One pack jammed in the machine.' : ''}${freed ? " A stuck pack fell out with yours." : ''}`)
     await W(1700)
     co.classList.remove('open', 'disp'); co.innerHTML = ''
     await toIdle()
