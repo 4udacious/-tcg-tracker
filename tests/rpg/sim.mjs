@@ -1,5 +1,5 @@
 // The balance simulator: thousands of battles against every Gym Leader, the
-// Elite Fours, Red and Alex, for a player arriving at each one's level.
+// Elite Fours, Red, Alex, Herb and Paul, for a player arriving at each one's level.
 //
 //   npm run sim:rpg                 (2000 battles a matchup)
 //   SIM_N=500 npm run sim:rpg       (quicker, noisier)
@@ -26,8 +26,11 @@ const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
  * rings spread it more), `fooled` the chance a tell (feint, second ring,
  * low-high) makes them press at the wrong time. Potions: used under 35% HP.
  */
-/** Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2): Alex's first battle is the friendly one, the last the hardest in the game. */
-export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.35 }
+/**
+ * Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2): Alex's first battle is the friendly one, the last the hardest in the game.
+ * Herb's and Paul's first glitcher battles are easy too (their Pokémon haven't evolved yet), their last a little harder than a leader.
+ */
+export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.35, 'HERB 1': 0.9, 'PAUL 1': 0.9, 'HERB 4': 0.65, 'PAUL 4': 0.65 }
 
 export const SKILLS = {
   casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1 },
@@ -145,6 +148,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
     ...GYMS.slice(8).map((L) => ({ name: L.short, group: 'Kanto gyms', T: L, team: leaderTeam(L) })),
     ...KANTO_ELITE.map((L) => ({ name: L.short, group: 'Kanto League', T: L, team: leaderTeam(L), last: !!L.red })),
     ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, T.ivs, speciesByName), last: n === 6 } }),
+    ...Object.keys(STORY).flatMap((who) => STORY[who].battles.map((B, n) => { const T = storyTrainer(who, n); return { name: `${who} ${n + 1}`, group: 'Herb and Paul', T, team: leaderTeam(T, T.ivs, speciesByName) } })),
   ]
   list.filter((c) => new RegExp(ONLY, 'i').test(`${c.group}:${c.name}`)).forEach((c) => {
     const lv = arrive(c.T), size = sizeAt(lv)

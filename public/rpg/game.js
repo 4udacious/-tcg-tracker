@@ -3279,7 +3279,7 @@ const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 const RIVAL_LOOKS = {
   1: { theme: 'rival', scene: 'factory', color: '#60a5fa', tellRate: 0.3, ringFast: 0.86, ivs: 20, title: 'RIVAL' },
   2: { theme: 'rival2', scene: 'distortion', color: '#a855f7', tellRate: 0.4, ringFast: 0.82, ivs: 22, title: 'RIVAL' },
-  3: { theme: 'rival3', scene: 'hall', color: '#f59e0b', tellRate: 0.45, ringFast: 0.78, ivs: 25, title: 'RIVAL · FINAL' },
+  3: { theme: 'rival3', scene: 'hall', color: '#f59e0b', tellRate: 0.45, ringFast: 0.78, ivs: 25, title: 'RIVAL' },
 }
 for (const p of [1, 2, 3]) {
   const L = RIVAL_LOOKS[p]
@@ -3311,7 +3311,7 @@ const RIVAL_BATTLES = [
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
   { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tellRate: 0.35, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
-    outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
+    outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, you'll meet it."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
   { due: (p) => p.red, min: 90, over: 14, restores: 3, switches: 2, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
@@ -3347,9 +3347,90 @@ for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id 
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
-  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: `${L.title} · BATTLE ${n + 1} OF 7`, role: 'RIVAL', rival: true, hard: true,
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true,
     vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
+}
+/*
+ * ══════════ Herb and Paul, the glitchers ══════════
+ * Between their everyday camping, the two scalpers have a racket: they glitch
+ * the machines into dropping product, and sell it at card shows. Four battles
+ * each, caught in the act at the machine on your next tap once you reach each
+ * milestone, like Alex's (their milestones fall between his): Herb after 2 and
+ * 6 Johto badges and 2 and 6 Kanto badges, Paul after 4 Johto badges, the
+ * Champion, and 4 and 8 Kanto badges. Lose and they're back a few taps later
+ * for the same battle; win and they hand back a pack from their card-show
+ * stock.
+ *
+ * Their teams evolve with them: Herb's Gimmighoul eats enough glitched coins
+ * to become Gholdengo, Meowth and Purrloin grow up, and Rotom (living in the
+ * machines, doing the glitching), Sableye, Mawile and Mimikyu join. Paul's
+ * Skwovet, Trubbish and Hippopotas evolve, Munchlax joins and becomes
+ * Snorlax, with Slowbro and Golem guarding the van. Levels and difficulty as a
+ * Gym Leader's (leaderLevels, `hard`), the ace last with a stronger set of its
+ * own from the second battle; the rest of the team with the stronger moves.
+ */
+DATA.forms.push({ id: 999, name: 'GIMMIGHOUL', types: ['ghost'], base: { hp: 45, attack: 30, defense: 70, 'special-attack': 75, 'special-defense': 70, speed: 10 }, capture: 45 })
+Object.assign(ART, { 999: '/rpg/a/999.gif', '999b': '/rpg/a/999-back.gif', 'cry:999': '/rpg/a/cries/999.ogg' })
+/** The aces' stronger sets, from their second battle on. */
+const STORY_ACE_MOVES = {
+  GHOLDENGO: [{ name: 'MAKE IT RAIN', type: 'steel', power: 30, cat: 'spec', hits: 3, kind: 'strike', ranged: true, fx: 'coins', snd: 'coin' },
+    S_('SHADOW BALL', 'ghost', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('FLASH CANNON', 'steel', 65, 'spec', 'zap', { ranged: true })],
+  HIPPOWDON: [L_('EARTHQUAKE', 'ground', 70, 'phys', 'quake', 'quake'), S_('CRUNCH', 'dark', 60, 'phys', 'crunch'), S_('STONE EDGE', 'rock', 65, 'phys', 'thud', { ranged: true })],
+}
+const STORY = {
+  HERB: { T: HERB, color: '#eab308',
+    again: ["Back again? Machine's still mine.", 'Round two, chief.'],
+    battles: [
+      { due: (p) => p.johto >= 2, min: 18, over: 8, restores: 1, tellRate: 0.5, ringFast: 0.76, ivs: 24, tokens: '2.50', team: ['MEOWTH', 'PURRLOIN', 'GIMMIGHOUL'],
+        intro: ['Shh. Watch this. Tap, tap, hold... free pack.', "I glitch 'em out and sell 'em at the card show for triple. Beat it, chief."],
+        outro: ['Okay, okay. You caught me.', "Take a pack back. Keep it quiet. My card-show table's looking thin now."],
+        gloat: ['The glitch stays between us, yeah?', 'See you at the card show. Bring cash.'] },
+      { due: (p) => p.johto >= 6, min: 36, over: 3, restores: 1, tellRate: 0.3, ringFast: 0.86, ivs: 22, tokens: '4.00', team: ['ROTOM', 'SABLEYE', 'LIEPARD', 'PERSIAN', 'GHOLDENGO'],
+        intro: ['Remember Gimmighoul? It ate enough glitched coins to evolve.', 'And Rotom gets inside the machine now. It spits out whatever I point at.'],
+        outro: ["Rotom, out of the machine. We're blown.", "...Here. That's one less pack on my table this weekend."],
+        gloat: ['The machine likes me better. Facts.', 'Three tables at the Goldenrod card show. Come buy something.'] },
+      { due: (p) => p.kanto >= 2, min: 66, over: 6, restores: 2, tellRate: 0.38, ringFast: 0.8, ivs: 23, tokens: '7.00', team: ['MAWILE', 'ROTOM', 'SABLEYE', 'LIEPARD', 'PERSIAN', 'GHOLDENGO'],
+        intro: ["Kanto machines are older. They glitch if you look at 'em funny.", 'Celadon card show, five tables. All glitched stock. Move.'],
+        outro: ['You followed me to KANTO?', "Fine. Take a pack back. The Celadon show's off anyway."],
+        gloat: ["Kanto's my market now, chief.", "You can't stop a glitch. It's a feature."] },
+      { due: (p) => p.kanto >= 6, min: 77, over: 7, restores: 2, tellRate: 0.38, ringFast: 0.8, ivs: 25, tokens: '10.00', team: ['MIMIKYU', 'MAWILE', 'ROTOM', 'SABLEYE', 'PERSIAN', 'GHOLDENGO'],
+        intro: ["Saffron card show. Biggest in Kanto. My whole year's in that van.", "Every glitch I know, every Pokémon I got. Let's go, chief."],
+        last: ['Gholdengo. Made out of every coin I ever glitched.', 'Make it rain.'],
+        outro: ["...That's it. I'm out. No more glitching.", "Take the pack. Take the table. I'm gonna go get a real job. Probably."],
+        gloat: ['Still the king of the glitch.', "Come back with a better team. I'll be at the Saffron show."] },
+    ] },
+  PAUL: { T: PAUL, color: '#a16207',
+    again: ['Oh. You came back.', "Fine. One more. Then I've got boxes to sort."],
+    battles: [
+      { due: (p) => p.johto >= 4, min: 27, over: 9, restores: 1, tellRate: 0.5, ringFast: 0.74, ivs: 24, tokens: '3.00', team: ['SKWOVET', 'TRUBBISH', 'HIPPOPOTAS'],
+        intro: ["Trubbish sits in the coin slot. Machine jams. Goes into 'maintenance'.", "Then the tech opens it up, and I'm standing right there. With a box."],
+        outro: ['Okay. Okay. Trubbish, out of the slot.', "Here, take one back. I've got plenty for the card show."],
+        gloat: ["Shh. It's not stealing if the machine's broken.", "Card show's Sunday. Bring a wagon."] },
+      { due: (p) => p.champion, min: 57, over: 9, restores: 2, tellRate: 0.45, ringFast: 0.76, ivs: 24, tokens: '6.00', team: ['MUNCHLAX', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'HIPPOWDON'],
+        intro: ["Champion, huh? Cool. I've got a basement full of glitched boxes.", 'Greedent stuffs its cheeks every time a machine jams. Saves me trips.'],
+        outro: ['My mom found the boxes.', '...Take one back. I have to downsize for the card show anyway.'],
+        gloat: ['Shelf space secured. Again.', 'Swing by my table at the card show. Champion discount: none.'] },
+      { due: (p) => p.kanto >= 4, min: 72, over: 8, restores: 2, tellRate: 0.45, ringFast: 0.76, ivs: 23, tokens: '8.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
+        intro: ['Kanto machines jam even easier. Snorlax just leans on them.', "Paul's Pack Palace: six tables at the Celadon card show. Hippowdon guards the van."],
+        outro: ['The Pack Palace is... closing early today.', "Here. One back. Don't tell Herb how many I have."],
+        gloat: ['The Palace stands.', 'Next show is bigger. So is my basement.'] },
+      { due: (p) => p.kanto >= 8, min: 86, over: 9, restores: 3, tellRate: 0.45, ringFast: 0.78, ivs: 25, tokens: '12.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
+        intro: ['Biggest card show of the year. I jammed every machine from Pewter to Fuchsia for it.', "Everything I've got. Every box, every Pokémon. Let's go, buddy."],
+        last: ["Hippowdon. It's held the line since the first machine I jammed.", 'Hold the line, buddy.'],
+        outro: ["...Okay. I'm done. I'll unjam them all.", 'Take the pack. And maybe the forty boxes. Mom says they have to go.'],
+        gloat: ['Basement is safe. For now.', "Come back stronger. I'll save you a box. Full price."] },
+    ] },
+}
+/** Each step's scene and battle theme: the glitching gets worse as it goes. */
+const STORY_SCENES = ['arcade', 'factory', 'distortion', 'distortion']
+const STORY_THEMES = ['gym', 'gym', 'elite', 'elite']
+/** Herb or Paul (`who`) as the battle needs them for their battle n (0-3). */
+function storyTrainer(who, n) {
+  const S = STORY[who], B = S.battles[n], T = S.T
+  return { ...T, ...B, story: who, step: n, full: T.full, title: 'GLITCHER', role: 'GLITCHER', hard: true, strong: n > 0,
+    tellRate: B.tellRate ?? 0.3, ringFast: B.ringFast ?? 0.86, ivs: B.ivs ?? 20, scene: STORY_SCENES[n], theme: STORY_THEMES[n], color: S.color,
+    movesFor: (f) => (n > 0 && f.name === B.team.at(-1) ? STORY_ACE_MOVES[f.name] : null) }
 }
 /* The scalpers, the first time: they size you up before Alex steps in. */
 const FIRST_TAUNT = { HERB: ['Look who it is. Got any Pokémon, kid?', "...No? Then this restock's ours."], PAUL: ["Herb, be nice. They just got here.", "...The restock's still ours, though."] }
@@ -3992,6 +4073,11 @@ async function run(id) {
   // Alex: the next rival battle (0-6; 7 when all are won), taps until a rematch, and whether you lost this one already.
   let rivalStep = 0, rivalWait = 0, rivalLost = false
   const rivalDue = () => rivalStep < RIVAL_BATTLES.length && rivalWait <= 0 && RIVAL_BATTLES[rivalStep].due(rivalProgress(badges, champion, redBeaten))
+  // Herb's and Paul's glitcher battles (STORY), each kept like Alex's: the next battle, taps until a rematch, and whether you lost the last.
+  const story = { HERB: { step: 0, wait: 0, lost: false }, PAUL: { step: 0, wait: 0, lost: false } }
+  /** Whose glitcher battle is waiting at the machine, if anyone's: the one with the lower floor first. */
+  const storyDue = () => Object.keys(STORY).map((who) => ({ who, s: story[who], B: STORY[who].battles[story[who].step] }))
+    .filter(({ s, B }) => B && s.wait <= 0 && B.due(rivalProgress(badges, champion, redBeaten))).sort((a, b) => a.B.min - b.B.min)[0]?.who ?? null
   let pendingSummon = null   // a summon chosen in the Bag, to fight once the sheet closes
   const cart = new Map()   // the machine's cart: shelf key -> how many
   let pendingEvoItem = false   // an evolution item used in the Bag: the evolution plays once the sheet closes
@@ -6584,11 +6670,16 @@ async function run(id) {
     const state = machine.state
     tickRest()   // beaten trainers' rest counts down with your taps
     if (rivalWait > 0) rivalWait--   // so does Alex's, after beating you
+    for (const s of Object.values(story)) if (s.wait > 0) s.wait--   // and Herb's and Paul's
     let { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
     // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
     // A rival battle that's due takes this tap: Alex is waiting at the machine (with trainer battles on, and a Pokémon that can fight).
     if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some((m) => m.hp > 0))) { enc = 'rival'; pity = false }
+    // If not, a glitcher battle that's due: Herb or Paul caught at the machine.
+    let glitcher = force.enc === 'story' ? force.who ?? storyDue() : null
+    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some((m) => m.hp > 0)) glitcher = storyDue()
+    if (glitcher) { enc = 'story'; pity = false }
     // An empty tap may still turn up something small ("Your next tap" can ask for one; the demo's pinned taps never do).
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
@@ -6623,6 +6714,7 @@ async function run(id) {
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
     if (enc === 'scalper') return scalperEncounter(force.plan, state)
     if (enc === 'rival') return rivalEncounter(state)
+    if (enc === 'story') return storyEncounter(glitcher, state)
     if (enc === 'duo') return duoEncounter(force.plan, flavor() < 0.5 ? 'tag' : 'solo', state)
   }
   /** Back to idle, giving up the purchase screen if you had it. */
@@ -8185,6 +8277,53 @@ async function run(id) {
     else if (n === RIVAL_BATTLES.length - 1) await hallOfFame()
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
+  /**
+   * Herb's or Paul's next glitcher battle (STORY): caught at the machine as
+   * it glitches, the VS splash and their words, then the battle. A win pays
+   * tokens, hands back a pack from their card-show stock and moves their
+   * story on; a loss brings them back for the same battle a few taps later.
+   */
+  async function storyEncounter(who, state = 'in') {
+    const s = story[who], S = STORY[who], n = Math.min(s.step, S.battles.length - 1), T = storyTrainer(who, n)
+    toolsEnabled(false)
+    // At the machine: them, and the screen glitching.
+    renderHome(state); await W(demo ? 600 : 400)
+    $('homeLoiterer').src = ART[T.body]; $('homeLoiterer').style.display = 'block'
+    anim($('homeLoiterer'), [{ transform: 'translateX(220px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.2,.8,.3,1)' })
+    await W(560)
+    sfx('blocked')
+    await anim($('home'), [{ transform: 'none', filter: 'none' }, { transform: 'translateX(-4px) skewX(6deg)', filter: 'hue-rotate(90deg) contrast(1.6)', offset: 0.2 },
+      { transform: 'translateX(5px)', filter: 'invert(1)', offset: 0.35 }, { transform: 'translateX(-2px) skewX(-4deg)', filter: 'hue-rotate(-60deg) saturate(3)', offset: 0.6 },
+      { transform: 'none', filter: 'none' }], { duration: 700 }).finished
+    Sound.music('vs')
+    await wipeTrainer(async () => {
+      setScene([T.scene]); showLayer('battle')
+      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', T.color)
+      $('vsImg').src = ART[T.vs]; $('vsName').textContent = T.full; vs.querySelector('.name span').textContent = T.title; vs.style.display = 'block'
+      vsIn(vs)
+    })
+    setTimeout(() => { if (live()) Sound.music('encounter') }, 1500)
+    await W(1300)
+    await talk(T, s.lost ? S.again : T.intro)
+    vsHide()
+    Sound.music(T.theme)
+    const team = rivalTeam(T)
+    const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: T })
+    if (out.result === 'won') {
+      Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
+      await trainerOn(T, 'down'); await talk(T, T.outro, 'faceDown'); await trainerOff()
+      await out.exp?.()
+      await payTokens(T.tokens, who.toLowerCase())
+      const p = await givePack(who.toLowerCase()); if (p) { sfx('click'); await say(`${T.short} handed back`, `${p}!`, 700) }
+      Object.assign(s, { step: n + 1, wait: 0, lost: false })
+      if (n === S.battles.length - 1) await say(`${T.short} is done glitching.`, 'The machines run a little better now.', 900)
+    } else {
+      await trainerOn(T); await talk(T, T.gloat); await trainerOff()
+      Object.assign(s, { lost: true, wait: RIVAL_REMATCH_TAPS })
+      await say(`${T.short} ran off`, 'with a bag of glitched packs...')
+    }
+    Sound.stopMusic(); saveGame(); await backToMachine(state)
+  }
   async function scalperEncounter(demoPlan, state = 'in') {
     toolsEnabled(false)
     if (demoPlan?.who) scalper = demoPlan.who
@@ -8422,7 +8561,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, freeHeal, gifted, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -8490,6 +8629,7 @@ async function run(id) {
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
     champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
+    for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
     tutorialDone = true
@@ -8554,6 +8694,7 @@ async function run(id) {
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
+    storyDue, story, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.

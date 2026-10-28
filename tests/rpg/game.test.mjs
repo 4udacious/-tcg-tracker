@@ -457,6 +457,66 @@ test('rival: after the first badge, Alex is at the machine on your next tap; the
   } finally { await g.close() }
 })
 
+test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and milestones', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const of = (who) => STORY[who].battles.map((B, n) => {
+        const T = storyTrainer(who, n), sp = B.team.map(speciesByName)
+        return { team: B.team, min: B.min, size: B.team.length, types: new Set(sp.flatMap((s) => s?.types ?? [])).size, hard: T.hard,
+          missing: B.team.filter((x, i) => !sp[i] || !ART[sp[i].id] || !ART[sp[i].id + 'b'] || !ART['cry:' + sp[i].id]),
+          art: ['vs', 'face', 'body', 'down', 'faceDown'].every((k) => ART[T[k]]), aceMoves: T.movesFor(speciesByName(B.team.at(-1)))?.map((m) => m.name) ?? null }
+      })
+      const v = window.__vvm
+      // Who is due at each point in the game, with Alex out of the way.
+      v.setRival(7)
+      const due = (b, champion) => { v.badges.splice(0, 99, ...b); v.setLeague({ champion }); return v.storyDue() }
+      const at = (n) => Array.from({ length: n }, (_, i) => i)
+      const dueAt = [due([], false), due(at(2), false), due(at(4), false)]
+      v.setStory('HERB', 1); dueAt.push(due(at(4), false))
+      v.setStory('PAUL', 1); dueAt.push(due(at(8), true))
+      v.setStory('HERB', 1, 3); dueAt.push(due(at(8), true))   // Herb lost to: back a few taps later, so Paul is first
+      return { herb: of('HERB'), paul: of('PAUL'), dueAt, songs: STORY_THEMES.every((n) => SONGS[n]) }
+    })
+    for (const [who, b] of [['Herb', r.herb], ['Paul', r.paul]]) {
+      assert.equal(b.length, 4, `${who}: four battles`)
+      assert.deepEqual(b.flatMap((x) => x.missing), [], `${who}: every Pokémon has its sprites and cry`)
+      assert.ok(b.every((x) => x.art && x.hard), `${who}: their own art, and they fight like a leader`)
+      assert.ok(b.every((x, i) => !i || (x.size >= b[i - 1].size && x.min > b[i - 1].min)), `${who}: the team only grows, and each battle is tougher`)
+      assert.ok(b.every((x) => x.types >= x.size - 1), `${who}: balanced types (${b.map((x) => `${x.types}/${x.size}`).join(' ')})`)
+      assert.equal(b[0].aceMoves, null, `${who}: the first ace has no special set yet`)
+      assert.ok(b.slice(1).every((x) => x.aceMoves?.length === 3), `${who}: from the second battle, the ace fights with its stronger set`)
+    }
+    assert.deepEqual(r.herb.map((x) => x.team.at(-1)), ['GIMMIGHOUL', 'GHOLDENGO', 'GHOLDENGO', 'GHOLDENGO'], 'Herb\'s Gimmighoul evolves into Gholdengo')
+    assert.ok(r.herb[0].team.includes('MEOWTH') && r.herb[1].team.includes('PERSIAN') && r.herb[1].team.includes('ROTOM'), 'Meowth grows up, and Rotom joins to do the glitching')
+    assert.deepEqual(r.paul.map((x) => x.team.at(-1)), ['HIPPOPOTAS', 'HIPPOWDON', 'HIPPOWDON', 'HIPPOWDON'], 'Paul\'s Hippopotas evolves into Hippowdon')
+    assert.ok(r.paul[1].team.includes('MUNCHLAX') && r.paul[2].team.includes('SNORLAX') && !r.paul[2].team.includes('MUNCHLAX'), 'Munchlax joins, then becomes Snorlax')
+    assert.deepEqual(r.dueAt, [null, 'HERB', 'HERB', 'PAUL', 'HERB', 'PAUL'], 'Herb after 2 badges; Paul after 4 once Herb is beaten; then whichever is lower; a lost one waits')
+    assert.ok(r.songs, 'their battle themes exist')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('glitchers: after two badges, Herb is at the machine on your next tap; the battle plays and is saved', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const before = await page.evaluate(() => { const v = window.__vvm; v.setRival(1); const was = v.storyDue(); v.badges.push(0, 1); for (const m of v.party) m.hp = m.stats.hp; return { was, now: v.storyDue(), alex: v.rivalDue() } })
+    assert.deepEqual(before, { was: null, now: 'HERB', alex: false }, 'Herb\'s first battle is due after two badges')
+    assert.ok(await bot.encounter(''), 'a battle happened on the next tap')
+    const r = await page.evaluate(() => ({ herb: { ...window.__vvm.story.HERB }, music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name),
+      saved: Object.values(localStorage).some((v) => v.includes('"story":{"HERB":{"step"')) }))
+    assert.ok(r.music.includes('vs') && r.music.includes('gym'), `the encounter music, then the battle theme: ${r.music.join(', ')}`)
+    if (r.herb.step === 1) assert.deepEqual(r.herb, { step: 1, wait: 0, lost: false }, 'won: on to battle 2')
+    else assert.deepEqual(r.herb, { step: 0, wait: 3, lost: true }, 'lost: the same battle again, a few taps later')
+    assert.ok(r.saved, 'Herb\'s progress is in the save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; Blue scales like the others', async () => {
   const g = await openGame()
   try {
@@ -608,12 +668,12 @@ test('every leader\'s team: real species with sprites and cries, the mid-game on
   } finally { await g.close() }
 })
 
-test('balance: every leader, Elite Four member, Red and Alex within 15 points of their aim (sim.mjs, average player)', async () => {
+test('balance: every leader, Elite Four member, Red, Alex, Herb and Paul within 15 points of their aim (sim.mjs, average player)', async () => {
   const g = await openGame()
   try {
     await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
     const rows = await g.page.evaluate(simulate, { N: 1000, SKILLS: { average: SKILLS.average }, ONLY: '', AIMS })
-    assert.ok(rows.length >= 33, `every fight simulated (${rows.length})`)
+    assert.ok(rows.length >= 41, `every fight simulated (${rows.length})`)
     const off = rows.filter((r) => Math.abs(r.average - r.aim) > 0.15).map((r) => `${r.group} ${r.name}: ${Math.round(r.average * 100)}% (aim ${Math.round(r.aim * 100)}%)`)
     assert.deepEqual(off, [], 'a fight drifted from its aim: re-tune it with `npm run sim:rpg`, or set its own aim in sim.mjs (AIMS)')
     assert.deepEqual(g.errors, [])
@@ -633,13 +693,13 @@ test('the toughest leaders switch out of a bad matchup, never to their ace, and 
         toWater: switchPick(grass, [grass2, water], me, mine, moves)?.name,   // fire on grass: out, to the one that resists it and hits back, not another grass
         hurtSkipped: switchPick(grass, [weakWater], me, mine, moves)?.name ?? null,   // not to one about to faint
         stays: switchPick(water, [grass], me, mine, moves)?.name ?? null,   // fire on water isn't super effective: it stays in
-        who: [...GYMS, ...ELITE, ...KANTO_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].filter((T) => T.switches).map((T) => T.short + (T.rival ? ' ' + T.title : '')),
+        who: [...GYMS, ...ELITE, ...KANTO_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].filter((T) => T.switches).map((T) => T.short + (T.rival ? ` ${RIVAL_BATTLES.findIndex((B) => B.team === T.team) + 1}` : '')),
       }
     })
     assert.equal(r.toWater, 'BLASTOISE')
     assert.equal(r.hurtSkipped, null)
     assert.equal(r.stays, null)
-    assert.deepEqual(r.who, ['LANCE', 'RED', 'ALEX RIVAL · FINAL · BATTLE 7 OF 7'])
+    assert.deepEqual(r.who, ['LANCE', 'RED', 'ALEX 7'])
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
