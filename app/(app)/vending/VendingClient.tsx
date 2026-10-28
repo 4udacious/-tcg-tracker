@@ -808,17 +808,19 @@ export default function VendingClient({
 
 const ATTRACT_ROWS = 4
 
-// The wrappers on the idle screen: Gym Heroes, Gym Challenge, Neo Genesis and
-// Base Set 2, four each. Dealt round-robin across the rows below, so entry
-// 4k + r is row r's k-th wrapper. With four sets and four rows a plain
-// rotation would give every set a row to itself, so the order shifts by one
-// set each round instead: row r's k-th wrapper is set (r + k) mod 4. Every row
-// gets one of each set, never two side by side, round the loop included.
+// The wrappers on the idle screen: Gym Heroes, Gym Challenge, Neo Genesis,
+// Base Set 2, Neo Discovery and Neo Revelation, four each. Dealt round-robin
+// across the rows below, so entry 4k + r is row r's k-th wrapper. Row r's k-th
+// wrapper is set (r + k) mod 6, and that set's r-th wrapper: every row shows
+// each set once, so no set ever sits twice side by side, round the loop
+// included, and every wrapper is on screen somewhere.
 const ATTRACT_PACKS = [
-  'gym-heroes-brock', 'neo-genesis-lugia', 'gym-challenge-koga', 'base-set-2-raichu',
-  'neo-genesis-typhlosion', 'gym-challenge-blaine', 'base-set-2-gyarados', 'gym-heroes-misty',
-  'gym-challenge-sabrina', 'base-set-2-mewtwo', 'gym-heroes-lt-surge', 'neo-genesis-meganium',
-  'base-set-2-pidgeot', 'gym-heroes-erika', 'neo-genesis-feraligatr', 'gym-challenge-giovanni',
+  'gym-heroes-brock', 'gym-challenge-blaine', 'neo-genesis-meganium', 'base-set-2-pidgeot',
+  'gym-challenge-koga', 'neo-genesis-typhlosion', 'base-set-2-mewtwo', 'neo-discovery-umbreon',
+  'neo-genesis-lugia', 'base-set-2-gyarados', 'neo-discovery-xatu', 'neo-revelation-misdreavus',
+  'base-set-2-raichu', 'neo-discovery-smeargle', 'neo-revelation-raikou', 'gym-heroes-erika',
+  'neo-discovery-scizor', 'neo-revelation-suicune', 'gym-heroes-lt-surge', 'gym-challenge-giovanni',
+  'neo-revelation-entei', 'gym-heroes-misty', 'gym-challenge-sabrina', 'neo-genesis-feraligatr',
 ]
 
 function AttractScreen({ onStart, busy, lockedBy, tokens }: { onStart: () => void; busy: boolean; lockedBy: string | null; tokens: number }) {

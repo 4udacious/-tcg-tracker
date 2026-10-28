@@ -13,7 +13,7 @@ import ConditionedCard, { type Condition } from './ConditionedCard'
 
 const SET_YEAR: Record<string, string> = {
   base1: '1999', base2: '1999', base3: '1999', base4: '2000', base5: '2000',
-  gym1: '2000', gym2: '2000', neo1: '2000',
+  gym1: '2000', gym2: '2000', neo1: '2000', neo2: '2001', neo3: '2001',
 }
 
 export const GRADE_LABEL: Record<number, string> = {

@@ -18,6 +18,8 @@ const SET_NAMES: Record<string, string> = {
   gym1: 'Gym Heroes',
   gym2: 'Gym Challenge',
   neo1: 'Neo Genesis',
+  neo2: 'Neo Discovery',
+  neo3: 'Neo Revelation',
 }
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
