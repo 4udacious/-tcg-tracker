@@ -301,6 +301,11 @@ const BINDERS: Record<string, Binder> = {
   // darker than Base Set's royal blue. Held left of centre so the logo and
   // Lugia's head survive the narrow window.
   neo1:  { cover: '/binders/neo-genesis.webp',        spine: '#141b4d', body: '#1e2a74', foil: '#e2e8f0', fit: 'cover', pos: '20% 50%' },
+  // No binder art yet for the next two Neo sets, so a wrapper stands in.
+  // Neo Discovery: deep teal, for the ruins' night sky, kept clear of Jungle's green.
+  neo2:  { cover: '/packs/neo-discovery-umbreon.webp',  spine: '#134e4a', body: '#0f766e', foil: '#99f6e4', fit: 'contain' },
+  // Neo Revelation: burgundy, for the burned tower's brick, kept clear of Base Set 2's red.
+  neo3:  { cover: '/packs/neo-revelation-suicune.webp', spine: '#4c0519', body: '#881337', foil: '#fecdd3', fit: 'contain' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
