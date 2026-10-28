@@ -238,7 +238,8 @@ export default function VendingClient({
   const [detail, setDetail] = useState<ItemDetail | null>(null)
   // Checkout happens on the machine's screen: the order first, then PAY.
   const [reviewing, setReviewing] = useState(false)
-  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; boxes: number; restocked: boolean } | null>(null)
+  // packs: what dropped (paid for, less a jammed one, plus a stuck one that fell out for you).
+  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; boxes: number; restocked: boolean; stuck: number; freed: number } | null>(null)
   const [busy, setBusy] = useState(false)
   const [watchers, setWatchers] = useState<Watcher[]>([])
   const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
@@ -541,7 +542,7 @@ export default function VendingClient({
       ...(boxItems.length > 0 ? { p_boxes: boxItems } : {}),
     })
     const r = (Array.isArray(data) ? data[0] : data) as
-      | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; boxes_bought?: number; balance: number; restocked: boolean }
+      | { ok: boolean; reason: string; packs_bought: number; tickets_bought: number; supplies_bought: number; boxes_bought?: number; balance: number; restocked: boolean; packs_stuck?: number; packs_freed?: number }
       | null
     if (r?.ok) {
       setTokens(num(r.balance))
@@ -550,10 +551,12 @@ export default function VendingClient({
       setSupplyCart({})
       setBoxCart({})
       haptic([20, 40, 20])
+      const stuck = r.packs_stuck ?? 0, freed = r.packs_freed ?? 0
       setReceipt({
-        packs: r.packs_bought, tickets: r.tickets_bought ?? 0, boxes: r.boxes_bought ?? 0,
-        supplies: r.supplies_bought ?? 0, restocked: r.restocked,
+        packs: r.packs_bought - stuck + freed, tickets: r.tickets_bought ?? 0, boxes: r.boxes_bought ?? 0,
+        supplies: r.supplies_bought ?? 0, restocked: r.restocked, stuck, freed,
       })
+      if (stuck > 0) haptic([60, 30, 60])
       // Read the real cooldown back rather than assuming a duration - it is
       // an admin setting and can be anything.
       const { data: me } = await supabase
@@ -662,7 +665,7 @@ export default function VendingClient({
 
           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border-2 border-black">
             {receipt ? (
-              <DispensingScreen items={receipt.packs + receipt.tickets + receipt.supplies + receipt.boxes} restocked={receipt.restocked} />
+              <DispensingScreen items={receipt.packs + receipt.tickets + receipt.supplies + receipt.boxes} restocked={receipt.restocked} jammed={receipt.stuck > 0} />
             ) : status === 'out_of_stock' ? (
               <StockScreen stock={stock} tickets={tickets} supplies={supplies} boxes={boxes} soldOut cart={{}} ticketCart={{}} supplyCart={{}} boxCart={{}} onAdd={() => {}} onAddTicket={() => {}} onAddSupply={() => {}} onAddBox={() => {}} onInspect={showPackDetail} onInspectTicket={showTicketDetail} onInspectSupply={showSupplyDetail} onInspectBox={showBoxDetail} interactive={false} />
             ) : status === 'in_stock' ? (
@@ -723,6 +726,16 @@ export default function VendingClient({
 
       {receipt && (
         <Card className="mx-auto w-full max-w-sm space-y-2 text-center">
+          {receipt.stuck > 0 && (
+            <p className="text-xs font-medium text-red-500">
+              Clunk. One of your packs jammed and didn&apos;t drop. Sorry, no refunds. It&apos;s still stuck in there...
+            </p>
+          )}
+          {receipt.freed > 0 && (
+            <p className="text-xs font-medium text-signal">
+              Something else fell out with yours: a pack someone left stuck in the machine. It&apos;s yours, free.
+            </p>
+          )}
           <p className="text-sm font-medium">
             Collected{' '}
             {[
@@ -730,7 +743,7 @@ export default function VendingClient({
               receipt.tickets > 0 ? `${receipt.tickets} raffle ticket${receipt.tickets === 1 ? '' : 's'}` : null,
               receipt.supplies > 0 ? `${receipt.supplies} battle suppl${receipt.supplies === 1 ? 'y' : 'ies'}` : null,
               receipt.boxes > 0 ? `${receipt.boxes} sealed booster box${receipt.boxes === 1 ? '' : 'es'}` : null,
-            ].filter(Boolean).join(' and ')}.
+            ].filter(Boolean).join(' and ') || 'nothing'}.
           </p>
           {receipt.restocked && <p className="text-xs text-signal font-medium">The machine restocked behind you.</p>}
           <p className="text-xs text-muted">
@@ -1215,13 +1228,14 @@ function CheckoutScreen({ lines, total, tokens, busy, suppliesOnly, onBack, onPa
   )
 }
 
-function DispensingScreen({ items, restocked }: { items: number; restocked: boolean }) {
+function DispensingScreen({ items, restocked, jammed }: { items: number; restocked: boolean; jammed: boolean }) {
   return (
     <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 p-4 text-center">
       <p className="text-[10px] font-semibold tracking-wide" style={{ color: `${SCREEN_INK}b3` }}>COLLECTING</p>
       <p className="text-sm font-bold" style={{ color: SCREEN_INK }}>{items} OF {items} TOTAL ITEMS</p>
       <div className="my-2 h-px w-3/4 bg-black/20" />
       <p className="text-[10px]" style={{ color: `${SCREEN_INK}80` }}>PLEASE WAIT</p>
+      {jammed && <p className="mt-2 text-[10px] font-semibold text-[#c82030]">VEND ERROR · 1 ITEM NOT DISPENSED</p>}
       {restocked && <p className="mt-2 text-[10px] font-semibold text-[#c82030]">RESTOCKING…</p>}
     </div>
   )
