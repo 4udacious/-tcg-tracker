@@ -13,7 +13,8 @@
 // 3 wins in 4 against a leader, Lance (each League's last) about 1 in 2.
 //
 // Left out, so read the numbers as a guide: statuses and stat moves (yours and
-// theirs; a rampage's confusion is in), switching to a better matchup mid-battle, Move Discs, Revives.
+// theirs; a rampage's confusion is in), your own switching to a better
+// matchup mid-battle (the leaders' is in), Move Discs, Revives.
 import { pathToFileURL } from 'node:url'
 import { openGame } from './harness.mjs'
 
@@ -25,8 +26,8 @@ const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
  * rings spread it more), `fooled` the chance a tell (feint, second ring,
  * low-high) makes them press at the wrong time. Potions: used under 35% HP.
  */
-/** Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2). */
-export const AIMS = { 'ALEX 7': 0.35 }
+/** Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2): Alex's first battle is the friendly one, the last the hardest in the game. */
+export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.35 }
 
 export const SKILLS = {
   casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1 },
@@ -65,8 +66,11 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
   function battle(skill, T, teamOf, party) {
     const foes = teamOf(party.map((m) => m.level))
     const movesFor = (f, last) => T.movesFor?.(f) || (T.sig && last && T.sig) || ((T.region === 'kanto' || (T.strong && !last)) && strongMoves(f)) || TRAINER_MOVES[f.name] || WILD_MOVES[f.types[0]] || WILD_MOVES.normal
-    let restores = T.restores ?? 1, potions = skill.potions, pp = 3
-    let me = party[0], fi = 0, foe = foes[0], fm = movesFor(foe, foes.length === 1), charged = null, conf = 0
+    let restores = T.restores ?? 1, potions = skill.potions, pp = 3, switches = T.switches ?? 0
+    // As the game keeps them: the one out, and the rest in order, the ace last.
+    const roster = foes.slice(1)
+    let me = party[0], foe = foes[0], fm = movesFor(foe, !roster.length), charged = null, conf = 0
+    const next = (m) => { foe = m; fm = movesFor(foe, !roster.length); charged = null; conf = 0 }
     const switchIn = () => { me = party.filter((m) => m.hp > 0).sort((a, b) => bestHit(b, foe) - bestHit(a, foe))[0] }
     const bestHit = (m, f) => Math.max(...m.sim.map((mv) => (mv.power ?? 60) * (mv.hits ?? 1) * soften(gameMult(mv.type, f.types)) * (m.types.includes(mv.type) ? 1.5 : 1)))
     for (let turn = 0; turn < 300; turn++) {
@@ -86,14 +90,19 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
         if ((mv.cost ?? 0) === 0 && clean) pp = Math.min(5, pp + 1)
       }
       if (foe.hp <= 0) {
-        if (++fi >= foes.length) return true
-        foe = foes[fi]; fm = movesFor(foe, fi === foes.length - 1); charged = null; conf = 0
+        if (!roster.length) return true
+        next(roster.shift())
         continue
       }
       // Confused (after a rampage): a third of the time it hurts itself instead.
-      if (conf && --conf && R() < 1 / 3) { foe.hp = Math.max(0, foe.hp - confusionDmg(foe)); if (foe.hp <= 0) { if (++fi >= foes.length) return true; foe = foes[fi]; fm = movesFor(foe, fi === foes.length - 1); charged = null; conf = 0 } continue }
+      if (conf && --conf && R() < 1 / 3) { foe.hp = Math.max(0, foe.hp - confusionDmg(foe)); if (foe.hp <= 0) { if (!roster.length) return true; next(roster.shift()) } continue }
+      // The toughest leaders pull a Pokémon out of a bad matchup: the game's own rule (switchPick).
+      if (switches > 0 && roster.length > 1 && !charged && R() < 0.7) {
+        const to = switchPick(foe, roster.slice(0, -1), me, me.sim, (f) => movesFor(f, false))
+        if (to) { switches--; roster.splice(roster.indexOf(to), 1); roster.splice(roster.length - 1, 0, foe); next(to); continue }
+      }
       // Them: a Full Restore when low (the last kept for the last Pokémon), else usually their hardest-hitting move.
-      if (restores > 0 && (fi === foes.length - 1 || restores > 1) && foe.hp < foe.stats.hp * 0.35) { restores--; foe.hp = foe.stats.hp; continue }
+      if (restores > 0 && (!roster.length || restores > 1) && foe.hp < foe.stats.hp * 0.35) { restores--; foe.hp = foe.stats.hp; continue }
       if (!charged && R() < 0.25 * 0.5) continue   // now and then a stat move instead (left out: its effect)
       const score = (m) => (m.power ?? 0) * (m.hits ?? 1) * soften(gameMult(m.type, me.types)) * (foe.types.includes(m.type) ? 1.5 : 1)
       const ranked = fm.filter((m) => !m.splash).slice().sort((a, b) => score(b) - score(a))
