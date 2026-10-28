@@ -838,7 +838,7 @@ export default function CollectionPanel({
             <ul className="grid grid-cols-2 gap-2">
               {visibleBoxes.map((b) => (
                 <li key={b.id} className="bg-card border border-card-border rounded-xl p-2 flex flex-col gap-1.5">
-                  <div className="w-full aspect-[541/480] rounded-lg bg-white overflow-hidden flex items-center justify-center">
+                  <div className="w-full aspect-[541/480] rounded-lg bg-paper overflow-hidden flex items-center justify-center">
                     {b.image_url
                       ? <img src={b.image_url} alt="" loading="lazy" className="w-full h-full object-contain" />
                       : <span className="text-xs text-muted">{b.name}</span>}

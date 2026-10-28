@@ -509,7 +509,7 @@ function ListingDetail({
               <li key={i}>
                 {it.item_kind === 'box' ? (
                   <div className="relative">
-                    <div className="w-full aspect-[245/342] rounded bg-white flex items-center justify-center overflow-hidden">
+                    <div className="w-full aspect-[245/342] rounded bg-paper flex items-center justify-center overflow-hidden">
                       <img src={it.image_url} alt={it.name} className="w-full object-contain" />
                     </div>
                     <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
@@ -1027,7 +1027,7 @@ function Compose({ collection, packs, boxes, feePercent, onClose, onDone, onErro
                     </li>
                   )
                 })}
-                {/* Sealed boxes first: the box photo on white, the way it's sold. */}
+                {/* Sealed boxes first: the box itself, cut out, the way it is sold. */}
                 {shownBoxes.map((b) => {
                   const on = chosenBoxes.has(b.id)
                   return (
@@ -1040,7 +1040,7 @@ function Compose({ collection, packs, boxes, feePercent, onClose, onDone, onErro
                         aria-pressed={on}
                         aria-label={`${on ? 'Remove' : 'Add'} sealed ${b.name}, ${b.packs} packs`}
                       >
-                        <div className="w-full aspect-[245/342] rounded bg-white flex items-center justify-center overflow-hidden">
+                        <div className="w-full aspect-[245/342] rounded bg-paper flex items-center justify-center overflow-hidden">
                           {b.image_url && <img src={b.image_url} alt="" className="w-full object-contain" />}
                         </div>
                         <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">

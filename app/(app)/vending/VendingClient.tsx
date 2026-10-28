@@ -1036,7 +1036,7 @@ function StockScreen({
                   <div className={`relative w-full aspect-[2/3] rounded-sm overflow-hidden ${soldOut || gone ? 'opacity-60 grayscale-[35%]' : ''}`}
                     style={{ background: 'radial-gradient(circle at 50% 35%, #f5f3ff, #ddd6fe)' }}>
                     {b.image_url ? (
-                      <div className="absolute inset-0 bg-white flex items-center justify-center">
+                      <div className="absolute inset-0 p-1 flex items-center justify-center">
                         <img src={b.image_url} alt="" loading="lazy" className="w-full object-contain" />
                       </div>
                     ) : arts.map((src, i) => (

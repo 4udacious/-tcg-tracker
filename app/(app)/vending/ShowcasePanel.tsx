@@ -331,7 +331,7 @@ export default function ShowcasePanel({
                           className="block w-full relative rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal disabled:opacity-40"
                           aria-label={`Put the sealed ${c.name} in slot ${picking + 1}`}
                         >
-                          <div className={`w-full aspect-[245/342] rounded bg-white flex items-center justify-center overflow-hidden ${already ? 'opacity-45' : ''}`}>
+                          <div className={`w-full aspect-[245/342] rounded bg-paper flex items-center justify-center overflow-hidden ${already ? 'opacity-45' : ''}`}>
                             {c.image_url && <img src={c.image_url} alt="" className="w-full object-contain" />}
                           </div>
                           <span className="absolute inset-x-0 bottom-0 bg-ink/80 text-white text-[10px] font-mono text-center py-0.5 rounded-b">
