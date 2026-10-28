@@ -3279,7 +3279,7 @@ const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 const RIVAL_LOOKS = {
   1: { theme: 'rival', scene: 'factory', color: '#60a5fa', tellRate: 0.3, ringFast: 0.86, ivs: 20, title: 'RIVAL' },
   2: { theme: 'rival2', scene: 'distortion', color: '#a855f7', tellRate: 0.4, ringFast: 0.82, ivs: 22, title: 'RIVAL' },
-  3: { theme: 'rival3', scene: 'hall', color: '#f59e0b', tellRate: 0.45, ringFast: 0.78, ivs: 25, title: 'RIVAL · FINAL' },
+  3: { theme: 'rival3', scene: 'hall', color: '#f59e0b', tellRate: 0.45, ringFast: 0.78, ivs: 25, title: 'RIVAL' },
 }
 for (const p of [1, 2, 3]) {
   const L = RIVAL_LOOKS[p]
@@ -3311,7 +3311,7 @@ const RIVAL_BATTLES = [
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
   { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tellRate: 0.35, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
     intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
-    outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
+    outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, you'll meet it."],
     gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
   { due: (p) => p.red, min: 90, over: 14, restores: 3, switches: 2, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
@@ -3347,7 +3347,7 @@ for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id 
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
-  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: `${L.title} · BATTLE ${n + 1} OF 7`, role: 'RIVAL', rival: true, hard: true,
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true,
     vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
@@ -3395,7 +3395,7 @@ const STORY = {
         outro: ['You followed me to KANTO?', "Fine. Take a pack back. The Celadon show's off anyway."],
         gloat: ["Kanto's my market now, chief.", "You can't stop a glitch. It's a feature."] },
       { due: (p) => p.kanto >= 6, min: 77, over: 7, restores: 2, tellRate: 0.38, ringFast: 0.8, ivs: 25, tokens: '10.00', team: ['MIMIKYU', 'MAWILE', 'ROTOM', 'SABLEYE', 'PERSIAN', 'GHOLDENGO'],
-        intro: ["Saffron card show. Biggest in Kanto. My whole year's in that van.", 'Every glitch I know, every Pokémon I got. Last time, chief.'],
+        intro: ["Saffron card show. Biggest in Kanto. My whole year's in that van.", "Every glitch I know, every Pokémon I got. Let's go, chief."],
         last: ['Gholdengo. Made out of every coin I ever glitched.', 'Make it rain.'],
         outro: ["...That's it. I'm out. No more glitching.", "Take the pack. Take the table. I'm gonna go get a real job. Probably."],
         gloat: ['Still the king of the glitch.', "Come back with a better team. I'll be at the Saffron show."] },
@@ -3416,7 +3416,7 @@ const STORY = {
         outro: ['The Pack Palace is... closing early today.', "Here. One back. Don't tell Herb how many I have."],
         gloat: ['The Palace stands.', 'Next show is bigger. So is my basement.'] },
       { due: (p) => p.kanto >= 8, min: 86, over: 9, restores: 3, tellRate: 0.45, ringFast: 0.78, ivs: 25, tokens: '12.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
-        intro: ['Last card show of the year. I jammed every machine from Pewter to Fuchsia for it.', "Everything I've got. Every box, every Pokémon. Let's go, buddy."],
+        intro: ['Biggest card show of the year. I jammed every machine from Pewter to Fuchsia for it.', "Everything I've got. Every box, every Pokémon. Let's go, buddy."],
         last: ["Hippowdon. It's held the line since the first machine I jammed.", 'Hold the line, buddy.'],
         outro: ["...Okay. I'm done. I'll unjam them all.", 'Take the pack. And maybe the forty boxes. Mom says they have to go.'],
         gloat: ['Basement is safe. For now.', "Come back stronger. I'll save you a box. Full price."] },
@@ -3428,7 +3428,7 @@ const STORY_THEMES = ['gym', 'gym', 'elite', 'elite']
 /** Herb or Paul (`who`) as the battle needs them for their battle n (0-3). */
 function storyTrainer(who, n) {
   const S = STORY[who], B = S.battles[n], T = S.T
-  return { ...T, ...B, story: who, step: n, full: T.full, title: `GLITCHER · ${n + 1} OF ${S.battles.length}`, role: 'GLITCHER', hard: true, strong: n > 0,
+  return { ...T, ...B, story: who, step: n, full: T.full, title: 'GLITCHER', role: 'GLITCHER', hard: true, strong: n > 0,
     tellRate: B.tellRate ?? 0.3, ringFast: B.ringFast ?? 0.86, ivs: B.ivs ?? 20, scene: STORY_SCENES[n], theme: STORY_THEMES[n], color: S.color,
     movesFor: (f) => (n > 0 && f.name === B.team.at(-1) ? STORY_ACE_MOVES[f.name] : null) }
 }

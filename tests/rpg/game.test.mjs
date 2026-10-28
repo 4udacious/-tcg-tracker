@@ -693,13 +693,13 @@ test('the toughest leaders switch out of a bad matchup, never to their ace, and 
         toWater: switchPick(grass, [grass2, water], me, mine, moves)?.name,   // fire on grass: out, to the one that resists it and hits back, not another grass
         hurtSkipped: switchPick(grass, [weakWater], me, mine, moves)?.name ?? null,   // not to one about to faint
         stays: switchPick(water, [grass], me, mine, moves)?.name ?? null,   // fire on water isn't super effective: it stays in
-        who: [...GYMS, ...ELITE, ...KANTO_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].filter((T) => T.switches).map((T) => T.short + (T.rival ? ' ' + T.title : '')),
+        who: [...GYMS, ...ELITE, ...KANTO_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].filter((T) => T.switches).map((T) => T.short + (T.rival ? ` ${RIVAL_BATTLES.findIndex((B) => B.team === T.team) + 1}` : '')),
       }
     })
     assert.equal(r.toWater, 'BLASTOISE')
     assert.equal(r.hurtSkipped, null)
     assert.equal(r.stays, null)
-    assert.deepEqual(r.who, ['LANCE', 'RED', 'ALEX RIVAL · FINAL · BATTLE 7 OF 7'])
+    assert.deepEqual(r.who, ['LANCE', 'RED', 'ALEX 7'])
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
