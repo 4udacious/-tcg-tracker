@@ -12,6 +12,8 @@ import MachineComments from '@/components/MachineComments'
 import TimerAnalytics from './TimerAnalytics'
 import { checkAchievements } from '@/lib/checkAchievements'
 import { useToast } from '@/components/ui/Toast'
+import Link from 'next/link'
+import { getSettings, useSettings } from '@/lib/settings'
 
 interface Machine {
   id: string
@@ -162,6 +164,12 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
   const [locateError, setLocateError] = useState<string | null>(null)
   // Where the user is, once known: every list then shows (and sorts by) distance.
   const [here, setHere] = useState<{ lat: number; lon: number } | null>(null)
+  // Settings → Privacy → Location services. Off: never ask for the location,
+  // and forget any already found this visit.
+  const locationOn = useSettings().location
+  useEffect(() => {
+    if (!locationOn) { setHere(null); setNearby(null); setLocateError(null) }
+  }, [locationOn])
   const mapped = useMemo(() => machines.filter((m) => m.latitude != null && m.longitude != null), [machines])
   const milesTo = useMemo(() => {
     const byId = new Map<string, number>()
@@ -183,6 +191,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
    */
   function findNearMe(auto = false) {
     setLocateError(null)
+    if (!getSettings().location) return
     if (!('geolocation' in navigator)) {
       if (!auto) setLocateError("This browser can't share your location. Use Search instead.")
       return
@@ -191,6 +200,8 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setLocating(false)
+        // Turned off in Settings while we were waiting.
+        if (!getSettings().location) return
         setHere({ lat: coords.latitude, lon: coords.longitude })
         const ranked = mapped
           .map((m) => ({ machine: m, miles: milesBetween(coords.latitude, coords.longitude, Number(m.latitude), Number(m.longitude)) }))
@@ -549,7 +560,7 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
           </div>
 
           {/* Near me: picks the closest machine, for ones you haven't starred. */}
-          {nearby ? (
+          {nearby && locationOn ? (
             <div className="rounded-xl border border-card-border bg-paper p-2 space-y-1">
               <div className="flex items-center justify-between px-1">
                 <p className="text-xs font-semibold text-ink">Closest to you</p>
@@ -590,6 +601,11 @@ export default function TimersClient({ machines, favorites, conditionTypes, toda
                 {`Only ${mapped.length} of ${machines.length} machines have a map location so far. If yours isn't listed, use Search.`}
               </p>
             </div>
+          ) : !locationOn ? (
+            <p className="text-xs text-muted text-center">
+              Location is off, so machines aren&apos;t sorted by distance.{' '}
+              <Link href="/settings" className="text-signal font-medium hover:underline">Turn it on in Settings</Link>
+            </p>
           ) : (
             <button type="button" onClick={() => findNearMe()} disabled={locating}
               className="w-full flex items-center justify-center gap-1.5 min-h-10 rounded-xl border border-signal/30 bg-signal/5 hover:bg-signal/10 text-signal text-sm font-semibold transition-colors disabled:opacity-60">
