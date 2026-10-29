@@ -233,6 +233,18 @@ const RARITY_SET = { EEVEE: 'uncommon', AIPOM: 'uncommon', LICKITUNG: 'uncommon'
   TANGELA: 'uncommon', MURKROW: 'uncommon', MISDREAVUS: 'uncommon' }
 for (const n of ['DRATINI', 'GIBLE', 'LARVITAR', 'DREEPY', 'KABUTO', 'OMANYTE', 'AERODACTYL', 'PORYGON', 'LAPRAS', 'UNOWN']) RARITY_SET[n] = 'rare'
 const rarityOf = (w) => RARITY_SET[w.name] ?? (w.capture >= 120 ? 'common' : 'uncommon')
+/*
+ * Shiny Pokémon: now and then a wild one is shiny, in its alternate colours,
+ * with a sparkle as it appears (1 in SHINY_ODDS). It stays shiny when caught,
+ * through evolution, and in the save. Shiny sprites (public/rpg/a/shiny/, from
+ * the same PokeAPI Showdown set as the rest) exist for every species you can
+ * meet wild and everything they evolve into; anything else just shows as usual.
+ */
+const SHINY_ODDS = 500
+const SHINY_IDS = new Set([10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,32,33,37,41,42,43,44,46,47,48,49,50,51,52,53,54,55,56,57,58,60,61,63,64,66,67,69,70,72,73,74,75,77,78,79,80,81,82,83,84,85,86,87,88,89,90,92,93,94,95,96,97,98,99,100,101,102,104,105,106,107,108,109,110,111,112,114,115,116,117,118,119,120,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,147,148,149,161,162,163,164,165,166,167,168,170,171,172,173,174,175,177,178,179,180,181,183,184,185,187,188,189,190,191,193,194,195,196,197,198,200,201,202,203,204,205,206,207,209,210,211,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,234,235,236,237,238,239,240,241,246,247,248,287,288,289,300,399,400,406,424,439,440,443,444,445,446,447,448,449,450,453,454,462,463,470,471,473,568,569,572,669,670,700,885,886,887])
+for (const id of SHINY_IDS) Object.assign(ART, { ['s' + id]: `/rpg/a/shiny/${id}.gif`, ['s' + id + 'b']: `/rpg/a/shiny/${id}-back.gif` })
+/** A Pokémon's sprite: its shiny one if it's shiny and there is one. `back` for the one facing away. */
+const spr = (m, back = false) => (m?.shiny && SHINY_IDS.has(m.id) ? ART[`s${m.id}${back ? 'b' : ''}`] : ART[back ? m.id + 'b' : m.id])
 const rarityWeight = (w) => RARITY_WEIGHT[rarityOf(w)]
 /** One of `list`, each as likely as its weight. */
 function weightedPick(list, weightOf, r) {
@@ -4529,7 +4541,7 @@ async function run(id) {
 
   /* ── toolbar and sheets ── */
   function renderTools() {
-    $('partyMinis').innerHTML = party.slice(0, 3).map((m) => `<img src="${ART[m.id]}" alt="">`).join('') + (party.length > 3 ? `<span style="font-size:10px">+${party.length - 3}</span>` : '')
+    $('partyMinis').innerHTML = party.slice(0, 3).map((m) => `<img src="${spr(m)}" alt="">`).join('') + (party.length > 3 ? `<span style="font-size:10px">+${party.length - 3}</span>` : '')
     $('partyDot').style.display = party.some((m) => m.hp < m.stats.hp) ? 'block' : 'none'
     $('bagN').textContent = String(Object.values(bag).reduce((a, b) => a + b, 0))
     $('boxN').textContent = String(box.length)
@@ -4580,11 +4592,11 @@ async function run(id) {
     const caseFor = (region, label) => { const gs = GYMS.filter((g) => g.region === region), got = gs.filter((g) => badges.includes(g.gym)).length
       return `<div class="badgecase"><b>${label} ${got}/${gs.length}</b><span>${gs.map((g) => `<img class="${badges.includes(g.gym) ? 'on' : ''}" src="${badgeArt(g.badge)}" alt="${g.badge} BADGE" title="${g.badge} BADGE (${g.short})">`).join('')}</span></div>` }
     const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '') +   // Kanto shows once it's unlocked
-      (fame ? `<div class="badgecase champ fame"><b>HALL OF FAME</b><span>${fame.team.map((m) => `<img class="on" src="${ART[m.id]}" alt="${m.name}" title="${m.name} Lv ${m.level}">`).join('')}</span></div>` : '')
+      (fame ? `<div class="badgecase champ fame"><b>HALL OF FAME</b><span>${fame.team.map((m) => `<img class="on" src="${spr(m)}" alt="${m.name}" title="${m.name} Lv ${m.level}">`).join('')}</span></div>` : '')
     return caseRow + `<button class="heal" data-heal ${freeHealLeft() && hurt ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${freeHealLeft() ? (hurt ? 'Heal the whole party, free — 1 left today' : 'Everyone is at full HP') : 'Free heal used today. Potions still work.'}</small></span></button>` +
       party.map((m, i) => `<div class="prow${m.hp <= 0 ? ' fainted' : ''}">
-        <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${ART[m.id]}" alt=""><span class="mid">
-          <span class="nm"><b>${i + 1}. ${m.name}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}</span></span>
+        <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${spr(m)}" alt=""><span class="mid">
+          <span class="nm"><b>${i + 1}. ${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}</span></span>
           ${hpBar(m)}<span class="sub">${m.nature[0]} · IV ${ivTotal(m)}/186 · tap for stats</span></span></button>
         <span class="ord">
           <button data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${m.name} up">▲</button>
@@ -4601,8 +4613,8 @@ async function run(id) {
       return `<tr><td class="k">${STAT_LABEL[k]}${tag}</td><td class="v">${m.stats[k]}</td><td class="bar"><div><i style="width:${m.ivs[k] / 31 * 100}%;background:${col}"></i></div></td><td class="iv">${m.ivs[k]}/31</td></tr>`
     }).join('')
     return `<button class="back" data-back>◀ Party</button>
-      <div class="svhead"><img src="${ART[m.id]}" alt=""><div>
-        <div class="nm"><b>${m.name}</b> <span>Lv ${m.level}${i === 0 ? ' · LEAD' : ` · #${i + 1} in order`}</span></div>
+      <div class="svhead"><img src="${spr(m)}" alt=""><div>
+        <div class="nm"><b>${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}</b> <span>Lv ${m.level}${i === 0 ? ' · LEAD' : ` · #${i + 1} in order`}</span></div>
         <div class="types">${m.types.map((t) => `<span style="background:${TYPE_COL[t]}">${t}</span>`).join('')}</div>
         ${hpBar(m)}</div></div>
       <div class="svnat"><b>${nat}</b> nature${up ? `: <em class="up">${STAT_LABEL[up]} +10%</em>, <em class="dn">${STAT_LABEL[dn]} −10%</em>` : ': no stat changes'} · IV total <b>${ivTotal(m)}</b>/186 · starts battles with <b>${startPP(m)} PP</b>${startPP(m) > 1 ? ' (quick nature)' : ''}</div>
@@ -4676,19 +4688,19 @@ async function run(id) {
   function bagTarget(k) {
     if (ITEMS[k].candy) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — give it to which Pokémon?</p>` +
       party.map((m, i) => { const max = m.level >= LEVEL_CAP
-        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${ART[m.id]}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? 'already Lv 100' : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
+        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? 'already Lv 100' : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
     if (ITEMS[k].evo) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use it on which Pokémon?</p>` +
       party.map((m, i) => { const r = evoByItem(m, k, bag)
-        return `<button class="prow tgt${r.rule ? '' : ' cant'}" data-target="${i}" ${r.rule ? '' : 'disabled'}><img src="${ART[m.id]}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${r.rule ? `evolves into ${r.rule.to}` : r.why}</span></span>${hpBar(m)}</span></button>` }).join('')
+        return `<button class="prow tgt${r.rule ? '' : ' cant'}" data-target="${i}" ${r.rule ? '' : 'disabled'}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${r.rule ? `evolves into ${r.rule.to}` : r.why}</span></span>${hpBar(m)}</span></button>` }).join('')
     if (ITEMS[k].disc) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px">MOVE DISC <b>${ITEMS[k].disc}</b> — teach it to which Pokémon?</p>` +
       party.map((m, i) => { const knows = learn(m).learned.includes(ITEMS[k].disc), can = canLearnDisc(m, ITEMS[k].disc)
-        return `<button class="prow tgt${can ? '' : ' cant'}" data-target="${i}" ${knows || !can ? 'disabled' : ''}><img src="${ART[m.id]}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${!can ? "can't learn this" : knows ? 'already knows it' : `Lv ${m.level} · can learn`}</span></span><span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>` }).join('')
+        return `<button class="prow tgt${can ? '' : ' cant'}" data-target="${i}" ${knows || !can ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${!can ? "can't learn this" : knows ? 'already knows it' : `Lv ${m.level} · can learn`}</span></span><span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>` }).join('')
     return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use on which Pokémon?</p>` +
       party.map((m, i) => {
         const rev = !!ITEMS[k].revive, cure = ITEMS[k].cure
         const off = !bag[k] || (cure ? !(m.status && cure.includes(m.status)) : rev ? m.hp > 0 : m.hp <= 0 || m.hp >= m.stats.hp)
         const what = cure ? (m.status ? (cure.includes(m.status) ? `${STATUS_WORD[m.status]} · cure it` : `${STATUS_WORD[m.status]} · won't help`) : 'no status') : rev ? (m.hp <= 0 ? `fainted · revive to ${Math.ceil(m.stats.hp * ITEMS[k].revive)} HP` : 'not fainted') : m.hp <= 0 ? 'fainted' : m.hp >= m.stats.hp ? 'full HP' : `+${Math.ceil(m.stats.hp * ITEMS[k].heal)} HP`
-        return `<button class="prow tgt" data-target="${i}" ${off ? 'disabled' : ''}><img src="${ART[m.id]}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${what}</span></span>${hpBar(m)}</span></button>`
+        return `<button class="prow tgt" data-target="${i}" ${off ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${what}</span></span>${hpBar(m)}</span></button>`
       }).join('')
   }
   const everyone = () => [...party, ...box]
@@ -4699,7 +4711,7 @@ async function run(id) {
    * The party always keeps at least one.
    */
   function boxBody(pick = null) {
-    const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${ART[m.id]}" alt=""><span class="mid">
+    const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${spr(m)}" alt=""><span class="mid">
         <span class="nm"><b>${m.name}</b><span>Lv ${m.level}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
         <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>${side}</div>`
     const inParty = party.map((m, i) => row(m, i, pick != null
@@ -4721,7 +4733,7 @@ async function run(id) {
     learn(m)
     const spare = m.learned.filter((n) => !m.moves.includes(n))
     return `<button class="back" data-back>◀ ${backTo}</button>
-      <div class="svhead"><img src="${ART[m.id]}" alt=""><div><div class="nm"><b>${m.name}</b> <span>Lv ${m.level}</span></div>
+      <div class="svhead"><img src="${spr(m)}" alt=""><div><div class="nm"><b>${m.name}</b> <span>Lv ${m.level}</span></div>
         <div class="types">${m.types.map((t) => `<span style="background:${TYPE_COL[t]}">${t}</span>`).join('')}</div></div></div>
       <div class="lbl">Equipped · ${m.moves.length}/${MAX_MOVES} <span>${slot == null ? 'tap one to swap it out' : 'now tap a learned move below'}</span></div>
       <div class="mvgrid">${m.moves.map((n, i) => moveCard(n, `data-slot="${i}"`, i === slot ? ' sel' : '')).join('')}</div>
@@ -5137,6 +5149,12 @@ async function run(id) {
         [{ transform: `translateX(${rnd(-40, 0)}px)`, opacity: 0.9 }, { transform: `translateX(${rnd(0, 40)}px)`, opacity: 0 }], { duration: rnd(140, 260), delay: rnd(0, 120) })
     }
   }
+  /** A shiny Pokémon's sparkle as it appears: gold and white twinkles around it, and a chime. */
+  function shinySparkle(c) {
+    sfx('levelup')
+    for (let i = 0; i < 9; i++) twinkle({ x: c.x + rnd(-44, 44), y: c.y + rnd(-54, 22) }, i % 3 ? '#fde047' : '#ffffff', rnd(14, 26), i * 70)
+    ringAt(c, '#fde047', 90, 520, 3, 120)
+  }
   /** Where a hit lands: a flash and a starburst in the move's colours, and what its type throws off. Bigger on a super-effective or critical hit. */
   function impactFx(c, type, big = false) {
     const [c1, c2] = fxc(type), k = big ? 1.35 : 1
@@ -5498,7 +5516,7 @@ async function run(id) {
       const at = DUO_AT[side][i]
       const el = mk(`mon duo ${side}${i}`, '<img alt="">')
       el.style.opacity = '0'   // hidden while its image loads; it used to show, then pop in again
-      const r = await place(el, ART[mon.id + (side === 'p' ? 'b' : '')], at.x, at.y, at.scale, at.maxH, at.maxW)
+      const r = await place(el, spr(mon, side === 'p'), at.x, at.y, at.scale, at.maxH, at.maxW)
       st.delete(mon); mon.toxN = 0   // a fresh start: no stages, confusion or seed, and bad poison counts from 1 again
       const s = { side, i, mon, owner, ally: !!owner?.ally, el, c: { x: r.x, y: Math.min(r.y, side === 'p' ? 196 : 200) }, hud: mk(`hud dh ${side}${i}`), turns: 0 }
       s.hud.innerHTML = hudHtml(s); s.hud.style.opacity = '0'; sides[side].slots[i] = s; tags(s)
@@ -5516,7 +5534,7 @@ async function run(id) {
       $('pParty').classList.remove('six')
       $('pParty').innerHTML = [0, 1, 2, 3].map((i) => { const m = list[i]; if (!m) return `<button class="btn fm${i} t-empty" disabled>—</button>`
         const pct = m.hp / m.stats.hp * 100
-        return `<button class="btn fm${i} t-party pmon" data-act="p${i}"><img src="${ART[m.id]}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>` }).join('')
+        return `<button class="btn fm${i} t-party pmon" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>` }).join('')
       panel('pParty'); msg0('Send out which Pokémon?', '')
       const p = await pick('pParty', null); panel(null)
       return list[+p.slice(1)]
@@ -5625,7 +5643,7 @@ async function run(id) {
     }
     function drawTargets(list) {
       $('pFight').classList.toggle('six', list.length > 4)   // an item on the bench: up to six to choose from
-      $('pFight').innerHTML = list.map((t, i) => `<button class="btn fm${i} t-${t.mon.types[0]} tgt" data-act="t${i}"><img src="${ART[t.mon.id]}" alt=""><span>${t.mon.name}<small>${t.bench ? 'bench · ' : ''}${Math.round(t.mon.hp / t.mon.stats.hp * 100)}% HP</small></span></button>`).join('') +
+      $('pFight').innerHTML = list.map((t, i) => `<button class="btn fm${i} t-${t.mon.types[0]} tgt" data-act="t${i}"><img src="${spr(t.mon)}" alt=""><span>${t.mon.name}<small>${t.bench ? 'bench · ' : ''}${Math.round(t.mon.hp / t.mon.stats.hp * 100)}% HP</small></span></button>`).join('') +
         `<button class="btn fback t-run" data-act="back">◀ BACK</button>`
     }
     async function commands(step) {
@@ -5681,7 +5699,7 @@ async function run(id) {
           if (!free.length) { panel(null); await say('There are no other Pokémon', 'ready to come in!'); k--; continue }
           $('pParty').innerHTML = [0, 1, 2, 3].map((i) => { const m = free[i]; if (!m) return `<button class="btn fm${i} t-empty" disabled>—</button>`
             const pct = m.hp / m.stats.hp * 100
-            return `<button class="btn fm${i} t-party pmon" data-act="p${i}"><img src="${ART[m.id]}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>` }).join('') +
+            return `<button class="btn fm${i} t-party pmon" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>` }).join('') +
             `<button class="btn fback t-run" data-act="back">◀ BACK</button>`
           panel('pParty'); msg0(`Switch ${s.mon.name} for?`, 'Switches go before any attack.')
           const p = await pick('pParty', scripted?.to ?? null)
@@ -6017,7 +6035,7 @@ async function run(id) {
           m.form ??= { id: m.id, types: m.types, stats: m.stats, moves: m.moves }
           const names = levelMoves({ name: into.name, types: into.types }).filter(([lv, n]) => lv <= m.level && MOVEDEX[n]).map(([, n]) => n).slice(-4)
           m.id = into.id; m.types = [...into.types]; m.stats = { ...into.stats, hp: m.stats.hp }; if (names.length) m.moves = names
-          sfx('shadow'); const at = DUO_AT.p[actor.i]; await place(actor.el, ART[m.id + 'b'], at.x, at.y, at.scale, at.maxH, at.maxW)
+          sfx('shadow'); const at = DUO_AT.p[actor.i]; await place(actor.el, spr(m, true), at.x, at.y, at.scale, at.maxH, at.maxW)
           await say(`${m.name} transformed`, `into ${into.name}!`, 300); return true
         }
         case 'curse': {
@@ -7158,7 +7176,7 @@ async function run(id) {
     }).join('')
     const total = STAT_KEYS.reduce((s, k) => s + mon.ivs[k], 0)
     const natLine = up ? `<b>${nat}</b> nature: <em>${STAT_LABEL[up]} +10%</em>, <i>${STAT_LABEL[dn]} −10%</i>` : `<b>${nat}</b> nature: no stat changes`
-    $('sum').innerHTML = `<div class="pic"><img src="${ART[mon.id]}" style="height:80px" alt=""></div>
+    $('sum').innerHTML = `<div class="pic"><img src="${spr(mon)}" style="height:80px" alt=""></div>
       <div class="hd"><b>${mon.name}</b><span class="lv">Lv ${mon.level}</span>
         <div class="types">${mon.types.map((t) => `<span style="background:${TYPE_COL[t]};color:#111">${t}</span>`).join('')}<span class="ivt">IV total <b>${total}</b>/186</span></div>
         <div class="nat">${natLine}</div></div>
@@ -7358,7 +7376,8 @@ async function run(id) {
       m.form ??= { id: m.id, types: m.types, stats: m.stats, moves: m.moves }
       const names = levelMoves({ name: into.name, types: into.types }).filter(([lv, n]) => lv <= m.level && MOVEDEX[n]).map(([, n]) => n).slice(-4)
       m.id = into.id; m.types = [...into.types]; m.stats = { ...into.stats, hp: m.stats.hp }; m.moves = names.length ? names : m.moves
-      sfx('shadow'); const pr = await place($('player'), ART[m.id + 'b'], FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW); C.p = { x: pr.x, y: Math.min(pr.y, 200) }
+      sfx('shadow'); const pr = await place($('player'), spr(m, true), FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW); C.p = { x: pr.x, y: Math.min(pr.y, 200) }
+      if (m.shiny) shinySparkle(C.p)
       await say(`${m.name} transformed`, `into ${into.name}!`, 350)
     }
     /**
@@ -7453,7 +7472,7 @@ async function run(id) {
     plan = plan ? [...plan] : null; planD = planD ? [...planD] : null
 
     $('ename').textContent = foe.name; $('elv').textContent = foe.level; setHP('e', foe.hp, foe.max)
-    const er = await place($('enemy'), ART[foe.id], FOOT.e.x, FOOT.e.y, 1.6, FOOT.e.maxH, FOOT.e.maxW)
+    const er = await place($('enemy'), spr(foe), FOOT.e.x, FOOT.e.y, 1.6, FOOT.e.maxH, FOOT.e.maxW)
     C.e = { x: er.x, y: er.y }
 
     if (kind === 'wild') {
@@ -7464,6 +7483,7 @@ async function run(id) {
       $('ehud').style.visibility = 'visible'; anim($('ehud'), [{ transform: 'translateX(-180px)' }, { transform: 'none' }], { duration: 280 })
       cry(foe)
       if (foe.roamer) { shake(8, 500); await say(`The roaming legendary ${foe.name}`, `appeared! (${Math.round(foe.hp / foe.max * 100)}% HP)`, 700) }
+      else if (foe.shiny) { shinySparkle(C.e); await W(500); await say(`A wild shiny ${foe.name}`, 'appeared!', 600) }
       else await say(`A wild ${foe.name}`, 'appeared!', 300)
     } else {
       await trainerOn(trainer)
@@ -7479,7 +7499,8 @@ async function run(id) {
       m.toxN = 0
       // A faint leaves its slide-and-clip held on the sprite (anim fills forwards); clear it or the next one comes out invisible.
       $('player').getAnimations().forEach((a) => a.cancel())
-      const pr = await place($('player'), ART[m.id + 'b'], FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW)
+      const pr = await place($('player'), spr(m, true), FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW)
+      if (m.shiny) shinySparkle({ x: pr.x, y: Math.min(pr.y, 200) })
       C.p = { x: pr.x, y: Math.min(pr.y, 200) }
       await say(`Go! ${m.name}!`, '', 100)
       sfx('ball'); $('player').style.visibility = 'visible'; flash('#fff', .5, 180)
@@ -7546,7 +7567,7 @@ async function run(id) {
     /** Choose one of `list` (your Pokémon, up to six) for an item; null for back. */
     async function pickMon(list, line, sub = (m) => `${m.hp}/${m.stats.hp} HP`) {
       $('pParty').classList.toggle('six', list.length > 4)
-      $('pParty').innerHTML = list.map((d, i) => `<button class="btn fm${i} t-party pmon" data-act="r${i}"><img src="${ART[d.id]}" alt=""><span style="flex:1;min-width:0">${d.name}<small>${sub(d)}${d === me ? ' · out now' : ''}</small></span></button>`).join('') +
+      $('pParty').innerHTML = list.map((d, i) => `<button class="btn fm${i} t-party pmon" data-act="r${i}"><img src="${spr(d)}" alt=""><span style="flex:1;min-width:0">${d.name}<small>${sub(d)}${d === me ? ' · out now' : ''}</small></span></button>`).join('') +
         `<button class="btn fback t-run" data-act="back">◀ BACK</button>`
       panel('pParty'); msg0(line, '')
       const r = await choose('pParty', null); panel(null)
@@ -7559,7 +7580,7 @@ async function run(id) {
       $('pParty').innerHTML = [...Array(n).keys()].map((i) => {
         const m = party[i]; if (!m) return `<button class="btn fm${i} t-empty" disabled>—</button>`
         const pct = m.hp / m.stats.hp * 100
-        return `<button class="btn fm${i} t-party pmon${m.hp <= 0 ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${ART[m.id]}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
+        return `<button class="btn fm${i} t-party pmon${m.hp <= 0 ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
       }).join('') + (sending ? '' : `<button class="btn fback t-run" data-act="back">◀ BACK</button>`)
     }
     function choose(panelId, scripted) {
@@ -7779,7 +7800,7 @@ async function run(id) {
       await say(...sentOut(trainer, foe), 200)
       $('ename').textContent = foe.name; $('elv').textContent = foe.level; setHP('e', foe.hp, foe.max)
       $('enemy').getAnimations().forEach((a) => a.cancel())
-      const er = await place($('enemy'), ART[foe.id], FOOT.e.x, FOOT.e.y, 1.6, FOOT.e.maxH, FOOT.e.maxW)
+      const er = await place($('enemy'), spr(foe), FOOT.e.x, FOOT.e.y, 1.6, FOOT.e.maxH, FOOT.e.maxW)
       C.e = { x: er.x, y: er.y }
       $('enemy').style.visibility = 'visible'; sfx('ball'); flash('#fff', .5, 180)
       cry(foe); await anim($('enemy'), [{ transform: 'scale(.1)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: .7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 380 }).finished
@@ -8175,7 +8196,7 @@ async function run(id) {
       for (const w of ['enemy', 'player', 'trainer']) { $(w).getAnimations().forEach((a) => a.cancel()); $(w).style.visibility = 'hidden' }
       ;['ehud', 'phud'].forEach((h) => { $(h).style.visibility = 'hidden' }); fx.innerHTML = ''
       const stage = document.createElement('div'); stage.className = 'evostage'
-      stage.innerHTML = `<img class="a" src="${ART[m.id]}" alt=""><img class="b" src="${ART[to.id]}" alt="">`
+      stage.innerHTML = `<img class="a" src="${spr(m)}" alt=""><img class="b" src="${spr({ id: to.id, shiny: m.shiny })}" alt="">`
       $('ts').appendChild(stage)
       const [a, b] = stage.querySelectorAll('img')
       Sound.music('evolution')
@@ -8247,6 +8268,7 @@ async function run(id) {
     const roamer = legend || (!demoPlan && flavor() < LEGEND_RATE) ? pickLegend() : null
     const species = demoPlan ? DATA.wild.find((w) => w.name === demoPlan.wild) : wildFrom(YOU)   // from your seed's pool this week
     const foe = roamer ?? individual(species, demoPlan ? 4 : wildLevel(species), rand)
+    if (!roamer && !demoPlan && SHINY_IDS.has(foe.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) foe.shiny = true   // __forceShiny: testing only
     if (roamer) { sfx('quake'); $('homeSub').textContent = `a powerful presence... ${roamer.name} burst out!` }
     await wipeWild(async () => { setScene(WILD_SCENES, sceneRoll); showLayer('battle') })
     const out = await battle({ kind: 'wild', foe, plan: demoPlan?.turns, planD: demoPlan?.defend })
@@ -8288,7 +8310,7 @@ async function run(id) {
    * team is kept (`fame`) and shows in the Party sheet from then on.
    */
   async function hallOfFame() {
-    fame = { at: Date.now(), team: party.map((m) => ({ id: m.id, name: m.name, level: m.level })) }
+    fame = { at: Date.now(), team: party.map((m) => ({ id: m.id, name: m.name, level: m.level, shiny: !!m.shiny })) }
     saveGame()
     Sound.music('hallOfFame')
     showLayer('battle'); panel(null)
@@ -8299,11 +8321,11 @@ async function run(id) {
     const one = h.querySelector('.hofone'), row = h.querySelector('.hofteam')
     await say('Welcome to the HALL OF FAME!', '', 900)
     for (const m of party) {
-      one.innerHTML = `<img src="${ART[m.id]}" alt=""><b>${m.name}</b><span>Lv ${m.level} · ${m.types.map((t) => `<i style="background:${TYPE_COL[t]}">${t}</i>`).join('')}</span>`
+      one.innerHTML = `<img src="${spr(m)}" alt=""><b>${m.name}</b><span>Lv ${m.level} · ${m.types.map((t) => `<i style="background:${TYPE_COL[t]}">${t}</i>`).join('')}</span>`
       anim(one, [{ opacity: 0, transform: 'translateX(60px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)' })
       cry(m)
       await say(`${m.name}, Lv ${m.level}.`, pickOf(['A true champion.', 'Never backed down.', 'There at every badge.', 'ALEX never saw it coming.']), demo ? 600 : 1300)
-      const s = document.createElement('img'); s.src = ART[m.id]; s.alt = m.name; row.appendChild(s)
+      const s = document.createElement('img'); s.src = spr(m); s.alt = m.name; row.appendChild(s)
       anim(s, [{ transform: 'scale(0)' }, { transform: 'scale(1.2)', offset: .7 }, { transform: 'none' }], { duration: 360 })
     }
     one.innerHTML = ''
@@ -8470,7 +8492,7 @@ async function run(id) {
     function draw() {
       const three = S(region)
       $('regionName').innerHTML = `${DATA.regions[region].toUpperCase()}<small>CHOOSE YOUR PARTNER · ${region + 1}/9</small>`
-      three.forEach((m, i) => { const slot = $('slot' + i), img = slot.querySelector('img'); img.src = ART[m.id]; img.style.height = '84px'; slot.style.left = (36 + i * 92) + 'px'; slot.classList.toggle('dim', i !== sel) })
+      three.forEach((m, i) => { const slot = $('slot' + i), img = slot.querySelector('img'); img.src = spr(m); img.style.height = '84px'; slot.style.left = (36 + i * 92) + 'px'; slot.classList.toggle('dim', i !== sel) })
       $('pick3').innerHTML = three.map((m, i) => `<button class="btn t-${m.types[0]}${i === sel ? ' sel' : ''}" data-pick="${i}">${m.name}<small>${m.types.join(' / ').toUpperCase()}</small></button>`).join('')
       document.querySelectorAll('.chip').forEach((c, i) => c.classList.toggle('on', i === region))
       $('bChoose').textContent = `CHOOSE ${three[sel].name}`
