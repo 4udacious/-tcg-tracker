@@ -29,13 +29,16 @@
 -- sets do; Magic sets get Play Booster Box, Collector Booster Box, Bundle and
 -- Single Packs.
 --
--- Images, where the publisher has shown the product: the Gundam booster boxes
--- and packs from www.gundam-gcg.com (each set's product page), the Dragon Ball
--- packs from www.dbs-cardgame.com, and the Riftbound Radiance display from
--- TCGplayer. Cut out of the sites' backdrops onto white, 200 px wide, named by
--- the same slug rule as v8, v45 and v70. Everything else (Magic, the other
--- Riftbound sets, Naruto, the Dragon Ball boxes, GD04's box, GD07, EB02, SC01)
--- shows the plain box icon until an image is found.
+-- Images, where the product has been shown: the Magic Play Booster boxes,
+-- Collector Booster boxes and Bundles from magic.wizards.com (each set's
+-- product page), the Gundam booster boxes and packs from www.gundam-gcg.com,
+-- the Dragon Ball packs from www.dbs-cardgame.com, and the Riftbound displays
+-- and packs from TCGplayer. Put on white, 200 px wide, named by the same slug
+-- rule as v8, v45 and v70. The rest (Magic's Single Packs, Star Trek and the
+-- 2027 Magic sets, Marvel Super Heroes' Play Booster box and Bundle, The
+-- Hobbit's Collector box, Riftbound Legacy and the Spiritforged pack, Naruto,
+-- the Dragon Ball boxes, GD04's box, GD07, EB02, SC01) shows the plain box
+-- icon until an image is found.
 --
 -- Safe to re-run: an existing set or product is left alone.
 
@@ -120,7 +123,16 @@ update public.products p
     ('GD06 Stardust Trails', 'Booster Box'), ('GD06 Stardust Trails', 'Single Packs'),
     ('FB09 Dual Evolution', 'Single Packs'), ('FB10 Cross Force', 'Single Packs'),
     ('FB11 Brightness of Hope', 'Single Packs'), ('FB12 Reach the God', 'Single Packs'),
-    ('Riftbound: Radiance', 'Booster Box')
+    ('Riftbound: Radiance', 'Booster Box'), ('Riftbound: Radiance', 'Single Packs'),
+    ('Riftbound: Vendetta', 'Booster Box'), ('Riftbound: Vendetta', 'Single Packs'),
+    ('Riftbound: Unleashed', 'Booster Box'), ('Riftbound: Unleashed', 'Single Packs'),
+    ('Riftbound: Spiritforged', 'Booster Box'),
+    ('Lorwyn Eclipsed', 'Play Booster Box'), ('Lorwyn Eclipsed', 'Collector Booster Box'), ('Lorwyn Eclipsed', 'Bundle'),
+    ('Teenage Mutant Ninja Turtles', 'Play Booster Box'), ('Teenage Mutant Ninja Turtles', 'Collector Booster Box'), ('Teenage Mutant Ninja Turtles', 'Bundle'),
+    ('Secrets of Strixhaven', 'Play Booster Box'), ('Secrets of Strixhaven', 'Collector Booster Box'), ('Secrets of Strixhaven', 'Bundle'),
+    ('Marvel Super Heroes', 'Collector Booster Box'),
+    ('The Hobbit', 'Play Booster Box'), ('The Hobbit', 'Bundle'),
+    ('Reality Fracture', 'Play Booster Box'), ('Reality Fracture', 'Collector Booster Box'), ('Reality Fracture', 'Bundle')
   ) as v(set_name, product_name)
  where s.id = p.set_id
    and s.name = v.set_name
