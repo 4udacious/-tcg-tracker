@@ -3658,7 +3658,11 @@ $('snd').onclick = () => { Sound.setOn(!Sound.on); syncSnd() }
 const WILD_SCENES = ['plain', 'meadow', 'beach', 'marsh', 'water', 'puddles', 'forest', 'mountain', 'snow', 'ice', 'cave_1', 'cave_2', 'cave_3']
 const SCALPER_SCENES = [...WILD_SCENES, 'city', 'indoors_1', 'indoors_2', 'indoors_3', 'aaron', 'bertha', 'flint', 'lucian', 'cynthia', 'distortion', 'tower', 'factory', 'arcade', 'castle', 'hall']
 function timeOfDay() { const h = new Date().getHours(); return h >= 17 && h < 20 ? 'evening' : h >= 20 || h < 4 ? 'night' : 'day' }
-function setScene(list, roll = Math.random) { $('scene').src = ART[`bg:${list[Math.floor(roll() * list.length)]}_${timeOfDay()}`] }
+function setScene(list, roll = Math.random) {
+  $('scene').src = ART[`bg:${list[Math.floor(roll() * list.length)]}_${timeOfDay()}`]
+  // Dawn (4-7 am) has no scenes of its own: the day ones, warmed and a touch dim.
+  const h = new Date().getHours(); $('scene').style.filter = h >= 4 && h < 7 ? 'sepia(.3) saturate(1.25) hue-rotate(-15deg) brightness(.92)' : ''
+}
 setScene(['plain'])
 Object.assign(SFX, {
   wipe:   { file: null, synth: (ac, o, t) => { noise(ac, o, t, { dur: .5, vol: .25, filter: 'bandpass', f: 300, f1: 3500, q: 1 }); tone(ac, o, t, { f: 220, f1: 880, dur: .45, vol: .08 }) } },
@@ -5030,6 +5034,8 @@ async function run(id) {
   async function strikeFx(mv, A, T, el, quick = false) {
     const sp = quick ? 0.6 : 1, [c1, c2] = fxc(mv.type), R = fxRecipe(mv), D = 380 * sp
     const done = (ms) => W(ms * sp + 30)
+    // A special move charges first: the attacker glows in its type's colour as it lets go.
+    if (el && mv.cat === 'spec' && !quick && R !== 'volt') { anim(el, [{ filter: 'none' }, { filter: `brightness(1.3) drop-shadow(0 0 10px ${c2}) drop-shadow(0 0 4px #fff)`, offset: 0.5 }, { filter: 'none' }], { duration: 420 }); glowAt(A, c2, 64, 320) }
     switch (R) {
       case 'bolt': boltLine(A, T, c2, 300 * sp); boltLine(A, T, c2, 260 * sp, 16, 60 * sp); return done(300)
       case 'thunder': { const sky = { x: T.x + rnd(-10, 10), y: T.y - 170 }; boltLine(sky, T, c2, 360 * sp, 14); boltLine(sky, T, c2, 300 * sp, 20, 80 * sp); flash('#fef9c3', 0.45, 160); return done(340) }
@@ -5100,7 +5106,37 @@ async function run(id) {
     if (CONTACT_FX.has(R)) return
     setTimeout(() => { if (live()) strikeFx(shot, from, to, null) }, Math.max(0, approach - (FX_LEAD[R] ?? 420)))
   }
-  window.__fx = { strike: (...a) => strikeFx(...a), impact: (...a) => impactFx(...a), recipe: (mv) => fxRecipe(mv), place: (...a) => place(...a) }   // for tests: the effects, by hand
+  window.__fx = { strike: (...a) => strikeFx(...a), impact: (...a) => impactFx(...a), recipe: (mv) => fxRecipe(mv), place: (...a) => place(...a), react: (...a) => hitReact(...a), glitch: (l) => glitchFx(l) }   // for tests: the effects, by hand
+  /**
+   * The target's reaction to a hit: knocked back, away from the attacker,
+   * and lit up in the move's colour for a moment. Further on a big hit. Added
+   * on top of whatever else the sprite is doing (composite), so it never
+   * fights an idle bob or a faint.
+   */
+  function hitReact(el, A, T, type, big = false) {
+    if (!el) return
+    const d = Math.hypot(T.x - A.x, T.y - A.y) || 1, k = big ? 16 : 9, x = (T.x - A.x) / d * k, y = (T.y - A.y) / d * k * 0.6, col = fxc(type)[1]
+    anim(el, [{ transform: 'translate(0,0)' }, { transform: `translate(${x}px,${y}px)`, offset: 0.25 }, { transform: 'translate(0,0)' }], { duration: big ? 320 : 240, easing: 'cubic-bezier(.2,.8,.3,1)', composite: 'add' })
+    anim(el, [{ filter: 'none' }, { filter: `brightness(2.4) drop-shadow(0 0 8px ${col})`, offset: 0.15 }, { filter: 'none' }], { duration: big ? 300 : 200 })
+  }
+  /** A big hit (super effective, or a PERFECT crit): the screen flashes in the move's colour and everything holds for a beat. */
+  async function hitStop(type) { flash(fxc(type)[1], 0.28, 180); await W(90) }
+  /**
+   * Team Unemployed's machine glitches follow them into battle: as their
+   * Pokémon attack, the screen tears and its colours slip, a little in their
+   * first story battle and more in each one after (level 0-3).
+   */
+  function glitchFx(level = 0) {
+    const scr = $('screen'), k = 1 + level * 0.5
+    anim(scr, [{ filter: 'none', transform: 'none' }, { filter: `hue-rotate(${70 * k}deg) contrast(1.5)`, transform: `translateX(${-4 * k}px) skewX(${3 * k}deg)`, offset: 0.2 },
+      { filter: 'invert(1)', transform: `translateX(${5 * k}px)`, offset: 0.35 }, { filter: `hue-rotate(${-50 * k}deg) saturate(3)`, transform: `translateX(${-2 * k}px) skewX(${-2 * k}deg)`, offset: 0.6 },
+      { filter: 'none', transform: 'none' }], { duration: 260 + level * 60, composite: 'add' })
+    for (let i = 0; i < 2 + level * 2; i++) {
+      const top = rnd(5, 90), h = rnd(3, 10 + level * 4)
+      part(0, 0, `left:0;top:${top}%;width:100%;height:${h}px;background:linear-gradient(90deg,transparent,${['#22d3ee', '#f0abfc', '#a3e635', '#ffffff'][i % 4]}aa 30%,transparent 70%);mix-blend-mode:screen`,
+        [{ transform: `translateX(${rnd(-40, 0)}px)`, opacity: 0.9 }, { transform: `translateX(${rnd(0, 40)}px)`, opacity: 0 }], { duration: rnd(140, 260), delay: rnd(0, 120) })
+    }
+  }
   /** Where a hit lands: a flash and a starburst in the move's colours, and what its type throws off. Bigger on a super-effective or critical hit. */
   function impactFx(c, type, big = false) {
     const [c1, c2] = fxc(type), k = big ? 1.35 : 1
@@ -5751,7 +5787,8 @@ async function run(id) {
       const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult)
       const from = T.mon.hp
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
-      impactFx(T.c, mv.type, eff > 1 || acc.crit)
+      impactFx(T.c, mv.type, eff > 1 || acc.crit); hitReact(T.el, actor.c, T.c, mv.type, eff > 1 || acc.crit)
+      if (eff > 1 || acc.crit) await hitStop(mv.type)
       await Promise.all([blink(T.el, 2), hpTo(T, from - dmg)])
       pop(`-${from - T.mon.hp}`, T.c.x + 30, T.c.y - 30, acc.crit ? 'gold' : '')
       if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
@@ -5874,7 +5911,7 @@ async function run(id) {
         if (hit && mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
         const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, mult * taken)
         sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .2 : .1, 140); if (!auto) buzz(hit ? (eff > 1 ? 60 : 30) : 15)
-        impactFx(T.c, mv.type, hit && eff > 1)
+        impactFx(T.c, mv.type, hit && eff > 1); if (hit) hitReact(T.el, actor.c, T.c, mv.type, eff > 1)
         const from = T.mon.hp
         await Promise.all([hit ? blink(T.el, 2) : null, hpTo(T, Math.max(demo ? 1 : 0, from - dmg))])
         pop(`-${from - T.mon.hp}`, T.c.x + 36, T.c.y - 40, hit ? 'red' : 'red small')
@@ -7580,7 +7617,8 @@ async function run(id) {
           const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
           sfx(r.eff > 1 ? 'hitSuper' : r.eff < 1 ? 'hitWeak' : 'hit')
           if (r.eff > 1 || acc.crit) shake(6, 320)
-          impactFx(C.e, mv.type, r.eff > 1 || acc.crit)
+          impactFx(C.e, mv.type, r.eff > 1 || acc.crit); hitReact($('enemy'), C.p, C.e, mv.type, r.eff > 1 || acc.crit)
+          if (r.eff > 1 || acc.crit) await hitStop(mv.type)
           pop(`-${from - foe.hp}`, C.e.x + 34, C.e.y - 30, acc.crit ? 'gold' : '')
           await Promise.all([blink($('enemy'), hits > 1 ? 2 : 3), drain('e', from, foe.hp, foe.max)])
           if (mv.drain) await sapHP(me, 'p', C.p, Math.round((from - foe.hp) * mv.drain))
@@ -7949,6 +7987,7 @@ async function run(id) {
         if (kind_ === 'low') lowFx(mv.kind === 'low' ? mv : { ...mv, fx: 'sweep' }, approach, E)
         else if (mv.ranged) anim(E, [{ transform: 'scale(1)' }, { transform: 'scale(1.08) translateY(-6px)', offset: .5 }, { transform: 'scale(1)' }], { duration: approach })
         if (mv.ranged && !feint && kind_ !== 'low') incomingFx(mv, C.e, C.p, approach)
+        if (trainer?.story && Math.random() < 0.4 + trainer.step * 0.15) setTimeout(() => { if (live()) glitchFx(trainer.step) }, approach * rnd(0.2, 0.7))   // their machine glitches follow them in
         else { const k = approach / (approach + 160); anim(E, [{ transform: 'translate(0,0)' }, { transform: 'translate(12px,-6px)', offset: k * .8 }, { transform: 'translate(-96px,70px)', offset: k }, { transform: 'translate(0,0)' }], { duration: approach + 160, easing: 'ease-in' }) }
         await W(approach + feint); rg.clear()
         if (!first) await W(kind_ === 'low' ? 260 : 230)
@@ -7970,7 +8009,7 @@ async function run(id) {
           const { dmg, eff } = damage(foe, me, mv, taken)
           const from = me.hp; me.hp = Math.max(0, me.hp - dmg)
           sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .25 : .12, 160); buzz(hit ? (eff > 1 ? 60 : 30) : 15)
-          impactFx(C.p, mv.type, hit && eff > 1)
+          impactFx(C.p, mv.type, hit && eff > 1); if (hit) hitReact($('player'), C.e, C.p, mv.type, eff > 1)
           pop(`-${dmg}`, C.p.x + 40, C.p.y - 40, hit ? 'red' : 'red small')
           await Promise.all([hit ? blink($('player')) : null, drain('p', from, me.hp, me.stats.hp)])
           if (mv.drain) await sapHP(foe, 'e', C.e, Math.round((from - me.hp) * mv.drain))
@@ -8150,8 +8189,11 @@ async function run(id) {
       const tick = () => { const h = held(); stopBtn.style.setProperty('--hold', Math.min(1, h / EVO_HOLD_MS)); if (h >= EVO_HOLD_MS) stopped = true }
       // The flicker: white silhouettes swapping, faster as it goes (about 6 s).
       a.classList.add('glow'); b.classList.add('glow')
+      const rays = document.createElement('div'); rays.className = 'rays'; stage.prepend(rays)
+      const spark = () => { const s = document.createElement('i'); s.className = 'spark'; s.style.left = rnd(15, 85) + '%'; s.style.bottom = rnd(5, 95) + '%'; s.style.setProperty('--s', rnd(0.6, 1.4)); stage.appendChild(s); setTimeout(() => s.remove(), 900) }
       for (let i = 0, gap = 520; i < 26 && !stopped; i++, gap = Math.max(70, gap * 0.86)) {
         const showNew = i % 2 === 1
+        if (i % 2 === 0) spark(); rays.style.opacity = Math.min(1, 0.15 + i / 26)
         a.style.opacity = showNew ? 0 : 1; b.style.opacity = showNew ? 1 : 0
         for (const end = performance.now() + gap; performance.now() < end && !stopped;) { tick(); await W(30) }
       }
@@ -8170,6 +8212,7 @@ async function run(id) {
         if (e.item) { bag[e.item]--; if (e.needs) bag[e.needs]-- }   // the item (and Seadra's Dragon Scale) is used up
         a.style.opacity = 0; b.style.opacity = 1
         flash('#fff', 0.95, 600); Sound.music('evolved'); cry(to)
+        stage.classList.add('done'); for (let i = 0; i < 10; i++) setTimeout(spark, i * 60)
         const was = m.name
         evolveInto(m, to.name)
         await say('Congratulations! Your', `${was} evolved into ${m.name}!`, 1400)
