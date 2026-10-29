@@ -4394,7 +4394,7 @@ async function run(id) {
     }
     if (k === 'elite') { const c = LEAGUES[leagueNow() ?? 'elite'].card; return `<button class="tile summon" data-buy="elite"><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b><span class="meta">${SHOP.elite.price.toFixed(2)} tk · all 5 battles</span></button>` }
     if (k === 'summon') { const L = GYMS[nextGym()]; return `<button class="tile summon" data-buy="summon"><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b><span class="meta">${SHOP.summon.price.toFixed(2)} tk · ${L.short}</span></button>` }
-    if (k.startsWith('disc:')) return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${ITEMS[k].name}</b><span class="meta">${shopOf(k).price.toFixed(2)} tk · ${moveInfo(ITEMS[k].disc).type.toUpperCase()} · teaches it</span></button>`
+    if (k.startsWith('disc:')) return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${ITEMS[k].name}</b><span class="meta">${shopOf(k).price.toFixed(2)} tk · ${moveInfo(ITEMS[k].disc).type.toUpperCase()} · ${moveInfo(ITEMS[k].disc).kind === 'support' ? moveInfo(ITEMS[k].disc).sub : `${moveInfo(ITEMS[k].disc).power} power`}</span></button>`
     return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic ${k}"></span></span><i class="kind">${ITEMS[k].key ? 'KEY ITEM' : 'ITEM'}</i><b>${ITEMS[k].name}</b><span class="meta">${SHOP[k].price.toFixed(2)} tk · ${ITEMS[k].sub}</span></button>`
   }
   /** Buys one supply off the shelf: tokens out, the item (or a bundle's items) into the Bag. */
@@ -4649,7 +4649,7 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${ready ? '' : ' disabled'}><img class="ic face" src="${ART[L.face]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${sub}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
       if (it.disc) { const n = party.filter((m) => canLearnDisc(m, it.disc) && !learn(m).learned.includes(it.disc)).length
-        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic disc"></span><span class="mid"><b>${it.name}</b><span class="sub">MOVE DISC · ${n ? `${n} of your party can learn it · tap to use` : 'nobody in your party can learn it'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
+        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic disc"></span><span class="mid"><b>${it.name}</b><span class="sub blk"><i class="tychip" style="background:${TYPE_COL[moveInfo(it.disc).type]}">${moveInfo(it.disc).type}</i> ${moveDetail(it.disc)} · ${moveInfo(it.disc).cost} PP</span><span class="sub blk">${n ? `${n} of your party can learn it · tap to use` : 'nobody in your party can learn it'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       if (it.evo || it.held) { const n = it.evo ? party.filter((m) => evoByItem(m, k, bag).rule).length : 0
         return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.held ? it.sub : n ? `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} can evolve with it · tap to use` : `${it.sub} · nobody in your party can use it`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       if (it.cure) { const n = party.filter((m) => m.status && it.cure.includes(m.status)).length
@@ -4692,7 +4692,7 @@ async function run(id) {
     if (ITEMS[k].evo) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use it on which Pokémon?</p>` +
       party.map((m, i) => { const r = evoByItem(m, k, bag)
         return `<button class="prow tgt${r.rule ? '' : ' cant'}" data-target="${i}" ${r.rule ? '' : 'disabled'}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${r.rule ? `evolves into ${r.rule.to}` : r.why}</span></span>${hpBar(m)}</span></button>` }).join('')
-    if (ITEMS[k].disc) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px">MOVE DISC <b>${ITEMS[k].disc}</b> — teach it to which Pokémon?</p>` +
+    if (ITEMS[k].disc) return `<button class="back" data-back>◀ Bag</button>${moveCard(ITEMS[k].disc, '', ' info', 'div')}<p class="note" style="margin:0 2px 8px">MOVE DISC <b>${ITEMS[k].disc}</b> — teach it to which Pokémon?</p>` +
       party.map((m, i) => { const knows = learn(m).learned.includes(ITEMS[k].disc), can = canLearnDisc(m, ITEMS[k].disc)
         return `<button class="prow tgt${can ? '' : ' cant'}" data-target="${i}" ${knows || !can ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${!can ? "can't learn this" : knows ? 'already knows it' : `Lv ${m.level} · can learn`}</span></span><span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>` }).join('')
     return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use on which Pokémon?</p>` +
@@ -4724,10 +4724,14 @@ async function run(id) {
       `<div class="lbl">Party <span>${party.length}/6 · battle order is set in Party</span></div>${inParty}` +
       `<div class="lbl">Box <span>${box.length ? `${box.length} Pokémon` : 'empty'}</span></div>${inBox || '<p class="note">Catches land here once your party has six. You can also send party Pokémon here.</p>'}`
   }
-  function moveCard(n, attrs, extra = '') {
+  /** What a move does, in a line: its category and power (or its effect), and anything special about it. */
+  function moveDetail(n) {
     const m = moveInfo(n)
-    const detail = m.kind === 'support' ? `${m.sub} · ${m.solo ? 'works in 1v1 too' : '2v2 only'}${INPUT_HINT[m.input] ? ` · ${INPUT_HINT[m.input]}` : ''}` : `${m.cat === 'spec' ? 'SPECIAL' : 'PHYSICAL'} · ${m.power} power${m.hits ? ` × ${m.hits} hits` : ''}${m.spread ? (m.spread === 'all' ? ' · hits everyone else' : ' · both foes') : ''}${m.prio ? ' · goes first' : ''}${m.sub ? ` · ${m.sub}` : ''}${INPUT_HINT[m.input] ? ` · ${INPUT_HINT[m.input]}` : ''}`
-    return `<button class="mvcard${extra}" ${attrs}><span class="ty" style="background:${TYPE_COL[m.type]}">${m.type}</span><b>${n}</b><span class="pp${m.cost ? '' : ' free'}">${m.cost} PP</span><small>${detail}</small></button>`
+    return m.kind === 'support' ? `${m.sub} · ${m.solo ? 'works in 1v1 too' : '2v2 only'}${INPUT_HINT[m.input] ? ` · ${INPUT_HINT[m.input]}` : ''}` : `${m.cat === 'spec' ? 'SPECIAL' : 'PHYSICAL'} · ${m.power} power${m.hits ? ` × ${m.hits} hits` : ''}${m.spread ? (m.spread === 'all' ? ' · hits everyone else' : ' · both foes') : ''}${m.prio ? ' · goes first' : ''}${m.sub ? ` · ${m.sub}` : ''}${INPUT_HINT[m.input] ? ` · ${INPUT_HINT[m.input]}` : ''}`
+  }
+  function moveCard(n, attrs, extra = '', tag = 'button') {
+    const m = moveInfo(n)
+    return `<${tag} class="mvcard${extra}" ${attrs}><span class="ty" style="background:${TYPE_COL[m.type]}">${m.type}</span><b>${n}</b><span class="pp${m.cost ? '' : ' free'}">${m.cost} PP</span><small>${moveDetail(n)}</small></${tag}>`
   }
   function movesPage(m, slot, backTo = 'Box') {
     learn(m)
@@ -5796,7 +5800,8 @@ async function run(id) {
         await tip('strike')
         panel('pStrike'); $('bStrike').innerHTML = `${label === 'STRIKE' ? 'STRIKE!' : label}<small style="font-size:12px;margin-top:6px">tap as the ring closes</small><span class="key">A</span>`
         const conf = !!S(actor.mon).conf; wobble = conf   // confused: its rings wobble and its windows tighten
-        try { acc = await strikeInput(mv, h, T.c.x, T.c.y, label, approach, sr.tight * (conf ? 0.85 : 1), planned) } finally { wobble = false }
+        veil = Math.max(0, S(T.mon).eva ?? 0)   // an evasive target: its rings flicker
+        try { acc = await strikeInput(mv, h, T.c.x, T.c.y, label, approach, sr.tight * (conf ? 0.85 : 1), planned) } finally { wobble = false; veil = 0 }
         panel(null)
       }
       if (whiffOnMiss && acc.label === 'MISS') { pop('MISSED', T.c.x, T.c.y - 70, 'red small'); sfx('dodge'); return null }
@@ -6953,6 +6958,7 @@ async function run(id) {
     const t = document.createElement('div'); t.className = 'target'; t.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
     const r = document.createElement('div'); r.className = 'ring'; r.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
     if (wobble) { t.classList.add('wobble'); r.classList.add('wobble') }
+    if (veil > 0) for (const el of [t, r]) { el.classList.add('veil'); el.dataset.veil = String(Math.min(3, veil)) }
     fx.append(t, r)
     let g = null
     if (label) { g = document.createElement('div'); g.className = 'glyph'; g.textContent = label; g.style.left = cx + 'px'; g.style.top = (cy - R - 20) + 'px'; fx.appendChild(g) }
@@ -7109,6 +7115,7 @@ async function run(id) {
   /** A one-off chance roll that never fires in the scripted demo, so the demo plays out the same each time. */
   const chance = demo ? () => 1 : Math.random
   let wobble = false   // a confused Pokémon's strike rings wobble
+  let veil = 0   // the target's evasion stage (1-3) when raised: your strike rings flicker and fade, more with each stage
   async function timedTap(planned, cx, cy, label, approach = 820, tight = 1) {
     const t0 = performance.now(), closeAt = t0 + approach
     let first = null
@@ -7622,6 +7629,7 @@ async function run(id) {
       const sr = strikeRing(ringNet(ST(me).acc, ST(foe).eva))
       if (ST(me).conf) sr.tight *= 0.85
       wobble = !!ST(me).conf   // confused: its rings wobble
+      veil = Math.max(0, ST(foe).eva ?? 0)   // an evasive foe: its rings flicker
       try {
         for (let h = 0; h < hits && foe.hp > 0; h++) {
           panel('pStrike'); $('bStrike').innerHTML = `${hits > 1 ? `HIT ${h + 1} / ${hits}` : 'STRIKE!'}<small style="font-size:12px;margin-top:6px">tap as the ring closes</small><span class="key">A</span>`
@@ -7651,7 +7659,7 @@ async function run(id) {
           if (foe.hp > 0) await afflict(foe, statusFromHit(foe, { ...mv, name }, rand))
           if (foe.hp > 0 && FLINCH[name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[name]) ST(foe).flinch = true
         }
-      } finally { wobble = false }
+      } finally { wobble = false; veil = 0 }
       // A 0-PP move that lands (any timing but MISS) builds PP: +1 per attack.
       if (mv.cost === 0 && clean) { setPP(pp + 1, true); pop('+1 PP', C.p.x - 30, C.p.y - 96, 'blue small') }
       if (mv.accDown && clean && foe.hp > 0) await stage(foe, 'acc', -mv.accDown, true)
