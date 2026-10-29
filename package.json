@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:rpg": "node --test \"tests/rpg/*.test.mjs\"",
+    "test:rpg": "node --test --test-concurrency=4 \"tests/rpg/game.test.mjs\" \"tests/rpg/play-*.test.mjs\" && node --test \"tests/rpg/music.test.mjs\"",
     "sim:rpg": "node tests/rpg/sim.mjs"
   },
   "dependencies": {
