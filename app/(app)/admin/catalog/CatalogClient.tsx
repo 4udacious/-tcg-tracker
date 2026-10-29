@@ -9,12 +9,14 @@ import { useToast } from '@/components/ui/Toast'
 
 type Tab = 'sets' | 'products' | 'retailers' | 'stores'
 
-interface Set { id: string; name: string; set_type: string; sort_order: number; is_active: boolean }
+interface Set { id: string; name: string; set_type: string; sort_order: number; is_active: boolean; game?: string }
 interface Product { id: string; name: string; set_id: string; is_active: boolean; image_url: string | null }
 interface Retailer { id: string; name: string }
 interface Store { id: string; region: string; city: string; neighborhood: string | null; label: string; address: string | null; latitude: number | null; longitude: number | null; is_active: boolean; retailer_id: string }
 
 const SET_TYPES = ['standard', 'special', 'special-collections', 'tins']
+/** The card games a set can belong to (v68); the interest check has a switch between them. */
+const GAMES = [{ id: 'pokemon', label: 'Pokémon' }, { id: 'one_piece', label: 'One Piece' }]
 
 export default function CatalogClient({
   sets, products, retailers, stores,
@@ -30,6 +32,7 @@ export default function CatalogClient({
   const [setName, setSetName] = useState('')
   const [setType, setSetType] = useState('standard')
   const [setSortOrder, setSetSortOrder] = useState(0)
+  const [setGame, setSetGame] = useState('pokemon')
 
   // Product form state
   const [productName, setProductName] = useState('')
@@ -60,7 +63,7 @@ export default function CatalogClient({
   async function addSet() {
     if (!setName.trim()) return
     const supabase = createClient()
-    const { error } = await supabase.from('sets').insert({ name: setName.trim(), set_type: setType, sort_order: setSortOrder })
+    const { error } = await supabase.from('sets').insert({ name: setName.trim(), set_type: setType, sort_order: setSortOrder, game: setGame })
     if (error) { showToast('Failed to add set.'); return }
     showToast('Set added.')
     setSetName('')
@@ -179,6 +182,9 @@ export default function CatalogClient({
           <div className="bg-card border border-card-border rounded-2xl p-4 space-y-3">
             <h3 className="font-semibold text-sm">Add set</h3>
             <input value={setName} onChange={(e) => setSetName(e.target.value)} placeholder="Set name" className="input-field" />
+            <select value={setGame} onChange={(e) => setSetGame(e.target.value)} className="input-field" aria-label="Card game">
+              {GAMES.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+            </select>
             <select value={setType} onChange={(e) => setSetType(e.target.value)} className="input-field">
               {SET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -190,7 +196,7 @@ export default function CatalogClient({
               <li key={s.id} className="bg-card border border-card-border rounded-xl px-4 py-3 flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-medium">{s.name}</p>
-                  <p className="font-mono text-xs text-muted">{s.set_type}</p>
+                  <p className="font-mono text-xs text-muted">{GAMES.find((g) => g.id === (s.game ?? 'pokemon'))?.label} · {s.set_type}</p>
                 </div>
                 <button onClick={() => toggleSet(s.id, s.is_active)} className={`text-xs font-medium px-3 py-1 rounded-lg border transition-colors ${s.is_active ? 'text-ok border-ok/30 hover:bg-ok/10' : 'text-muted border-card-border hover:text-ink'}`}>
                   {s.is_active ? 'Active' : 'Inactive'}

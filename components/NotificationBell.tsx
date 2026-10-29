@@ -8,18 +8,29 @@ import { NOTICES_READ_EVENT } from '@/lib/events'
 
 /**
  * Everything waiting on you, in one place: grades back from WAPC, cards back
- * from the cleaners, market activity, the latest market announcement, and
- * token bonuses from the admins.
+ * from the cleaners, market activity, the latest market announcement, token
+ * bonuses from the admins, and this fortnight's interest check bonus (a new
+ * period to update your list for, or tokens ready to claim).
  * Replaces the count on the VVM tab and the announcement banner.
  */
 export type MemberNotice = { id: number; kind: string; amount: number | null; message: string | null; created_at: string }
+/** This fortnight's interest check bonus, while it's still to be had: `updated` once your list has been touched this period. */
+export type InterestNotice = { amount: number; period: string; ends: string; updated: boolean }
 
-export default function NotificationBell({ grades, cleans, marketUnread, announcement, notices }: {
+/** "Ends Nov 14" for a period's last day (period_ends is the day after it). */
+function endsLabel(iso: string) {
+  const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() - 1)
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+const dismissKey = (period: string) => `interest-notice-dismissed:${period}`
+
+export default function NotificationBell({ grades, cleans, marketUnread, announcement, notices, interest }: {
   grades: number
   cleans: number
   marketUnread: number
   announcement: { id: number; message: string } | null
   notices: MemberNotice[]
+  interest: InterestNotice | null
 }) {
   const router = useRouter()
   const [news, setNews] = useState(announcement)
@@ -47,7 +58,20 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
     return () => window.removeEventListener(NOTICES_READ_EVENT, read)
   }, [])
 
-  const total = grades + cleans + unread + (news ? 1 : 0) + notices.length
+  // The "update your list" nudge can be dismissed for the fortnight (on this
+  // device); tokens ready to claim can't, they're yours.
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    try { setDismissed(!!interest && localStorage.getItem(dismissKey(interest.period)) === '1') } catch { setDismissed(false) }
+  }, [interest])
+  const showInterest = !!interest && (interest.updated || !dismissed)
+  function dismissInterest() {
+    if (!interest) return
+    try { localStorage.setItem(dismissKey(interest.period), '1') } catch {}
+    setDismissed(true)
+  }
+
+  const total = grades + cleans + unread + (news ? 1 : 0) + notices.length + (showInterest ? 1 : 0)
 
   function markNewsRead() {
     if (!news) return
@@ -86,6 +110,23 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
               </div>
             </div>
           )}
+          {showInterest && interest && (interest.updated ? (
+            <MenuLink href="/interest" onSelect={close} icon={<span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-200 to-amber-500 ring-1 ring-amber-600/50" />}>
+              {`${interest.amount} interest check token${interest.amount === 1 ? '' : 's'} to claim`}
+              <span className="block text-xs text-muted">Your list is up to date: collect them before {endsLabel(interest.ends)}</span>
+            </MenuLink>
+          ) : (
+            <div className="mx-1.5 my-1 rounded-xl border border-card-border p-3 text-sm">
+              <p className="text-[10px] font-bold tracking-wide text-signal">INTEREST CHECK</p>
+              <p className="mt-1 leading-snug">A new fortnight is open. Update your interest list for {interest.amount} bonus token{interest.amount === 1 ? '' : 's'}.</p>
+              <p className="text-xs text-muted">Ends {endsLabel(interest.ends)}</p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" onClick={() => { close(); router.push('/interest') }}
+                  className="min-h-9 px-3 rounded-lg bg-signal text-white text-xs font-semibold">Update my list</button>
+                <button type="button" onClick={dismissInterest} className="min-h-9 px-3 rounded-lg text-xs font-medium text-muted hover:text-ink">Not this time</button>
+              </div>
+            </div>
+          ))}
           {notices.map((n) => {
             const amt = n.amount ?? 0
             const shown = Number.isInteger(amt) ? amt : amt.toFixed(2)
@@ -115,7 +156,7 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
             </MenuLink>
           )}
           {total > 0 && <MenuDivider />}
-          <p className="px-3 pb-2 pt-1 text-[11px] text-muted">Grades, cleaning, the market and bonuses post here as they happen.</p>
+          <p className="px-3 pb-2 pt-1 text-[11px] text-muted">Grades, cleaning, the market, bonuses and the interest check post here as they happen.</p>
         </>
       )}
     </Menu>

@@ -12,7 +12,15 @@ interface Set {
   id: string
   name: string
   set_type: string
+  /** Which card game the set belongs to (v68): 'pokemon' or 'one_piece'. */
+  game?: string
 }
+
+/** The card games the interest check covers, in the order the switch shows them. */
+const GAMES: { id: string; label: string }[] = [
+  { id: 'pokemon', label: 'Pokémon' },
+  { id: 'one_piece', label: 'One Piece' },
+]
 
 interface MyInterest {
   id: string
@@ -71,6 +79,7 @@ interface BoardRow {
 interface BoardSet {
   setName: string
   setType: string
+  game: string
   rows: BoardRow[]
 }
 
@@ -118,12 +127,15 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
     ? products.filter((p) => p.label.toLowerCase().includes(productFilter.toLowerCase()))
     : products
 
+  // Which game's sets the set pickers show. The switch only appears once there's more than one game.
+  const [game, setGame] = useState('pokemon')
+  const games = GAMES.filter((g) => sets.some((x) => (x.game ?? 'pokemon') === g.id))
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [selectedBoardSetName, setSelectedBoardSetName] = useState<string | null>(null)
 
-  const setOptions: SelectOption[] = sets.map((s) => ({ id: s.id, label: s.name }))
+  const setOptions: SelectOption[] = sets.filter((s) => (s.game ?? 'pokemon') === game).map((s) => ({ id: s.id, label: s.name }))
   const personOptions: SelectOption[] = peopleList.map((p) => ({ id: p.id, label: p.label }))
-  const boardSetOptions: SelectOption[] = interestBoard.map((s) => ({ id: s.setName, label: s.setName }))
+  const boardSetOptions: SelectOption[] = interestBoard.filter((s) => s.game === game).map((s) => ({ id: s.setName, label: s.setName }))
 
   const selectedPersonItems = selectedPersonId ? interestsByPerson[selectedPersonId] ?? [] : []
   const selectedBoardSet = interestBoard.find((s) => s.setName === selectedBoardSetName) ?? null
@@ -265,6 +277,20 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
           </button>
         ))}
       </div>
+
+      {games.length > 1 && tab !== 'byPerson' && (
+        <div className="flex gap-1.5" role="tablist" aria-label="Card game">
+          {games.map((g) => (
+            <button key={g.id} role="tab" aria-selected={game === g.id}
+              onClick={() => { setGame(g.id); handleSetChange(null); setSelectedBoardSetName(null) }}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                game === g.id ? 'bg-signal text-white' : 'bg-card border border-card-border text-muted hover:text-ink'
+              }`}>
+              {g.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === 'track' && (
         <>
