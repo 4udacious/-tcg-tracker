@@ -125,6 +125,7 @@ export default async function InterestPage() {
 
   const { data: rewardRows } = await supabase.rpc('interest_reward_status')
   const reward = (Array.isArray(rewardRows) ? rewardRows[0] : rewardRows) as RewardStatus | null
+  const { data: shareToken } = await supabase.rpc('interest_share_token')
 
   return (
     <>
@@ -136,6 +137,7 @@ export default async function InterestPage() {
       interestsByPerson={interestsByPerson}
       interestBoard={interestBoard}
       userId={user!.id}
+      shareToken={(shareToken as string | null) ?? null}
       />
     </>
   )

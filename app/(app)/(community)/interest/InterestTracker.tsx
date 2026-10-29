@@ -7,6 +7,8 @@ import SearchableSelect, { type SelectOption } from '@/components/SearchableSele
 import ProductThumb from '@/components/ProductThumb'
 import { checkAchievements } from '@/lib/checkAchievements'
 import { useToast } from '@/components/ui/Toast'
+import { GAMES } from '@/lib/cardGames'
+import ShareMyList from './ShareMyList'
 
 interface Set {
   id: string
@@ -16,16 +18,6 @@ interface Set {
   game?: string
 }
 
-/** The card games the interest check covers, in the order the switch shows them. */
-const GAMES: { id: string; label: string }[] = [
-  { id: 'pokemon', label: 'Pokémon' },
-  { id: 'one_piece', label: 'One Piece' },
-  { id: 'mtg', label: 'Magic' },
-  { id: 'riftbound', label: 'Riftbound' },
-  { id: 'dragon_ball', label: 'Dragon Ball' },
-  { id: 'gundam', label: 'Gundam' },
-  { id: 'naruto', label: 'Naruto' },
-]
 
 interface MyInterest {
   id: string
@@ -95,11 +87,13 @@ interface Props {
   interestsByPerson: Record<string, PersonItem[]>
   interestBoard: BoardSet[]
   userId: string
+  /** The member's share-link token (v73), or null while their link is off. */
+  shareToken: string | null
 }
 
 type Tab = 'track' | 'byPerson' | 'bySet'
 
-export default function InterestTracker({ sets, myInterests, peopleList, interestsByPerson, interestBoard, userId }: Props) {
+export default function InterestTracker({ sets, myInterests, peopleList, interestsByPerson, interestBoard, userId, shareToken }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -371,6 +365,8 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
               {selectedProductIds.length > 1 ? `Track ${selectedProductIds.length} items` : 'Track this'}
             </button>
           </section>
+
+          <ShareMyList initialToken={shareToken} />
 
           <section className="space-y-3">
             <div className="flex items-baseline justify-between gap-2">

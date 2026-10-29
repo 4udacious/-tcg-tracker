@@ -31,6 +31,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Shared interest lists (/share/interest/<token>) are public read-only
+  // pages: open to anyone, signed in or not, whatever their role.
+  if (pathname.startsWith('/share/')) return supabaseResponse
+
   const isPublic =
     pathname.startsWith('/login') ||
     pathname.startsWith('/auth/callback') ||
