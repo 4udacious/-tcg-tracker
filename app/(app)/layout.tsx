@@ -78,7 +78,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="min-h-screen flex flex-col bg-paper">
         <header className="sticky top-0 z-40 bg-ink text-white">
           <div className="max-w-lg mx-auto pl-4 pr-2 h-14 flex items-center gap-1">
-            <Link href="/timers" className="font-display font-bold text-base tracking-tight mr-auto">
+            <Link href="/" className="font-display font-bold text-base tracking-tight mr-auto">
               TCG Tracker
             </Link>
             {/* Tokens are spent and earned all over the app, so they're always in sight. */}

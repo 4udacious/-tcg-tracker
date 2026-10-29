@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 /*
- * Four sections. Two of them group several pages under one tab, with their
+ * Five sections. Two of them group several pages under one tab, with their
  * own strip of sub-tabs at the top of the page:
  *
+ *   Home       /                         the community feed
  *   Timers     /timers
  *   VVM        /vending                  the machine itself
  *   Trainer    /collection, /showcase    what you own (and, next, your party)
@@ -16,6 +17,12 @@ import { usePathname } from 'next/navigation'
  * What needs your attention is in the bell, not on the tabs.
  */
 const tabs = [
+  {
+    href: '/',
+    match: ['/'],
+    label: 'Home',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 10.5L12 3l9 7.5M5 9v11a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9" />,
+  },
   {
     href: '/timers',
     match: ['/timers'],
