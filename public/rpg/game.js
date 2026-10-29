@@ -2937,7 +2937,7 @@ const BRIAN = {
     ['Okay, okay. You know your pokey-mans.', "I'll tell my kid you said hi. Theoretically."],
     ["That's fine. I'll just buy 'em online.", 'At a markup. From Herb, probably.'],
     ['My kid is going to be so disappointed.', "...I don't actually have a kid."],
-    ["Wait, you don't get money for winning?", 'What are we even doing here, then.'],
+    ["Wait, you don't get money for losing?", 'What am I even doing here, then.'],
   ],
   gloat: [
     ["Ha! Beginner's luck. My kid's luck. Whoever's.", 'Anyway, these are mine now.'],
@@ -3306,17 +3306,17 @@ const RIVAL_BATTLES = [
     outro: ["...That doesn't make sense. The numbers were on my side.", "I'll find what's missing. Whatever it takes."],
     gloat: ["The upgrade works. You don't.", "Go home. The machine's mine today."] },
   { due: (p) => p.kanto >= 1, min: 62, over: 6, restores: 2, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
-    intro: ["Champion. And now you're collecting Kanto badges too.", "I skipped the League. I've been upgrading instead. Let's see whose time was better spent."],
-    outro: ["...You're the Champion for a reason. I get it now.", 'Whatever it takes. I said that, and I meant it.'],
+    intro: ['Champion. And? Lance was a pushover for me.', "I won't let you or those Team Unemployed freaks hog all the Kanto machines."],
+    outro: ['…Stay out of my way, scalper.', "I won't let you bully the trainers here too."],
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
   { due: (p) => p.kanto >= 7, min: 78, over: 9, restores: 2, tellRate: 0.35, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
-    intro: ['Seven Kanto badges. Only Blue left.', "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
-    outro: ['Still not enough... How are you still standing?', "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
-    gloat: ["So that's what winning feels like. I thought it'd feel better.", 'Come back when you can actually beat us.'] },
+    intro: ["You're better off vending with Paul and Herb. Do you even like Pokémon?", "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
+    outro: ["I won't let the other trainers down…", "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
+    gloat: ['Go back to Johto.', 'Come back when you can actually beat us.'] },
   { due: (p) => p.red, min: 90, over: 14, restores: 3, switches: 2, tellRate: 0.2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
-    intro: ['You beat Red. Nobody beats Red. There is only me left now.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
+    intro: ['Your story ends here.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
-    outro: ['...You did it. You really are better.', "Thanks for not letting me win the wrong way. See you around, Champion."],
+    outro: ["Hmm, maybe I had the wrong idea about you. You're not a scalper.", "Thanks for not letting me win the wrong way. See you around, Champion."],
     gloat: ['I won... and you made me earn every inch of it.', 'Rest up. I want the real you for the rematch.'] },
 ]
 /** After your first battle with Alex, win or lose: the EXP. SHARE (if you haven't one already). */
@@ -3863,7 +3863,7 @@ const KANTO_ELITE = [
   { short: 'RED', full: 'POKéMON TRAINER RED', role: 'LEGEND', switches: 2, type: 'electric', color: '#ef4444', scene: 'hall', min: 88, tokens: '30.00', restores: 3, red: true, city: 'MT. SILVER',
     team: ['ESPEON', 'SNORLAX', 'VENUSAUR', 'CHARIZARD', 'BLASTOISE', 'PIKACHU'],
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
-    intro: ['…', '…!'], outro: ['…', '…!'], gloat: ['…'] },
+    intro: ['…', '…!'], outro: ['…Be careful…', 'Another trainer came by… very powerful.'], gloat: ['…'] },
 ]
 KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', over: [10, 10, 11, 8, 13][i], introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: [0.49, 0.37, 0.43, 0.35, 0.6][i], ringFast: [0.73, 0.82, 0.78, 0.9, 0.66][i],   // Lance: his dragons hit hardest, so he tells least; Red: the most tells and the fastest rings in the game
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
@@ -3992,7 +3992,7 @@ ELITE.forEach((L) => Object.assign(L, { lvAdj: { KAREN: 8, LANCE: 9 }[L.short] ?
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {
-  hit: ['Stay focused, trainer!', 'Eyes on the ring, not on me!', "Too slow! A leader doesn't fight fair.", 'Did that one catch you off guard?'],
+  hit: ['Stay focused, trainer!', 'Eyes on the ring, not on me!', 'Too slow! Pay attention.', 'Did that one catch you off guard?'],
   feint: ['Ha! You flinched at nothing!', 'Patience, trainer. Wait for it next time.'],
   double: ['One ring is never the whole story!', 'Thought it was over? Think again!'],
   lowHigh: ['Watch the feet, then the fists!', 'Low, then high. Keep up!'],
