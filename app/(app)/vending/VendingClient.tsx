@@ -879,8 +879,8 @@ function AttractScreen({ onStart, busy, lockedBy, tokens }: { onStart: () => voi
       </div>
 
       <style>{`
-        @keyframes driftL { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-        @keyframes driftR { from { transform: translateX(-50%) } to { transform: translateX(0) } }
+        @keyframes driftL { from { transform: translate3d(0, 0, 0) } to { transform: translate3d(-50%, 0, 0) } }
+        @keyframes driftR { from { transform: translate3d(-50%, 0, 0) } to { transform: translate3d(0, 0, 0) } }
         @media (prefers-reduced-motion: reduce) {
           .vm-drift { animation: none !important }
         }
@@ -900,11 +900,14 @@ function DriftRow({ files, seconds, reverse }: { files: string[]; seconds: numbe
   return (
     <div className="relative flex-1 min-h-0 overflow-hidden">
       <div
-        className="vm-drift flex items-center gap-1.5 w-max h-full will-change-transform"
-        style={{ animation: `${reverse ? 'driftR' : 'driftL'} ${seconds}s linear infinite` }}
+        className="vm-drift flex items-center gap-1.5 w-max h-full"
+        style={{ animation: `${reverse ? 'driftR' : 'driftL'} ${seconds}s linear infinite`, backfaceVisibility: 'hidden' }}
       >
+        {/* A box shadow, not a drop-shadow filter: the wrappers are plain
+            rectangles, so it looks the same, and Safari on iPhone gave up
+            painting whole rows with a filter on each of the ~100 moving packs. */}
         {doubled.map((f, i) => (
-          <img key={i} src={`/packs/${f}.webp`} alt="" className="h-full w-auto shrink-0 drop-shadow-md" />
+          <img key={i} src={`/packs/${f}.webp`} alt="" decoding="async" draggable={false} className="h-full w-auto shrink-0 shadow-md" />
         ))}
       </div>
     </div>
