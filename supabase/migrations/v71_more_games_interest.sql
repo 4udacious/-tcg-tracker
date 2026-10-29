@@ -10,13 +10,15 @@
 --
 --   Riftbound (Riot)          Legacy Jan 29 2027 · Radiance Oct 23 2026 · Vendetta Jul 31 2026
 --                             · Unleashed May 8 2026 · Spiritforged Feb 13 2026
---   Gundam Card Game (Bandai) GD06 Stardust Trails Oct 30 2026 · GD05 Freedom Ascension Jul 24 2026
+--   Gundam Card Game (Bandai) EB02 Cosmic Crisis Feb 26 2027 · GD07 Blazing Fist Jan 29 2027
+--                             · GD06 Stardust Trails Oct 30 2026 · GD05 Freedom Ascension Jul 24 2026
 --                             (with the Deck Build Box SC01) · GD04 Phantom Aria Apr 24 2026
 --                             · GD03 Steel Requiem Jan 30 2026
 --   Naruto Card Game (Bandai) Enter: Naruto Uzumaki! and three Starter Decks (Naruto, Sasuke,
 --                             Gaara), worldwide launch June 2027
 --   Dragon Ball Super Card    FB12 Reach the God Dec 2026 · FB11 Brightness of Hope Oct 16 2026
 --   Game Fusion World         · FB10 Cross Force Jun 12 2026 · FB09 Dual Evolution Mar 13 2026
+--                             (FB12 Dec 18 2026)
 --   Magic: The Gathering      2026: Lorwyn Eclipsed, Teenage Mutant Ninja Turtles, Secrets of
 --                             Strixhaven, Marvel Super Heroes, The Hobbit, Reality Fracture,
 --                             Star Trek (Nov 13). 2027: Nauctis: The Sunken Realm (Feb 5),
@@ -25,9 +27,15 @@
 --
 -- Booster sets get Booster Box and Single Packs, as the Pokémon and One Piece
 -- sets do; Magic sets get Play Booster Box, Collector Booster Box, Bundle and
--- Single Packs. No images yet (the publishers' sites weren't reachable when
--- this was written): the interest page shows its plain box icon until
--- image_url is set.
+-- Single Packs.
+--
+-- Images, where the publisher has shown the product: the Gundam booster boxes
+-- and packs from www.gundam-gcg.com (each set's product page), the Dragon Ball
+-- packs from www.dbs-cardgame.com, and the Riftbound Radiance display from
+-- TCGplayer. Cut out of the sites' backdrops onto white, 200 px wide, named by
+-- the same slug rule as v8, v45 and v70. Everything else (Magic, the other
+-- Riftbound sets, Naruto, the Dragon Ball boxes, GD04's box, GD07, EB02, SC01)
+-- shows the plain box icon until an image is found.
 --
 -- Safe to re-run: an existing set or product is left alone.
 
@@ -43,10 +51,12 @@ values
   ('Riftbound: Unleashed',                       'standard', 4, 'riftbound'),
   ('Riftbound: Spiritforged',                    'standard', 5, 'riftbound'),
 
-  ('GD06 Stardust Trails',                       'standard', 1, 'gundam'),
-  ('GD05 Freedom Ascension',                     'standard', 2, 'gundam'),
-  ('GD04 Phantom Aria',                          'standard', 3, 'gundam'),
-  ('GD03 Steel Requiem',                         'standard', 4, 'gundam'),
+  ('EB02 Cosmic Crisis',                         'special',  1, 'gundam'),
+  ('GD07 Blazing Fist',                          'standard', 2, 'gundam'),
+  ('GD06 Stardust Trails',                       'standard', 3, 'gundam'),
+  ('GD05 Freedom Ascension',                     'standard', 4, 'gundam'),
+  ('GD04 Phantom Aria',                          'standard', 5, 'gundam'),
+  ('GD03 Steel Requiem',                         'standard', 6, 'gundam'),
 
   ('Enter: Naruto Uzumaki!',                     'standard', 1, 'naruto'),
   ('Naruto Card Game Starter Decks',             'special',  2, 'naruto'),
@@ -97,3 +107,22 @@ select s.id, v.name, v.sort_order
   cross join (values ('Play Booster Box', 1), ('Collector Booster Box', 2), ('Bundle', 3), ('Single Packs', 4)) as v(name, sort_order)
  where s.game = 'mtg'
 on conflict (set_id, name) do nothing;
+
+-- Official product photos (see the header); only fills an empty image_url.
+update public.products p
+   set image_url = '/products/'
+       || trim(both '-' from lower(regexp_replace(s.name || ' ' || p.name, '[^a-zA-Z0-9]+', '-', 'g')))
+       || '.jpg'
+  from public.sets s, (values
+    ('GD03 Steel Requiem', 'Booster Box'), ('GD03 Steel Requiem', 'Single Packs'),
+    ('GD04 Phantom Aria', 'Single Packs'),
+    ('GD05 Freedom Ascension', 'Booster Box'), ('GD05 Freedom Ascension', 'Single Packs'),
+    ('GD06 Stardust Trails', 'Booster Box'), ('GD06 Stardust Trails', 'Single Packs'),
+    ('FB09 Dual Evolution', 'Single Packs'), ('FB10 Cross Force', 'Single Packs'),
+    ('FB11 Brightness of Hope', 'Single Packs'), ('FB12 Reach the God', 'Single Packs'),
+    ('Riftbound: Radiance', 'Booster Box')
+  ) as v(set_name, product_name)
+ where s.id = p.set_id
+   and s.name = v.set_name
+   and p.name = v.product_name
+   and p.image_url is null;
