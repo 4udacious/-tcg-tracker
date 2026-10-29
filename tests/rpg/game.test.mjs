@@ -457,6 +457,38 @@ test('rival: after the first badge, Alex is at the machine on your next tap; the
   } finally { await g.close() }
 })
 
+test('the Pokémon Center: one free heal a day, back the next day, and kept in the save', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const heal = async () => {
+      for (let i = 0; i < 20 && !(await page.$('#sheet.open #sheetBody [data-heal]')); i++) {
+        await page.waitForTimeout(400)
+        await page.evaluate(() => { for (const m of window.__vvm.party) m.hp = 1; document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tParty').click() })
+      }
+      const before = await page.evaluate(() => ({ off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent }))
+      if (!before.off) await page.evaluate(() => document.querySelector('[data-heal]').click())
+      const after = await page.evaluate(() => ({ full: window.__vvm.party.every((m) => m.hp === m.stats.hp), off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent }))
+      await page.evaluate(() => document.getElementById('sheetClose').click()); await page.waitForTimeout(300)
+      return { before, after }
+    }
+    await page.evaluate(() => document.getElementById('home').click())   // back to idle from the screen the tutorial ends on
+    const first = await heal()
+    assert.equal(first.before.off, false, 'the free heal is there to start with')
+    assert.ok(first.after.full && first.after.off && /used today/.test(first.after.text), 'it heals the party, then is used up for today')
+    const again = await heal()
+    assert.ok(again.before.off && /used today/.test(again.before.text), 'not again the same day')
+    const saved = await page.evaluate(() => Object.values(localStorage).some((v) => v.includes(`"healedOn":"${new Date().toLocaleDateString('en-CA')}"`)))
+    assert.ok(saved, 'the day it was used is in the save')
+    await page.evaluate(() => window.__vvm.setHealedOn('2000-01-01'))   // as if it was used on an earlier day
+    const nextDay = await heal()
+    assert.equal(nextDay.before.off, false, `a new day brings it back (${nextDay.before.text})`)
+    assert.ok(nextDay.after.full && nextDay.after.off, 'and it heals again')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and milestones', async () => {
   const g = await openGame()
   try {
