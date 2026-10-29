@@ -1,5 +1,10 @@
 // The battle game, checked in a real browser. Run with `npm run test:rpg`
-// (about 6 minutes; RPG_QUICK=1 skips the demos and the played battle).
+// (RPG_QUICK=1 skips the demos and the played battles).
+//
+// This file is the quick checks. The long played-through tests are split
+// across play-a, play-b and play-c, which run side by side with this one
+// (--test-concurrency=4: one Chromium each), and the music tests run on their
+// own afterwards (music.test.mjs), since they measure timing under load.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { openGame } from './harness.mjs'
@@ -375,21 +380,6 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
   } finally { await g.close() }
 })
 
-for (const [mode, label] of [['demo', 'Watch'], ['duo', 'Watch 2v2'], ['gym', 'Watch gym']]) {
-  test(`the ${label} demo plays through`, { skip: quick }, async () => {
-    const g = await openGame({ mode })
-    try {
-      const seen = new Set()
-      for (let i = 0; i < 120 && ![...seen].some((t) => /fainted/.test(t)); i++) {
-        await g.page.waitForTimeout(1000)
-        seen.add(await g.page.evaluate(() => document.getElementById('msg')?.textContent ?? ''))
-      }
-      assert.ok([...seen].some((t) => /fainted/.test(t)), 'a Pokémon fainted within 120 s')
-      assert.deepEqual(g.errors, [])
-    } finally { await g.close() }
-  })
-}
-
 test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
   const g = await openGame()
   try {
@@ -436,59 +426,6 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
   } finally { await g.close() }
 })
 
-test('rival: after the first badge, Alex is at the machine on your next tap; the battle plays and is saved', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page, bot } = g
-    await bot.finishTutorial()
-    // (A lost tutorial leaves your starter fainted, and Alex waits for a Pokémon that can fight: heal first.)
-    const before = await page.evaluate(() => { const v = window.__vvm; delete v.bag.expshare; const was = v.rivalDue(); v.badges.push(0); for (const m of v.party) m.hp = m.stats.hp; return { was, now: v.rivalDue() } })
-    assert.deepEqual(before, { was: false, now: true }, 'no rival battle before a badge; the first is due after one')
-    // An ordinary tap ("Random"): Alex takes it.
-    assert.ok(await bot.encounter(''), 'a battle happened on the next tap')
-    const r = await page.evaluate(() => ({ rival: window.__vvm.rival, due: window.__vvm.rivalDue(), music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name), expshare: window.__vvm.bag.expshare,
-      saved: Object.values(localStorage).some((v) => v.includes('"rival":{"step"')) }))
-    assert.ok(r.music.includes('rivalTalk') && r.music.includes('rival'), `the encounter music, then the first rival theme: ${r.music.join(', ')}`)
-    if (r.rival.step === 1) assert.deepEqual(r.rival, { step: 1, wait: 0, lost: false }, 'won: on to battle 2')
-    else assert.deepEqual([r.rival.step, r.rival.lost, r.rival.wait, r.due], [0, true, 3, false], 'lost: the same battle again, a few taps later')
-    assert.equal(r.expshare, 1, 'after the first battle, win or lose, Alex gave you the EXP. SHARE')
-    assert.ok(r.saved, 'the rival\'s progress is in the save')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('the Pokémon Center: one free heal a day, back the next day, and kept in the save', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page, bot } = g
-    await bot.finishTutorial()
-    const heal = async () => {
-      for (let i = 0; i < 20 && !(await page.$('#sheet.open #sheetBody [data-heal]')); i++) {
-        await page.waitForTimeout(400)
-        await page.evaluate(() => { for (const m of window.__vvm.party) m.hp = 1; document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tParty').click() })
-      }
-      const before = await page.evaluate(() => ({ off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent }))
-      if (!before.off) await page.evaluate(() => document.querySelector('[data-heal]').click())
-      const after = await page.evaluate(() => ({ full: window.__vvm.party.every((m) => m.hp === m.stats.hp), off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent }))
-      await page.evaluate(() => document.getElementById('sheetClose').click()); await page.waitForTimeout(300)
-      return { before, after }
-    }
-    await page.evaluate(() => document.getElementById('home').click())   // back to idle from the screen the tutorial ends on
-    const first = await heal()
-    assert.equal(first.before.off, false, 'the free heal is there to start with')
-    assert.ok(first.after.full && first.after.off && /used today/.test(first.after.text), 'it heals the party, then is used up for today')
-    const again = await heal()
-    assert.ok(again.before.off && /used today/.test(again.before.text), 'not again the same day')
-    const saved = await page.evaluate(() => Object.values(localStorage).some((v) => v.includes(`"healedOn":"${new Date().toLocaleDateString('en-CA')}"`)))
-    assert.ok(saved, 'the day it was used is in the save')
-    await page.evaluate(() => window.__vvm.setHealedOn('2000-01-01'))   // as if it was used on an earlier day
-    const nextDay = await heal()
-    assert.equal(nextDay.before.off, false, `a new day brings it back (${nextDay.before.text})`)
-    assert.ok(nextDay.after.full && nextDay.after.off, 'and it heals again')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
 test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and milestones', async () => {
   const g = await openGame()
   try {
@@ -527,24 +464,6 @@ test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and
     assert.ok(r.paul[1].team.includes('MUNCHLAX') && r.paul[2].team.includes('SNORLAX') && !r.paul[2].team.includes('MUNCHLAX'), 'Munchlax joins, then becomes Snorlax')
     assert.deepEqual(r.dueAt, [null, 'HERB', 'HERB', 'PAUL', 'HERB', 'PAUL'], 'Herb after 2 badges; Paul after 4 once Herb is beaten; then whichever is lower; a lost one waits')
     assert.ok(r.songs, 'their battle themes exist')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('glitchers: after two badges, Herb is at the machine on your next tap; the battle plays and is saved', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page, bot } = g
-    await bot.finishTutorial()
-    const before = await page.evaluate(() => { const v = window.__vvm; v.setRival(1); const was = v.storyDue(); v.badges.push(0, 1); for (const m of v.party) m.hp = m.stats.hp; return { was, now: v.storyDue(), alex: v.rivalDue() } })
-    assert.deepEqual(before, { was: null, now: 'HERB', alex: false }, 'Herb\'s first battle is due after two badges')
-    assert.ok(await bot.encounter(''), 'a battle happened on the next tap')
-    const r = await page.evaluate(() => ({ herb: { ...window.__vvm.story.HERB }, music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name),
-      saved: Object.values(localStorage).some((v) => v.includes('"story":{"HERB":{"step"')) }))
-    assert.ok(r.music.includes('vs') && r.music.includes('gym'), `the encounter music, then the battle theme: ${r.music.join(', ')}`)
-    if (r.herb.step === 1) assert.deepEqual(r.herb, { step: 1, wait: 0, lost: false }, 'won: on to battle 2')
-    else assert.deepEqual(r.herb, { step: 0, wait: 3, lost: true }, 'lost: the same battle again, a few taps later')
-    assert.ok(r.saved, 'Herb\'s progress is in the save')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -591,89 +510,6 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
     assert.match(r.blueTitle, /EVERY TYPE/)
     const [lance, ...four] = [r.johto.at(-1), ...r.johto.slice(0, 4)]
     assert.ok(four.every(([, ace, adj]) => lance[1] > ace && lance[2] > adj), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to her theme, and the ladder moves on or starts over', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page, bot } = g
-    await bot.finishTutorial()
-    await page.evaluate(() => {
-      const v = window.__vvm
-      for (let i = 0; i < 16; i++) if (!v.badges.includes(i)) v.badges.push(i)
-      v.setLeague({ champion: true }); v.setRival(7)   // (Alex is done, so the taps are only for this)
-      KANTO_ELITE[0].team = ['LAPRAS']   // a short battle: this is about the ladder, not the fight
-      for (const n of ['GARCHOMP', 'TYRANITAR', 'GENGAR', 'GYARADOS', 'ARCANINE']) { const m = individual(speciesByName(n), 90, Math.random); m.hp = m.stats.hp; v.party.push(m) }
-      for (const m of v.party) m.hp = m.stats.hp
-      v.bag[v.leagueKey()] = 1; v.renderTools()
-    })
-    // Back to idle from the screen the tutorial ends on, then open the Bag.
-    await page.evaluate(() => document.getElementById('home').click())
-    for (let i = 0; i < 20 && !(await page.$('#sheetBody [data-tab]')); i++) {
-      await page.waitForTimeout(400)
-      await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
-    }
-    await page.dispatchEvent('#sheetBody [data-tab="other"]', 'click'); await page.waitForTimeout(200)
-    await page.dispatchEvent('#sheetBody [data-item="summon:kanto"]', 'click'); await page.waitForTimeout(300)
-    const ladder = await page.textContent('#sheetBody')
-    assert.match(ladder, /LORELEI.*BRUNO.*AGATHA.*LANCE.*RED/s, 'the ladder shows all five')
-    assert.match(ladder, /CHALLENGE LORELEI/)
-    await page.dispatchEvent('#sheetBody [data-elite="kanto"]', 'click')
-    let fought = false
-    for (let i = 0; i < 60 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
-    assert.ok(fought, 'Lorelei came out')
-    for (let i = 0; i < 700; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
-    const r = await page.evaluate(() => ({ league: window.__vvm.league, ticket: window.__vvm.bag['summon:kanto'] ?? 0, music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name) }))
-    assert.ok(r.music.includes('kantoElite'), `the Kanto Elite Four theme: ${r.music.join(', ')}`)
-    if (r.league.kanto === 1) assert.equal(r.ticket, 1, 'won: the ticket stays for Bruno')
-    else assert.deepEqual([r.league.kanto, r.ticket], [0, 0], 'lost: the ticket is used up, and the next starts from Lorelei')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('the EXP. SHARE switches off and on from the Bag, and after Alex\'s last battle your team goes into the Hall of Fame', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page, bot } = g
-    await bot.finishTutorial()
-    await page.evaluate(() => {
-      const v = window.__vvm
-      v.bag.expshare = 1
-      for (let i = 0; i < 16; i++) if (!v.badges.includes(i)) v.badges.push(i)
-      for (const n of ['TYPHLOSION', 'GYARADOS']) { const m = individual(speciesByName(n), 80, Math.random); m.hp = m.stats.hp; v.party.push(m) }
-    })
-    // The switch: in the Bag's OTHER pocket, kept in the save.
-    await page.evaluate(() => document.getElementById('home').click())
-    for (let i = 0; i < 20 && !(await page.$('#sheetBody [data-tab]')); i++) {
-      await page.waitForTimeout(400)
-      await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
-    }
-    await page.dispatchEvent('#sheetBody [data-tab="other"]', 'click'); await page.waitForTimeout(200)
-    assert.match(await page.textContent('#sheetBody [data-share]'), /ON/)
-    await page.dispatchEvent('#sheetBody [data-share]', 'click'); await page.waitForTimeout(200)
-    const off = await page.evaluate(() => ({ on: window.__vvm.shareOn, row: document.querySelector('#sheetBody [data-share]').textContent, saved: JSON.parse(localStorage.getItem('vvm-save')).shareOn }))
-    assert.deepEqual([off.on, off.saved], [false, false], 'switched off, and saved off')
-    assert.match(off.row, /OFF/)
-    await page.dispatchEvent('#sheetBody [data-share]', 'click'); await page.waitForTimeout(200)
-    assert.equal(await page.evaluate(() => window.__vvm.shareOn), true, 'and back on')
-    await page.click('#sheetClose').catch(() => {}); await page.waitForTimeout(400)
-    // The Hall of Fame: every Pokémon, the badges, the credits, to its own anthem; then kept in the Party sheet.
-    const seen = await page.evaluate(async () => {
-      const v = window.__vvm, shown = []
-      const watch = setInterval(() => { const b = document.querySelector('#hof .hofone b'); if (b && !shown.includes(b.textContent)) shown.push(b.textContent) }, 100)
-      const done = v.hallOfFame()
-      const tap = setInterval(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' })), 700)
-      await done; clearInterval(watch); clearInterval(tap)
-      return { shown, party: v.party.map((m) => m.name), fame: v.fame, music: window.__audioLog.filter((e) => e.kind === 'music').map((e) => e.name), left: !!document.getElementById('hof'), saved: JSON.parse(localStorage.getItem('vvm-save')).fame }
-    })
-    assert.deepEqual(seen.shown, seen.party, 'each of your Pokémon in turn')
-    assert.deepEqual(seen.fame.team.map((m) => m.name), seen.party)
-    assert.deepEqual(seen.saved.team, seen.fame.team, 'the Hall of Fame is saved')
-    assert.ok(seen.music.includes('hallOfFame'), 'to its own music')
-    assert.equal(seen.left, false, 'and it clears away after')
-    assert.equal(await page.evaluate(() => KANTO_ELITE.map((L) => L.introSong).join()), 'e4Lorelei,e4Bruno,e4Agatha,e4KantoLance,', 'the Kanto Elite Four each have their own intro')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -785,52 +621,6 @@ test('names: Nidoran\'s ♀ and ♂ are in the game font and sit on the line', a
   } finally { await g.close() }
 })
 
-test('in battle, a Potion can go to a Pokémon on the bench, in 1v1 and 2v2', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page, bot } = g
-    await bot.finishTutorial()
-    const shown = (p) => page.evaluate((p) => getComputedStyle(document.getElementById(p)).display !== 'none' && !!document.querySelector(`#${p} [data-act]`), p)
-    const tap = (sel) => page.dispatchEvent(sel, sel.startsWith('#pBag [data-act="potion"]') ? 'click' : 'pointerdown')   // (the Bag's scrolling list answers clicks)
-    /** A team: the first ones full, the last on 1 HP; a Potion in the Bag; then a tap for `kind`, up to the command menu. */
-    async function setUp(kind, names) {
-      await page.evaluate((names) => {
-        const v = window.__vvm
-        v.party.splice(0, 9, ...names.map((n) => { const m = individual(speciesByName(n), 20, Math.random); m.hp = m.stats.hp; return m }))
-        v.party.at(-1).hp = 1; v.bag.potion = 1; v.renderTools()
-      }, names)
-      await page.selectOption('#nextTap', kind); await page.evaluate(() => document.activeElement?.blur())
-      for (let tries = 0; tries < 5 && !(await shown('pMain')); tries++) {
-        await page.evaluate(() => document.getElementById('home').click())
-        for (let i = 0; i < 40 && !(await shown('pMain')); i++) { await page.keyboard.press('x'); await page.waitForTimeout(250) }
-      }
-      assert.ok(await shown('pMain'), `${kind}: the command menu came up`)
-    }
-    const hurtHp = () => page.evaluate(() => window.__vvm.party.at(-1).hp)
-
-    // 1v1: the one out is at full HP, so the Potion goes to the bench, chosen from your party.
-    await setUp('wild', ['PIKACHU', 'EEVEE'])
-    await tap('#pMain [data-act="bag"]'); await page.waitForTimeout(300)
-    assert.doesNotMatch(await page.getAttribute('#pBag [data-act="potion"]', 'class'), /\boff\b/, 'the Potion is usable: someone on the bench is hurt')
-    await tap('#pBag [data-act="potion"]'); await page.waitForTimeout(300)
-    assert.ok(await shown('pParty'), 'it asks which Pokémon')
-    assert.match(await page.textContent('#pParty'), /EEVEE/); assert.doesNotMatch(await page.textContent('#pParty'), /PIKACHU/, 'only the ones it can help')
-    await tap('#pParty [data-act="r0"]')
-    for (let i = 0; i < 20 && (await hurtHp()) === 1; i++) await page.waitForTimeout(200)
-    assert.ok((await hurtHp()) > 1, 'the benched EEVEE recovered HP')
-    assert.equal(await page.evaluate(() => window.__vvm.bag.potion), 0)
-    for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
-
-    // 2v2: two out, one on the bench on 1 HP; the Potion's only target is the bench, so it goes straight there.
-    await setUp('duo', ['PIKACHU', 'EEVEE', 'PSYDUCK'])
-    await tap('#pMain [data-act="bag"]'); await page.waitForTimeout(300)
-    await tap('#pBag [data-act="potion"]'); await page.waitForTimeout(300)
-    for (let i = 0; i < 300 && (await hurtHp()) === 1 && (await bot.inBattle()); i++) await bot.step()
-    assert.ok((await hurtHp()) > 1, 'the benched PSYDUCK recovered HP in the 2v2')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
 test('play: the tutorial, then wild battles with new moves, then a save', { skip: quick }, async () => {
   const g = await openGame()
   try {
@@ -858,135 +648,6 @@ test('play: the tutorial, then wild battles with new moves, then a save', { skip
       return { realId, savedId: s.id, hasForm: 'form' in s }
     })
     assert.equal(saved.savedId, saved.realId); assert.equal(saved.hasForm, false)
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('music: every song\'s parts line up, and every note and chord reads', async () => {
-  const g = await openGame()
-  try {
-    await g.page.waitForTimeout(800)
-    const problems = await g.page.evaluate(() => {
-      const out = []
-      for (const [name, s] of Object.entries(SONGS)) {
-        const parts = s.sections ? [...(s.intro ? [['intro', { ...s, ...s.intro }]] : []), ...s.sections.map((x, k) => [`section ${k + 1}`, { ...s, ...x }])] : [['', s]]
-        for (const [label, p] of parts) {
-          const where = `${name}${label ? ` (${label})` : ''}`, L = p.lead.length
-          if (p.bass?.length && p.bass.length !== L) out.push(`${where}: bass ${p.bass.length} steps, lead ${L}`)
-          if (p.drums.length !== L) out.push(`${where}: drums ${p.drums.length} steps, lead ${L}`)
-          if (p.chords && p.chords.length * p.chordLen < L) out.push(`${where}: chords cover ${p.chords.length * p.chordLen} of ${L} steps`)
-          for (const n of [...p.lead, ...(p.bass ?? [])]) if (n !== '.' && n !== '-' && Number.isNaN(MIDI(/^(.+?)([~^v!]?)$/.exec(n)[1]))) out.push(`${where}: note ${n}`)
-          for (const c of p.chords ?? []) if (!/^([A-G][#b]?)(m|dim|aug)?(maj7|7)?$/.test(c)) out.push(`${where}: chord ${c}`)
-        }
-      }
-      // The League's music, as the Elite Four battles play it: each member's intro, then the Elite Four or Champion theme.
-      for (const n of [...Object.values(LEAGUE_INTRO), 'elite', 'champion', 'gym']) if (!SONGS[n]) out.push(`missing song ${n}`)
-      if (ELITE.some((L) => !LEAGUE_INTRO[L.short.toLowerCase()])) out.push('a League member without an intro')
-      return out
-    })
-    assert.deepEqual(problems, [])
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('music keeps time when the phone is busy: no late notes through main-thread stalls', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page } = g
-    await page.waitForTimeout(800)
-    await page.evaluate(() => {
-      RUN++; Sound.stopMusic()   // stop the page's own demo, which changes the music
-      // A busy phone: the main thread stalls for half a second every five seconds.
-      window.__stall = setInterval(() => { const end = performance.now() + 500; while (performance.now() < end); }, 5000)
-      // Count sounds that start after their time (already past when they're made).
-      const start = AudioScheduledSourceNode.prototype.start
-      window.__late = 0
-      // (From a second in: this is about keeping time through the loop, not the song's first notes.)
-      AudioScheduledSourceNode.prototype.start = function (when = 0, ...a) { const c = this.context; if (!(c instanceof OfflineAudioContext) && c.currentTime > 1 && c.currentTime - when > 0.03) window.__late++; return start.call(this, when, ...a) }
-      Sound.setOn(true); Sound.music('battleB')   // the densest arrangement
-    })
-    await page.waitForTimeout(25000)
-    const r = await page.evaluate(() => { clearInterval(window.__stall); Sound.stopMusic(); return { late: window.__late, tier: MUSIC_LOAD.tier } })
-    assert.equal(r.late, 0, `${r.late} sounds started late`)
-    assert.equal(r.tier, 0, 'main-thread stalls alone never thin the music (only a slow audio thread does)')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('music: finished notes leave the audio graph, so a song costs no more on its tenth loop than its first', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page } = g
-    await page.waitForTimeout(800)
-    await page.evaluate(() => {
-      RUN++; Sound.stopMusic()
-      window.__busReady = (s, m) => { window.__ac = m.context }
-      // Count the notes built (each behind one gain of its own) and the disconnections.
-      const v = window.voice, kv = window.kitVoice, cut = AudioNode.prototype.disconnect
-      window.__made = 0; window.__cut = 0
-      window.voice = (...a) => { window.__made++; return v(...a) }
-      window.kitVoice = (...a) => { window.__made++; return kv(...a) }
-      AudioNode.prototype.disconnect = function (...a) { window.__cut++; return cut.apply(this, a) }
-      Sound.setOn(true); Sound.music('champion')
-    })
-    await page.waitForTimeout(15000)
-    const r = await page.evaluate(() => ({ made: window.__made, cut: window.__cut, waiting: window.__ac.__retire.length, tier: MUSIC_LOAD.tier }))
-    // Every note's gain is let go once it's over: only the last moment's notes (and the ones queued ahead) are still waiting.
-    assert.ok(r.made > 400, `a lot of notes were played (${r.made})`)
-    assert.ok(r.cut > r.made * 0.85, `most of them were disconnected again (${r.cut} of ${r.made})`)
-    assert.ok(r.waiting < 400, `few notes still waiting to retire (${r.waiting})`)
-    assert.equal(r.tier, 0, 'the Champion theme plays in full on a machine that keeps up')
-    assert.deepEqual(g.errors, [])
-  } finally { await g.close() }
-})
-
-test('music: when the audio thread can\'t keep up, the music lightens to its melody, bass and drums', { skip: quick }, async () => {
-  const g = await openGame()
-  try {
-    const { page } = g
-    await page.waitForTimeout(800)
-    // Each part of a song has a level: the ornaments (tremolo, runs, doubled lines) go first, then the colour, never the core.
-    const levels = await page.evaluate(() => {
-      const ac = new OfflineAudioContext(2, 48000, 48000), out = {}, seen = { lead: new Set(), trem: new Set() }
-      const keep = { ...INST }
-      for (const k in INST) INST[k] = (a, ch, t, f, d, v) => { out[k] ??= new Set(); out[k].add(window.__lvl) }
-      scheduleSong(ac, ac.createGain(), SONGS.champion, 0)
-      for (const e of ac.__q) { window.__lvl = e.lvl; e.fn() }
-      Object.assign(INST, keep)
-      return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [...v].sort()]))
-    })
-    assert.deepEqual(levels.violins, [2], 'the tremolo strings and doubled violins are ornaments')
-    assert.deepEqual(levels.lowstrings, [0], 'the bass is core')
-    assert.ok(levels.piano.includes(0) && levels.piano.includes(2), 'the piano melody is core, its runs are ornaments')
-    // A phone whose audio thread falls behind: an overload far beyond the song (silent, so it's all cost).
-    const r = await page.evaluate(async () => {
-      RUN++; Sound.stopMusic()
-      window.__busReady = (s, m) => { window.__ac = m.context }
-      Sound.setOn(true); Sound.music('champion')
-      await new Promise((ok) => setTimeout(ok, 2500))
-      const ac = window.__ac, t = ac.currentTime + 0.1, sink = ac.createGain(); sink.gain.value = 0; sink.connect(ac.destination)
-      for (let i = 0; i < 2500; i++) {
-        const o = ac.createOscillator(), l = ac.createOscillator(), lg = ac.createGain(), f = ac.createBiquadFilter()
-        o.type = 'sawtooth'; o.frequency.value = 100 + i; lg.gain.value = 3; l.connect(lg).connect(o.frequency); o.connect(f).connect(sink)
-        o.start(t); l.start(t); o.stop(t + 3); l.stop(t + 3)
-      }
-      const started = performance.now()
-      while (MUSIC_LOAD.tier < 2 && performance.now() - started < 20000) await new Promise((ok) => setTimeout(ok, 250))
-      const tier = MUSIC_LOAD.tier, after = performance.now() - started
-      // Now count what's still being played, once the overload and the notes queued before the change have gone by.
-      // (In audio time: the overload slows the audio clock right down while it lasts.)
-      const audioSecs = async (n) => { const to = ac.currentTime + n; while (ac.currentTime < to) await new Promise((ok) => setTimeout(ok, 100)) }
-      await audioSecs(5)
-      const calls = {}, keep = { ...INST }
-      for (const k in INST) INST[k] = function (...a) { calls[k] = (calls[k] ?? 0) + 1; return keep[k].apply(this, a) }
-      await audioSecs(5)
-      Object.assign(INST, keep); Sound.stopMusic()
-      return { tier, after, calls, changes: MUSIC_LOAD.changes.length }
-    })
-    assert.equal(r.tier, 2, `the music lightened twice (after ${Math.round(r.after)} ms)`)
-    assert.equal(r.changes, 2)
-    assert.ok(!r.calls.violins && !r.calls.choir, `no ornaments or colour once lightened: ${JSON.stringify(r.calls)}`)
-    assert.ok(r.calls.piano > 0 || r.calls.lowstrings > 0, `the melody and bass play on: ${JSON.stringify(r.calls)}`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
