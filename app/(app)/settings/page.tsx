@@ -6,10 +6,12 @@ import { playPackSound, setPackSoundsMuted, usePackSoundsMuted } from '../vendin
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
+import { createClient } from '@/lib/supabase/client'
 
 /*
- * Per-device settings. Nothing here is saved to your account: a phone and a
- * laptop can each be set up their own way.
+ * Per-device settings: a phone and a laptop can each be set up their own way.
+ * The one exception is "Show my activity", which is saved to your account
+ * (v74's profiles.show_in_feed) since it decides what others see.
  */
 export default function SettingsPage() {
   const s = useSettings()
@@ -35,6 +37,10 @@ export default function SettingsPage() {
         <h1 className="font-display font-bold text-lg">Settings</h1>
         <p className="text-sm text-muted">Saved on this device only.</p>
       </div>
+
+      <Group title="Home feed">
+        <FeedVisibilityRow />
+      </Group>
 
       <Group title="Sound">
         <Row label="Sound effects" hint="Pack rips, card reveals, the machine.">
@@ -75,6 +81,38 @@ export default function SettingsPage() {
         Reset to defaults
       </Button>
     </div>
+  )
+}
+
+/** Whether your pulls, reports and so on appear in everyone's home feed. Saved to your account. */
+function FeedVisibilityRow() {
+  const toast = useToast()
+  const [on, setOn] = useState<boolean | null>(null)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data } = await supabase.from('profiles').select('show_in_feed').eq('id', user.id).single()
+      setOn((data as { show_in_feed?: boolean } | null)?.show_in_feed ?? true)
+    })
+  }, [])
+
+  async function change(v: boolean) {
+    setOn(v)
+    const { error } = await createClient().rpc('set_show_in_feed', { p_on: v })
+    if (error) {
+      setOn(!v)
+      toast.error('Could not save that. Try again.')
+    }
+  }
+
+  return (
+    <Row label="Show my activity"
+      hint={on === false
+        ? 'Your pulls, timer reports, listings and badges stay out of the home feed. Saved to your account.'
+        : 'Your pulls, timer reports, listings and badges appear in the home feed. Saved to your account.'}>
+      <Toggle checked={on ?? true} onChange={change} label="Show my activity in the home feed" />
+    </Row>
   )
 }
 
