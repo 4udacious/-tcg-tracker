@@ -42,3 +42,27 @@ test('a Rare Candy: one level from the Bag, its new moves, and the evolution it 
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('a shiny wild Pokémon: its own sprite, a sparkle and its own announcement', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => { window.__forceShiny = true; for (const m of window.__vvm.party) m.hp = m.stats.hp })
+    // The sprite as the announcement shows (it types out, so keep the fullest text seen). A roaming legendary
+    // (never shiny) can turn up instead: then try again.
+    let found = null
+    for (let tries = 0; tries < 4 && !found; tries++) {
+      let seen = null
+      const watch = setInterval(async () => { try { const t = await page.evaluate(() => [document.getElementById('msg')?.textContent ?? '', document.querySelector('#enemy img')?.getAttribute('src') ?? '']); if (/A wild/.test(t[0]) && (!seen || t[0].length > seen[0].length)) seen = t } catch {} }, 100)
+      try { assert.ok(await bot.encounter('wild'), 'a wild battle happened') } finally { clearInterval(watch) }
+      await page.evaluate(() => { for (const m of window.__vvm.party) m.hp = m.stats.hp })
+      found = seen
+    }
+    assert.ok(found, 'a wild (not legendary) Pokémon appeared')
+    assert.match(found[0], /A wild shiny/, 'the announcement says it is shiny')
+    assert.match(found[1], /\/rpg\/a\/shiny\//, `the shiny sprite: ${found[1]}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+

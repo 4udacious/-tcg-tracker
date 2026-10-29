@@ -651,3 +651,32 @@ test('play: the tutorial, then wild battles with new moves, then a save', { skip
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('shiny Pokémon: every shiny sprite loads, and shininess survives evolution and the save', async () => {
+  const g = await openGame()
+  try {
+    await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(async () => {
+      const img = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i.naturalWidth > 0); i.onerror = () => ok(false); i.src = src })
+      const broken = []
+      for (const id of SHINY_IDS) for (const k of ['s' + id, 's' + id + 'b']) if (!(await img(ART[k]))) broken.push(k)
+      // Every wild species, and everything it evolves into, has its shiny.
+      const evos = DATA.evos ?? {}, reach = new Set(DATA.wild.map((w) => w.name)), q = [...reach]
+      while (q.length) for (const e of evos[q.pop()] ?? []) if (!reach.has(e.to)) { reach.add(e.to); q.push(e.to) }
+      const uncovered = [...reach].filter((n) => !SHINY_IDS.has(speciesByName(n).id))
+      const m = individual(speciesByName('PIDGEY'), 18, Math.random); m.shiny = true
+      const before = spr(m), back = spr(m, true)
+      evolveInto(m, 'PIDGEOTTO')
+      const plain = individual(speciesByName('PIDGEY'), 5, Math.random)
+      return { broken, uncovered, n: SHINY_IDS.size, before, back, after: spr(m), kept: JSON.parse(JSON.stringify(m)).shiny, plain: spr(plain) }
+    })
+    assert.deepEqual(r.broken, [], 'every shiny sprite loads')
+    assert.deepEqual(r.uncovered, [], 'every Pokémon you can meet wild, or evolve one into, has a shiny')
+    assert.ok(r.n >= 200, `${r.n} shiny species`)
+    assert.equal(r.before, '/rpg/a/shiny/16.gif'); assert.equal(r.back, '/rpg/a/shiny/16-back.gif')
+    assert.equal(r.after, '/rpg/a/shiny/17.gif', 'still shiny after evolving'); assert.equal(r.kept, true, 'and in the save')
+    assert.equal(r.plain, '/rpg/a/16.gif', 'an ordinary one keeps its usual sprite')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+

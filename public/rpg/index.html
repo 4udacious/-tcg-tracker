@@ -860,6 +860,7 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 @keyframes evoSpin { to { transform: rotate(360deg); } }
 @keyframes evoSpark { from { transform: scale(0) rotate(0); opacity: 1; } 40% { transform: scale(var(--s, 1)) rotate(45deg); opacity: 1; } to { transform: scale(0) rotate(90deg) translateY(-20px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ts .evostage .rays { animation: none; } }
+.shiny { color: #eab308; margin-left: 4px; font-size: .9em; text-shadow: 0 0 4px #fde68a; }
 .ts .evostage img.glow { filter: brightness(0) invert(1) drop-shadow(0 0 12px #fff); }
 .bEvoStop { left: auto; right: 6px; top: 128px; width: 124px; height: 40px; background: linear-gradient(#94a3b8, #475569); font-size: 13px; text-align: center; padding: 4px 6px; overflow: hidden; --hold: 0; }
 .bEvoStop::before { content: ''; position: absolute; inset: 0; background: rgba(239,68,68,.75); transform: scaleX(var(--hold)); transform-origin: left; pointer-events: none; }
@@ -1111,6 +1112,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=5f87ef3055"></script>
+<script src="/rpg/game.js?v=2b62490880"></script>
 </body>
 </html>
