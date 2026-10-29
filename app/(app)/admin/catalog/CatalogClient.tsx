@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import SearchableSelect, { type SelectOption } from '@/components/SearchableSelect'
 import ProductThumb from '@/components/ProductThumb'
 import { useToast } from '@/components/ui/Toast'
+import { GAMES } from '@/lib/cardGames'
 
 type Tab = 'sets' | 'products' | 'retailers' | 'stores'
 
@@ -15,16 +16,6 @@ interface Retailer { id: string; name: string }
 interface Store { id: string; region: string; city: string; neighborhood: string | null; label: string; address: string | null; latitude: number | null; longitude: number | null; is_active: boolean; retailer_id: string }
 
 const SET_TYPES = ['standard', 'special', 'special-collections', 'tins']
-/** The card games a set can belong to (v68, v71); the interest check has a switch between them. */
-const GAMES = [
-  { id: 'pokemon', label: 'Pokémon' },
-  { id: 'one_piece', label: 'One Piece' },
-  { id: 'mtg', label: 'Magic' },
-  { id: 'riftbound', label: 'Riftbound' },
-  { id: 'dragon_ball', label: 'Dragon Ball' },
-  { id: 'gundam', label: 'Gundam' },
-  { id: 'naruto', label: 'Naruto' },
-]
 
 export default function CatalogClient({
   sets, products, retailers, stores,
