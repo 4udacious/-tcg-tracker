@@ -349,7 +349,7 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .irow .ic.potion, .irow .ic.super { border-radius: 8px; background: linear-gradient(#e9d5ff, #a855f7); }
 .irow .ic.super { background: linear-gradient(#fbcfe8, #ec4899); }
 .irow .ic.potion::after, .irow .ic.super::after { display: none; }
-.irow .mid { flex: 1; } .irow b { font-size: 14px; } .irow .sub { font-size: 11px; color: var(--muted); }
+.irow .mid { flex: 1; } .irow b { font-size: 14px; } .irow .sub { font-size: 11px; color: var(--muted); } .irow .sub.blk { display: block; margin-top: 2px; }
 .irow .ct { font: 700 13px ui-monospace, monospace; }
 .irow .onoff { flex: none; min-width: 40px; padding: 4px 0; border-radius: 999px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .06em; background: #cbd5e1; color: #475569; }
 .irow .onoff.on { background: #22c55e; color: #fff; }
@@ -520,6 +520,11 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .mvcard small { grid-column: 2 / span 2; font-size: 10.5px; color: var(--muted); line-height: 1.25; }
 .mvcard.sel { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.25); }
 .mvcard.dim { opacity: .55; }
+/* A Move Disc's move, shown above "teach it to which Pokémon?" (not tappable). */
+.mvcard.info { cursor: default; margin-bottom: 8px; }
+.mvcard.info:hover { background: var(--card); }
+/* A move's type, inline in a line of text (the Bag's Move Disc rows). */
+.tychip { font: 800 8px system-ui, sans-serif; font-style: normal; text-transform: uppercase; letter-spacing: .06em; color: #fff; padding: 2px 4px; border-radius: 4px; text-shadow: 0 1px 1px rgba(0,0,0,.4); vertical-align: 1px; }
 .svmoves { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .svmoves .lbl { width: 100%; margin: 6px 0 2px; }
 .svmoves > span { font: 700 10px system-ui, sans-serif; color: #fff; padding: 3px 7px; border-radius: 6px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
@@ -826,6 +831,19 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .wobble { animation: wobble 900ms ease-in-out infinite alternate; }
 @keyframes wobble { 0% { translate: 0 0; } 25% { translate: 9px -5px; } 50% { translate: -7px 6px; } 75% { translate: 6px 7px; } 100% { translate: -9px -4px; } }
 @media (prefers-reduced-motion: reduce) { .wobble { animation-duration: 2400ms; } }
+/* An evasive target (Minimize, Double Team): your strike ring and its mark flicker and fade, harder at each stage.
+   On filter, since the ring's own opacity is animated as it closes. */
+.veil { animation: veil 520ms steps(2, jump-none) infinite; --veil-lo: .5; }
+.veil[data-veil="2"] { animation-duration: 380ms; --veil-lo: .3; }
+.veil[data-veil="3"] { animation-duration: 260ms; --veil-lo: .14; }
+.wobble.veil { animation: wobble 900ms ease-in-out infinite alternate, veil 520ms steps(2, jump-none) infinite; }
+.wobble.veil[data-veil="2"] { animation-duration: 900ms, 380ms; }
+.wobble.veil[data-veil="3"] { animation-duration: 900ms, 260ms; }
+@keyframes veil { 0%, 55% { filter: opacity(1) blur(0); } 70%, 100% { filter: opacity(var(--veil-lo)) blur(1px); } }
+@media (prefers-reduced-motion: reduce) {
+  .veil { animation: none; filter: opacity(calc(var(--veil-lo) + .2)); }
+  .wobble.veil { animation: wobble 2400ms ease-in-out infinite alternate; filter: opacity(calc(var(--veil-lo) + .2)); }
+}
 
 .t-cure { background: linear-gradient(#5eead4, #0f766e); }
 
@@ -1112,6 +1130,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=2b62490880"></script>
+<script src="/rpg/game.js?v=3e4fc7cf22"></script>
 </body>
 </html>
