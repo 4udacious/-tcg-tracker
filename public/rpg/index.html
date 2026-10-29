@@ -751,6 +751,8 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .supplies .tile .qty { position: absolute; top: 2px; right: 2px; border-radius: 999px; background: #c82030; color: #fff; font-size: 7px; font-weight: 700; padding: 0 4px; }
 .supplies .tile .kind { position: absolute; top: 2px; left: 2px; border-radius: 3px; background: #0E1726; color: #fde68a; font-size: 6px; font-style: normal; font-weight: 800; letter-spacing: .06em; padding: 1px 3px; }
 /* Revive: a gold diamond, everywhere an item shows. */
+.supic.rarecandy, .irow .ic.rarecandy, .adm .ic.rarecandy { border-radius: 45%; background: radial-gradient(circle at 38% 34%, #fff 0 12%, transparent 13%), radial-gradient(circle, #93c5fd 0 46%, #2563eb 47% 64%, #1e3a8a 65%); }
+.supic.rarecandy::after, .irow .ic.rarecandy::after, .adm .ic.rarecandy::after { display: none; }
 .supic.revive, .irow .ic.revive, .adm .ic.revive { border-radius: 4px; transform: rotate(45deg) scale(.82); background: linear-gradient(135deg, #fef9c3, #facc15 60%, #ca8a04); }
 .supic.revive::after, .irow .ic.revive::after, .adm .ic.revive::after { display: none; }
 .t-revive { background: linear-gradient(#facc15, #a16207); }
@@ -1102,6 +1104,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=9ae8fbe643"></script>
+<script src="/rpg/game.js?v=9ab0501e61"></script>
 </body>
 </html>
