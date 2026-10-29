@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   const now = new Date().toISOString()
-  const [{ data: profile }, { count: gradesReady }, { count: cleansReady }, { data: announcement }, { data: balance }, { count: marketUnread }, { data: notices }] = await Promise.all([
+  const [{ data: profile }, { count: gradesReady }, { count: cleansReady }, { data: announcement }, { data: balance }, { count: marketUnread }, { data: notices }, { data: interestRows }] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, display_name, username, name_color, trainer_icons(file)')
@@ -62,7 +62,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .is('read_at', null)
       .order('created_at', { ascending: false })
       .limit(5),
+    // Where you stand on this fortnight's interest check bonus, for the bell.
+    supabase.rpc('interest_reward_status'),
   ])
+  const interest = (Array.isArray(interestRows) ? interestRows[0] : interestRows) as
+    | { amount: number; period_start: string; period_ends: string; updated: boolean; claimed: boolean } | null
 
   const role = profile?.role ?? 'member'
   const ti = Array.isArray(profile?.trainer_icons) ? profile.trainer_icons[0] : profile?.trainer_icons
@@ -89,6 +93,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               marketUnread={marketUnread ?? 0}
               announcement={announcement?.message ? { id: announcement.id, message: announcement.message } : null}
               notices={(notices ?? []).map((n) => ({ ...n, amount: n.amount == null ? null : Number(n.amount) }))}
+              interest={interest && Number(interest.amount) > 0 && !interest.claimed
+                ? { amount: Number(interest.amount), period: interest.period_start, ends: interest.period_ends, updated: interest.updated } : null}
             />
             <UserMenu
               name={profile?.display_name ?? profile?.username ?? ''}

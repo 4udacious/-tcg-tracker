@@ -18,7 +18,7 @@ export default async function InterestPage() {
     await Promise.all([
       supabase
         .from('sets')
-        .select('id, name, set_type')
+        .select('id, name, set_type, game')
         .eq('is_active', true)
         .order('sort_order')
         .order('name'),
@@ -35,7 +35,7 @@ export default async function InterestPage() {
         .order('user_id'),
       supabase
         .from('products')
-        .select('id, name, image_url, sort_order, sets(id, name, set_type)')
+        .select('id, name, image_url, sort_order, sets(id, name, set_type, game)')
         .eq('is_active', true)
         .order('sort_order')
         .order('name'),
@@ -94,15 +94,15 @@ export default async function InterestPage() {
     id: string
     name: string
     image_url: string | null
-    sets: { id: string; name: string; set_type: string } | { id: string; name: string; set_type: string }[] | null
+    sets: { id: string; name: string; set_type: string; game?: string } | { id: string; name: string; set_type: string; game?: string }[] | null
   }
 
-  const bySet = new Map<string, { setType: string; rows: { productName: string; imageUrl: string | null; count: number; users: string[] }[] }>()
+  const bySet = new Map<string, { setType: string; game: string; rows: { productName: string; imageUrl: string | null; count: number; users: string[] }[] }>()
   for (const p of (products as ProductRow[] | null) ?? []) {
     const set = Array.isArray(p.sets) ? p.sets[0] : p.sets
     if (!set) continue
     const users = wantersByProductId.get(p.id) ?? []
-    if (!bySet.has(set.name)) bySet.set(set.name, { setType: set.set_type ?? '', rows: [] })
+    if (!bySet.has(set.name)) bySet.set(set.name, { setType: set.set_type ?? '', game: set.game ?? 'pokemon', rows: [] })
     bySet.get(set.name)!.rows.push({ productName: p.name, imageUrl: p.image_url, count: users.length, users })
   }
 
@@ -119,6 +119,7 @@ export default async function InterestPage() {
     .map(([setName, v]) => ({
       setName,
       setType: v.setType,
+      game: v.game,
       rows: v.rows.sort((a, b) => b.count - a.count),
     }))
 
