@@ -853,6 +853,13 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .ts .evostage { position: absolute; left: 0; right: 0; top: 30px; height: 170px; z-index: 6; display: flex; align-items: flex-end; justify-content: center; }
 .ts .evostage img { position: absolute; bottom: 0; height: 150px; width: auto; max-width: 260px; object-fit: contain; image-rendering: pixelated; transition: opacity .06s; filter: drop-shadow(0 6px 4px rgba(0,0,0,.4)); }
 .ts .evostage img.b { opacity: 0; }
+.ts .evostage .rays { position: absolute; left: 50%; bottom: -60px; width: 300px; height: 300px; margin-left: -150px; border-radius: 50%; opacity: .15; transition: opacity .3s;
+  background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.55) 0 7deg, transparent 7deg 20deg); -webkit-mask: radial-gradient(circle, #000 15%, transparent 68%); mask: radial-gradient(circle, #000 15%, transparent 68%); animation: evoSpin 5s linear infinite; }
+.ts .evostage.done .rays { animation-duration: 1.6s; filter: drop-shadow(0 0 10px #fde68a); }
+.ts .evostage .spark { position: absolute; width: 16px; height: 16px; margin: -8px; background: #fff; clip-path: polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%); filter: drop-shadow(0 0 4px #fde68a); animation: evoSpark .9s ease-out forwards; }
+@keyframes evoSpin { to { transform: rotate(360deg); } }
+@keyframes evoSpark { from { transform: scale(0) rotate(0); opacity: 1; } 40% { transform: scale(var(--s, 1)) rotate(45deg); opacity: 1; } to { transform: scale(0) rotate(90deg) translateY(-20px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ts .evostage .rays { animation: none; } }
 .ts .evostage img.glow { filter: brightness(0) invert(1) drop-shadow(0 0 12px #fff); }
 .bEvoStop { left: auto; right: 6px; top: 128px; width: 124px; height: 40px; background: linear-gradient(#94a3b8, #475569); font-size: 13px; text-align: center; padding: 4px 6px; overflow: hidden; --hold: 0; }
 .bEvoStop::before { content: ''; position: absolute; inset: 0; background: rgba(239,68,68,.75); transform: scaleX(var(--hold)); transform-origin: left; pointer-events: none; }
@@ -1104,6 +1111,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=a2c9ef8327"></script>
+<script src="/rpg/game.js?v=5f87ef3055"></script>
 </body>
 </html>
