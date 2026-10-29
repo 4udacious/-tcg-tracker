@@ -12,7 +12,7 @@ interface Set {
   id: string
   name: string
   set_type: string
-  /** Which card game the set belongs to (v68): 'pokemon' or 'one_piece'. */
+  /** Which card game the set belongs to (v68, v71): one of the GAMES ids. */
   game?: string
 }
 
@@ -20,6 +20,11 @@ interface Set {
 const GAMES: { id: string; label: string }[] = [
   { id: 'pokemon', label: 'Pokémon' },
   { id: 'one_piece', label: 'One Piece' },
+  { id: 'mtg', label: 'Magic' },
+  { id: 'riftbound', label: 'Riftbound' },
+  { id: 'dragon_ball', label: 'Dragon Ball' },
+  { id: 'gundam', label: 'Gundam' },
+  { id: 'naruto', label: 'Naruto' },
 ]
 
 interface MyInterest {
@@ -279,7 +284,7 @@ export default function InterestTracker({ sets, myInterests, peopleList, interes
       </div>
 
       {games.length > 1 && tab !== 'byPerson' && (
-        <div className="flex gap-1.5" role="tablist" aria-label="Card game">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Card game">
           {games.map((g) => (
             <button key={g.id} role="tab" aria-selected={game === g.id}
               onClick={() => { setGame(g.id); handleSetChange(null); setSelectedBoardSetName(null) }}
