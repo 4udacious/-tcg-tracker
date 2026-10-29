@@ -3457,6 +3457,7 @@ const SHOP_DEFAULT = {
   ball:   { on: true, price: 0.2, rate: 35 },
   great:  { on: false, price: 0.4, rate: 10 },
   revive: { on: true, price: 0.6, rate: 15 },
+  rarecandy: { on: true, price: 1.5, rate: 10 },
   summon: { on: true, price: 3, rate: 30 },   // a Gym Leader summon: always for your next gym
   elite:  { on: true, price: 5, rate: 30 },
   expshare: { on: false, price: 4, rate: 20 },
@@ -3530,6 +3531,7 @@ const ITEMS = {
   potion: { name: 'POTION', sub: 'heals 30%', cls: 't-potion', heal: 0.3 },
   super: { name: 'SUPER POTION', sub: 'heals 60%', cls: 't-heal', heal: 0.6 },
   revive: { name: 'REVIVE', sub: 'revives at 50% HP', cls: 't-revive', revive: 0.5 },
+  rarecandy: { name: 'RARE CANDY', sub: 'raises a Pokémon one level', cls: 't-candy', candy: true },
   disc: { name: 'MOVE DISC', sub: 'a random move each restock', cls: 't-disc' },   // the shelf slot; what's bought is a 'disc:NAME'
 }
 /* The evolution items a scalper (or a pack's rare slot) can turn up. */
@@ -4277,7 +4279,7 @@ async function run(id) {
      tickets, and the admin's battle supplies. Cart keys are 'set:CODE',
      'ticket:ID' and 'sup:KEY'. */
   // Catalog supplies (vvm_supplies) and what they are in the Bag.
-  const BAG_OF = { potion: 'potion', super_potion: 'super', revive: 'revive', poke_ball: 'ball', great_ball: 'great' }
+  const BAG_OF = { potion: 'potion', super_potion: 'super', revive: 'revive', poke_ball: 'ball', great_ball: 'great', rare_candy: 'rarecandy' }
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
@@ -4609,7 +4611,7 @@ async function run(id) {
   }
   /* The Bag's pockets: each item is in one, by what it is. Other holds evolution items, key items and summons. */
   const BAG_TABS = [['medicine', 'MEDICINE'], ['balls', 'BALLS'], ['discs', 'MOVE DISCS'], ['other', 'OTHER']]
-  const pocketOf = (k, it) => (it.disc ? 'discs' : k === 'ball' || k === 'great' ? 'balls' : HEALS.includes(k) || it.cure ? 'medicine' : 'other')
+  const pocketOf = (k, it) => (it.disc ? 'discs' : k === 'ball' || k === 'great' ? 'balls' : HEALS.includes(k) || it.cure || it.candy ? 'medicine' : 'other')
   const POCKET_EMPTY = { medicine: 'No medicine. Potions, Revives and status cures go here.', balls: 'No Poké Balls.', discs: 'No Move Discs. Gym Leaders give them, and the VVM sells them now and then.', other: 'Nothing here. Evolution stones, key items and summons go here.' }
   let bagTab = 'medicine'   // the pocket you last looked at, for as long as the game is open
   function bagList() {
@@ -4636,6 +4638,8 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.held ? it.sub : n ? `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} can evolve with it · tap to use` : `${it.sub} · nobody in your party can use it`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       if (it.cure) { const n = party.filter((m) => m.status && it.cure.includes(m.status)).length
         return `<button class="irow" data-item="${k}"${n && bag[k] ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.sub} · ${n ? `${n === 1 ? '1 Pokémon needs' : `${n} Pokémon need`} it · tap to use` : 'nobody needs it right now'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
+      if (it.candy) { const n = party.filter((m) => m.level < LEVEL_CAP).length
+        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${n ? `${it.sub} · tap to use` : 'your whole party is at Lv 100'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
     }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders and, now and then, the VVM. Beaten trainers sometimes leave a booster pack: it goes to your collection.</p>`
@@ -4666,6 +4670,9 @@ async function run(id) {
       <button class="challenge" data-elite="${id}" style="--c:${L.color}">CHALLENGE ${L.short}</button>`
   }
   function bagTarget(k) {
+    if (ITEMS[k].candy) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — give it to which Pokémon?</p>` +
+      party.map((m, i) => { const max = m.level >= LEVEL_CAP
+        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${ART[m.id]}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? 'already Lv 100' : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
     if (ITEMS[k].evo) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use it on which Pokémon?</p>` +
       party.map((m, i) => { const r = evoByItem(m, k, bag)
         return `<button class="prow tgt${r.rule ? '' : ' cant'}" data-target="${i}" ${r.rule ? '' : 'disabled'}><img src="${ART[m.id]}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${r.rule ? `evolves into ${r.rule.to}` : r.why}</span></span>${hpBar(m)}</span></button>` }).join('')
@@ -4817,6 +4824,18 @@ async function run(id) {
         bag[view.item]--; sfx('levelup')
         toast = r.equipped ? `${m.name} learned ${n}! It's equipped.` : `${m.name} learned ${n}! Tap an equipped move to swap it in, or leave it in Learned.`
         view = { page: 'moves', mon: m, slot: null }
+      } else if (a.target != null && ITEMS[view.item].candy) {
+        // A Rare Candy: one level, as if from EXP. New moves are learned here; an evolution it brings plays once the sheet closes.
+        const m = party[a.target]
+        if (m.level >= LEVEL_CAP) { toast = `${m.name} is already Lv 100.`; toastBad = true; draw(); return }
+        bag[view.item]--; const hpBefore = m.stats.hp
+        m.level++; m.exp = 0; m.stats = statsAt(m, m.level); if (m.hp > 0) m.hp = Math.min(m.stats.hp, m.hp + (m.stats.hp - hpBefore))
+        sfx('levelup'); renderTools()
+        const learned = learnAtLevel(m)
+        toast = `${m.name} grew to Lv. ${m.level}!` + learned.map((r) => ` It learned ${r.name}${r.equipped ? '' : ' (swap it in from the Box)'}.`).join('')
+        feed(`<b>You</b> gave ${m.name} a RARE CANDY: Lv ${m.level}.`)
+        if (evoDue(m)) { pendingEvos.add(m); pendingEvoItem = true; sheetCloser?.(); return }
+        if (!bag[view.item]) view = { page: 'list' }
       } else if (a.target != null && ITEMS[view.item].evo) {
         // An evolution item: the sheet closes and the evolution plays (the item is spent only if it isn't stopped).
         const m = party[a.target], r = evoByItem(m, view.item, bag)
@@ -5271,8 +5290,14 @@ async function run(id) {
     if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`a ${ITEMS[k].name}`) }
     if (flavor() < 0.15) { const p = await givePack('trainer'); if (p) got.push(p) }
     if (flavor() < 0.08) { const k = pickOf(EVO_DROPS); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
+    if ((T === HERB || T === PAUL) && flavor() < 0.1) { bag.rarecandy = (bag.rarecandy ?? 0) + 1; got.push('a RARE CANDY') }   // Team Unemployed's everyday battles, 1 in 10
     renderTools()
     if (got.length) { sfx('click'); await say(`${T.short} dropped`, `${got.join(' and ')}!`, 700) }
+  }
+  /** Rare Candy as a battle reward: Gym Leaders, Alex and Herb's and Paul's story battles hand one over (or more). */
+  async function giveCandy(T, n = 1) {
+    bag.rarecandy = (bag.rarecandy ?? 0) + n; renderTools()
+    sfx('click'); await say(`${T.short} gave you`, n === 1 ? 'a RARE CANDY!' : `${n} RARE CANDIES!`, 700)
   }
   /** A Move Disc a Gym Leader hands over: one of their type you don't have yet, if there is one. */
   function gymDisc(L) {
@@ -6360,6 +6385,7 @@ async function run(id) {
       // A Move Disc of the leader's type, and half the time a booster pack.
       const n = gymDisc(L); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1
       sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${n}!`, 900)
+      await giveCandy(L)
       if (flavor() < 0.5) { const p = await givePack('gym'); if (p) await say(`${L.short} also gave you`, `${p}!`, 700) }
       renderTools()
     } else {
@@ -8273,6 +8299,7 @@ async function run(id) {
       await trainerOn(R, 'down'); await talk(R, R.outro, 'faceDown'); await trainerOff()
       await out.exp?.()
       await payTokens(R.tokens, 'rival')
+      await giveCandy(R, n === RIVAL_BATTLES.length - 1 ? 3 : 1)   // three after the last battle
       if (n === RIVAL_BATTLES.length - 1 || flavor() < 0.5) { const p = await givePack('rival'); if (p) { sfx('click'); await say('ALEX gave you', `${p}!`, 700) } }
       rivalStep = n + 1; rivalLost = false; rivalWait = 0
       renderTools()
@@ -8329,6 +8356,7 @@ async function run(id) {
       await out.exp?.()
       await payTokens(T.tokens, who.toLowerCase())
       const p = await givePack(who.toLowerCase()); if (p) { sfx('click'); await say(`${T.short} handed back`, `${p}!`, 700) }
+      await giveCandy(T, n === S.battles.length - 1 ? 2 : 1)   // two after their last
       Object.assign(s, { step: n + 1, wait: 0, lost: false })
       if (n === S.battles.length - 1) await say(`${T.short} is done glitching.`, 'The machines run a little better now.', 900)
     } else {
