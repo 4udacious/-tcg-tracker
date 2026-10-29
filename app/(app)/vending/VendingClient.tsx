@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LobbyChat from './LobbyChat'
@@ -241,7 +241,7 @@ export default function VendingClient({
   // Checkout happens on the machine's screen: the order first, then PAY.
   const [reviewing, setReviewing] = useState(false)
   // packs: what dropped (paid for, less a jammed one, plus a stuck one that fell out for you).
-  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; boxes: number; restocked: boolean; stuck: number; freed: number } | null>(null)
+  const [receipt, setReceipt] = useState<{ packs: number; tickets: number; supplies: number; boxes: number; restocked: boolean; stuck: number; freed: number; drops: Drop[] } | null>(null)
   const [busy, setBusy] = useState(false)
   const [watchers, setWatchers] = useState<Watcher[]>([])
   const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
@@ -556,7 +556,7 @@ export default function VendingClient({
       const stuck = r.packs_stuck ?? 0, freed = r.packs_freed ?? 0
       setReceipt({
         packs: r.packs_bought - stuck + freed, tickets: r.tickets_bought ?? 0, boxes: r.boxes_bought ?? 0,
-        supplies: r.supplies_bought ?? 0, restocked: r.restocked, stuck, freed,
+        supplies: r.supplies_bought ?? 0, restocked: r.restocked, stuck, freed, drops: dropsFor(orderLines, stuck > 0, freed > 0),
       })
       if (stuck > 0) haptic([60, 30, 60])
       // Read the real cooldown back rather than assuming a duration - it is
@@ -667,7 +667,7 @@ export default function VendingClient({
 
           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border-2 border-black">
             {receipt ? (
-              <DispensingScreen items={receipt.packs + receipt.tickets + receipt.supplies + receipt.boxes} restocked={receipt.restocked} jammed={receipt.stuck > 0} />
+              <DispensingScreen drops={receipt.drops} restocked={receipt.restocked} />
             ) : status === 'out_of_stock' ? (
               <StockScreen stock={stock} tickets={tickets} supplies={supplies} boxes={boxes} soldOut cart={{}} ticketCart={{}} supplyCart={{}} boxCart={{}} onAdd={() => {}} onAddTicket={() => {}} onAddSupply={() => {}} onAddBox={() => {}} onInspect={showPackDetail} onInspectTicket={showTicketDetail} onInspectSupply={showSupplyDetail} onInspectBox={showBoxDetail} interactive={false} />
             ) : status === 'in_stock' ? (
@@ -702,7 +702,7 @@ export default function VendingClient({
             )}
           </div>
 
-          <div className="mt-3 h-10 rounded-xl bg-[#111] border-[3px] border-[#ff3b53] shadow-[inset_0_4px_14px_rgba(0,0,0,0.8)]" />
+          <Tray drops={receipt?.drops ?? NO_DROPS} />
         </div>
       </div>
 
@@ -1249,15 +1249,118 @@ function CheckoutScreen({ lines, total, tokens, busy, suppliesOnly, onBack, onPa
   )
 }
 
-function DispensingScreen({ items, restocked, jammed }: { items: number; restocked: boolean; jammed: boolean }) {
+/**
+ * What a checkout drops, in order: one entry per thing bought (packs by their
+ * set's wrapper, boxes, tickets, supplies by their icon), the jammed pack if
+ * one stuck (it never reaches the tray), and a stuck pack someone else left
+ * that fell out with yours.
+ */
+interface Drop { key: string; image: string | null; icon: ReactNode | null; jammed?: boolean; freed?: boolean }
+/** At most this many drops are drawn, so a big order doesn't take forever to "dispense". */
+const MAX_DROPS = 12
+const NO_DROPS: Drop[] = []
+const DROP_MS = 520
+
+function dropsFor(lines: { key: string; qty: number; image: string | null; icon: ReactNode | null }[], jammed: boolean, freed: boolean): Drop[] {
+  const out: Drop[] = []
+  for (const l of lines) for (let i = 0; i < l.qty && out.length < MAX_DROPS; i++) out.push({ key: `${l.key}-${i}`, image: l.image, icon: l.icon })
+  // The jam is on a pack (lines keyed p-...): the last one, so the others drop first.
+  if (jammed) { const j = out.map((d) => d.key.startsWith('p-')).lastIndexOf(true); if (j >= 0) out[j] = { ...out[j], jammed: true } }
+  if (freed) out.push({ key: 'freed', image: `/packs/${ATTRACT_PACKS[Math.floor(Math.random() * ATTRACT_PACKS.length)]}.webp`, icon: null, freed: true })
+  return out
+}
+
+/** How many drops have come down so far: one every DROP_MS, from when the checkout came back. */
+function useDropCount(drops: Drop[]) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    setN(0)
+    if (!drops.length) return
+    const t = setInterval(() => setN((x) => { if (x >= drops.length) { clearInterval(t); return x } return x + 1 }), DROP_MS)
+    return () => clearInterval(t)
+  }, [drops])
+  return n
+}
+
+function DispensingScreen({ drops, restocked }: { drops: Drop[]; restocked: boolean }) {
+  const n = useDropCount(drops)
+  const done = n >= drops.length
+  const cur = drops[Math.min(Math.max(n - 1, 0), drops.length - 1)]
+  const jammed = drops.some((d) => d.jammed), jamShown = drops.findIndex((d) => d.jammed) < n && jammed
+  const real = drops.filter((d) => !d.jammed && !d.freed).length
   return (
-    <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 p-4 text-center">
-      <p className="text-[10px] font-semibold tracking-wide" style={{ color: `${SCREEN_INK}b3` }}>COLLECTING</p>
-      <p className="text-sm font-bold" style={{ color: SCREEN_INK }}>{items} OF {items} TOTAL ITEMS</p>
-      <div className="my-2 h-px w-3/4 bg-black/20" />
-      <p className="text-[10px]" style={{ color: `${SCREEN_INK}80` }}>PLEASE WAIT</p>
-      {jammed && <p className="mt-2 text-[10px] font-semibold text-[#c82030]">VEND ERROR · 1 ITEM NOT DISPENSED</p>}
-      {restocked && <p className="mt-2 text-[10px] font-semibold text-[#c82030]">RESTOCKING…</p>}
+    <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 p-4 text-center overflow-hidden">
+      <p className="text-[10px] font-semibold tracking-wide" style={{ color: `${SCREEN_INK}b3` }}>{done ? 'THANK YOU!' : 'COLLECTING'}</p>
+      {/* The item coming down right now, big, then the lot as a row once it's all out. */}
+      {!done && cur && (
+        <div key={cur.key} className={`h-28 flex items-center justify-center ${cur.jammed ? 'vm-jam' : 'vm-pop'}`}>
+          {cur.image ? <img src={cur.image} alt="" className={`h-28 w-auto object-contain drop-shadow-lg ${cur.jammed ? 'grayscale opacity-60' : ''}`} /> : cur.icon}
+        </div>
+      )}
+      {done && (
+        <div className="flex flex-wrap justify-center gap-1 max-w-full">
+          {drops.filter((d) => !d.jammed).map((d) => (
+            <span key={d.key} className="h-12 flex items-center">{d.image ? <img src={d.image} alt="" className="h-12 w-auto object-contain" /> : d.icon}</span>
+          ))}
+        </div>
+      )}
+      <p className="text-sm font-bold" style={{ color: SCREEN_INK }}>
+        {done ? `${real + (drops.some((d) => d.freed) ? 1 : 0)} ITEM${real === 1 ? '' : 'S'} IN THE TRAY` : `${Math.min(Math.max(n, 1), drops.length)} OF ${drops.length} TOTAL ITEMS`}
+      </p>
+      <div className="my-1 h-px w-3/4 bg-black/20" />
+      {jamShown && <p className="text-[10px] font-bold text-[#c82030] tracking-wide">VEND ERROR · 1 ITEM NOT DISPENSED</p>}
+      {drops.some((d) => d.freed) && done && <p className="text-[10px] font-bold text-signal tracking-wide">BONUS · A STUCK PACK FELL OUT</p>}
+      {!done && <p className="text-[10px]" style={{ color: `${SCREEN_INK}80` }}>PLEASE WAIT</p>}
+      {restocked && <p className="mt-1 text-[10px] font-semibold text-[#c82030]">RESTOCKING…</p>}
+      <style>{`
+        @keyframes vmPop { from { transform: translateY(-30px) scale(.85); opacity: 0 } 60% { transform: translateY(4px) scale(1.03); opacity: 1 } to { transform: none } }
+        @keyframes vmJam { 0%, 100% { transform: rotate(0) } 20% { transform: rotate(-6deg) translateY(-3px) } 40% { transform: rotate(5deg) } 60% { transform: rotate(-3deg) } 80% { transform: rotate(2deg) } }
+        .vm-pop { animation: vmPop .42s cubic-bezier(.2,.8,.3,1) both }
+        .vm-jam { animation: vmJam .5s ease-in-out 3 }
+        @media (prefers-reduced-motion: reduce) { .vm-pop, .vm-jam { animation: none } }
+      `}</style>
+    </div>
+  )
+}
+
+/**
+ * The tray under the screen. What dropped lands in it, lying at odd angles,
+ * one by one in step with the screen. A jammed pack hangs out of the slot
+ * above it, wobbling, and never falls; a stuck pack someone else left drops in
+ * last with a bounce. Empty until something is bought, and cleared with the
+ * receipt.
+ */
+function Tray({ drops }: { drops: Drop[] }) {
+  const n = useDropCount(drops)
+  const fallen = drops.slice(0, n).filter((d) => !d.jammed)
+  const jam = drops.findIndex((d) => d.jammed)
+  return (
+    <div className="relative mt-3 h-12 rounded-xl bg-[#111] border-[3px] border-[#ff3b53] shadow-[inset_0_4px_14px_rgba(0,0,0,0.8)]">
+      {jam >= 0 && jam < n && (
+        <div className="vm-stuck absolute -top-9 left-1/2 -ml-3.5 w-7 z-10 pointer-events-none" aria-hidden>
+          {drops[jam].image ? <img src={drops[jam].image!} alt="" className="w-7 h-auto drop-shadow" /> : null}
+        </div>
+      )}
+      <div className="absolute inset-0 overflow-hidden rounded-[9px]" aria-hidden>
+        {fallen.map((d, i) => {
+          // Spread across the tray, each at its own tilt, lying down.
+          const left = 6 + ((i * 37) % 80), tilt = 80 + ((i * 53) % 24) - 12
+          return (
+            <span key={d.key} className={`absolute top-1/2 ${d.freed ? 'vm-bounce' : 'vm-drop'}`} style={{ left: `${left}%`, ['--tilt' as string]: `${tilt}deg` }}>
+              {d.image ? <img src={d.image} alt="" className="w-7 h-auto shadow-md" /> : <span className="block w-6 h-6">{d.icon}</span>}
+            </span>
+          )
+        })}
+      </div>
+      <style>{`
+        @keyframes vmDrop { from { transform: translateY(-160%) rotate(var(--tilt)); opacity: 0 } 70% { transform: translateY(-46%) rotate(var(--tilt)); opacity: 1 } 85% { transform: translateY(-58%) rotate(var(--tilt)) } to { transform: translateY(-50%) rotate(var(--tilt)) } }
+        @keyframes vmBounce { from { transform: translateY(-200%) rotate(var(--tilt)); opacity: 0 } 50% { transform: translateY(-40%) rotate(var(--tilt)); opacity: 1 } 65% { transform: translateY(-90%) rotate(var(--tilt)) } 80% { transform: translateY(-45%) rotate(var(--tilt)) } 90% { transform: translateY(-60%) rotate(var(--tilt)) } to { transform: translateY(-50%) rotate(var(--tilt)) } }
+        @keyframes vmStuck { 0%, 100% { transform: rotate(-10deg) } 25% { transform: rotate(-4deg) translateY(1px) } 50% { transform: rotate(-12deg) } 75% { transform: rotate(-6deg) translateY(1px) } }
+        .vm-drop { animation: vmDrop .45s cubic-bezier(.3,.7,.4,1) both }
+        .vm-bounce { animation: vmBounce .8s cubic-bezier(.3,.7,.4,1) both }
+        .vm-stuck { animation: vmStuck 1.4s ease-in-out infinite; transform-origin: 50% 0 }
+        @media (prefers-reduced-motion: reduce) { .vm-drop, .vm-bounce, .vm-stuck { animation: none; transform: translateY(-50%) rotate(var(--tilt, 0deg)) } }
+      `}</style>
     </div>
   )
 }
