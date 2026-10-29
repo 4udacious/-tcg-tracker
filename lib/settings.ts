@@ -23,6 +23,8 @@ export type Settings = {
   reduceMotion: 'system' | 'on' | 'off'
   /** Short vibrations on purchases, reveals and hits, where the phone supports it. */
   haptics: boolean
+  /** Whether the app may ask for this device's location (Timers' "near me"). */
+  location: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   advance: 'tap',
   reduceMotion: 'system',
   haptics: true,
+  location: true,
 }
 
 const KEY = 'tcg-settings'

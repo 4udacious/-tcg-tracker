@@ -71,6 +71,15 @@ export default function SettingsPage() {
         </Row>
       </Group>
 
+      <Group title="Privacy">
+        <Row label="Location services"
+          hint={s.location
+            ? 'Timers can use your location to find the machine you\'re at and sort machines by distance. It\'s only used on this device and never saved.'
+            : 'Off: the app won\'t ask for your location. Find machines with Search or your favorites instead.'}>
+          <Toggle checked={s.location} onChange={(on) => set({ location: on })} label="Location services" />
+        </Row>
+      </Group>
+
       <Button variant="outline" full onClick={() => { updateSettings(DEFAULT_SETTINGS); setPackSoundsMuted(false); pickTheme('system'); toast.ok('Settings reset to the defaults.') }}>
         Reset to defaults
       </Button>
