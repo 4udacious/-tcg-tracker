@@ -28,7 +28,7 @@ export type FeedItem = {
 
 /** One row of v74's home_highlights. `at` is when an auction ends, otherwise when it happened. */
 export type Highlight = {
-  kind: 'ending' | 'hit' | 'pull' | 'stock'
+  kind: 'ending' | 'hit' | 'pull'
   ref: string
   at: string
   title: string
@@ -42,7 +42,7 @@ type Filter = 'all' | 'timers' | 'pulls' | 'market' | 'community' | 'mine'
 
 const FILTERS: { id: Filter; label: string; kinds?: string[] }[] = [
   { id: 'all', label: 'All' },
-  { id: 'timers', label: 'Timers', kinds: ['timer', 'comment', 'stock'] },
+  { id: 'timers', label: 'Timers', kinds: ['timer', 'comment'] },
   { id: 'pulls', label: 'Pulls', kinds: ['pull', 'grade', 'showcase'] },
   { id: 'market', label: 'Market', kinds: ['listing', 'sale'] },
   { id: 'community', label: 'Community', kinds: ['badge', 'member', 'interest'] },
@@ -57,7 +57,7 @@ const PORTRAIT = new Set(['pull', 'grade', 'showcase'])
 
 const KIND_ICON: Record<string, string> = {
   timer: '✅', pull: '✨', grade: '🏅', listing: '🏷️', sale: '💰', badge: '🎖️',
-  interest: '📋', member: '👋', comment: '💬', showcase: '🖼️', stock: '📦',
+  interest: '📋', member: '👋', comment: '💬', showcase: '🖼️',
 }
 
 function ago(iso: string, now: number): string {
@@ -184,12 +184,12 @@ export default function HomeFeed({ initialItems, initialHighlights }: { initialI
                   <img src={h.image_url} alt="" className="w-11 h-14 object-contain shrink-0" />
                 ) : (
                   <span className="w-11 h-14 shrink-0 flex items-center justify-center text-2xl" aria-hidden>
-                    {h.kind === 'hit' ? '✅' : h.kind === 'stock' ? '📦' : h.kind === 'ending' ? '⏳' : '✨'}
+                    {h.kind === 'hit' ? '✅' : h.kind === 'ending' ? '⏳' : '✨'}
                   </span>
                 )}
                 <div className="min-w-0 space-y-0.5">
                   <p className="font-mono text-[10px] uppercase tracking-wide text-signal">
-                    {h.kind === 'ending' ? endsIn(h.at, now) : h.kind === 'hit' ? (h.fav ? '★ Your machine' : 'Machine hit') : h.kind === 'stock' ? 'In stock' : 'Big pull'}
+                    {h.kind === 'ending' ? endsIn(h.at, now) : h.kind === 'hit' ? (h.fav ? '★ Your machine' : 'Machine hit') : 'Big pull'}
                   </p>
                   <p className="text-sm font-semibold leading-snug line-clamp-2">{h.title}</p>
                   {h.detail && <p className="text-xs text-muted truncate">{h.detail}</p>}

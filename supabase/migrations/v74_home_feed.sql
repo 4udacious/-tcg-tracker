@@ -15,15 +15,13 @@
 --   member    newly approved members
 --   comment   machine comments
 --   showcase  cards and boxes put on a showcase
---   stock     in-stock sightings (mods and admins only while the stock
---             check-in is still admin-only)
 -- Each row has an actor (null for community items), a short title and detail,
 -- an image, a link, whether it's a big moment (secret rare, god pack, a 10),
 -- whether it's on one of the caller's favourite machines, and its reactions.
 --
 -- home_highlights() is the strip at the top: auctions ending within 2 hours,
--- machines with a hit in the last hour (favourite machines first), secret rares
--- and god packs from the last day, and stock seen in the last 3 hours.
+-- machines with a hit in the last hour (favourite machines first), and secret
+-- rares and god packs from the last day.
 --
 -- feed_reactions holds 🔥 and 👍 reactions, keyed by the item's ref.
 -- profiles.show_in_feed (default on) lets a member keep their activity out of
@@ -240,18 +238,6 @@ begin
      where sh.placed_at > v_since and sh.placed_at < v_until
        and (sh.user_card_id is not null or sh.user_box_id is not null)
 
-    union all
-    -- In-stock sightings, for mods and admins while stock check-in is admin-only.
-    select 'stock:' || sc.id, 'stock', sc.created_at, sc.user_id,
-           'spotted ' || coalesce(pt.name, 'stock') || ' in stock',
-           coalesce(r.name || ' · ', '') || coalesce(nullif(sl.label, ''), sl.address, ''),
-           null, '/stock', true, false
-      from stock_checks sc
-      left join product_types pt on pt.id = sc.product_type_id
-      left join store_locations sl on sl.id = sc.store_location_id
-      left join retailers r on r.id = sl.retailer_id
-     where sc.has_stock and v_role in ('mod', 'admin')
-       and sc.created_at > v_since and sc.created_at < v_until
   )
   select i.ref, i.kind, i.at,
          i.actor_id, coalesce(nullif(pr.display_name, ''), pr.username), ti.file, pr.name_color,
@@ -343,21 +329,6 @@ begin
       left join vending_packs vp on vp.id = up.pack_id
      where up.god_pack and up.opened_at > now() - interval '1 day'
      order by 3 desc
-     limit 2
-  )
-  union all
-  (
-    select 'stock', 'stock:' || sc.id, sc.created_at,
-           coalesce(pt.name, 'Stock') || ' in stock',
-           coalesce(r.name || ' · ', '') || coalesce(nullif(sl.label, ''), sl.address, ''),
-           null, '/stock', false
-      from stock_checks sc
-      left join product_types pt on pt.id = sc.product_type_id
-      left join store_locations sl on sl.id = sc.store_location_id
-      left join retailers r on r.id = sl.retailer_id
-     where sc.has_stock and v_role in ('mod', 'admin')
-       and sc.created_at > now() - interval '3 hours'
-     order by sc.created_at desc
      limit 2
   );
 end;
