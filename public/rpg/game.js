@@ -4113,7 +4113,10 @@ async function run(id) {
       b.setAttribute('aria-pressed', String(playerOn[k]))
     }
   }
-  let freeHeal = 1
+  // The free Pokémon Center heal: one a day. The day it was last used (the player's local date); a new day brings it back.
+  let healedOn = null
+  const localDay = () => new Date().toLocaleDateString('en-CA')
+  const freeHealLeft = () => healedOn !== localDay()
   const party = [], box = []
   let busy = false
 
@@ -4572,7 +4575,7 @@ async function run(id) {
       return `<div class="badgecase"><b>${label} ${got}/${gs.length}</b><span>${gs.map((g) => `<img class="${badges.includes(g.gym) ? 'on' : ''}" src="${badgeArt(g.badge)}" alt="${g.badge} BADGE" title="${g.badge} BADGE (${g.short})">`).join('')}</span></div>` }
     const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '') +   // Kanto shows once it's unlocked
       (fame ? `<div class="badgecase champ fame"><b>HALL OF FAME</b><span>${fame.team.map((m) => `<img class="on" src="${ART[m.id]}" alt="${m.name}" title="${m.name} Lv ${m.level}">`).join('')}</span></div>` : '')
-    return caseRow + `<button class="heal" data-heal ${freeHeal && hurt ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${freeHeal ? (hurt ? 'Heal the whole party, free — 1 left today' : 'Everyone is at full HP') : 'Free heal used today. Potions still work.'}</small></span></button>` +
+    return caseRow + `<button class="heal" data-heal ${freeHealLeft() && hurt ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${freeHealLeft() ? (hurt ? 'Heal the whole party, free — 1 left today' : 'Everyone is at full HP') : 'Free heal used today. Potions still work.'}</small></span></button>` +
       party.map((m, i) => `<div class="prow${m.hp <= 0 ? ' fainted' : ''}">
         <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${ART[m.id]}" alt=""><span class="mid">
           <span class="nm"><b>${i + 1}. ${m.name}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}</span></span>
@@ -4793,7 +4796,7 @@ async function run(id) {
     }
     const do_ = (a) => {
       toast = ''; toastBad = false
-      if (a.heal != null && freeHeal) { freeHeal--; party.forEach((m) => { m.hp = m.stats.hp; m.status = null }); sfx('heal'); toast = 'Your party is fully healed, and any status is cured!' }
+      if (a.heal != null && freeHealLeft()) { healedOn = localDay(); party.forEach((m) => { m.hp = m.stats.hp; m.status = null }); sfx('heal'); toast = 'Your party is fully healed, and any status is cured!' }
       if (a.stat != null) { view = { page: 'stats', mon: party[a.stat] }; sfx('select') }
       if (a.back != null) { view = { page: 'list' }; sfx('move') }
       if (a.up != null && a.up > 0) { [party[a.up - 1], party[a.up]] = [party[a.up], party[a.up - 1]]; sfx('move') }
@@ -8572,7 +8575,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, freeHeal, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, healedOn, gifted, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -8638,7 +8641,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
-    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; freeHeal = s.freeHeal ?? freeHeal; gifted = s.gifted ?? true
+    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; healedOn = s.healedOn ?? null; gifted = s.gifted ?? true
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
@@ -8706,6 +8709,7 @@ async function run(id) {
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
+    get healedOn() { return healedOn }, setHealedOn: (d) => { healedOn = d },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
