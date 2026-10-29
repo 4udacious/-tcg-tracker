@@ -168,6 +168,8 @@ export interface RecentBuy {
   packs: number
   sets: string
   bought_at: string
+  /** 'buy', or a stuck pack (v66): 'jammed' when one jams on them, 'freed' when one drops for them. Missing before v66. */
+  kind?: 'buy' | 'jammed' | 'freed'
 }
 
 function agoLabel(iso: string): string {
@@ -802,10 +804,26 @@ export default function VendingClient({
                   </div>
                 )}
                 <p className="text-xs min-w-0 flex-1 truncate">
-                  <span className="font-medium">{b.buyer}</span>
-                  <span className="text-muted"> took </span>
-                  <span className="font-mono font-semibold text-signal">{b.packs}</span>
-                  <span className="text-muted"> from {b.sets}</span>
+                  {b.kind === 'jammed' ? (
+                    <>
+                      <span className="text-muted">A {b.sets} pack jammed on </span>
+                      <span className="font-medium">{b.buyer}</span>
+                      <span className="text-muted">. It&apos;s still in there.</span>
+                    </>
+                  ) : b.kind === 'freed' ? (
+                    <>
+                      <span className="text-muted">A stuck {b.sets} pack dropped for </span>
+                      <span className="font-medium">{b.buyer}</span>
+                      <span className="font-semibold text-signal">. Free!</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-medium">{b.buyer}</span>
+                      <span className="text-muted"> took </span>
+                      <span className="font-mono font-semibold text-signal">{b.packs}</span>
+                      <span className="text-muted"> from {b.sets}</span>
+                    </>
+                  )}
                 </p>
                 <span className="font-mono text-[11px] text-muted shrink-0">{agoLabel(b.bought_at)}</span>
               </li>
