@@ -4437,6 +4437,7 @@ async function run(id) {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
     realShelf = m; m.changesAt = Date.now() + m.seconds_left * 1000
+    syncSeed()   // and where your wild Pokémon come from, in case you've reported a timer since
     if (modeLive.wild !== m.wild || modeLive.trainers !== m.trainers) { modeLive.wild = m.wild; modeLive.trainers = m.trainers; paintBattles() }
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
@@ -6854,9 +6855,23 @@ async function run(id) {
   /** Each trainer's seed: the machine of their latest report, or a random one for the week. */
   const trainerId = (() => { if (demo) return 'demo-trainer'; try { let id = localStorage.getItem('vvm-trainer-id'); if (!id) { id = Math.random().toString(36).slice(2); localStorage.setItem('vvm-trainer-id', id) } return id } catch { return 'guest' } })()
   const reports = {}   // trainer -> { code, week } of their latest timer report
+  // In the app: your real seed, from the Timers tab (gameBridge wildSeed): { report, machines }.
+  let realSeed = null
   function seedOf(who) {
+    if (who === YOU && realSeed) {
+      if (realSeed.report) return { m: realSeed.report, why: 'report' }
+      if (realSeed.machines.length) return { m: realSeed.machines[hashStr(`${APP.uid || trainerId}:${thisWeek()}`) % realSeed.machines.length], why: 'random' }
+    }
     if (reports[who]) return { m: MACHINES.find((x) => x.code === reports[who].code), why: 'report' }
     return { m: MACHINES[hashStr(`${who === YOU ? trainerId : who}:${thisWeek()}`) % MACHINES.length], why: 'random' }
+  }
+  /** In the app: read your latest real timer report, so the wild pool is that machine's. */
+  async function syncSeed() {
+    const api = vvm(); if (!api?.wildSeed) return
+    const s = await api.wildSeed().catch(() => null); if (!s || !live()) return
+    const was = seedOf(YOU).m?.code
+    realSeed = s
+    if (!$('poolPanel').hidden) renderPool(was !== undefined && was !== seedOf(YOU).m?.code)
   }
   /** A timer report: the trainer moves to that machine's pool. */
   function reportTimer(who, code) {
@@ -6871,7 +6886,7 @@ async function run(id) {
   }
   function renderPool(flash = false) {
     const { m, why } = seedOf(YOU), ms = nextRotation(), dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24
-    $('poolWhere').innerHTML = `<b>${m.code}</b> · ${m.venue}, ${m.city}<small>${why === 'report' ? 'from your latest timer report' : 'random machine (no timer reports yet) · report a timer to choose'}</small>`
+    $('poolWhere').innerHTML = `<b>${esc(m.code)}</b> · ${esc(m.venue)}${m.city ? `, ${esc(m.city)}` : ''}<small>${why === 'report' ? 'from your latest timer report' : `random machine this week (no timer reports yet) · report a timer${realSeed ? ' on the Timers tab' : ''} to choose`}</small>`
     $('poolWhen').textContent = demo ? 'changes every Monday' : weekShift ? `week +${weekShift}` : `changes in ${dd}d ${hh}h`
     $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt=""><b class="nm">${n.replace(/[♀♂]/, (g) => `<i class="sx ${g === '♀' ? 'f' : 'm'}">${g}</i>`)}</b>${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
     if (flash) anim($('poolPanel'), [{ boxShadow: '0 0 0 3px #facc15' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 900 })
