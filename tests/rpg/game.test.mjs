@@ -319,25 +319,26 @@ test('in the app: sold out shows the real clock, with nothing covering the stamp
   } finally { await g.close() }
 })
 
-test('in the app: the real machine, checkout, packs and tokens go through the bridge', async () => {
+test('in the app: the real machine, checkout, packs, sealed boxes and tokens go through the bridge', async () => {
   const g = await openGame()
   try {
     const { page } = g
-    // A stand-in for PlayFrame's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
+    // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
       let balance = 10, owned = { potion: 2, move_disc: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
-          supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null }] } },
+          supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null }],
+          boxes: [{ box_id: 5, name: 'Jungle Booster Box', set_name: 'Jungle', packs: 36, price: 3, image: '/rpg/a/jungle-scyther.webp', quantity: 2, max: 1 }] } },
         async balance() { return balance },
         async claim() { calls.push(['claim']); return { ok: true, reason: 'ok', holder_name: null, expires_at: null } },
         async heartbeat() { calls.push(['heartbeat']) },
         async release() { calls.push(['release']) },
-        async checkout(packs, tickets, supplies) {
-          calls.push(['checkout', packs, tickets, supplies])
-          balance -= packs.reduce((a, p) => a + p.qty, 0) + supplies.reduce((a, s) => a + s.qty * 0.4, 0)
+        async checkout(packs, tickets, supplies, boxes) {
+          calls.push(['checkout', packs, tickets, supplies, boxes])
+          balance -= packs.reduce((a, p) => a + p.qty, 0) + supplies.reduce((a, s) => a + s.qty * 0.4, 0) + boxes.reduce((a, b) => a + b.qty * 3, 0)
           for (const s of supplies) owned[s.key] = (owned[s.key] ?? 0) + s.qty
           return { ok: true, reason: 'ok', packs_bought: 1, tickets_bought: 0, supplies_bought: 1, balance, restocked: false }
         },
@@ -363,7 +364,7 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
     assert.deepEqual(await frame.evaluate(() => [document.getElementById('bWild').hidden, document.getElementById('bTrainers').hidden]), [true, true])
     await frame.evaluate(() => { document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click() })
     await frame.waitForSelector('[data-buy="set:base2"]', { timeout: 10000 }); await page.waitForTimeout(1200)   // the screen finishes fading in
-    await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball']) document.querySelector(`[data-buy="${k}"]`).click() })
+    await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball', 'box:5', 'box:5']) document.querySelector(`[data-buy="${k}"]`).click() })   // the box twice: only 1 is allowed
     await frame.evaluate(() => document.getElementById('cbGo').click())
     await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
     await frame.waitForFunction(() => window.__vvm.bag.great === 1, null, { timeout: 10000 })
@@ -371,10 +372,10 @@ test('in the app: the real machine, checkout, packs and tokens go through the br
     assert.equal(pack, 'a FOSSIL PACK')
     const calls = await page.evaluate(() => window.__calls)
     const co = calls.find((c) => c[0] === 'checkout')
-    assert.deepEqual(co.slice(1), [[{ set_code: 'base2', qty: 1 }], [], [{ key: 'great_ball', qty: 1 }]])
+    assert.deepEqual(co.slice(1), [[{ set_code: 'base2', qty: 1 }], [], [{ key: 'great_ball', qty: 1 }], [{ box_id: 5, qty: 1 }]], 'packs, supplies and a sealed box (up to its limit) in one checkout')
     assert.ok(calls.some((c) => c[0] === 'claim')); assert.ok(calls.some((c) => c[0] === 'awardPack' && c[1] === 'trainer'))
     assert.deepEqual(calls.find((c) => c[0] === 'putSave'), ['putSave', null], 'a browser save from before goes up to the account')
-    assert.equal(await frame.evaluate(() => document.getElementById('wallet').textContent), '8.60 tk')
+    assert.equal(await frame.evaluate(() => document.getElementById('wallet').textContent), '5.60 tk')
     assert.equal(await frame.evaluate(() => getComputedStyle(document.getElementById('battleL')).display), 'none', 'no battle happened')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }

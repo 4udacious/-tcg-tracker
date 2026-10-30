@@ -993,6 +993,12 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
    no crown, thin padding, the same red outline. */
 body.app .cab { margin-top: 0; padding: 4px; border-radius: 18px; }
 body.app .crown { display: none; }
+/* On the VVM tab (embed): no exit button above it, so no room kept for one. */
+body.app.embed { min-height: 0; }
+body.app.embed .wrap { padding-top: 8px; }
+/* A sealed booster box on the shelf. */
+.supplies .tile.box { border: 2px solid #7c3aed; }
+.supplies .tile.box .kind { background: #7c3aed; }
 body.app .bezel { padding: 4px; border-radius: 14px; }
 
 </style>
@@ -1155,6 +1161,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=aa73a58732"></script>
+<script src="/rpg/game.js?v=837bb804a0"></script>
 </body>
 </html>

@@ -3725,6 +3725,8 @@ const buzz = (p) => { if (APP.haptics) try { navigator.vibrate?.(p) } catch {} }
 /** The sound engine calls this when it builds its mixer: the app's volume settings go on the two buses. */
 window.__busReady = (sfx, mus) => { if (APP.on) { sfx.gain.value = 0.9 * APP.fx; mus.gain.value = 0.5 * APP.music } }
 if (APP.on) document.body.classList.add('app')
+// On the app's VVM tab the frame sits under the app's own header, with no exit button over it.
+if (APP.on && new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed')
 let MODE = APP.on ? 'play' : { play: 'play', duo: 'duo', gym: 'gym' }[new URLSearchParams(location.search).get('mode')] ?? 'demo'
 let listeners = [], upListeners = []
 /** Buttons held down right now, and when each went down: hold-and-release moves read them. */
@@ -4464,10 +4466,11 @@ async function run(id) {
   }
   const realKey = (k) => { const i = k.indexOf(':'); return [k.slice(0, i), k.slice(i + 1)] }
   const realRow = (k) => {
-    const [kind, id] = realKey(k), t = realShelf ?? { packs: [], tickets: [], supplies: [] }
-    return kind === 'set' ? t.packs.find((p) => p.set_code === id) : kind === 'ticket' ? t.tickets.find((x) => String(x.ticket_id) === id) : kind === 'sup' ? t.supplies.find((x) => x.key === id) : null
+    const [kind, id] = realKey(k), t = realShelf ?? { packs: [], tickets: [], supplies: [], boxes: [] }
+    return kind === 'set' ? t.packs.find((p) => p.set_code === id) : kind === 'ticket' ? t.tickets.find((x) => String(x.ticket_id) === id) : kind === 'sup' ? t.supplies.find((x) => x.key === id)
+      : kind === 'box' ? (t.boxes ?? []).find((x) => String(x.box_id) === id) : null
   }
-  const isReal = (k) => /^(set|ticket|sup):/.test(k)
+  const isReal = (k) => /^(set|ticket|sup|box):/.test(k)
   /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
   function supNot(key) {
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
@@ -4477,6 +4480,8 @@ async function run(id) {
   }
   function realTiles() {
     const t = realShelf
+    // A sealed booster box: the box (or a pack of its set), how many packs, the price.
+    const sealed = (x) => `<button class="tile pack box" data-buy="box:${x.box_id}"><span class="art">${x.image ? `<img src="${esc(x.image)}" alt="">` : '<span class="supic box"></span>'}</span><span class="qty">${x.quantity}</span><i class="kind">BOX</i><b>${esc(x.name)}</b><span class="meta">${x.price.toFixed(2)} tk · ${x.packs} packs</span></button>`
     const pack = (p) => `<button class="tile pack" data-buy="set:${esc(p.set_code)}"><span class="art"><img src="${esc(p.image)}" alt=""></span><span class="qty">${p.quantity}</span><b>${esc(p.set_name)}</b><span class="meta">1 token · ${p.quantity} left</span></button>`
     const ticket = (x) => `<button class="tile summon" data-buy="ticket:${x.ticket_id}"><span class="art">${x.image ? `<img src="${esc(x.image)}" alt="">` : '<span class="supic summon"></span>'}</span><i class="kind">RAFFLE</i><b>${esc(x.name)}</b><span class="meta">${x.price.toFixed(2)} tk · ${x.quantity} left</span></button>`
     const sup = (x) => {
@@ -4487,7 +4492,7 @@ async function run(id) {
       const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
       return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
     }
-    return [...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...t.supplies.map(sup)].join('')
+    return [...(t.boxes ?? []).filter((x) => x.max > 0).map(sealed), ...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...t.supplies.map(sup)].join('')
   }
   /**
    * Supplies bought at the machine (here or on the app's VVM page) move from
@@ -4589,7 +4594,7 @@ async function run(id) {
      tokens and the machine dispenses (like the packs in the app), and the
      items land in the Bag. A summon, a ticket or a key item is one at a time. */
   const cartMax = (k) => {
-    if (isReal(k)) { const [kind, id] = realKey(k), r = realRow(k); return !r ? 0 : kind === 'set' ? r.quantity : kind === 'ticket' ? r.max : id === 'gym_summon' || id === 'elite_ticket' ? 1 : 20 }
+    if (isReal(k)) { const [kind, id] = realKey(k), r = realRow(k); return !r ? 0 : kind === 'set' ? r.quantity : kind === 'ticket' || kind === 'box' ? r.max : id === 'gym_summon' || id === 'elite_ticket' ? 1 : 20 }
     return k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9
   }
   const priceOf = (k) => (isReal(k) ? (realKey(k)[0] === 'set' ? 1 : realRow(k)?.price ?? 0) : k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : shopOf(k).price)
@@ -4632,7 +4637,7 @@ async function run(id) {
     if (vvm()) {
       // The real checkout: the server checks the stock, your tokens and that you still hold the machine.
       const pick = (kind, f) => items.filter(([k]) => realKey(k)[0] === kind).map(([k, qty]) => f(realKey(k)[1], qty))
-      const r = await vvm().checkout(pick('set', (set_code, qty) => ({ set_code, qty })), pick('ticket', (id, qty) => ({ ticket_id: +id, qty })), pick('sup', (key, qty) => ({ key, qty })))
+      const r = await vvm().checkout(pick('set', (set_code, qty) => ({ set_code, qty })), pick('ticket', (id, qty) => ({ ticket_id: +id, qty })), pick('sup', (key, qty) => ({ key, qty })), pick('box', (id, qty) => ({ box_id: +id, qty })))
       if (!r.ok) {
         sfx('blocked'); $('checkout').classList.remove('open'); cart.clear(); machine.lockedBy = null
         $('homeSub').textContent = CHECKOUT_FAIL[r.reason] ?? `checkout failed (${r.reason})`
@@ -4646,6 +4651,7 @@ async function run(id) {
       for (const [k, q] of items) for (let i = 0; i < q; i++) giveSupply(k)
     }
     const packsBought = items.filter(([k]) => k.startsWith('set:')).reduce((a, [, q]) => a + q, 0) - stuck + freed
+    const boxesBought = items.filter(([k]) => k.startsWith('box:')).reduce((a, [, q]) => a + q, 0)
     cart.clear(); renderTools(); window.__saveSoon?.()
     const co = $('checkout'); co.classList.add('disp')
     for (let i = 1; i <= n; i++) {
@@ -4663,7 +4669,7 @@ async function run(id) {
       await W(2200)
     }
     sfx('tokens')
-    co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${vvm() ? [packsBought ? `${packsBought} pack${packsBought === 1 ? '' : 's'} to your collection` : '', collected.length ? `${collected.length} to your Bag` : ''].filter(Boolean).join(' · ') || 'in your account' : `${n} item${n === 1 ? '' : 's'} added to your Bag`}</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
+    co.innerHTML = `<p class="dbig">THANK YOU!</p><div class="dline"></div><p class="dsm">${vvm() ? [packsBought ? `${packsBought} pack${packsBought === 1 ? '' : 's'} to your collection` : '', boxesBought ? `${boxesBought} sealed box${boxesBought === 1 ? '' : 'es'} to your collection` : '', collected.length ? `${collected.length} to your Bag` : ''].filter(Boolean).join(' · ') || 'in your account' : `${n} item${n === 1 ? '' : 's'} added to your Bag`}</p><p class="dsm dim">${total.toFixed(2)} tokens · ${wallet.toFixed(2)} left</p>`
     feed(`<b>You</b> bought ${items.map(([k, q]) => `${q} ${nameOf(k)}`).join(', ')} for ${total.toFixed(2)} tokens.${stuck ? ' One pack jammed in the machine.' : ''}${freed ? " A stuck pack fell out with yours." : ''}`)
     await W(1700)
     co.classList.remove('open', 'disp'); co.innerHTML = ''
@@ -4671,7 +4677,8 @@ async function run(id) {
   }
   const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
     insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
-    ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty' }
+    ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty',
+    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can' }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
   $('checkout').onclick = (e) => {
