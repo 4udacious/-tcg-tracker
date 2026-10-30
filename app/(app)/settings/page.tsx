@@ -67,6 +67,7 @@ export default function SettingsPage() {
           <Segmented value={s.advance} onChange={(v) => set({ advance: v })}
             options={[['tap', 'Tap to continue'], ['auto', 'Automatic']]} />
         </Row>
+        <BattleResetRow />
       </Group>
 
       <Group title="Display">
@@ -96,6 +97,46 @@ export default function SettingsPage() {
         Reset to defaults
       </Button>
     </div>
+  )
+}
+
+/**
+ * Admins only: start the battle game over on this account (v78). Clears the
+ * account save and the one-time payout record on the server, then this
+ * browser's copy of the save (public/rpg/game.js SAVE_KEY), which would
+ * otherwise upload itself back.
+ */
+function BattleResetRow() {
+  const toast = useToast()
+  const [me, setMe] = useState<{ id: string; admin: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      setMe({ id: user.id, admin: (data as { role?: string } | null)?.role === 'admin' })
+    })
+  }, [])
+  if (!me?.admin) return null
+
+  async function reset() {
+    if (!me || !confirm('Start the battle game over? Your Pokémon, badges, items and story progress on this account are deleted, and badge, League and rival wins pay again.')) return
+    setBusy(true)
+    const { error } = await createClient().rpc('admin_reset_my_battle_progress')
+    if (error) { setBusy(false); toast.error('Could not reset. Try again.'); return }
+    try { localStorage.removeItem(`vvm-save:${me.id}`) } catch {}
+    setBusy(false)
+    toast.ok('Done. Open the battle game to start from the beginning.')
+  }
+
+  return (
+    <Row label="Start over (admin)" hint="Deletes your battle game save on this account, so you can play through from the beginning.">
+      <button type="button" onClick={reset} disabled={busy}
+        className="shrink-0 text-xs font-semibold text-red-600 border border-red-400/40 rounded-lg px-3 py-1.5 hover:bg-red-500/10 disabled:opacity-50">
+        {busy ? 'Resetting…' : 'Start over'}
+      </button>
+    </Row>
   )
 }
 
