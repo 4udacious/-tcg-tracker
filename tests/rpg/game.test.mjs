@@ -447,7 +447,16 @@ test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and
       v.setStory('HERB', 1); dueAt.push(due(at(4), false))
       v.setStory('PAUL', 1); dueAt.push(due(at(8), true))
       v.setStory('HERB', 1, 3); dueAt.push(due(at(8), true))   // Herb lost to: back a few taps later, so Paul is first
-      return { herb: of('HERB'), paul: of('PAUL'), dueAt, songs: STORY_THEMES.every((n) => SONGS[n]) }
+      // The gap between story battles: after Alex, Herb and Paul wait; after Paul, Herb and Alex wait, but Paul's own rematch doesn't.
+      v.setStory('HERB', 0); v.setStory('PAUL', 0); v.badges.splice(0, 99, 0, 1); v.setLeague({ champion: false })
+      const gap = []
+      Object.assign(v.storyGap, { taps: 5, who: 'ALEX' }); gap.push(v.storyDue())
+      Object.assign(v.storyGap, { taps: 0 }); gap.push(v.storyDue())
+      v.setRival(1); Object.assign(v.storyGap, { taps: 5, who: 'HERB' }); gap.push(v.rivalDue())   // Alex's 2nd is due at 3 badges
+      v.badges.push(2); gap.push(v.rivalDue(), v.storyDue())
+      Object.assign(v.storyGap, { who: 'ALEX' }); gap.push(v.rivalDue())
+      Object.assign(v.storyGap, { taps: 0, who: null }); v.setRival(7)
+      return { herb: of('HERB'), paul: of('PAUL'), dueAt, gap, songs: STORY_THEMES.every((n) => SONGS[n]) }
     })
     for (const [who, b] of [['Herb', r.herb], ['Paul', r.paul]]) {
       assert.equal(b.length, 4, `${who}: four battles`)
@@ -463,6 +472,7 @@ test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and
     assert.deepEqual(r.paul.map((x) => x.team.at(-1)), ['HIPPOPOTAS', 'HIPPOWDON', 'HIPPOWDON', 'HIPPOWDON'], 'Paul\'s Hippopotas evolves into Hippowdon')
     assert.ok(r.paul[1].team.includes('MUNCHLAX') && r.paul[2].team.includes('SNORLAX') && !r.paul[2].team.includes('MUNCHLAX'), 'Munchlax joins, then becomes Snorlax')
     assert.deepEqual(r.dueAt, [null, 'HERB', 'HERB', 'PAUL', 'HERB', 'PAUL'], 'Herb after 2 badges; Paul after 4 once Herb is beaten; then whichever is lower; a lost one waits')
+    assert.deepEqual(r.gap, [null, 'HERB', false, false, 'HERB', true], 'story battles keep a gap: Herb waits out Alex\'s, Alex waits out Herb\'s, Herb\'s own rematch doesn\'t wait')
     assert.ok(r.songs, 'their battle themes exist')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
