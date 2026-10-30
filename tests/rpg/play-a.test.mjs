@@ -10,12 +10,14 @@ for (const [mode, label] of [['demo', 'Watch'], ['duo', 'Watch 2v2'], ['gym', 'W
   test(`the ${label} demo plays through`, { skip: quick }, async () => {
     const g = await openGame({ mode })
     try {
+      // Watch gym plays on to the win: the badge (a win once froze the game just before it, with no page error).
+      const until = mode === 'gym' ? /BADGE/ : /fainted/, secs = mode === 'gym' ? 240 : 120
       const seen = new Set()
-      for (let i = 0; i < 120 && ![...seen].some((t) => /fainted/.test(t)); i++) {
+      for (let i = 0; i < secs && ![...seen].some((t) => until.test(t)); i++) {
         await g.page.waitForTimeout(1000)
         seen.add(await g.page.evaluate(() => document.getElementById('msg')?.textContent ?? ''))
       }
-      assert.ok([...seen].some((t) => /fainted/.test(t)), 'a Pokémon fainted within 120 s')
+      assert.ok([...seen].some((t) => until.test(t)), mode === 'gym' ? 'Falkner beaten and the ZEPHYR BADGE given within 240 s' : 'a Pokémon fainted within 120 s')
       assert.deepEqual(g.errors, [])
     } finally { await g.close() }
   })
