@@ -202,6 +202,12 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .chips { position: absolute; left: 4px; right: 4px; top: 52px; display: flex; gap: 2px; }
 .chip { flex: 1; height: 24px; border: 0; border-radius: 6px; cursor: pointer; font: 700 9px 'Pix', system-ui, sans-serif; color: #cbd5e1; background: #1f2633; letter-spacing: .04em; }
 .chip.on { background: #f8fafc; color: #0f172a; }
+/* The region row: ◀ KANTO (1 of 9) ▶. */
+.chips { align-items: stretch; gap: 6px; }
+.chip.arrow { flex: none; width: 64px; height: 26px; font-size: 13px; color: #fff; background: #334155; box-shadow: inset 0 -2px 0 rgba(0,0,0,.3); }
+.chip.arrow:active { background: #475569; transform: translateY(1px); }
+.rlabel { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font: 700 12px 'Pix', system-ui, sans-serif; letter-spacing: .1em; color: #f8fafc; }
+.rlabel small { font-size: 9px; letter-spacing: .04em; color: #94a3b8; }
 .pick3 { position: absolute; left: 6px; right: 6px; top: 82px; height: 50px; display: flex; gap: 6px; }
 .pick3 .btn { position: relative; flex: 1; height: 50px; text-align: center; padding-top: 8px; font-size: 13px; }
 .bChoose { left: 6px; top: 138px; width: 308px; height: 32px; background: linear-gradient(#fde047, #ca8a04); color: #422006; text-shadow: none; text-align: center; padding-top: 4px; font-size: 15px; }
@@ -1149,6 +1155,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=eb83de1776"></script>
+<script src="/rpg/game.js?v=72f13d497c"></script>
 </body>
 </html>

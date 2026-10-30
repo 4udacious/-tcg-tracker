@@ -8502,21 +8502,22 @@ async function run(id) {
     let region = 0, sel = 1
     const S = (r) => DATA.starters.filter((s) => s.region === r)
     $('showcase').style.display = 'block'
-    $('chips').innerHTML = DATA.regions.map((r, i) => `<button class="chip" data-region="${i}">${r.slice(0, 3).toUpperCase()}</button>`).join('')
+    // One region at a time: ◀ the name ▶, rather than nine three-letter tabs too small to read or tap.
+    $('chips').innerHTML = `<button class="chip arrow" data-step="-1" aria-label="Previous region">◀</button><span class="rlabel" id="rlabel" aria-live="polite"></span><button class="chip arrow" data-step="1" aria-label="Next region">▶</button>`
     function draw() {
       const three = S(region)
       $('regionName').innerHTML = `${DATA.regions[region].toUpperCase()}<small>CHOOSE YOUR PARTNER · ${region + 1}/9</small>`
       three.forEach((m, i) => { const slot = $('slot' + i), img = slot.querySelector('img'); img.src = spr(m); img.style.height = '84px'; slot.style.left = (36 + i * 92) + 'px'; slot.classList.toggle('dim', i !== sel) })
       $('pick3').innerHTML = three.map((m, i) => `<button class="btn t-${m.types[0]}${i === sel ? ' sel' : ''}" data-pick="${i}">${m.name}<small>${m.types.join(' / ').toUpperCase()}</small></button>`).join('')
-      document.querySelectorAll('.chip').forEach((c, i) => c.classList.toggle('on', i === region))
+      $('rlabel').innerHTML = `${DATA.regions[region].toUpperCase()}<small>${region + 1} of ${DATA.regions.length}</small>`
       $('bChoose').textContent = `CHOOSE ${three[sel].name}`
     }
     draw(); panel('pPick'); msg0('Choose your first partner!', "Any region's starter.")
-    cap('STARTER', demo ? "Your first Pokémon can be any region's starter — 27 of them, Kanto to Paldea, all level 5." : 'Pick a region along the top, then a starter. ← → region, ↑ ↓ starter, A chooses.')
+    cap('STARTER', demo ? "Your first Pokémon can be any region's starter — 27 of them, Kanto to Paldea, all level 5." : 'Pick a region with ◀ ▶, then a starter. ← → region, ↑ ↓ starter, A chooses.')
     const onTap = (e) => {
       if (MODE !== 'play' || !live()) return
-      const r = e.target.closest('[data-region]'), p = e.target.closest('[data-pick]')
-      if (r) { region = +r.dataset.region; sfx('move'); draw() }
+      const r = e.target.closest('[data-step]'), p = e.target.closest('[data-pick]')
+      if (r) { region = (region + Number(r.dataset.step) + DATA.regions.length) % DATA.regions.length; sfx('move'); draw() }
       if (p) { sel = +p.dataset.pick; sfx('move'); draw() }
     }
     $('pPick').addEventListener('pointerdown', onTap)
