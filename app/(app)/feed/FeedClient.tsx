@@ -78,7 +78,7 @@ function endsIn(iso: string, now: number): string {
   return `ends in ${Math.floor(m / 60)}h ${m % 60}m`
 }
 
-export default function HomeFeed({ initialItems, initialHighlights }: { initialItems: FeedItem[]; initialHighlights: Highlight[] }) {
+export default function FeedClient({ initialItems, initialHighlights }: { initialItems: FeedItem[]; initialHighlights: Highlight[] }) {
   const [items, setItems] = useState(initialItems)
   const [highlights, setHighlights] = useState(initialHighlights)
   const [filter, setFilter] = useState<Filter>('all')
@@ -168,7 +168,7 @@ export default function HomeFeed({ initialItems, initialHighlights }: { initialI
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between gap-2">
-        <h1 className="font-display font-bold text-lg">Home</h1>
+        <h1 className="font-display font-bold text-lg">Feed</h1>
         <span className="font-mono text-[10px] text-muted">updates every minute</span>
       </div>
 
