@@ -4511,8 +4511,9 @@ async function run(id) {
     return say(r?.reason === 'daily_cap' ? "That's all the battle tokens for today." : 'No tokens this time.', b, 600)
   }
   /**
-   * A badge's or League win's tokens: in the app, the server pays its own
-   * amount for `key` once per account, outside the daily battle limit (v77).
+   * A badge's, League win's, rival battle's or glitcher battle's tokens: in the
+   * app, the server pays its own amount for `key` once per account, outside
+   * the daily battle limit (v77).
    */
   async function payMilestone(key, amount) {
     const api = vvm()
@@ -8513,7 +8514,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(R, 'down'); await talk(R, R.outro, 'faceDown'); await trainerOff()
       await out.exp?.()
-      await payTokens(R.tokens, 'rival')
+      await payMilestone(`rival:${n}`, R.tokens)
       await giveCandy(R, n === RIVAL_BATTLES.length - 1 ? 3 : 1)   // three after the last battle
       if (n === RIVAL_BATTLES.length - 1 || flavor() < 0.5) { const p = await givePack('rival'); if (p) { sfx('click'); await say('ALEX gave you', `${p}!`, 700) } }
       rivalStep = n + 1; rivalLost = false; rivalWait = 0
@@ -8569,7 +8570,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(T, 'down'); await talk(T, T.outro, 'faceDown'); await trainerOff()
       await out.exp?.()
-      await payTokens(T.tokens, who.toLowerCase())
+      await payMilestone(`${who.toLowerCase()}:${n}`, T.tokens)
       const p = await givePack(who.toLowerCase()); if (p) { sfx('click'); await say(`${T.short} handed back`, `${p}!`, 700) }
       await giveCandy(T, n === S.battles.length - 1 ? 2 : 1)   // two after their last
       Object.assign(s, { step: n + 1, wait: 0, lost: false })

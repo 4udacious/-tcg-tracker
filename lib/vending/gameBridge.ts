@@ -122,8 +122,9 @@ export function makeVvmApi(userId: string) {
     },
     async deleteSave() { await db.rpc('game_save_delete') },
     /**
-     * A badge or League win's tokens (v77): the server's amount for `key`
-     * ('gym:3', 'elite:LANCE', 'kanto:RED'), once per account, outside the daily cap.
+     * A badge, League, rival or glitcher win's tokens (v77): the server's amount
+     * for `key` ('gym:3', 'elite:LANCE', 'kanto:RED', 'rival:2', 'herb:0'),
+     * once per account, outside the daily cap.
      */
     async awardMilestone(key: string) {
       const { data } = await db.rpc('battle_award_milestone', { p_key: key })

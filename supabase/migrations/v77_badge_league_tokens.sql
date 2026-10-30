@@ -1,23 +1,28 @@
--- Badge and League wins pay in full, outside the daily battle-token limit.
+-- Badge, League, rival and glitcher (story) wins pay in full, outside the
+-- daily battle-token limit.
 --
 -- Until now every battle payout went through battle_award_tokens (v58, v76),
--- which turns down any single award over 5 tokens. Gym Leaders pay 8-20 and
--- the League 6-30, so beating them paid nothing ("No tokens this time").
+-- which turns down any single award over 5 tokens. Gym Leaders pay 8-20, the
+-- League 6-30, Alex up to 20 and Herb and Paul up to 12, so beating them paid
+-- nothing ("No tokens this time"), and the smaller ones ate into the day's limit.
 --
 -- battle_award_milestone(key) pays those wins instead:
 --   gym:0 … gym:15            each Gym Leader (Johto 0-7, Kanto 8-15)
 --   elite:WILL … elite:LANCE  the Johto Elite Four and Champion
 --   kanto:LORELEI … kanto:RED the Kanto Elite Four, Lance and Red
+--   rival:0 … rival:6         Alex's seven battles
+--   herb:0 … herb:3           Herb's four glitcher battles
+--   paul:0 … paul:3           Paul's four
 -- The amount is the server's, from the table below (the game's own numbers),
 -- never the caller's, and each key pays once per account, ever, so a win
 -- can't be claimed twice and a fresh save doesn't pay out again. These awards
 -- don't count towards battle_tokens_per_day, and they still need battle
 -- rewards to be open (battle_rewards_allowed).
 --
--- Other battles stay under the daily limit, but battle_award_tokens no
--- longer turns down an award over 5: it pays up to what's left of the day
--- (as it already did for smaller ones), so a rival or glitcher win worth more
--- than 5 pays something instead of nothing. 50 is the sanity limit now.
+-- Everyday battles (wild finds, scalpers, 2v2s) stay under the daily limit.
+-- battle_award_tokens no longer turns down an award over 5: it pays up to
+-- what's left of the day, as it already did for smaller ones. 50 is the
+-- sanity limit now.
 --
 -- Safe to re-run.
 
@@ -36,7 +41,8 @@ create policy battle_milestones_select_own on public.battle_milestones
 revoke insert, update, delete, truncate, references, trigger on public.battle_milestones from authenticated;
 revoke all on public.battle_milestones from anon;
 
--- What each win pays, as public/rpg/game.js has it (GYMS, ELITE, KANTO_ELITE).
+-- What each win pays, as public/rpg/game.js has it (GYMS, ELITE, KANTO_ELITE,
+-- RIVAL_BATTLES, STORY).
 create or replace function public.battle_milestone_amount(p_key text)
 returns numeric
 language sql immutable as $$
@@ -48,6 +54,21 @@ language sql immutable as $$
     when p_key = 'elite:LANCE' then 20
     when p_key in ('kanto:LORELEI','kanto:BRUNO','kanto:AGATHA','kanto:LANCE') then 10
     when p_key = 'kanto:RED' then 30
+    when p_key = 'rival:0' then 3
+    when p_key = 'rival:1' then 4
+    when p_key = 'rival:2' then 5
+    when p_key = 'rival:3' then 6
+    when p_key = 'rival:4' then 8
+    when p_key = 'rival:5' then 12
+    when p_key = 'rival:6' then 20
+    when p_key = 'herb:0' then 2.5
+    when p_key = 'herb:1' then 4
+    when p_key = 'herb:2' then 7
+    when p_key = 'herb:3' then 10
+    when p_key = 'paul:0' then 3
+    when p_key = 'paul:1' then 6
+    when p_key = 'paul:2' then 8
+    when p_key = 'paul:3' then 12
   end::numeric;
 $$;
 
@@ -73,7 +94,9 @@ begin
     return query select false, 'already_paid', 0::numeric, public.token_balance(me); return;
   end if;
 
-  v_name := case when p_key like 'gym:%' then 'Gym badge' when p_key = 'kanto:RED' then 'Beat Red' else 'League win' end;
+  v_name := case when p_key like 'gym:%' then 'Gym badge' when p_key = 'kanto:RED' then 'Beat Red'
+                 when p_key like 'rival:%' then 'Rival battle' when p_key like 'herb:%' or p_key like 'paul:%' then 'Glitcher battle'
+                 else 'League win' end;
   insert into public.token_ledger (user_id, delta, reason, period, note, bucket)
   values (me, v_pay, 'battle_reward', public.current_token_period(), left(v_name || ' — ' || p_key, 200), 'earned');
 
