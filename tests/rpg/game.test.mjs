@@ -346,6 +346,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
         async awardPack(source) { calls.push(['awardPack', source]); return { ok: true, reason: 'ok', set_name: 'Fossil', pack_name: 'Lapras', image_url: '/packs/x.webp', left_today: 2 } },
         async awardTokens(amount, source) { calls.push(['awardTokens', amount, source]); balance += Math.min(amount, 1); return { ok: true, reason: 'ok', awarded: Math.min(amount, 1), balance } },
         async loadSave() { calls.push(['loadSave']); return null },
+        async wildSeed() { calls.push(['wildSeed']); return { report: { code: 'TAC-07', venue: 'Safeway', city: 'Tacoma', at: '2026-10-30T18:00:00Z' }, machines: [{ code: 'KNT-02', venue: 'WinCo Foods', city: 'Kent' }] } },
         async putSave(data, rev) { calls.push(['putSave', rev]); return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } },
         async deleteSave() {},
       }
@@ -359,6 +360,11 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf && window.__vvm.bag.potion === 2, null, { timeout: 15000 })
     const start = await frame.evaluate(() => ({ wallet: document.getElementById('wallet').textContent, discs: Object.keys(window.__vvm.bag).filter((k) => k.startsWith('disc:')).length }))
     assert.equal(start.wallet, '10.00 tk', 'the wallet is the real balance'); assert.equal(start.discs, 1, 'a bought Move Disc became a disc in the Bag')
+    // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
+    await frame.waitForFunction(() => /TAC-07/.test(document.getElementById('poolWhere').textContent), null, { timeout: 10000 })
+    const pool = await frame.evaluate(() => ({ where: document.getElementById('poolWhere').textContent, shown: [...document.querySelectorAll('#poolMons .nm')].map((b) => b.textContent), want: window.__vvm.poolFor('TAC-07') }))
+    assert.match(pool.where, /TAC-07 · Safeway, Tacoma.*from your latest timer report/)
+    assert.deepEqual(pool.shown, pool.want, 'the six shown are that machine\'s pool this week')
     // Neither kind of battle is live (admin switches): no battle switches, and even a tap pinned to a wild Pokémon
     // claims the real machine and shows its shelf.
     assert.deepEqual(await frame.evaluate(() => [document.getElementById('bWild').hidden, document.getElementById('bTrainers').hidden]), [true, true])

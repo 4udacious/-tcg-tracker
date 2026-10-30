@@ -39,6 +39,7 @@ export interface VvmMachine {
 export function makeVvmApi(userId: string) {
   const db = createClient()
   let holding = false
+  let activeMachines: { code: string; venue: string; city: string }[] | null = null
 
   async function balance() {
     const { data } = await db.rpc('token_breakdown')
@@ -138,6 +139,24 @@ export function makeVvmApi(userId: string) {
       const { data } = await db.rpc('battle_award_milestone', { p_key: key })
       const r = one(data as { ok: boolean; reason: string; awarded: number; balance: number } | null)
       return r ? { ...r, awarded: n(r.awarded), balance: n(r.balance) } : { ok: false, reason: 'error', awarded: 0, balance: await balance() }
+    },
+    /**
+     * Where your wild Pokémon come from: the machine of your latest timer
+     * report (Timers tab), and the active machines to pick from when you have
+     * none. The machine list is read once.
+     */
+    async wildSeed() {
+      type M = { machine_code: string; venue: string | null; city: string | null; nickname: string | null }
+      const label = (m: M) => ({ code: m.machine_code, venue: m.nickname || m.venue || m.machine_code, city: m.city ?? '' })
+      const [{ data: rep }, list] = await Promise.all([
+        db.from('timer_reports').select('reported_at, machines(machine_code, venue, city, nickname)')
+          .eq('user_id', userId).order('reported_at', { ascending: false }).limit(1),
+        activeMachines ?? db.from('machines').select('machine_code, venue, city, nickname').eq('is_active', true).order('machine_code')
+          .then(({ data }) => (activeMachines = ((data as M[] | null) ?? []).map(label))),
+      ])
+      const r = one(rep as { reported_at: string; machines: M | M[] | null }[] | null)
+      const m = r ? one(r.machines) : null
+      return { report: m ? { ...label(m), at: r!.reported_at } : null, machines: list }
     },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
