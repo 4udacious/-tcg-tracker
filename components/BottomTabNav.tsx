@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
  * Five sections. Two of them group several pages under one tab, with their
  * own strip of sub-tabs at the top of the page:
  *
- *   Home       /                         the community feed
+ *   Feed       /feed                     the community feed
  *   Timers     /timers
  *   VVM        /vending                  the machine itself
  *   Trainer    /collection, /showcase    what you own (and, next, your party)
@@ -18,10 +18,10 @@ import { usePathname } from 'next/navigation'
  */
 const tabs = [
   {
-    href: '/',
-    match: ['/'],
-    label: 'Home',
-    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 10.5L12 3l9 7.5M5 9v11a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9" />,
+    href: '/feed',
+    match: ['/feed'],
+    label: 'Feed',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16M4 10h16M4 15h10M4 20h7" />,
   },
   {
     href: '/timers',

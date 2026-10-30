@@ -7,11 +7,13 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
+import { START_TABS, START_TAB_COOKIE, type StartTab } from '@/lib/startTab'
 
 /*
  * Per-device settings: a phone and a laptop can each be set up their own way.
  * The one exception is "Show my activity", which is saved to your account
- * (v74's profiles.show_in_feed) since it decides what others see.
+ * (v74's profiles.show_in_feed) since it decides what others see. "Start on"
+ * is per device too, kept in a cookie (lib/startTab.ts) so `/` can redirect.
  */
 export default function SettingsPage() {
   const s = useSettings()
@@ -38,7 +40,11 @@ export default function SettingsPage() {
         <p className="text-sm text-muted">Saved on this device only.</p>
       </div>
 
-      <Group title="Home feed">
+      <Group title="App">
+        <StartTabRow />
+      </Group>
+
+      <Group title="Feed">
         <FeedVisibilityRow />
       </Group>
 
@@ -86,14 +92,35 @@ export default function SettingsPage() {
         </Row>
       </Group>
 
-      <Button variant="outline" full onClick={() => { updateSettings(DEFAULT_SETTINGS); setPackSoundsMuted(false); pickTheme('system'); toast.ok('Settings reset to the defaults.') }}>
+      <Button variant="outline" full onClick={() => { updateSettings(DEFAULT_SETTINGS); setPackSoundsMuted(false); pickTheme('system'); saveStartTab('timers'); toast.ok('Settings reset to the defaults.') }}>
         Reset to defaults
       </Button>
     </div>
   )
 }
 
-/** Whether your pulls, reports and so on appear in everyone's home feed. Saved to your account. */
+/** Saves the tab the app opens on (lib/startTab.ts): a cookie, so the server can redirect `/` to it. */
+function saveStartTab(id: StartTab) {
+  document.cookie = `${START_TAB_COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`
+}
+
+/** Which tab the app opens on: Timers unless picked otherwise. */
+function StartTabRow() {
+  const [tab, setTab] = useState<StartTab>('timers')
+  useEffect(() => {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${START_TAB_COOKIE}=([^;]*)`))
+    const saved = START_TABS.find((t) => t.id === m?.[1])
+    if (saved) setTab(saved.id)
+  }, [])
+  return (
+    <Row label="Start on" hint="The tab the app opens on.">
+      <Segmented value={tab} onChange={(v) => { setTab(v); saveStartTab(v) }}
+        options={START_TABS.map((t) => [t.id, t.label] as [StartTab, string])} />
+    </Row>
+  )
+}
+
+/** Whether your pulls, reports and so on appear in everyone's feed. Saved to your account. */
 function FeedVisibilityRow() {
   const toast = useToast()
   const [on, setOn] = useState<boolean | null>(null)
@@ -118,9 +145,9 @@ function FeedVisibilityRow() {
   return (
     <Row label="Show my activity"
       hint={on === false
-        ? 'Your pulls, timer reports, listings and badges stay out of the home feed. Saved to your account.'
-        : 'Your pulls, timer reports, listings and badges appear in the home feed. Saved to your account.'}>
-      <Toggle checked={on ?? true} onChange={change} label="Show my activity in the home feed" />
+        ? 'Your pulls, timer reports, listings and badges stay out of the feed. Saved to your account.'
+        : 'Your pulls, timer reports, listings and badges appear in the feed. Saved to your account.'}>
+      <Toggle checked={on ?? true} onChange={change} label="Show my activity in the feed" />
     </Row>
   )
 }
