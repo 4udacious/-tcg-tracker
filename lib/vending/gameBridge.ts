@@ -121,6 +121,15 @@ export function makeVvmApi(userId: string) {
       return one(data as { ok: boolean; reason: string; rev: number | null; data: unknown } | null) ?? { ok: false, reason: 'error', rev: null, data: null }
     },
     async deleteSave() { await db.rpc('game_save_delete') },
+    /**
+     * A badge or League win's tokens (v77): the server's amount for `key`
+     * ('gym:3', 'elite:LANCE', 'kanto:RED'), once per account, outside the daily cap.
+     */
+    async awardMilestone(key: string) {
+      const { data } = await db.rpc('battle_award_milestone', { p_key: key })
+      const r = one(data as { ok: boolean; reason: string; awarded: number; balance: number } | null)
+      return r ? { ...r, awarded: n(r.awarded), balance: n(r.balance) } : { ok: false, reason: 'error', awarded: 0, balance: await balance() }
+    },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })

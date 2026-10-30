@@ -4510,6 +4510,18 @@ async function run(id) {
     if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, b, 600) }
     return say(r?.reason === 'daily_cap' ? "That's all the battle tokens for today." : 'No tokens this time.', b, 600)
   }
+  /**
+   * A badge's or League win's tokens: in the app, the server pays its own
+   * amount for `key` once per account, outside the daily battle limit (v77).
+   */
+  async function payMilestone(key, amount) {
+    const api = vvm()
+    if (!api?.awardMilestone) return payTokens(amount, key)
+    const r = await api.awardMilestone(key).catch(() => null)
+    if (r) { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }
+    if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, '', 600) }
+    return say(r?.reason === 'already_paid' ? "You've already been paid for this win." : 'No tokens this time.', '', 600)
+  }
   /** A battle supply's tile in the grid: an item, a bundle, or your next gym's summon. */
   function supplyTile(k) {
     if (k.startsWith('bundle:')) {
@@ -6566,10 +6578,10 @@ async function run(id) {
       await out.exp?.()
       badges.push(n); sfx('levelup'); showBadge(L)
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
-      await payTokens(L.tokens, 'gym')
+      await payMilestone(`gym:${n}`, L.tokens)
       // A Move Disc of the leader's type, and half the time a booster pack.
-      const n = gymDisc(L); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1
-      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${n}!`, 900)
+      const disc = gymDisc(L); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
+      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${disc}!`, 900)
       await giveCandy(L)
       if (flavor() < 0.5) { const p = await givePack('gym'); if (p) await say(`${L.short} also gave you`, `${p}!`, 700) }
       renderTools()
@@ -6617,7 +6629,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
-      await payTokens(L.tokens, id === 'kanto' ? 'kanto league' : 'elite')
+      await payMilestone(`${id === 'kanto' ? 'kanto' : 'elite'}:${L.short}`, L.tokens)
       { const p = await givePack('elite'); if (p) { sfx('click'); await say(`${L.short} gave you`, `${p}!`, 700) } }
       setStep(st + 1)
       if (st + 1 === list.length) {
