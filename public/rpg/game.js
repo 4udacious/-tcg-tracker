@@ -4127,8 +4127,9 @@ async function run(id) {
     for (const k of ['wild', 'trainers']) {
       const b = $(MODE_BTN[k]); if (!b) continue
       b.hidden = demo || !modeLive[k]; b.classList.toggle('off', !playerOn[k])
-      b.innerHTML = `${k === 'wild' ? '🌿 WILD' : '⚔ TRAINERS'} <b>${playerOn[k] ? 'ON' : 'OFF'}</b>`
+      b.innerHTML = `${k === 'wild' ? '🌿 WILD' : '⚔ TRAINERS'} <b>${playerOn[k] ? 'ON' : 'OFF'}</b><i class="knob" aria-hidden="true"></i>`
       b.setAttribute('aria-pressed', String(playerOn[k]))
+      b.setAttribute('aria-label', `${k === 'wild' ? 'Wild Pokémon' : 'Trainer battles'}: ${playerOn[k] ? 'on' : 'off'}. Tap to switch ${playerOn[k] ? 'off' : 'on'}.`)
     }
   }
   // The free Pokémon Center heal: one a day. The day it was last used (the player's local date); a new day brings it back.
@@ -6613,11 +6614,15 @@ async function run(id) {
     else wallet = Math.round((wallet + f.tokens) * 100) / 100
     renderTools(); $('wallet').textContent = `${wallet.toFixed(2)} tk`
     sfx(f.item ? 'click' : 'tokens')
-    const el = document.createElement('div'); el.className = 'find'
-    el.innerHTML = `${f.item ? `<span class="supic ${f.item}"></span>` : '<span class="coin">¢</span>'}<b>Found ${findText(f)}!</b>`
+    homePop(`${f.item ? `<span class="supic ${f.item}"></span>` : '<span class="coin">¢</span>'}<b>Found ${findText(f)}!</b>`)
+    feed(`<b>You</b> found ${findText(f)} by the machine.`)
+  }
+  /** A little note that pops up over the machine's screen and fades: a find, a switch flipped. */
+  function homePop(html) {
+    $('home').querySelector('.find')?.remove()
+    const el = document.createElement('div'); el.className = 'find'; el.innerHTML = html
     $('home').appendChild(el)
     anim(el, [{ transform: 'translate(-50%, 12px) scale(.92)', opacity: 0 }, { transform: 'translate(-50%, 0) scale(1)', opacity: 1, offset: 0.12 }, { transform: 'translate(-50%, 0)', opacity: 1, offset: 0.85 }, { transform: 'translate(-50%, -10px)', opacity: 0 }], { duration: 2800, easing: 'ease-out' }).finished.then(() => el.remove(), () => el.remove())
-    feed(`<b>You</b> found ${findText(f)} by the machine.`)
   }
   // Each trainer rolls from their own stream (seeded in the demos, so they replay the same).
   const OTHERS = ['MAYA', 'SAM', 'JO']
@@ -6714,7 +6719,7 @@ async function run(id) {
     const { m, why } = seedOf(YOU), ms = nextRotation(), dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24
     $('poolWhere').innerHTML = `<b>${m.code}</b> · ${m.venue}, ${m.city}<small>${why === 'report' ? 'from your latest timer report' : 'random machine (no timer reports yet) · report a timer to choose'}</small>`
     $('poolWhen').textContent = demo ? 'changes every Monday' : weekShift ? `week +${weekShift}` : `changes in ${dd}d ${hh}h`
-    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt="">${n}${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
+    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt=""><b class="nm">${n.replace(/[♀♂]/, (g) => `<i class="sx ${g === '♀' ? 'f' : 'm'}">${g}</i>`)}</b>${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
     if (flash) anim($('poolPanel'), [{ boxShadow: '0 0 0 3px #facc15' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 900 })
   }
 
@@ -8681,7 +8686,7 @@ async function run(id) {
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
-    const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    const t = `saved ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
     $('saveN').textContent = why === 'manual' ? 'saved!' : t
     if (why === 'manual') { sfx('select'); feed(`<b>You</b> saved the game.`); setTimeout(() => { $('saveN').textContent = t }, 1500) }
     return true
@@ -8728,7 +8733,7 @@ async function run(id) {
   function resumed(at) {
     showTools(true); toolsEnabled(true); playCap(); othersLoop()
     feed(`<b>Welcome back.</b> Loaded your save from ${at.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.`)
-    $('saveN').textContent = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    $('saveN').textContent = `saved ${at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
   }
   /** Puts a save back: the time it was made, or false if there was none. */
   function loadGame(s = readLocal()) {
@@ -8755,7 +8760,7 @@ async function run(id) {
   const first = async () => { await (homeState === 'idle' ? firstRestock() : firstEncounter()); if (tutorialDone) { playCap(); toolsEnabled(true); othersLoop(); saveGame(); collectItems() } }
   // A save from before: straight back to where you were. (In the app, once the account's save has been checked, below.)
   let loaded = APP.on ? false : loadGame()
-  $('saveN').textContent = '—'
+  $('saveN').textContent = 'not saved yet'
   if (loaded) resumed(loaded)
   setInterval(() => { if (live() && !busy) saveGame() }, 30000)
   // In the app: the real machine. Its state and holder are read now and every few seconds while you're on the idle screen,
@@ -8832,6 +8837,9 @@ async function run(id) {
     if (homeState === 'idle' || (!modeOn('trainers') && $('homeLoiterer').style.display === 'block')) renderHome('idle')
     feed(k === 'wild' ? (playerOn.wild ? '<b>Wild Pokémon on</b>: they can jump out when you tap.' : '<b>Wild Pokémon off</b>.')
       : playerOn.trainers ? '<b>Trainer battles on</b>: scalpers and 2v2s can turn up, and gyms can be challenged.' : '<b>Trainer battles off</b>.')
+    // The feed isn't shown in the app, so say it on the machine too.
+    homePop(`<b>${!battlesActive() ? 'Battles off: taps go straight to the machine'
+      : k === 'wild' ? (playerOn.wild ? 'Wild Pokémon on' : 'Wild Pokémon off') : playerOn.trainers ? 'Trainer battles on' : 'Trainer battles off'}</b>`)
   }
   paintBattles()
   $('home').onclick = guard(async () => {

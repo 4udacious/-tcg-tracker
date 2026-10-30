@@ -656,6 +656,8 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .home .attract .sup { background: rgba(14,23,38,.9); box-shadow: 0 2px 6px rgba(0,0,0,.3), inset 0 0 0 1px #2a3550; }
 /* Campers and the "!" stand in front of the packs. */
 .home .loiterer { z-index: 6; bottom: 64px; }
+/* With a banner up (BLOCKED!, PACKS ARE IN!…), they stand on top of it rather than over its words. */
+.home:not(.idle) .loiterer { bottom: 96px; }
 .home .loiterer.second { z-index: 5; }
 .home .bang { z-index: 7; }
 .home .maint { z-index: 8; }
@@ -714,6 +716,10 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .poolpanel .pmons { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
 .poolpanel .pmons span { display: flex; flex-direction: column; align-items: center; font-size: 7.5px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 .poolpanel .pmons img { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+/* Nidoran's ♀ / ♂, big enough to read at this size (it came out as a speck). */
+.poolpanel .pmons .nm { font: inherit; white-space: nowrap; }
+.poolpanel .pmons .sx { font: 700 10px/1 system-ui, sans-serif; font-style: normal; margin-left: 1px; }
+.poolpanel .pmons .sx.f { color: #db2777; } .poolpanel .pmons .sx.m { color: #2563eb; }
 /* Rarer species in the pool: a tag under the name, and a glow for a rare one. */
 .poolpanel .pmons em { font-style: normal; font-size: 6.5px; letter-spacing: .06em; text-transform: uppercase; color: #2563eb; }
 .poolpanel .pmons .rare em { color: #b45309; }
@@ -886,7 +892,9 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 
 /* SAVE joins Party, Bag and Box under the machine; its badge shows when it last saved. */
 .tools { grid-template-columns: 1.3fr 1fr 1fr 1fr; }
-.tool.save .n { background: #166534 !important; font-size: 9px; padding: 0 5px; }
+/* SAVE, with when you last saved underneath: "saved 7:15 AM". */
+.tool.save { flex-direction: column; gap: 0; line-height: 1.1; }
+.tool.save .n { background: none !important; font: 600 9px system-ui, sans-serif; padding: 0; opacity: .75; text-transform: none; }
 
 /* A leader's feint: the ring stops and flickers before it closes. */
 .ring.feint { animation: feintFlicker .12s steps(2) infinite; border-color: #fb923c !important; }
@@ -945,6 +953,12 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .home .attract .btoggle[hidden] { display: none; }
 .home .attract .btoggle b { color: #4ade80; font-size: 10px; }
 .home .attract .btoggle.off b { color: #f87171; }
+/* A switch at the end, so it reads as something to tap: green and right when on, grey and left when off. */
+.home .attract .btoggle { display: inline-flex; align-items: center; gap: 5px; padding-right: 5px; }
+.home .attract .btoggle .knob { position: relative; width: 20px; height: 11px; border-radius: 999px; background: #16a34a; transition: background .15s; }
+.home .attract .btoggle .knob::after { content: ''; position: absolute; top: 1.5px; left: 10.5px; width: 8px; height: 8px; border-radius: 50%; background: #fff; transition: left .15s; }
+.home .attract .btoggle.off .knob { background: #475569; }
+.home .attract .btoggle.off .knob::after { left: 1.5px; }
 
 /* The party panel with five or six: two columns of three, like the six-move layout. */
 #pParty.six .btn { height: 31px; padding-top: 2px; font-size: 12px; line-height: 1.1; }
@@ -968,7 +982,12 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
    filling the phone, with room at the top for the app's exit button. */
 body.app { min-height: 100dvh; }
 body.app .top, body.app .bar-row, body.app .devlink, body.app .feed, body.app #cap, body.app .cap, body.app .keys { display: none !important; }
-body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom)); }
+body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-inset-top)) 4px calc(16px + env(safe-area-inset-bottom)); }
+/* A slimmer machine than the mockup's, so the screen (and the battles on it) is as big as the phone allows:
+   no crown, thin padding, the same red outline. */
+body.app .cab { margin-top: 0; padding: 4px; border-radius: 18px; }
+body.app .crown { display: none; }
+body.app .bezel { padding: 4px; border-radius: 14px; }
 
 </style>
 </head>
@@ -1111,7 +1130,7 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
       <button class="tool" id="tParty"><span class="minis" id="partyMinis"></span>PARTY<span class="dot" id="partyDot"></span></button>
       <button class="tool" id="tBag">BAG <span class="n" id="bagN">10</span></button>
       <button class="tool" id="tBox">BOX <span class="n" id="boxN" style="background:#475569">0</span></button>
-      <button class="tool save" id="tSave">SAVE <span class="n" id="saveN">—</span></button>
+      <button class="tool save" id="tSave">SAVE <span class="n" id="saveN">not saved yet</span></button>
     </div>
   </div>
   <!-- Where your wild Pokémon come from this week. -->
@@ -1130,6 +1149,6 @@ body.app .wrap { width: min(100%, 440px); padding: calc(52px + env(safe-area-ins
   </div>
 </div>
 
-<script src="/rpg/game.js?v=26629a6d4c"></script>
+<script src="/rpg/game.js?v=eb83de1776"></script>
 </body>
 </html>
