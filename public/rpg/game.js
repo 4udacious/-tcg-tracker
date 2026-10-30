@@ -6954,7 +6954,8 @@ async function run(id) {
   function shake(px = 6, dur = 360) { $('screen').animate([0, -px, px, -px * .7, px * .7, -px * .3, 0].map((v) => ({ transform: `translate(${v}px, ${v * .3}px)` })), { duration: dur }) }
   async function blink(el, n = 3) { for (let i = 0; i < n; i++) { el.style.opacity = '0'; await W(65); el.style.opacity = '1'; await W(65) } }
   function ring(cx, cy, approach, label) {
-    const R = 32
+    // An evasive target (veil, its evasion stage) is a smaller mark: about a fifth smaller each stage.
+    const R = veil > 0 ? Math.round(32 * (1 - 0.18 * Math.min(3, veil))) : 32
     const t = document.createElement('div'); t.className = 'target'; t.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
     const r = document.createElement('div'); r.className = 'ring'; r.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
     if (wobble) { t.classList.add('wobble'); r.classList.add('wobble') }
@@ -7115,7 +7116,7 @@ async function run(id) {
   /** A one-off chance roll that never fires in the scripted demo, so the demo plays out the same each time. */
   const chance = demo ? () => 1 : Math.random
   let wobble = false   // a confused Pokémon's strike rings wobble
-  let veil = 0   // the target's evasion stage (1-3) when raised: your strike rings flicker and fade, more with each stage
+  let veil = 0   // the target's evasion stage (1-3) when raised: your strike rings shrink, flicker and fade, more with each stage
   async function timedTap(planned, cx, cy, label, approach = 820, tight = 1) {
     const t0 = performance.now(), closeAt = t0 + approach
     let first = null
