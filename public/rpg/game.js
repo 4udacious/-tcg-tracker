@@ -4214,12 +4214,22 @@ async function run(id) {
   const leagueKey = () => { const id = leagueNow() ?? (champion ? 'kanto' : 'elite'); summonItem(id); return summonKey(id) }
   // Alex: the next rival battle (0-6; 7 when all are won), taps until a rematch, and whether you lost this one already.
   let rivalStep = 0, rivalWait = 0, rivalLost = false
-  const rivalDue = () => rivalStep < RIVAL_BATTLES.length && rivalWait <= 0 && RIVAL_BATTLES[rivalStep].due(rivalProgress(badges, champion, redBeaten))
+  /*
+   * Story battles are spaced out. Alex's milestones and Herb's and Paul's
+   * alternate badge by badge, so without this one would turn up on the very
+   * next tap after another's. Once Alex, Herb or Paul has battled you, the
+   * other two stay away for STORY_GAP taps (plus a few more at random); the
+   * same one's rematch after a loss isn't held up by it.
+   */
+  const STORY_GAP = 8
+  let storyGap = { taps: 0, who: null }   // taps left before another of them, and who battled last
+  const gapClear = (who) => storyGap.taps <= 0 || storyGap.who === who
+  const rivalDue = () => rivalStep < RIVAL_BATTLES.length && rivalWait <= 0 && gapClear('ALEX') && RIVAL_BATTLES[rivalStep].due(rivalProgress(badges, champion, redBeaten))
   // Herb's and Paul's glitcher battles (STORY), each kept like Alex's: the next battle, taps until a rematch, and whether you lost the last.
   const story = { HERB: { step: 0, wait: 0, lost: false }, PAUL: { step: 0, wait: 0, lost: false } }
   /** Whose glitcher battle is waiting at the machine, if anyone's: the one with the lower floor first. */
   const storyDue = () => Object.keys(STORY).map((who) => ({ who, s: story[who], B: STORY[who].battles[story[who].step] }))
-    .filter(({ s, B }) => B && s.wait <= 0 && B.due(rivalProgress(badges, champion, redBeaten))).sort((a, b) => a.B.min - b.B.min)[0]?.who ?? null
+    .filter(({ who, s, B }) => B && s.wait <= 0 && gapClear(who) && B.due(rivalProgress(badges, champion, redBeaten))).sort((a, b) => a.B.min - b.B.min)[0]?.who ?? null
   let pendingSummon = null   // a summon chosen in the Bag, to fight once the sheet closes
   const cart = new Map()   // the machine's cart: shelf key -> how many
   let pendingEvoItem = false   // an evolution item used in the Bag: the evolution plays once the sheet closes
@@ -4509,6 +4519,19 @@ async function run(id) {
     if (r) { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }
     if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, b, 600) }
     return say(r?.reason === 'daily_cap' ? "That's all the battle tokens for today." : 'No tokens this time.', b, 600)
+  }
+  /**
+   * A badge's, League win's, rival battle's or glitcher battle's tokens: in the
+   * app, the server pays its own amount for `key` once per account, outside
+   * the daily battle limit (v77).
+   */
+  async function payMilestone(key, amount) {
+    const api = vvm()
+    if (!api?.awardMilestone) return payTokens(amount, key)
+    const r = await api.awardMilestone(key).catch(() => null)
+    if (r) { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }
+    if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, '', 600) }
+    return say(r?.reason === 'already_paid' ? "You've already been paid for this win." : 'No tokens this time.', '', 600)
   }
   /** A battle supply's tile in the grid: an item, a bundle, or your next gym's summon. */
   function supplyTile(k) {
@@ -6566,10 +6589,10 @@ async function run(id) {
       await out.exp?.()
       badges.push(n); sfx('levelup'); showBadge(L)
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
-      await payTokens(L.tokens, 'gym')
+      await payMilestone(`gym:${n}`, L.tokens)
       // A Move Disc of the leader's type, and half the time a booster pack.
-      const n = gymDisc(L); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1
-      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${n}!`, 900)
+      const disc = gymDisc(L); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
+      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${disc}!`, 900)
       await giveCandy(L)
       if (flavor() < 0.5) { const p = await givePack('gym'); if (p) await say(`${L.short} also gave you`, `${p}!`, 700) }
       renderTools()
@@ -6617,7 +6640,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
-      await payTokens(L.tokens, id === 'kanto' ? 'kanto league' : 'elite')
+      await payMilestone(`${id === 'kanto' ? 'kanto' : 'elite'}:${L.short}`, L.tokens)
       { const p = await givePack('elite'); if (p) { sfx('click'); await say(`${L.short} gave you`, `${p}!`, 700) } }
       setStep(st + 1)
       if (st + 1 === list.length) {
@@ -6900,6 +6923,7 @@ async function run(id) {
     tickRest()   // beaten trainers' rest counts down with your taps
     if (rivalWait > 0) rivalWait--   // so does Alex's, after beating you
     for (const s of Object.values(story)) if (s.wait > 0) s.wait--   // and Herb's and Paul's
+    if (storyGap.taps > 0) storyGap.taps--   // and the gap between story battles
     let { enc, pity } = rollTap(YOU, streams[YOU], 'enc' in force ? force.enc : undefined)
     // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
@@ -6909,6 +6933,8 @@ async function run(id) {
     let glitcher = force.enc === 'story' ? force.who ?? storyDue() : null
     if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some((m) => m.hp > 0)) glitcher = storyDue()
     if (glitcher) { enc = 'story'; pity = false }
+    // Either way, the other story characters keep their distance for a while.
+    if (!demo && (enc === 'rival' || glitcher)) storyGap = { taps: STORY_GAP + Math.floor(flavor() * 5), who: enc === 'rival' ? 'ALEX' : glitcher }
     // An empty tap may still turn up something small ("Your next tap" can ask for one; the demo's pinned taps never do).
     const found = enc ? null : force.find ? rollFind(true) : 'enc' in force ? null : rollFind()
     // Each enabled supply is on a stocked shelf with its appearance rate as the chance.
@@ -8501,7 +8527,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(R, 'down'); await talk(R, R.outro, 'faceDown'); await trainerOff()
       await out.exp?.()
-      await payTokens(R.tokens, 'rival')
+      await payMilestone(`rival:${n}`, R.tokens)
       await giveCandy(R, n === RIVAL_BATTLES.length - 1 ? 3 : 1)   // three after the last battle
       if (n === RIVAL_BATTLES.length - 1 || flavor() < 0.5) { const p = await givePack('rival'); if (p) { sfx('click'); await say('ALEX gave you', `${p}!`, 700) } }
       rivalStep = n + 1; rivalLost = false; rivalWait = 0
@@ -8557,7 +8583,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(T, 'down'); await talk(T, T.outro, 'faceDown'); await trainerOff()
       await out.exp?.()
-      await payTokens(T.tokens, who.toLowerCase())
+      await payMilestone(`${who.toLowerCase()}:${n}`, T.tokens)
       const p = await givePack(who.toLowerCase()); if (p) { sfx('click'); await say(`${T.short} handed back`, `${p}!`, 700) }
       await giveCandy(T, n === S.battles.length - 1 ? 2 : 1)   // two after their last
       Object.assign(s, { step: n + 1, wait: 0, lost: false })
@@ -8807,7 +8833,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, healedOn, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, healedOn, gifted, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -8876,6 +8902,7 @@ async function run(id) {
     champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; healedOn = s.healedOn ?? null; gifted = s.gifted ?? true
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
+    storyGap = { taps: 0, who: null, ...s.storyGap }
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
     tutorialDone = true
@@ -8940,7 +8967,7 @@ async function run(id) {
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
-    storyDue, story, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
+    storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
     get healedOn() { return healedOn }, setHealedOn: (d) => { healedOn = d },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
