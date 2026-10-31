@@ -29,6 +29,8 @@ export interface VvmMachine {
   /** Which battles are on for you: always both for admins; for members, what an admin has made live. */
   wild: boolean
   trainers: boolean
+  /** What a Pokémon Center heal costs after the day's free ones (v79; null before it). */
+  heal_price: number | null
   packs: { set_code: string; set_name: string; image: string; quantity: number; description: string | null }[]
   tickets: { ticket_id: number; name: string; image: string | null; price: number; quantity: number; max: number }[]
   supplies: { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; price: number; contents: { key: string; qty: number }[] | null }[]
@@ -72,6 +74,7 @@ export function makeVvmApi(userId: string) {
         me: userId, cooldown_until: (me.data as { vending_cooldown_until: string | null } | null)?.vending_cooldown_until ?? null, balance: bal,
         wild: one(battles.data as { wild: boolean } | null)?.wild === true,
         trainers: one(battles.data as { trainers: boolean } | null)?.trainers === true,
+        heal_price: one(battles.data as { heal_price?: number | null } | null)?.heal_price != null ? n(one(battles.data as { heal_price: number })!.heal_price) : null,
         packs: ((stock.data as P[] | null) ?? []).map((p) => ({ set_code: p.set_code, set_name: p.set_name, image: p.display_image_url, quantity: p.quantity, description: p.description })),
         tickets: ((tickets.data as T[] | null) ?? []).map((t) => ({
           ticket_id: t.ticket_id, name: t.name, image: t.image_url, price: n(t.token_price), quantity: t.quantity,
@@ -157,6 +160,12 @@ export function makeVvmApi(userId: string) {
       const r = one(rep as { reported_at: string; machines: M | M[] | null }[] | null)
       const m = r ? one(r.machines) : null
       return { report: m ? { ...label(m), at: r!.reported_at } : null, machines: list }
+    },
+    /** A Pokémon Center heal after the day's free ones (v79): the server's price, from your tokens. */
+    async buyHeal() {
+      const { data, error } = await db.rpc('battle_buy_heal')
+      const r = one(data as { ok: boolean; reason: string; price: number; balance: number } | null)
+      return r ? { ...r, price: n(r.price), balance: n(r.balance) } : { ok: false, reason: error?.message ?? 'error', price: 0, balance: await balance() }
     },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {

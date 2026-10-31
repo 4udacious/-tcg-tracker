@@ -1,4 +1,4 @@
-// The battle game in a real browser: a Potion on the bench, Herb's first story battle, and the daily Pokémon Center heal, played.
+// The battle game in a real browser: a Potion on the bench, Herb's first story battle, and the Pokémon Center's free and paid heals, played.
 // Part of `npm run test:rpg` (see game.test.mjs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -6,7 +6,7 @@ import { openGame } from './harness.mjs'
 
 const quick = !!process.env.RPG_QUICK
 
-test('the Pokémon Center: one free heal a day, back the next day, and kept in the save', { skip: quick }, async () => {
+test('the Pokémon Center: three free heals a day, then paid ones; back the next day, and kept in the save', { skip: quick }, async () => {
   const g = await openGame()
   try {
     const { page, bot } = g
@@ -16,24 +16,35 @@ test('the Pokémon Center: one free heal a day, back the next day, and kept in t
         await page.waitForTimeout(400)
         await page.evaluate(() => { for (const m of window.__vvm.party) m.hp = 1; document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tParty').click() })
       }
-      const before = await page.evaluate(() => ({ off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent }))
+      const before = await page.evaluate(() => ({ off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent, wallet: window.__vvm.wallet }))
       if (!before.off) await page.evaluate(() => document.querySelector('[data-heal]').click())
-      const after = await page.evaluate(() => ({ full: window.__vvm.party.every((m) => m.hp === m.stats.hp), off: document.querySelector('[data-heal]').disabled, text: document.querySelector('[data-heal] small').textContent }))
+      await page.waitForFunction(() => !/Paying/.test(document.querySelector('#sheetBody .toast')?.textContent ?? ''))   // a paid heal settles
+      const after = await page.evaluate(() => ({ full: window.__vvm.party.every((m) => m.hp === m.stats.hp), text: document.querySelector('[data-heal] small').textContent, toast: document.querySelector('#sheetBody .toast')?.textContent ?? '', wallet: window.__vvm.wallet }))
       await page.evaluate(() => document.getElementById('sheetClose').click()); await page.waitForTimeout(300)
       return { before, after }
     }
     await page.evaluate(() => document.getElementById('home').click())   // back to idle from the screen the tutorial ends on
-    const first = await heal()
-    assert.equal(first.before.off, false, 'the free heal is there to start with')
-    assert.ok(first.after.full && first.after.off && /used today/.test(first.after.text), 'it heals the party, then is used up for today')
-    const again = await heal()
-    assert.ok(again.before.off && /used today/.test(again.before.text), 'not again the same day')
-    const saved = await page.evaluate(() => Object.values(localStorage).some((v) => v.includes(`"healedOn":"${new Date().toLocaleDateString('en-CA')}"`)))
-    assert.ok(saved, 'the day it was used is in the save')
-    await page.evaluate(() => window.__vvm.setHealedOn('2000-01-01'))   // as if it was used on an earlier day
+    const price = await page.evaluate(() => window.__vvm.healPrice)
+    for (let n = 1; n <= 3; n++) {
+      const h = await heal()
+      assert.equal(h.before.off, false, `free heal ${n} is there`)
+      assert.match(h.before.text, new RegExp(`free — ${4 - n} left today`))
+      assert.ok(h.after.full, `free heal ${n} heals the party`); assert.equal(h.after.wallet, h.before.wallet, 'and costs nothing')
+    }
+    // The fourth: paid.
+    const paid = await heal()
+    assert.equal(paid.before.off, false, 'after the free ones, a heal can still be bought')
+    assert.match(paid.before.text, new RegExp(`for ${price.toFixed(2)} tk`))
+    assert.ok(paid.after.full, 'the paid heal heals the party')
+    assert.equal(paid.after.wallet, Math.round((paid.before.wallet - price) * 100) / 100, 'and takes the price from your tokens')
+    assert.match(paid.after.toast, /That was 0\.50 tk/)
+    const today = await page.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }))
+    const saved = await page.evaluate((d) => Object.values(localStorage).some((v) => v.includes(`"heals":{"day":"${d}","used":4}`)), today)
+    assert.ok(saved, "today's heals are in the save")
+    await page.evaluate(() => window.__vvm.setHeals({ day: '2000-01-01', used: 9 }))   // as if they were used on an earlier day
     const nextDay = await heal()
-    assert.equal(nextDay.before.off, false, `a new day brings it back (${nextDay.before.text})`)
-    assert.ok(nextDay.after.full && nextDay.after.off, 'and it heals again')
+    assert.match(nextDay.before.text, /free — 3 left today/, 'a new day brings the free heals back')
+    assert.equal(nextDay.after.wallet, nextDay.before.wallet)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
