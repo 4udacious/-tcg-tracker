@@ -8615,6 +8615,9 @@ async function run(id) {
     }
     else if (out.result === 'lost') { await say('You have no Pokémon left', 'that can fight!') }
     if (roamer) { if (out.result === 'caught') foe.roamer = false; legendAfter(roamer, out.result, 'You') }
+    // The home feed: a roaming legendary caught, knocked out or met, and a shiny caught (the server checks and keeps them).
+    const event = roamer ? { caught: 'legend_caught', fainted: 'legend_ko' }[out.result] ?? 'legend_seen' : out.result === 'caught' && foe.shiny ? 'shiny_caught' : null
+    if (event) Promise.resolve(vvm()?.logEvent?.(event, foe.name, foe.id, foe.level)).catch(() => {})
     Sound.stopMusic()
     await backToMachine(state)
   }
