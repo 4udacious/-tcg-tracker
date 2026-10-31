@@ -1,5 +1,5 @@
 // The balance simulator: thousands of battles against every Gym Leader, the
-// Elite Fours, Red, Alex, Herb and Paul, for a player arriving at each one's level.
+// Elite Fours, Red, Alex, Herb and Paul, at their set levels, for a player arriving where the game leaves them.
 //
 //   npm run sim:rpg                 (2000 battles a matchup)
 //   SIM_N=500 npm run sim:rpg       (quicker, noisier)
@@ -136,9 +136,18 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
 
   /* ── every challenge, in the order you meet them, with the party you'd have ── */
   const IVS = (team, floor) => team.map((m) => { for (const k of STAT_KEYS) m.ivs[k] = Math.max(floor, m.ivs[k]); m.stats = statsAt(m, m.level); m.hp = m.stats.hp; return m })
-  const leaderTeam = (L, floor = 20, find = (n) => DATA.trainer.find((t) => t.name === n) ?? speciesByName(n)) => (lv) => { const l = leaderLevels(L, lv); return IVS(L.team.map((n, i) => individual(find(n), l[i], R)), floor) }
-  // Where you arrive: your best is 3 below the ace's floor, so it's at that floor (leaderLevels).
-  const arrive = (L) => Math.max(5, L.min + (L.lvAdj ?? 0) - 3)
+  const leaderTeam = (L, floor = L.ivs ?? 20, find = (n) => DATA.trainer.find((t) => t.name === n) ?? speciesByName(n)) => () => { const l = leaderLevels(L); return IVS(L.team.map((n, i) => individual(find(n), l[i], R)), floor) }
+  // Where you arrive. A leader: `gap` below their ace, the most everyday trainers take you to (trainerCap). A story
+  // battle (Alex, Herb, Paul) turns up straight after the win that makes it due: where that leader's cap left you,
+  // plus 2 levels from beating them.
+  const order = [
+    ...GYMS.slice(0, 8).map((L, i) => [L, { johto: i + 1, kanto: 0, champion: false, red: false }]),
+    ...ELITE.map((L) => [L, { johto: 8, kanto: 0, champion: L.role === 'CHAMPION', red: false }]),
+    ...GYMS.slice(8).map((L, i) => [L, { johto: 8, kanto: i + 1, champion: true, red: false }]),
+    ...KANTO_ELITE.map((L) => [L, { johto: 8, kanto: 8, champion: true, red: !!L.red }]),
+  ]
+  const before = (T) => order.find(([, p]) => T.due(p))[0]
+  const arrive = (c) => Math.max(5, c.story ? before(c.T).min - before(c.T).gap + 2 : c.T.min - c.T.gap)
   // How many you'd have by then: three early on, a full six by Lv 30.
   const sizeAt = (lv) => (lv < 12 ? 3 : lv < 20 ? 4 : lv < 30 ? 5 : 6)
   const rows = []
@@ -147,12 +156,12 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
     ...ELITE.map((L) => ({ name: L.short, group: 'Johto League', T: L, team: leaderTeam(L), last: L.role === 'CHAMPION' })),
     ...GYMS.slice(8).map((L) => ({ name: L.short, group: 'Kanto gyms', T: L, team: leaderTeam(L) })),
     ...KANTO_ELITE.map((L) => ({ name: L.short, group: 'Kanto League', T: L, team: leaderTeam(L), last: !!L.red })),
-    ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, T.ivs, speciesByName), last: n === 6 } }),
-    ...Object.keys(STORY).flatMap((who) => STORY[who].battles.map((B, n) => { const T = storyTrainer(who, n); return { name: `${who} ${n + 1}`, group: 'Herb and Paul', T, team: leaderTeam(T, T.ivs, speciesByName) } })),
+    ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, T.ivs, speciesByName), last: n === 6, story: true } }),
+    ...Object.keys(STORY).flatMap((who) => STORY[who].battles.map((B, n) => { const T = storyTrainer(who, n); return { name: `${who} ${n + 1}`, group: 'Herb and Paul', T, team: leaderTeam(T, T.ivs, speciesByName), story: true } })),
   ]
   list.filter((c) => new RegExp(ONLY, 'i').test(`${c.group}:${c.name}`)).forEach((c) => {
-    const lv = arrive(c.T), size = sizeAt(lv)
-    const out = { name: c.name, group: c.group, arrive: lv, ace: leaderLevels(c.T, [lv]).at(-1), aim: AIMS[c.name] ?? (c.last ? 0.5 : 0.75) }
+    const lv = arrive(c), size = sizeAt(lv)
+    const out = { name: c.name, group: c.group, arrive: lv, ace: c.T.min, aim: AIMS[c.name] ?? (c.last ? 0.5 : 0.75) }
     for (const [k, skill] of Object.entries(SKILLS)) {
       let w = 0
       for (let b = 0; b < N; b++) w += battle(skill, c.T, c.team, partyFor(size, lv)) ? 1 : 0
@@ -172,7 +181,7 @@ try {
   const pct = (x) => `${Math.round(x * 100)}%`.padStart(5)
   const flag = (r) => { const d = r.average - r.aim; return Math.abs(d) <= 0.1 ? '' : d > 0 ? '  easier than the aim' : '  harder than the aim' }
   let group = ''
-  console.log(`\n${N} battles a matchup, in ${Math.round((Date.now() - t0) / 1000)} s. Win rates for a player arriving at the leader's level (their best at the ace's floor − 3).\n`)
+  console.log(`\n${N} battles a matchup, in ${Math.round((Date.now() - t0) / 1000)} s. Win rates for a player arriving with their best at Lv (a leader's ace − 3; a story battle's − 5).\n`)
   console.log(`${'Challenge'.padEnd(12)} ${'Lv'.padStart(3)} ${'Ace'.padStart(4)}  casual average skilled   aim`)
   for (const r of rows) {
     if (r.group !== group) { group = r.group; console.log(`\n${group}`) }
