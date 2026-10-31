@@ -535,6 +535,54 @@ test('in the app: what you buy drops into the tray at angles; a jammed pack hang
   } finally { await g.close() }
 })
 
+test('in the app: a roaming legendary met in a wild battle is reported for the home feed', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      window.__vvmApi = {
+        async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: 'u2', holder_name: 'SAM', holder_expires: null, me: 'u1', cooldown_until: null, balance: 10, wild: true, trainers: false, heal_price: 0.5, find_chance: 0,
+          packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 10 }, async claim() { return { ok: false, reason: 'busy', holder_name: 'SAM' } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false, reason: 'daily_cap', awarded: 0, balance: 10 } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+        async logEvent(...a) { calls.push(a); return true },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 8, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 10, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(1200)
+    await frame.evaluate(() => { document.getElementById('nextTap').value = 'legend'; document.getElementById('home').click() })
+    await frame.waitForFunction(() => getComputedStyle(document.getElementById('battleL')).display !== 'none', null, { timeout: 10000 })
+    // Run (or go down trying: a Lv 8 against a legendary), whatever ends it first.
+    for (let i = 0; i < 240; i++) {
+      const left = await frame.evaluate(() => {
+        if (getComputedStyle(document.getElementById('battleL')).display === 'none') return true
+        const run = document.querySelector('#pMain [data-act="run"]')
+        if (run && run.offsetParent && run.closest('.panel').style.display !== 'none') run.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+        else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true }))
+        return false
+      })
+      if (left) break
+      await page.waitForTimeout(250)
+    }
+    await page.waitForTimeout(500)
+    const calls = await page.evaluate(() => window.__calls)
+    assert.equal(calls.length, 1, `one report for the feed (${JSON.stringify(calls)})`)
+    const [kind, species, id, level] = calls[0]
+    assert.ok(['legend_seen', 'legend_ko', 'legend_caught'].includes(kind), kind)
+    assert.ok(['RAIKOU', 'ENTEI', 'SUICUNE'].includes(species), species)
+    assert.ok(id > 0 && level > 0)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
   const g = await openGame()
   try {

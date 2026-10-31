@@ -170,6 +170,11 @@ export function makeVvmApi(userId: string) {
       const r = one(data as { ok: boolean; reason: string; price: number; balance: number } | null)
       return r ? { ...r, price: n(r.price), balance: n(r.balance) } : { ok: false, reason: error?.message ?? 'error', price: 0, balance: await balance() }
     },
+    /** A battle moment for the home feed (v81): a roaming legendary caught, knocked out or met, or a shiny caught. */
+    async logEvent(kind: 'legend_caught' | 'legend_ko' | 'legend_seen' | 'shiny_caught', species: string, monId: number, level: number) {
+      const { data } = await db.rpc('battle_log_event', { p_kind: kind, p_species: species, p_mon_id: monId, p_level: level })
+      return data === true
+    },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })

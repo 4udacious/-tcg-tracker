@@ -38,12 +38,13 @@ export type Highlight = {
   fav: boolean
 }
 
-type Filter = 'all' | 'timers' | 'pulls' | 'market' | 'community' | 'mine'
+type Filter = 'all' | 'timers' | 'pulls' | 'battles' | 'market' | 'community' | 'mine'
 
 const FILTERS: { id: Filter; label: string; kinds?: string[] }[] = [
   { id: 'all', label: 'All' },
   { id: 'timers', label: 'Timers', kinds: ['timer', 'comment'] },
   { id: 'pulls', label: 'Pulls', kinds: ['pull', 'grade', 'showcase'] },
+  { id: 'battles', label: 'Battles', kinds: ['battle'] },
   { id: 'market', label: 'Market', kinds: ['listing', 'sale'] },
   { id: 'community', label: 'Community', kinds: ['badge', 'member', 'interest'] },
   { id: 'mine', label: '★ My machines' },
@@ -57,7 +58,7 @@ const PORTRAIT = new Set(['pull', 'grade', 'showcase'])
 
 const KIND_ICON: Record<string, string> = {
   timer: '✅', pull: '✨', grade: '🏅', listing: '🏷️', sale: '💰', badge: '🎖️',
-  interest: '📋', member: '👋', comment: '💬', showcase: '🖼️',
+  interest: '📋', member: '👋', comment: '💬', showcase: '🖼️', battle: '⚔️',
 }
 
 function ago(iso: string, now: number): string {
@@ -287,7 +288,7 @@ function FeedRow({ item, now, onReact }: { item: FeedItem; now: number; onReact:
           <Link href={item.href} className="shrink-0" tabIndex={-1} aria-hidden>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.image_url} alt="" loading="lazy"
-              className={`${portrait ? (item.big ? 'w-16 h-[5.5rem]' : 'w-11 h-[3.9rem]') : 'w-12 h-12'} object-contain rounded-md ${portrait ? '' : 'bg-white border border-card-border'}`} />
+              className={`${portrait ? (item.big ? 'w-16 h-[5.5rem]' : 'w-11 h-[3.9rem]') : 'w-12 h-12'} object-contain rounded-md ${portrait ? '' : 'bg-white border border-card-border'} ${item.image_url.endsWith('.gif') ? '[image-rendering:pixelated]' : ''}`} />
           </Link>
         )}
       </div>
