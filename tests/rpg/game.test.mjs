@@ -224,6 +224,28 @@ test('the Bag: medicine, balls, Move Discs and other in their own pockets', asyn
   } finally { await g.close() }
 })
 
+test('accuracy down (Flash, Sand Attack, Smokescreen, Kinesis, Mud-Slap): your strike rings are dazzled, more each stage; a foe\'s Mud-Slap lowers yours', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(() => {
+      const look = (b, v) => { const x = window.__vvm.ringLook(b, v), cs = getComputedStyle(x.el), out = { cls: x.el.className, dz: x.el.dataset.dazzle ?? null, o: parseFloat(cs.getPropertyValue('--dz-o')) || 1, b: parseFloat(cs.getPropertyValue('--dz-b')) || 0 }; x.clear(); return out }
+      return { looks: [0, 1, 2, 3, 5].map((b) => look(b, 0)), both: look(2, 2),
+        lowering: Object.entries({ ...MOVEDEX, ...SUPPORT }).filter(([, m]) => m.effect === 'accDown' || m.accDown).map(([n]) => n).sort(),
+        // A foe's Mud-Slap comes from its own move list, a copy without the flag: looked up by name.
+        foeMudSlap: accDownOf(WILD_MOVES.ground.find((m) => m.name === 'MUD-SLAP')), tackle: accDownOf(WILD_MOVES.ground.find((m) => m.name === 'TACKLE')) }
+    })
+    assert.deepEqual(r.lowering, ['FLASH', 'KINESIS', 'MUD-SLAP', 'SAND ATTACK', 'SMOKESCREEN'], 'every move that lowers accuracy')
+    assert.equal(r.looks[0].cls, 'ring', 'accuracy as normal: a plain ring')
+    assert.deepEqual(r.looks.slice(1).map((x) => x.dz), ['1', '2', '3', '3'], 'one look per stage, the third the most (lower still looks like the third)')
+    assert.ok(r.looks.slice(1, 4).every((x, i, a) => /dazzle/.test(x.cls) && (!i || (x.o < a[i - 1].o && x.b > a[i - 1].b))), `dimmer and blurrier each stage: ${JSON.stringify(r.looks)}`)
+    assert.match(r.both.cls, /veil.*dazzle|dazzle.*veil/, 'with an evasive target too, both')
+    assert.equal(r.foeMudSlap, 1, "a foe's Mud-Slap lowers your accuracy"); assert.equal(r.tackle, 0)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('attack effects: every move has its own look, and every one plays without errors', async () => {
   const g = await openGame()
   try {
@@ -459,6 +481,56 @@ test('in the app: while someone else shops, your taps stay on the machine and ba
     }
     await tap('wild')   // the next tap rolls straight away: a wild one jumps out
     await frame.waitForFunction(() => getComputedStyle(document.getElementById('battleL')).display !== 'none', null, { timeout: 10000 })
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('in the app: what you buy drops into the tray at angles; a jammed pack hangs at its mouth, a stuck one freed for you bounces in; a tap collects them', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      let n = 0
+      window.__vvmApi = {
+        async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 20, wild: false, trainers: false, heal_price: 0.5, find_chance: 0.35,
+          packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 9, description: null }], tickets: [],
+          supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null }], boxes: [] } },
+        async balance() { return 20 }, async claim() { return { ok: true, reason: 'ok' } }, async heartbeat() {}, async release() {}, async takeItems() { return [] },
+        // The first checkout jams a pack on you; on the second, someone else's stuck pack falls out with yours.
+        async checkout() { n++; return { ok: true, reason: 'ok', packs_bought: 3, balance: 15, restocked: false, packs_stuck: n === 1 ? 1 : 0, packs_freed: n === 2 ? 1 : 0 } },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 20, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(1200)
+    const tray = () => frame.evaluate(() => ({ drops: [...document.querySelectorAll('#trayIn .tdrop')].map((e) => ({ how: e.className.replace('tdrop ', ''), art: e.querySelector('img') ? 'pack' : e.querySelector('.supic')?.className, tilt: e.style.getPropertyValue('--tilt'), w: e.firstElementChild.getBoundingClientRect().width })),
+      stuck: document.getElementById('trayStuck').classList.contains('on') && !!document.querySelector('#trayStuck img') }))
+    const buy = async () => {
+      await frame.waitForFunction(() => /\bidle\b/.test(document.getElementById('home').className), null, { timeout: 10000 })   // back from the last one
+      for (let t = 0; t < 4 && !(await frame.$('[data-buy="set:base2"]')); t++) { await frame.evaluate(() => document.getElementById('home').click()); await page.waitForTimeout(1500) }
+      await page.waitForTimeout(1200)   // the screen finishes fading in
+      await frame.evaluate(() => { for (const k of ['set:base2', 'set:base2', 'set:base2', 'sup:great_ball']) document.querySelector(`[data-buy="${k}"]`).click(); document.getElementById('cbGo').click() })
+      await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
+      await frame.waitForFunction(() => document.getElementById('checkout').classList.contains('disp'), null, { timeout: 10000 })
+      await frame.waitForFunction(() => !document.getElementById('checkout').classList.contains('open'), null, { timeout: 20000 })
+      return tray()
+    }
+    const jam = await buy()
+    assert.deepEqual(jam.drops.map((d) => d.art), ['pack', 'pack', 'supic great'], 'two packs and the Great Ball dropped; the third pack jammed')
+    assert.ok(jam.stuck, 'the jammed pack hangs at the tray\'s mouth')
+    assert.equal(new Set(jam.drops.map((d) => d.tilt)).size, 3, 'each lying at its own angle'); assert.ok(jam.drops.every((d) => d.w > 10), 'and every one is visible')
+    const freed = await buy()
+    assert.equal(freed.stuck, false, 'a new checkout empties the tray, the jam with it')
+    assert.deepEqual(freed.drops.map((d) => d.how), ['fall', 'fall', 'fall', 'fall', 'bounce'], 'all four bought, then someone\'s stuck pack bounces in')
+    await frame.evaluate(() => document.getElementById('tray').click()); await page.waitForTimeout(600)
+    assert.equal((await tray()).drops.length, 0, 'a tap on the tray collects what\'s in it')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
