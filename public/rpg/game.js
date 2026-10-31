@@ -3813,7 +3813,9 @@ function start() { RUN++; listeners = []; closeSheetNow(); run(RUN).catch((e) =>
 let sheetCloser = null
 function closeSheetNow() { $('sheet').classList.remove('open'); sheetCloser = null }
 $('sheetClose').onclick = () => { if (MODE === 'play') sheetCloser?.() }
-$('sheet').addEventListener('pointerdown', (e) => { if (e.target === $('sheet') && MODE === 'play') sheetCloser?.() })
+// A tap on the dark backdrop around the Party, Bag or Box closes it, and only that. On click, not pointerdown: closing
+// on the press hid the sheet under your finger, so the click that followed landed on the machine's screen as a tap.
+$('sheet').addEventListener('click', (e) => { if (e.target === $('sheet') && MODE === 'play') { e.stopPropagation(); sheetCloser?.() } })
 
 /* ══════════════ the session ══════════════ */
 

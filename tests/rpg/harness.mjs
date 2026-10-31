@@ -24,12 +24,12 @@ function serve() {
   return new Promise((ok) => srv.listen(0, '127.0.0.1', () => ok(srv)))
 }
 
-/** Opens the game. Returns the page, the page errors seen so far, a log of what the screen said, and the bot. */
-export async function openGame({ mode } = {}) {
+/** Opens the game (`touch`: as a phone, with a touchscreen). Returns the page, the page errors seen so far, a log of what the screen said, and the bot. */
+export async function openGame({ mode, touch = false } = {}) {
   const srv = await serve()
   // Audio may play without a click, so the music tests hear real time pass.
   const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: ['--autoplay-policy=no-user-gesture-required'] })
-  const page = await browser.newPage({ viewport: { width: 420, height: 900 } })
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 }, ...(touch ? { hasTouch: true, isMobile: true } : {}) })
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
   const missing = []

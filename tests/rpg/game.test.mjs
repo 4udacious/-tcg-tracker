@@ -171,6 +171,31 @@ test('battle switches: wild and trainers each keep their kind away, and are kept
   } finally { await g.close() }
 })
 
+test('a tap outside the Party, Bag or Box closes it, and never counts as a tap on the machine', async () => {
+  const g = await openGame({ touch: true })   // a phone: the click after a tap lands on whatever is under the finger
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    await page.evaluate(() => {
+      const m = individual(speciesByName('PIKACHU'), 10, Math.random); m.hp = m.stats.hp; window.__vvm.party.push(m)
+      document.querySelectorAll('.tool').forEach((t) => { t.disabled = false })   // the toolbar is off until the tutorial's done
+      window.__homeTaps = 0; document.getElementById('home').addEventListener('click', () => window.__homeTaps++, true)
+    })
+    // A point on the machine's screen, above the sheet's card: the dark backdrop while a sheet is open.
+    const box = await (await page.$('#home')).boundingBox(), x = box.x + box.width / 2, y = box.y + 40
+    for (const tool of ['tParty', 'tBag', 'tBox']) {
+      await page.evaluate((t) => document.getElementById(t).click(), tool); await page.waitForSelector("#sheet.open")
+      assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [x, y]), 'sheet', `${tool}: the backdrop covers the machine there`)
+      await page.touchscreen.tap(x, y)
+      await page.waitForTimeout(400)
+      assert.equal(await page.$eval('#sheet', (el) => el.classList.contains('open')), false, `${tool}: the tap outside closed it`)
+      assert.equal(await page.evaluate(() => window.__homeTaps), 0, `${tool}: and the machine didn't get the tap`)
+      assert.notEqual(await page.$eval('#tts', (el) => el.textContent), 'STARTING…')
+    }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('the Box: party to Box, Box to party, and a swap with a full party', async () => {
   const g = await openGame()
   try {
