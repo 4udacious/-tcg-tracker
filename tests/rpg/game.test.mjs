@@ -328,7 +328,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
       const calls = window.__calls = []
       let balance = 10, owned = { potion: 2, move_disc: 1 }
       window.__vvmApi = {
-        async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false,
+        async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
           supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null },
             { key: 'elite_ticket', kind: 'item', name: 'Elite Four Ticket', description: 'All five League battles', price: 5, contents: null }],
@@ -343,6 +343,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
           for (const s of supplies) owned[s.key] = (owned[s.key] ?? 0) + s.qty
           return { ok: true, reason: 'ok', packs_bought: 1, tickets_bought: 0, supplies_bought: 1, balance, restocked: false }
         },
+        async buyHeal() { calls.push(['buyHeal']); if (balance < 0.75) return { ok: false, reason: 'insufficient_tokens', price: 0.75, balance }; balance -= 0.75; return { ok: true, reason: 'ok', price: 0.75, balance } },
         async takeItems(keys) { calls.push(['take', keys]); const out = keys.filter((k) => owned[k]).map((k) => ({ key: k, qty: owned[k] })); for (const k of keys) delete owned[k]; return out },
         async awardPack(source) { calls.push(['awardPack', source]); return { ok: true, reason: 'ok', set_name: 'Fossil', pack_name: 'Lapras', image_url: '/packs/x.webp', left_today: 2 } },
         async awardTokens(amount, source) { calls.push(['awardTokens', amount, source]); balance += Math.min(amount, 1); return { ok: true, reason: 'ok', awarded: Math.min(amount, 1), balance } },
@@ -403,6 +404,22 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(await frame.evaluate(() => window.__vvm.machine.lockedBy), 'YOU')
     await frame.evaluate(() => document.querySelector('[data-buy="sup:great_ball"]').click())
     assert.match(await frame.evaluate(() => document.getElementById('cbSum').textContent), /CART 1/)
+    // The Pokémon Center after today's 3 free heals: the server's price, paid through the bridge.
+    const healed = await frame.evaluate(async () => {
+      const v = window.__vvm, day = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+      v.setHeals({ day, used: v.FREE_HEALS }); for (const m of v.party) m.hp = 1
+      document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tParty').click()
+      const btn = document.querySelector('#sheetBody [data-heal]'), text = btn.querySelector('small').textContent, before = v.wallet
+      btn.click()
+      for (let i = 0; i < 50 && /Paying/.test(document.querySelector('#sheetBody .toast')?.textContent ?? 'Paying'); i++) await new Promise((r) => setTimeout(r, 100))
+      const out = { text, before, after: v.wallet, full: v.party.every((m) => m.hp === m.stats.hp), toast: document.querySelector('#sheetBody .toast').textContent, wallet: document.getElementById('wallet').textContent }
+      document.getElementById('sheetClose').click()
+      return out
+    })
+    assert.match(healed.text, /for 0\.75 tk/, "the admin's price, from the machine")
+    assert.ok(healed.full, 'the paid heal heals the party'); assert.match(healed.toast, /That was 0\.75 tk/)
+    assert.equal(Math.round((healed.before - healed.after) * 100) / 100, 0.75, 'the server took the price'); assert.equal(healed.wallet, `${healed.after.toFixed(2)} tk`)
+    assert.equal((await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'buyHeal').length, 1)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

@@ -25,7 +25,7 @@ export default async function AdminVvmPage() {
       .from('vvm_supplies')
       .select('key, kind, name, description, contents, token_price, appearance_rate, is_active, sort_order, updated_at')
       .order('sort_order'),
-    supabase.from('vending_settings').select('wild_live, battle_rewards_open').single(),
+    supabase.from('vending_settings').select('*').single(),   // '*': battle_heal_price is v79's
     // Empty (and the section hidden) before v62.
     supabase
       .from('vending_boxes')
@@ -74,6 +74,7 @@ export default async function AdminVvmPage() {
       <BattlesLiveClient
         wild={!!(settings as { wild_live: boolean } | null)?.wild_live}
         trainers={!!(settings as { battle_rewards_open: boolean } | null)?.battle_rewards_open}
+        healPrice={(settings as { battle_heal_price?: number | string | null } | null)?.battle_heal_price ?? null}
       />
     </div>
   )
