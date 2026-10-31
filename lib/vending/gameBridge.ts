@@ -175,6 +175,13 @@ export function makeVvmApi(userId: string) {
       const { data } = await db.rpc('battle_log_event', { p_kind: kind, p_species: species, p_mon_id: monId, p_level: level })
       return data === true
     },
+    /** Pokémon an admin sent you (v82), not yet collected. */
+    async pendingGifts() {
+      const { data } = await db.rpc('battle_pending_gifts')
+      return ((data as { id: number; species: string; level: number | null; note: string | null }[] | null) ?? []).map((g) => ({ id: Number(g.id), species: g.species, level: g.level, note: g.note }))
+    },
+    /** The game has these gifts in its save: mark them collected. */
+    async ackGifts(ids: number[]) { await db.rpc('battle_ack_gifts', { p_ids: ids }) },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })
