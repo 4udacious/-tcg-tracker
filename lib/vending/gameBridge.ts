@@ -31,6 +31,8 @@ export interface VvmMachine {
   trainers: boolean
   /** What a Pokémon Center heal costs after the day's free ones (v79; null before it). */
   heal_price: number | null
+  /** How often an empty tap turns up a spare item, 0-1 (v80; null before it). */
+  find_chance: number | null
   packs: { set_code: string; set_name: string; image: string; quantity: number; description: string | null }[]
   tickets: { ticket_id: number; name: string; image: string | null; price: number; quantity: number; max: number }[]
   supplies: { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; price: number; contents: { key: string; qty: number }[] | null }[]
@@ -75,6 +77,7 @@ export function makeVvmApi(userId: string) {
         wild: one(battles.data as { wild: boolean } | null)?.wild === true,
         trainers: one(battles.data as { trainers: boolean } | null)?.trainers === true,
         heal_price: one(battles.data as { heal_price?: number | null } | null)?.heal_price != null ? n(one(battles.data as { heal_price: number })!.heal_price) : null,
+        find_chance: one(battles.data as { find_chance?: number | null } | null)?.find_chance != null ? n(one(battles.data as { find_chance: number })!.find_chance) : null,
         packs: ((stock.data as P[] | null) ?? []).map((p) => ({ set_code: p.set_code, set_name: p.set_name, image: p.display_image_url, quantity: p.quantity, description: p.description })),
         tickets: ((tickets.data as T[] | null) ?? []).map((t) => ({
           ticket_id: t.ticket_id, name: t.name, image: t.image_url, price: n(t.token_price), quantity: t.quantity,

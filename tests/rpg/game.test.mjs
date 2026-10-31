@@ -424,6 +424,45 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
   } finally { await g.close() }
 })
 
+test('in the app: while someone else shops, your taps stay on the machine and battles still jump out; the admin sets how often spare items turn up', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      window.__vvmApi = {
+        async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: true, holder_id: 'u2', holder_name: 'SAM', holder_expires: null, me: 'u1', cooldown_until: null, balance: 10, wild: true, trainers: true, heal_price: 0.5, find_chance: 0.8,
+          packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 10 }, async claim() { calls.push('claim'); return { ok: false, reason: 'busy', holder_name: 'SAM' } },
+        async heartbeat() {}, async release() {}, async checkout() { return { ok: false, reason: 'not_holder' } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false, reason: 'daily_cap', awarded: 0, balance: 10 } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 10, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    assert.equal(await frame.evaluate(() => window.__vvm.findChance), 0.8, "the admin's find chance, from the machine")
+    await page.waitForTimeout(1200)
+    const tap = async (kind) => { await frame.evaluate((k) => { document.getElementById('nextTap').value = k; document.getElementById('home').click() }, kind); await page.waitForTimeout(1600) }
+    const screen = () => frame.evaluate(() => ({ cls: document.getElementById('home').className, tts: document.getElementById('tts').textContent, pop: document.querySelector('#home .find')?.textContent ?? '', battle: getComputedStyle(document.getElementById('battleL')).display !== 'none' }))
+    assert.match((await screen()).tts, /SAM IS USING IT.*keep tapping/)
+    for (let n = 1; n <= 2; n++) {
+      await tap('none')   // an empty tap
+      const s = await screen()
+      assert.match(s.cls, /\bidle\b/, `empty tap ${n}: still on the idle screen, not a "tap to go back" one (${s.cls})`)
+      assert.match(s.pop, /Nothing jumped out\. SAM is still shopping/)
+    }
+    await tap('wild')   // the next tap rolls straight away: a wild one jumps out
+    await frame.waitForFunction(() => getComputedStyle(document.getElementById('battleL')).display !== 'none', null, { timeout: 10000 })
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
   const g = await openGame()
   try {

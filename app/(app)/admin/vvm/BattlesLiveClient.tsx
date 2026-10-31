@@ -24,7 +24,10 @@ const LABEL: Record<Kind, { title: string; on: string; off: string }> = {
  * battles go live for members separately. With both off, members get the game
  * as the vending machine only. Admins always have both, for testing.
  */
-export default function BattlesLiveClient({ wild, trainers, healPrice }: { wild: boolean; trainers: boolean; healPrice: number | string | null }) {
+/** How the find chance reads, by how often. */
+const findWord = (pct: number) => (pct === 0 ? 'Never' : pct <= 10 ? 'Very rare' : pct <= 25 ? 'Rare' : pct <= 45 ? 'Sometimes' : pct <= 70 ? 'Often' : 'Almost always')
+
+export default function BattlesLiveClient({ wild, trainers, healPrice, findChance }: { wild: boolean; trainers: boolean; healPrice: number | string | null; findChance: number | string | null }) {
   const toast = useToast()
   const [live, setLive] = useState<Record<Kind, boolean>>({ wild, trainers })
   const [busy, setBusy] = useState<Kind | null>(null)
@@ -32,6 +35,21 @@ export default function BattlesLiveClient({ wild, trainers, healPrice }: { wild:
   const [price, setPrice] = useState(healPrice == null ? '' : Number(healPrice).toFixed(2))
   const [saved, setSaved] = useState(price)
   const [savingPrice, setSavingPrice] = useState(false)
+
+  // How often an empty tap turns up a spare item, as a percentage (v80; null before it).
+  const [find, setFind] = useState(findChance == null ? 35 : Math.round(Number(findChance) * 100))
+  const [findSaved, setFindSaved] = useState(find)
+  const [savingFind, setSavingFind] = useState(false)
+
+  async function saveFind() {
+    setSavingFind(true)
+    const { data, error } = await createClient().rpc('set_battle_find_chance', { p_chance: find / 100 })
+    setSavingFind(false)
+    if (error) { toast.show(`Couldn't change it: ${error.message}`); return }
+    const next = Math.round(Number(data ?? find / 100) * 100)
+    setFind(next); setFindSaved(next)
+    toast.show(`Spare items now turn up on ${next}% of empty taps.`)
+  }
 
   async function savePrice() {
     const p = Number(price)
@@ -111,6 +129,39 @@ export default function BattlesLiveClient({ wild, trainers, healPrice }: { wild:
                 Save
               </button>
             </form>
+          </li>
+        )}
+        {findChance != null && (
+          <li className="bg-card border border-card-border rounded-2xl p-4 space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-semibold">Spare item finds</p>
+              <p className="text-xs font-mono text-muted shrink-0">{findWord(find)} · {find}%</p>
+            </div>
+            <p className="text-xs text-muted">
+              How often an empty tap turns up a stray Poké Ball, Potion or a few cents of tokens. Found tokens still count towards the daily battle limit.
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-muted">Rarer</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={find}
+                onChange={(e) => setFind(Number(e.target.value))}
+                className="flex-1 accent-signal"
+                aria-label="How often spare items turn up, in percent of empty taps"
+              />
+              <span className="text-[11px] text-muted">More often</span>
+              <button
+                type="button"
+                onClick={saveFind}
+                disabled={savingFind || find === findSaved}
+                className="text-xs font-medium text-signal border border-signal/30 rounded-lg px-3 py-1 hover:bg-signal/10 transition-colors disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
           </li>
         )}
       </ul>

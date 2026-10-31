@@ -4403,7 +4403,7 @@ async function run(id) {
     if (state === 'idle') {
       const other = typeof machine !== 'undefined' && machine.lockedBy && machine.lockedBy !== 'YOU' ? machine.lockedBy : null
       h.classList.toggle('inuse', !!other)
-      $('tts').innerHTML = other ? `${other} IS USING IT<small>${battlesActive() ? 'you can still tap: something may jump out' : 'wait for them to finish'}</small>` : battlesActive() || !(modeLive.wild || modeLive.trainers) ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
+      $('tts').innerHTML = other ? `${esc(other)} IS USING IT<small>${battlesActive() ? 'keep tapping: something may jump out' : 'wait for them to finish'}</small>` : battlesActive() || !(modeLive.wild || modeLive.trainers) ? 'TOUCH TO START' : 'TOUCH TO START<small>battles off: just the machine</small>'
       $('homeLoiterer').style.display = 'none'; $('supplies').innerHTML = ''; return
     }
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
@@ -4449,6 +4449,7 @@ async function run(id) {
     if (modeLive.wild !== m.wild || modeLive.trainers !== m.trainers) { modeLive.wild = m.wild; modeLive.trainers = m.trainers; paintBattles() }
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     if (m.heal_price != null) healPrice = m.heal_price   // the admin's price for a heal after the free ones
+    if (m.find_chance != null) findChance = m.find_chance   // and how often an empty tap turns up a spare item
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
     machine.state = st; $('machineState').value = st
     machine.lockedBy = !m.holder_id ? null : m.holder_id === m.me ? YOU : (m.holder_name ?? 'SOMEONE')
@@ -6802,12 +6803,14 @@ async function run(id) {
    * Empty taps. After PITY_AFTER empty taps in a row, the next one always
    * turns something up: it's rolled again among the encounters alone, at
    * their usual odds against each other. And an empty tap can still find
-   * something small at the machine (FIND_CHANCE): a stray Poké Ball or
-   * Potion, or a few cents of tokens left in the change slot. Each trainer's
+   * something small at the machine (findChance: FIND_CHANCE, or in the app
+   * the admin's slider): a stray Poké Ball or Potion, or a few cents of
+   * tokens left in the change slot. Each trainer's
    * run of empty taps is their own. In the app, both belong on the server
    * with the encounter roll.
    */
   const PITY_AFTER = 2, FIND_CHANCE = 0.35
+  let findChance = FIND_CHANCE   // in the app, the admin's slider (Admin → VVM, battle_modes' find_chance)
   const emptyRun = {}
   /** A trainer's tap with the pity rule; `forced` (anything but undefined) pins it and skips the rule. */
   function rollTap(who, r, forced) {
@@ -6822,7 +6825,7 @@ async function run(id) {
   }
   /** Something small found on an empty tap ({ item } or { tokens }), or null. `sure` skips the chance. */
   function rollFind(sure = false) {
-    if (!sure && flavor() >= FIND_CHANCE) return null
+    if (!sure && flavor() >= findChance) return null
     const x = flavor()
     return x < 0.4 ? { item: 'ball' } : x < 0.7 ? { item: 'potion' } : { tokens: (1 + Math.floor(flavor() * 5)) * 0.05 }
   }
@@ -7061,8 +7064,14 @@ async function run(id) {
     if (state === 'in' && !api) shelfItems = force.items ?? rollShelf()
     $('tts').textContent = 'STARTING…'; sfx('select'); await W(450)
     // The purchase screen is one trainer at a time; encounters don't need it (a battle claims it on the way back, in backToMachine).
-    const hold = enc ? { waiting: false, refused: null } : await holdMachine(state)
-    await fadeThrough(async () => paintShelf(state, hold))
+    const elsewhere = state === 'in' && !!machine.lockedBy && machine.lockedBy !== YOU
+    const hold = enc ? { waiting: elsewhere, refused: null } : await holdMachine(state)
+    // Someone else is shopping and nothing jumped out: stay on the idle screen, so the next tap rolls again
+    // (it used to stop on a "tap to go back" screen, wasting every other tap while you waited).
+    if (!enc && hold.waiting && battlesActive()) {
+      renderHome('idle')
+      if (!found) homePop(`<b>Nothing jumped out.</b> ${esc(machine.lockedBy)} is still shopping: keep tapping.`)
+    } else await fadeThrough(async () => paintShelf(state, hold))
     if (found) collectFind(found)
     if (pity) feed(`<b>You</b>: after two empty taps, this one was sure to turn something up.`)
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
@@ -8524,7 +8533,9 @@ async function run(id) {
       for (const w of ['enemy', 'player']) { $(w).getAnimations().forEach((a) => a.cancel()); $(w).style.visibility = 'hidden' }
       ;['ehud', 'phud'].forEach((h) => { $(h).style.visibility = 'hidden' })
       fx.innerHTML = ''; panel(null); msg0('', '')
-      paintShelf(state, hold, blocked); showLayer('home')
+      // Someone else is still shopping: back to the idle screen, where you can keep tapping.
+      if (hold.waiting && battlesActive()) renderHome('idle'); else paintShelf(state, hold, blocked)
+      showLayer('home')
     })
     renderTools(); toolsEnabled(true); saveGame()
   }
@@ -9076,7 +9087,7 @@ async function run(id) {
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
-    get heals() { return heals }, setHeals: (h) => { heals = h }, FREE_HEALS, get healPrice() { return healPrice },
+    get heals() { return heals }, get findChance() { return findChance }, setHeals: (h) => { heals = h }, FREE_HEALS, get healPrice() { return healPrice },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
