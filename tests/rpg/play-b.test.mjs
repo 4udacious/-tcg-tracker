@@ -64,3 +64,40 @@ test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to he
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('EXP: a Pokémon switched out after facing the foe still gets three quarters of it, more than the EXP. SHARE\'s half', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot, log } = g
+    await bot.finishTutorial()
+    // The starter leads; a strong second Pokémon comes in on the first turn and finishes the wild one. No EXP. SHARE.
+    await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('MACHAMP'), 40, Math.random)
+      learnAtLevel(m); m.hp = m.stats.hp; v.party.splice(1, 9, m); delete v.bag.expshare
+      for (const p of v.party) p.hp = p.stats.hp
+    })
+    const [lead, second] = await page.evaluate(() => window.__vvm.party.map((m) => m.name))
+    for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
+    await page.selectOption('#nextTap', 'wild'); await page.evaluate(() => document.activeElement?.blur())
+    const from = log.length   // this battle's lines only (the tutorial's EXP is earlier)
+    let fought = false
+    for (let t = 0; t < 5 && !fought; t++) {
+      await page.evaluate(() => document.getElementById('home').click())
+      for (let i = 0; i < 25 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
+    }
+    assert.ok(fought, 'a wild battle started')
+    // Switch on the first turn: POKéMON, then the second slot.
+    const shown = (sel) => page.evaluate((sel) => { const b = document.querySelector(sel); return !!(b && b.offsetParent && b.closest('.panel')?.style.display !== 'none') }, sel)
+    for (let i = 0; i < 60 && !(await shown('#pMain [data-act="party"]')); i++) await bot.step()
+    await page.dispatchEvent('#pMain [data-act="party"]', 'pointerdown')
+    for (let i = 0; i < 20 && !(await shown('#pParty [data-act="p1"]')); i++) await page.waitForTimeout(150)
+    await page.dispatchEvent('#pParty [data-act="p1"]', 'pointerdown')
+    for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+    const gained = (name) => { const l = log.slice(from).find((x) => x.startsWith(`${name} gained`) && /EXP\. Points!/.test(x)); return l ? +l.match(/(\d+) EXP\. Points!/)[1] : null }
+    const full = gained(second), part = gained(lead)
+    assert.ok(full > 0, `${second}, out when the foe fell, got its EXP (${full})`)
+    assert.equal(part, Math.max(1, Math.round(full * 0.75)), `${lead}, switched out after facing it, got three quarters (${part} of ${full})`)
+    assert.ok(part < full && part > Math.round(full / 2), 'less than the one that knocked it out, more than the EXP. SHARE\'s half')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
