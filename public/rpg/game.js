@@ -1482,6 +1482,63 @@ SONGS.battleB = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16,
   ] }
 
 /*
+ * The trainer battle, first version, rearranged for the newer sound engine
+ * (the original 8-bar loop is SONGS.battleClassic, in the music picker). The
+ * melody is the same, note for note; around it, B's (SONGS.battleB) kind of
+ * arrangement: an intro, sections, real voices and a longer loop.
+ *   - Intro: a brass fanfare on the dominant, E7, building to the theme.
+ *   - The theme in A minor (Am F G E) on brass, over a driving 3+3+2 bass and
+ *     palm-muted power guitar.
+ *   - The theme again, higher and fuller: violins an octave up with the brass
+ *     under them, the bass bouncing in octaves, piano flourishes into each turn.
+ *   - A bridge in the relative major (F G C Am, then F G E) on the theme's
+ *     rising shape, half-time, with a choir and a walking bass.
+ *   - A build: piano ostinato and toms climbing back to the top.
+ * 156 bpm, sixteenth-note grid, 16 steps a bar: a 3 s intro, then a 43 s loop.
+ */
+SONGS.battleClassic = SONGS.battle
+/** An eighth-note line on the sixteenth grid: each note held twice as many steps. */
+const x2 = (track) => track.flatMap((n) => [n, n === '-' ? '-' : '.'])
+/** A bar of the bass bouncing in eighths between a note and its octave. */
+const pump = (n) => { const hi = transpose([n], 12)[0]; return Array(4).fill(`${n} . ${hi} .`).join(' ') }
+const BATTLE_A_THEME = x2(bars('A4 . C5 E5 D5 C5 B4 C5', 'A4^ . . F4 A4 C5 . A4', 'B4 . D5 G5 F5 E5 D5 B4', 'E5~ . . D5 C5 B4 G#4 B4',
+  'A5 . E5 C5 A4 C5 E5 A5', 'G5 F5 E5 . C5 . A4 C5', 'D5 . B4 D5 G5 . F5 E5', 'E5 D5 C5 B4 G#4 . E4v .'))
+const BATTLE_A_CHORDS = 'Am F G E Am F G E'.split(' ')
+SONGS.battle = { file: null, loop: true, bpm: 156, div: 4, chordLen: 16,
+  leadInst: 'brass', leadDouble: 'synth', leadDoubleVel: 0.26, harmInst: 'strings', power: true,
+  comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chords: ['E7', 'E7'], power: false, leadDouble: null,
+    lead: bars('E5 . . E5 . . E5 . G#5 . . G#5 . . B5 .', 'D6~ . . . . . . . - - - - - - - -'),
+    bass: bars('E2 . . E2 . . E2 . E2 . . E2 . . E2 .', 'E2 . . . . . . . - - - - - - - -'),
+    drums: 'K..K..K.S..S..S.' + 'K...S...TTttSSSS' },
+  sections: [
+    { // The theme, on brass
+      chords: BATTLE_A_CHORDS, lead: BATTLE_A_THEME,
+      bass: bars(drive('A1'), drive('F1'), drive('G1'), drive('E1'), drive('A1'), drive('F1'), drive('G1'), 'E1 . . E2 . . E1 . G#1 . . G#2 . . B1 .'),
+      drums: 'K.h.S.hKK.h.S.h.'.repeat(7) + 'K.h.S.hKTTttSSSS' },
+    { // Higher and fuller: violins an octave up, the brass under them, octave bass, sixteenth hats and flourishes
+      chords: BATTLE_A_CHORDS, leadInst: 'violins', leadOct: 1, leadDouble: null, doubles: [['brass', -1, 0.5]], hats16: true, runs: '...f...f',
+      lead: [...BATTLE_A_THEME.slice(0, 112), ...bars('E5 . D5 . C5 . B4 . G#4 . A4 . B4 . C5 .')],
+      bass: bars(pump('A1'), pump('F1'), pump('G1'), pump('E1'), pump('A1'), pump('F1'), pump('G1'), 'E1 . E2 . E1 . E2 . G#1 . G#2 . B1 . C2 .'),
+      drums: 'K.hKS.hgK.hKS.hg'.repeat(7) + 'K.hKS.hgSSSSXXXX' },
+    { // The bridge: the relative major on the theme's rising shape, half-time, a choir under it
+      chords: 'F G C Am F G E7 E7'.split(' '), leadInst: 'synth', leadDouble: 'brass', leadDoubleOct: -1, leadDoubleVel: 0.4, padInst: 'choir', power: false,
+      lead: bars('A5 . . . C6 . . . F6 . . . E6 . C6 .', 'D6 . . . B5 . . . G5 . . . B5 . D6 .',
+        'E6^ . . . . . . . G5 . C6 . E6 . G6 .', 'E6 . . . C6 . . . A5 . . . C6 . E6 .',
+        'F6 . . . E6 . D6 . C6 . . . A5 . C6 .', 'D6 . . . C6 . B5 . G5 . . . B5 . D6 .',
+        'E6~ . . . . . . . . . . . D6 . C6 .', 'B5 . . . G#5 . . . E5 . G#5 . B5 . D6 .'),
+      bass: bars(walk('F1', 'A1', 'C2', 'A1'), walk('G1', 'B1', 'D2', 'B1'), walk('C2', 'E2', 'G2', 'E2'), walk('A1', 'C2', 'E2', 'C2'),
+        walk('F1', 'A1', 'C2', 'A1'), walk('G1', 'B1', 'D2', 'B1'), walk('E1', 'G#1', 'B1', 'D2'), 'E2 . . . . . . . E1 . . . . . . .'),
+      drums: 'K.hgh.hgS.hgh.hg'.repeat(7) + 'K.hgS.hgTTttSSSS' },
+    { // The build: piano ostinato and toms, climbing back to the top
+      chords: 'Am Am E7 E7'.split(' '), leadInst: 'synth', leadDouble: null, power: false, ostinato: '0 1 2 3 2 1 0 1'.split(' '),
+      lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - E5 . A5 .',
+        'G#5 . . . . . . . B5 . . . . . . .', 'D6 . . . E6 . . . G#6 . . . B5 . . .'),
+      bass: bars('A1 . . . . . . . A1 . . A1 . . A1 .', 'A1 . . . . . . . A1 . . A1 . . A1 .', drive('E1'), 'E1 . E2 . E1 . E2 . E1 E2 E1 E2 E1 E2 E1 E2'),
+      drums: 'K...h...S...h...' + 'K...h...S...h.K.' + 'K.hgS.hgK.hgS.hg' + 'TTttTTttSSSSXXXX' },
+  ] }
+
+/*
  * The Elite Four battle, second version (the first is SONGS.eliteClassic).
  * Where the gym theme drives, this one looms. It's the only battle theme not
  * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.
