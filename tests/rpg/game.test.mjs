@@ -330,7 +330,8 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
-          supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null }],
+          supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null },
+            { key: 'elite_ticket', kind: 'item', name: 'Elite Four Ticket', description: 'All five League battles', price: 5, contents: null }],
           boxes: [{ box_id: 5, name: 'Jungle Booster Box', set_name: 'Jungle', packs: 36, price: 3, image: '/rpg/a/jungle-scyther.webp', quantity: 2, max: 1 }] } },
         async balance() { return balance },
         async claim() { calls.push(['claim']); return { ok: true, reason: 'ok', holder_name: null, expires_at: null } },
@@ -370,6 +371,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.deepEqual(await frame.evaluate(() => [document.getElementById('bWild').hidden, document.getElementById('bTrainers').hidden]), [true, true])
     await frame.evaluate(() => { document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click() })
     await frame.waitForSelector('[data-buy="set:base2"]', { timeout: 10000 }); await page.waitForTimeout(1200)   // the screen finishes fading in
+    assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:elite_ticket"]')), null, 'no Elite Four ticket on the shelf before all 8 badges')
     await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball', 'box:5', 'box:5']) document.querySelector(`[data-buy="${k}"]`).click() })   // the box twice: only 1 is allowed
     await frame.evaluate(() => document.getElementById('cbGo').click())
     await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
@@ -383,6 +385,24 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.deepEqual(calls.find((c) => c[0] === 'putSave'), ['putSave', null], 'a browser save from before goes up to the account')
     assert.equal(await frame.evaluate(() => document.getElementById('wallet').textContent), '5.60 tk')
     assert.equal(await frame.evaluate(() => getComputedStyle(document.getElementById('battleL')).display), 'none', 'no battle happened')
+    // With all 8 Johto badges, the next visit's shelf has the ticket (greyed out here: trainer battles aren't live).
+    await frame.evaluate(() => window.__vvm.badges.push(0, 1, 2, 3, 4, 5, 6, 7))
+    for (let i = 0; i < 4 && !(await frame.$('[data-buy="sup:elite_ticket"]')); i++) {   // back to idle first, then a tap opens the shelf again
+      await frame.evaluate(() => document.getElementById('home').click()); await page.waitForTimeout(2000)
+    }
+    const tile = await frame.waitForSelector('[data-buy="sup:elite_ticket"]', { timeout: 10000 })
+    assert.equal(await tile.evaluate((b) => b.disabled), true)
+    await page.waitForTimeout(1200); await tile.evaluate((b) => b.querySelector('b').click())
+    assert.equal(await frame.evaluate(() => document.getElementById('cbSum').textContent), 'CART empty', 'a greyed-out tile never goes in the cart')
+    // A battle at a stocked machine doesn't hold it; coming back from one does, so the shelf can be bought from
+    // straight away (it used to need tapping out and back in: the server refused the checkout, not_holder).
+    await frame.evaluate(() => { window.__vvm.machine.lockedBy = null })
+    const claims = (await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'claim').length
+    await frame.evaluate(() => window.__vvm.backToMachine('in'))
+    assert.equal((await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'claim').length, claims + 1, 'back from a battle: the machine is claimed')
+    assert.equal(await frame.evaluate(() => window.__vvm.machine.lockedBy), 'YOU')
+    await frame.evaluate(() => document.querySelector('[data-buy="sup:great_ball"]').click())
+    assert.match(await frame.evaluate(() => document.getElementById('cbSum').textContent), /CART 1/)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

@@ -4493,7 +4493,9 @@ async function run(id) {
       const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
       return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
     }
-    return [...(t.boxes ?? []).filter((x) => x.max > 0).map(sealed), ...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...t.supplies.map(sup)].join('')
+    // A League ticket isn't on the shelf at all until its League is open: all 8 Johto badges (or, as Champion, all 16).
+    const shelved = t.supplies.filter((x) => x.key !== 'elite_ticket' || leagueNow())
+    return [...(t.boxes ?? []).filter((x) => x.max > 0).map(sealed), ...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...shelved.map(sup)].join('')
   }
   /**
    * Supplies bought at the machine (here or on the app's VVM page) move from
@@ -4581,6 +4583,7 @@ async function run(id) {
     if (MODE !== 'play' || busy || !live()) return
     if (pk) { hot(pk); $('homeSub').textContent = `${pk.dataset.pack} packs check out as they do today`; return }
     const k = b.dataset.buy
+    if (b.disabled) { sfx('blocked'); return }   // a greyed-out supply (a summon or ticket you can't use yet) never goes in the cart
     if (e.target.closest('[data-minus]')) { const n = (cart.get(k) ?? 0) - 1; n > 0 ? cart.set(k, n) : cart.delete(k); sfx('move') }
     else {
       const n = cart.get(k) ?? 0
@@ -6938,6 +6941,38 @@ async function run(id) {
       .map((k) => { if (k !== 'disc') return k; const n = pickOf(DISC_POOL); discItem(n); return discKey(n) }),
       ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
   }
+  /**
+   * The purchase screen is one trainer at a time: on a stocked machine, hold it
+   * for you (in the app, claim the real one). `waiting`: someone else has it;
+   * `refused`: the machine said no (your cooldown, no tokens, nothing left).
+   */
+  async function holdMachine(state) {
+    const api = vvm()
+    let waiting = state === 'in' && machine.lockedBy && machine.lockedBy !== YOU, refused = null
+    if (state === 'in' && !waiting) {
+      if (!api) lockFor(YOU)
+      else {
+        // The real machine: claim it. It can say no (someone beat you to it, your cooldown, no tokens, nothing left).
+        const r = await api.claim().catch(() => ({ ok: false, reason: 'error' }))
+        await syncMachine()
+        if (r.ok) lockFor(YOU)
+        else if (r.reason === 'busy') { waiting = true; machine.lockedBy = r.holder_name ?? machine.lockedBy ?? 'SOMEONE' }
+        else refused = r
+      }
+    }
+    return { waiting, refused }
+  }
+  /** The machine's screen for `state`, or, if holdMachine couldn't get it for you, why not. */
+  function paintShelf(state, { waiting, refused }, blocked = false) {
+    renderHome(refused && (refused.reason === 'not_stocked' || refused.reason === 'empty') ? 'out' : state, blocked)
+    if (refused && refused.reason !== 'not_stocked' && refused.reason !== 'empty') {
+      $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''
+      $('homeLine').textContent = { cooldown: 'COOLING DOWN', no_tokens: 'NO TOKENS' }[refused.reason] ?? "CAN'T START"
+      $('homeSub').textContent = refused.reason === 'cooldown' ? `you just bought · back ${refused.expires_at ? `at ${new Date(refused.expires_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'soon'} · tap to go back`
+        : refused.reason === 'no_tokens' ? 'no tokens left this month · tap to go back' : 'the machine said no · tap to go back'
+    }
+    if (waiting) { $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''; $('homeLine').textContent = `${machine.lockedBy} IS USING IT`; $('homeSub').textContent = 'the purchase screen is one trainer at a time · tap to go back' }
+  }
   async function tapMachine(force = {}) {
     const api = vvm()
     if (api) await syncMachine()   // the real stock state and holder, as of now
@@ -6963,29 +6998,9 @@ async function run(id) {
     // Bundles the same way, each with its own rate.
     if (state === 'in' && !api) shelfItems = force.items ?? rollShelf()
     $('tts').textContent = 'STARTING…'; sfx('select'); await W(450)
-    // The purchase screen is one trainer at a time; encounters don't need it.
-    let waiting = !enc && state === 'in' && machine.lockedBy && machine.lockedBy !== YOU, refused = null
-    if (!enc && state === 'in' && !waiting) {
-      if (!api) lockFor(YOU)
-      else {
-        // The real machine: claim it. It can say no (someone beat you to it, your cooldown, no tokens, nothing left).
-        const r = await api.claim().catch(() => ({ ok: false, reason: 'error' }))
-        await syncMachine()
-        if (r.ok) lockFor(YOU)
-        else if (r.reason === 'busy') { waiting = true; machine.lockedBy = r.holder_name ?? machine.lockedBy ?? 'SOMEONE' }
-        else refused = r
-      }
-    }
-    await fadeThrough(async () => {
-      renderHome(refused && (refused.reason === 'not_stocked' || refused.reason === 'empty') ? 'out' : state)
-      if (refused && refused.reason !== 'not_stocked' && refused.reason !== 'empty') {
-        $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''
-        $('homeLine').textContent = { cooldown: 'COOLING DOWN', no_tokens: 'NO TOKENS' }[refused.reason] ?? "CAN'T START"
-        $('homeSub').textContent = refused.reason === 'cooldown' ? `you just bought · back ${refused.expires_at ? `at ${new Date(refused.expires_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'soon'} · tap to go back`
-          : refused.reason === 'no_tokens' ? 'no tokens left this month · tap to go back' : 'the machine said no · tap to go back'
-      }
-      if (waiting) { $('home').classList.add('waiting'); $('home').classList.remove('has-sup'); $('supplies').innerHTML = ''; $('homeLine').textContent = `${machine.lockedBy} IS USING IT`; $('homeSub').textContent = 'the purchase screen is one trainer at a time · tap to go back' }
-    })
+    // The purchase screen is one trainer at a time; encounters don't need it (a battle claims it on the way back, in backToMachine).
+    const hold = enc ? { waiting: false, refused: null } : await holdMachine(state)
+    await fadeThrough(async () => paintShelf(state, hold))
     if (found) collectFind(found)
     if (pity) feed(`<b>You</b>: after two empty taps, this one was sure to turn something up.`)
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
@@ -8434,11 +8449,14 @@ async function run(id) {
     await runEvolutions()
     // Status conditions carry over, like HP: a fainted Pokémon loses its, the rest keep theirs until cured.
     for (const m of [...party, ...box]) if (m.hp <= 0) m.status = null
+    // Back on a stocked shelf after a battle: hold the machine for you now, as a plain tap does, so you can buy
+    // without tapping out and back in (a battle at the machine doesn't hold it). Not while scalpers are camping it.
+    const hold = state === 'in' && !blocked ? await holdMachine(state) : { waiting: false, refused: null }
     await fadeThrough(async () => {
       for (const w of ['enemy', 'player']) { $(w).getAnimations().forEach((a) => a.cancel()); $(w).style.visibility = 'hidden' }
       ;['ehud', 'phud'].forEach((h) => { $(h).style.visibility = 'hidden' })
       fx.innerHTML = ''; panel(null); msg0('', '')
-      renderHome(state, blocked); showLayer('home')
+      paintShelf(state, hold, blocked); showLayer('home')
     })
     renderTools(); toolsEnabled(true); saveGame()
   }
@@ -8987,7 +9005,7 @@ async function run(id) {
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
-    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
+    box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
     get healedOn() { return healedOn }, setHealedOn: (d) => { healedOn = d },
