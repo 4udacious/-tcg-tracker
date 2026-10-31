@@ -440,17 +440,20 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
       // Which battle is due at each point in the game.
       const due = (johto, kanto, champion, red = false) => RIVAL_BATTLES.map((B) => B.due({ johto, kanto, champion, red })).lastIndexOf(true)
       const mins = RIVAL_BATTLES.map((B) => B.min)
-      // Levels: as a Gym Leader's, against a party whose best is Lv 30.
+      // Levels: set, whatever yours are (a party whose best is Lv 30 meets the same team as anyone).
       window.__vvm.party.splice(0, 9, individual(speciesByName('PIKACHU'), 30, Math.random))
       const lv = window.__vvm.rivalTeam(rivalTrainer(0)).map((m) => m.level)
-      return { last7: RIVAL_BATTLES[6].last, intro7: RIVAL_BATTLES[6].intro, team6: RIVAL_BATTLES[5].team, team7: RIVAL_BATTLES[6].team, battles: battles.map((b) => ({ ...b, moves: !!b.moves })), dueAt: [due(0, 0, false), due(1, 0, false), due(3, 0, false), due(5, 0, false), due(7, 0, false), due(8, 0, true), due(8, 1, true), due(8, 6, true), due(8, 7, true), due(8, 8, true), due(8, 8, true, true)], mins, lv, songs: ['rival', 'rival2', 'rival3', 'rivalTalk'].every((n) => SONGS[n]) }
+      // Battles 1-6 come straight after a leader: how far their ace sits above that leader's.
+      const after = [GYMS[0], GYMS[2], GYMS[4], GYMS[6], GYMS[8], GYMS[14]], above = after.map((L, n) => RIVAL_BATTLES[n].min - L.min)
+      const lv7 = leaderLevels(rivalTrainer(6))
+      return { last7: RIVAL_BATTLES[6].last, intro7: RIVAL_BATTLES[6].intro, team6: RIVAL_BATTLES[5].team, team7: RIVAL_BATTLES[6].team, battles: battles.map((b) => ({ ...b, moves: !!b.moves })), dueAt: [due(0, 0, false), due(1, 0, false), due(3, 0, false), due(5, 0, false), due(7, 0, false), due(8, 0, true), due(8, 1, true), due(8, 6, true), due(8, 7, true), due(8, 8, true), due(8, 8, true, true)], mins, lv, above, lv7, songs: ['rival', 'rival2', 'rival3', 'rivalTalk'].every((n) => SONGS[n]) }
     })
     const b = r.battles
     assert.equal(b.length, 7)
     assert.deepEqual(b.map((x) => x.phase), [1, 1, 1, 2, 2, 3, 3], 'phase 1: battles 1-3, phase 2: 4-5, phase 3: 6-7')
     assert.deepEqual(b.map((x) => x.theme), ['rival', 'rival', 'rival', 'rival2', 'rival2', 'rival3', 'rival3'])
     assert.ok(r.songs, 'the three rival themes and the encounter music exist')
-    assert.deepEqual(b.map((x) => x.restores), [1, 1, 1, 1, 2, 2, 3], 'two Full Restores in battles 5 and 6, three in 7')
+    assert.deepEqual(b.map((x) => x.restores), [1, 1, 1, 1, 1, 1, 1], 'one Full Restore at most, in every battle')
     assert.deepEqual(b.map((x) => x.pory.join()), ['PORYGON', 'PORYGON', 'PORYGON', 'PORYGON2', 'PORYGON2', 'PORYGON-Z', 'PORYGON-Z'], 'Porygon in every team, evolving with the phases')
     assert.deepEqual(b.map((x) => x.mewtwo), [false, false, false, false, false, false, true], 'Mewtwo joins for the last battle')
     assert.ok(b.every((x) => ['PORYGON', 'PORYGON2', 'PORYGON-Z', 'MEWTWO'].includes(x.last)), 'the ace is always Porygon or Mewtwo')
@@ -465,7 +468,9 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
     assert.ok(b.every((x) => x.moves), 'the aces fight with their own moves')
     assert.deepEqual(r.dueAt, [-1, 0, 1, 2, 3, 3, 4, 4, 5, 5, 6], 'due after 1, 3, 5 and 7 Johto badges, then after Brock (Kanto\'s first), Blaine (the seventh), and after Red')
     assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), 'each battle is tougher than the last')
-    assert.deepEqual(r.lv, [31, 31, 33], 'levels as a Gym Leader\'s: the ace 3 above your best, the rest 2 below it')
+    assert.deepEqual(r.lv, [12, 14, 16], 'set levels, whatever yours are: the first battle 12-16')
+    assert.ok(r.above.every((x) => x >= 3 && x <= 5), `battles 1-6: a few levels above the leader just beaten (${r.above})`)
+    assert.ok(r.lv7.at(-1) === 80 && r.lv7.slice(0, -1).every((x) => x >= 76 && x <= 79), `the last battle: the high 70s, the ace Lv 80 (${r.lv7})`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -522,7 +527,7 @@ test('glitchers: Herb\'s and Paul\'s four battles each, their evolving teams and
   } finally { await g.close() }
 })
 
-test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; Blue scales like the others', async () => {
+test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; every leader at set levels, climbing', async () => {
   const g = await openGame()
   try {
     const { page } = g
@@ -536,16 +541,16 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
       for (let i = 8; i < 16; i++) v.badges.push(i); now.push(v.leagueNow())   // all sixteen: the Kanto League
       const key = v.leagueKey()
       v.setLeague({ red: true }); now.push(v.leagueNow())   // Red beaten: none
-      return { now, key, name: ITEMS[key]?.name, who: KANTO_ELITE.map((L) => L.short), mins: KANTO_ELITE.map((L) => L.min), red: KANTO_ELITE.at(-1),
+      return { now, key, name: ITEMS[key]?.name, who: KANTO_ELITE.map((L) => L.short), mins: KANTO_ELITE.map((L) => L.min), redL: KANTO_ELITE.at(-1),
         missing: KANTO_ELITE.flatMap((L) => L.team).filter((n) => { const s = speciesByName(n); return !s || !ART[s.id] }),
         art: KANTO_ELITE.every((L) => ART[L.vs] && ART[L.face] && ART[L.body]), sig: KANTO_ELITE.every((L) => L.sig?.length >= 3),
         themes: [LEAGUES.kanto.battle(KANTO_ELITE[0]), LEAGUES.kanto.battle(KANTO_ELITE[4])], songs: !!(SONGS.kantoElite && SONGS.red),
-        blue: leaderLevels(blue, [80, 60]), blueTitle: blue.title, blueAce: blue.min + blue.lvAdj,
-        johto: ELITE.map((L) => [L.short, L.min + L.lvAdj, L.lvAdj]),
-        // How far above a party at their floor each sits, once out-levelled: Kanto's gyms, Blaine, the Kanto Elite Four, Blue, Red, Alex's last.
-        // (Lance is apart: his dragons hit hardest, so he sits lower, tuned in sim.mjs.)
-        over: [...GYMS.slice(8, 15), ...KANTO_ELITE.slice(0, 3), GYMS[15], KANTO_ELITE[4], RIVAL_BATTLES[6]].map((L) => { const f = L.min + (L.lvAdj ?? 0), b = Math.min(f, 80); return leaderLevels(L, [b]).at(-1) - b }),
-        lanceOver: KANTO_ELITE[3].over,
+        blueTitle: blue.title, red: leaderLevels(KANTO_ELITE.at(-1)), falkner: leaderLevels(GYMS[0]),
+        // Every leader in the order you meet them: Johto's gyms, the Johto League, Kanto's gyms, the Kanto League and Red.
+        aces: [...GYMS.slice(0, 8), ...ELITE, ...GYMS.slice(8), ...KANTO_ELITE].map((L) => [L.short, L.low, L.min]),
+        // Set levels: the same team whatever your party's levels are.
+        same: JSON.stringify(leaderLevels(blue)) === JSON.stringify(leaderLevels(blue, [100])),
+        johto: ELITE.map((L) => [L.short, L.min]),
         // The Kanto League's other Pokémon fight with the stronger moves, as Kanto's gyms do.
         strong: KANTO_ELITE.every((L) => L.region === 'kanto') && strongMoves(speciesByName('GYARADOS')).some((m) => m.power >= 65) }
     })
@@ -553,17 +558,17 @@ test('the Kanto League: Lorelei, Bruno, Agatha, Lance, then Red, on one ticket; 
     assert.equal(r.key, 'summon:kanto'); assert.equal(r.name, 'KANTO LEAGUE TICKET')
     assert.deepEqual(r.who, ['LORELEI', 'BRUNO', 'AGATHA', 'LANCE', 'RED'])
     assert.ok(r.mins.every((m, i) => !i || m > r.mins[i - 1]), `each tougher than the last: ${r.mins}`)
-    assert.ok(r.blueAce > Math.max(...r.mins.slice(0, 4)) && r.blueAce < r.mins[4], `Blue (${r.blueAce}) above the Kanto Elite Four and below Red`)
-    assert.equal(r.red.restores, 3); assert.equal(r.red.team.at(-1), 'PIKACHU')
+    assert.ok(r.aces.every(([, lo, ace], i) => lo < ace && (!i || ace > r.aces[i - 1][2])), `every leader's ace above the last one's: ${JSON.stringify(r.aces)}`)
+    assert.deepEqual(r.falkner, [9, 11, 13], 'Falkner: 9, then his ace at 13')
+    assert.ok(r.red.every((x) => x >= 70 && x <= 75), `Red in the low to mid 70s (${r.red})`)
+    assert.ok(r.same, 'a leader\'s levels don\'t follow yours')
+    assert.equal(r.redL.restores, 3); assert.equal(r.redL.team.at(-1), 'PIKACHU')
     assert.deepEqual(r.missing, []); assert.ok(r.art, 'everyone has art (placeholders for the new faces)'); assert.ok(r.sig, 'every ace has its signature moves')
     assert.deepEqual(r.themes, ['kantoElite', 'red']); assert.ok(r.songs)
-    assert.deepEqual(r.blue, [90, 90, 90, 90, 90, 92], 'Blue out-levelled: the ace 12 above your best, the rest 2 below (no more mirroring)')
-    assert.ok(r.over.every((x, i) => !i || x >= r.over[i - 1]) && r.over[0] < 10 && r.over.at(-1) <= 15, `out-levelled, Kanto climbs steadily, no offsets stacking: ${r.over}`)
-    assert.ok(r.lanceOver < Math.min(...r.over.slice(7, 10)), `Kanto's Lance sits lower than the rest of the Elite Four: ${r.lanceOver}`)
     assert.ok(r.strong, 'the Kanto League uses the stronger moves')
     assert.match(r.blueTitle, /EVERY TYPE/)
     const [lance, ...four] = [r.johto.at(-1), ...r.johto.slice(0, 4)]
-    assert.ok(four.every(([, ace, adj]) => lance[1] > ace && lance[2] > adj), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)
+    assert.ok(four.every(([, ace]) => lance[1] > ace), `Johto's Champion Lance is the toughest of the Johto League: ${JSON.stringify(r.johto)}`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -626,11 +631,11 @@ test('the toughest leaders switch out of a bad matchup, never to their ace, and 
   } finally { await g.close() }
 })
 
-test('trainers and wild Pokémon keep pace with you only up to your next challenge, so out-levelling a gym doesn\'t pay', async () => {
+test('trainers and wild Pokémon keep pace with you only up to a few levels below your next challenge, so out-levelling a gym doesn\'t pay', async () => {
   const g = await openGame()
   try {
     const { page } = g
-    const KANTO_MINS = await page.evaluate(() => KANTO_ELITE.map((L) => L.min))
+    const KANTO_CAPS = await page.evaluate(() => KANTO_ELITE.map((L) => L.min - L.gap))
     await page.click('#mPlay'); await page.waitForTimeout(800)
     const r = await page.evaluate(() => {
       const v = window.__vvm, top = (T, lv) => { let hi = 0; for (let i = 0; i < 40; i++) hi = Math.max(hi, ...v.deckFor(T, lv).map((m) => m.level)); return hi }
@@ -641,19 +646,19 @@ test('trainers and wild Pokémon keep pace with you only up to your next challen
       const wild = (lv) => { v.party.splice(0, 9, individual(speciesByName('PIKACHU'), lv, Math.random)); let lo = 99, hi = 0; for (let i = 0; i < 40; i++) { const l = v.wildLevel(speciesByName('PIDGEY')); lo = Math.min(lo, l); hi = Math.max(hi, l) } return [lo, hi] }
       out.wildUnder = wild(10); out.wildOver = wild(40)
       v.badges.push(0, 1, 2); out.capMorty = v.trainerCap(); out.overMorty = top(PAUL, 60)
-      out.gymAces = GYMS.slice(0, 4).map((L) => L.min + (L.lvAdj ?? 0))
+      out.gymAces = GYMS.slice(0, 4).map((L) => L.min - L.gap)   // each gym's cap: `gap` below its ace
       // The Kanto League: all sixteen badges as Champion.
       for (let i = 3; i < 16; i++) v.badges.push(i); v.setLeague({ champion: true })
       out.kanto = [v.trainerCap()]; v.setLeague({ kanto: 2 }); out.kanto.push(v.trainerCap()); v.setLeague({ red: true }); out.kanto.push(v.trainerCap())
       return out
     })
-    assert.equal(r.capNone, r.gymAces[0], 'before any badge, the cap is the first gym\'s ace')
+    assert.equal(r.capNone, 10, 'before any badge, the cap is 3 below Falkner\'s ace')
     assert.ok(r.under <= 10, `below the cap, levels still follow your lead (${r.under})`)
     assert.deepEqual(r.over, [r.gymAces[0], r.gymAces[0]], 'a Lv 40 lead meets trainers no higher than the first gym')
     assert.ok(r.wildUnder[0] >= 7 && r.wildUnder[1] <= 10, `wild Pokémon below the cap: up to 3 under your lead (${r.wildUnder})`)
     assert.deepEqual(r.wildOver, [r.gymAces[0], r.gymAces[0]], 'a Lv 40 lead meets wild Pokémon no higher than the first gym')
     assert.equal(r.capMorty, r.gymAces[3]); assert.equal(r.overMorty, r.gymAces[3], 'with three badges, the fourth gym sets the cap')
-    assert.deepEqual(r.kanto, [KANTO_MINS[0], KANTO_MINS[2], 100], 'in the Kanto League, the member you\'re on; no cap once Red is beaten')
+    assert.deepEqual(r.kanto, [KANTO_CAPS[0], KANTO_CAPS[2], 100], 'in the Kanto League, below the member you\'re on; no cap once Red is beaten')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
