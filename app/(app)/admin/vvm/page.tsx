@@ -4,6 +4,7 @@ import VvmItemsClient, { type SetItem } from './VvmItemsClient'
 import VvmSuppliesClient, { type SupplyRow } from './VvmSuppliesClient'
 import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
+import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,7 @@ export default async function AdminVvmPage() {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
@@ -31,6 +32,14 @@ export default async function AdminVvmPage() {
       .from('vending_boxes')
       .select('*')
       .order('sort_order'),
+    // Members to gift a Pokémon to: approved accounts, by username (admin-checked in the database).
+    supabase.rpc('admin_token_balances'),
+    // Recent gifts; an error (before v82) hides the section.
+    supabase
+      .from('battle_gifts')
+      .select('id, user_id, species, level, note, created_at, claimed_at, member:profiles!battle_gifts_user_id_fkey(username, display_name)')
+      .order('created_at', { ascending: false })
+      .limit(15),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -77,6 +86,12 @@ export default async function AdminVvmPage() {
         healPrice={(settings as { battle_heal_price?: number | string | null } | null)?.battle_heal_price ?? null}
         findChance={(settings as { battle_find_chance?: number | string | null } | null)?.battle_find_chance ?? null}
       />
+      {!gifts.error && (
+        <GiftPokemonClient
+          members={((members as GiftMember[] | null) ?? []).map((m) => ({ user_id: m.user_id, username: m.username, display_name: m.display_name }))}
+          recent={(gifts.data as unknown as GiftRow[] | null) ?? []}
+        />
+      )}
     </div>
   )
 }

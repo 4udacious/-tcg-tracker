@@ -2643,6 +2643,13 @@ function bagMore(panel) {
  * pick one form, once.
  */
 const speciesByName = (n) => [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...(DATA.forms ?? [])].find((s) => s.name === n)
+/**
+ * Every species an admin can gift (Admin → VVM): each one, once, with its sprite, by name. public/rpg/species.json
+ * is this list for the admin page; tests/rpg checks the two match (regenerate it with window.__giftable() if not).
+ */
+const giftable = () => [...new Map([...DATA.starters, ...DATA.wild, ...DATA.trainer, ...(DATA.forms ?? [])]
+  .filter((s) => ART[s.id]).map((s) => [s.name, { id: s.id, name: s.name }])).values()].sort((a, b) => a.name.localeCompare(b.name))
+window.__giftable = giftable
 /** The evolution `m` is due for at its level, or null. */
 function evoDue(m) {
   if (m.evoForce) return m.evoForce   // an evolution item, used from the Bag
@@ -4585,7 +4592,39 @@ async function run(id) {
       else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
     }
     if (said.length) { renderTools(); saveGame(); feed(`<b>You</b> collected ${said.join(', ')} into the Bag.`) }
+    await collectGifts()
     return said
+  }
+  /*
+   * Pokémon an admin sent you (Admin → VVM, for Discord activities and the
+   * like). Each is rolled as a wild one would be: random IVs and nature, the
+   * same shiny odds, and, unless the gift names a level, a wild one's level.
+   * Into the party, or the Box when it's full. The ids go in the save before
+   * they're acknowledged, so a gift is never added twice (already in the
+   * save: skipped) or lost (not acknowledged yet: offered again).
+   */
+  let giftIds = []
+  async function collectGifts() {
+    const api = vvm(); if (!api?.pendingGifts || !tutorialDone) return
+    const gifts = await api.pendingGifts().catch(() => [])
+    const got = []
+    for (const x of gifts) {
+      if (giftIds.includes(x.id)) continue
+      const sp = speciesByName(x.species); if (!sp) continue
+      const m = individual(sp, x.level ?? wildLevel(sp), rand); m.hp = m.stats.hp
+      if (SHINY_IDS.has(m.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) m.shiny = true   // __forceShiny: testing only
+      if (party.length < 6) party.push(m); else box.push(m)
+      giftIds = [...giftIds, x.id].slice(-200)
+      got.push({ m, note: x.note, boxed: !party.includes(m) })
+    }
+    if (got.length) {
+      renderTools(); saveGame(); sfx('levelup')
+      const name = ({ m }) => `${m.shiny ? 'a shiny ' : ''}${m.name} (Lv ${m.level})`
+      homePop(`<b>🎁 A gift: ${got.map(name).map(esc).join(', ')}!</b>`)
+      for (const g of got) feed(`<b>You</b> got ${esc(name(g))} as a gift${g.note ? `: ${esc(g.note)}` : ''}. ${g.boxed ? 'Your party is full, so it went to the Box.' : 'It joined your party!'}`)
+    }
+    const ack = gifts.map((x) => x.id).filter((id) => giftIds.includes(id))
+    if (ack.length) await api.ackGifts(ack).catch(() => {})
   }
   /** Tokens a battle pays: in the app, real ones into your earned tokens, up to a daily cap. */
   async function payTokens(amount, source, b = '') {
@@ -9063,7 +9102,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -9129,7 +9168,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
-    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true
+    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     storyGap = { taps: 0, who: null, ...s.storyGap }

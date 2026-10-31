@@ -616,6 +616,49 @@ test('in the app: a roaming legendary met in a wild battle is reported for the h
   } finally { await g.close() }
 })
 
+test('in the app: Pokémon an admin gifts arrive rolled like wild ones, once each, and are then marked collected', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    const list = await page.evaluate(() => window.__giftable())
+    const { readFile } = await import('node:fs/promises')
+    assert.deepEqual(JSON.parse(await readFile(new URL('../../public/rpg/species.json', import.meta.url), 'utf8')), list,
+      'public/rpg/species.json (the admin page\'s list) matches the game: regenerate it from window.__giftable()')
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      window.__vvmApi = {
+        async machine() { return { status: 'out_of_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 10, wild: true, trainers: true, heal_price: 0.5, find_chance: 0.35, packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 10 }, async claim() { return { ok: false, reason: 'not_stocked' } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { calls.push(['putSave', d.giftIds]); return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+        // The same two gifts every time, as if the acknowledgement never got through.
+        async pendingGifts() { calls.push(['pending']); return [{ id: 41, species: 'PIKACHU', level: 12, note: 'Discord art contest' }, { id: 42, species: 'EEVEE', level: null, note: null }] },
+        async ackGifts(ids) { calls.push(['ack', ids]) },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 15, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 10, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.party.length === 3, null, { timeout: 15000 })
+    const r = await frame.evaluate(() => ({ party: window.__vvm.party.map((m) => [m.name, m.level, Object.values(m.ivs).every((v) => v >= 0 && v <= 31), m.hp === m.stats.hp]),
+      pop: document.querySelector('#home .find')?.textContent ?? '', feed: document.getElementById('feed')?.textContent ?? '' }))
+    assert.deepEqual(r.party.map((x) => x[0]), ['CHARMANDER', 'PIKACHU', 'EEVEE'], 'both gifts joined the party')
+    assert.equal(r.party[1][1], 12, 'at the level the admin set'); assert.ok(r.party[2][1] >= 2, 'and the other at a wild one\'s level')
+    assert.ok(r.party.every((x) => x[2] && x[3]), 'with IVs rolled, at full HP')
+    assert.match(r.pop, /A gift: PIKACHU \(Lv 12\), EEVEE/)
+    // Offered again (the acknowledgement "failed"): never added twice.
+    await frame.evaluate(() => window.__vvm.collectItems())
+    assert.equal(await frame.evaluate(() => window.__vvm.party.length), 3, 'a gift already in the save is skipped')
+    const calls = await page.evaluate(() => window.__calls)
+    assert.ok(calls.filter((c) => c[0] === 'ack').every((c) => JSON.stringify(c[1]) === '[41,42]'), 'acknowledged, every time it was offered')
+    assert.ok(calls.some((c) => c[0] === 'putSave' && JSON.stringify(c[1]) === '[41,42]'), 'the ids are in the account save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
   const g = await openGame()
   try {
