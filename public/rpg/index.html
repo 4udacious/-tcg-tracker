@@ -43,6 +43,23 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .crown::after { content: ''; position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: #fff; border: 3px solid #111; }
 .crown i { position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: #111; }
 .bezel { background: #1d2230; border-radius: 14px; padding: 10px; }
+/* The tray, as on the old VVM page: bought items drop in one by one and lie at their own tilt. */
+.tray { position: relative; margin: 10px 4px 0; height: 46px; border-radius: 12px; background: #111; border: 3px solid #ff3b53; box-shadow: inset 0 4px 14px rgba(0,0,0,.8); cursor: pointer; }
+.trayin { position: absolute; inset: 0; overflow: hidden; border-radius: 9px; }
+.tdrop { position: absolute; top: 50%; transform: translateY(-50%) rotate(var(--tilt)); }
+.tdrop img { display: block; width: 28px; height: auto; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.tdrop .supic { display: block; width: 22px; height: 22px; }
+.tdrop.fall { animation: tFall .45s cubic-bezier(.3,.7,.4,1) both; }
+.tdrop.bounce { animation: tBounce .8s cubic-bezier(.3,.7,.4,1) both; }
+.tdrop.taken { animation: tTaken .35s ease-in both; }
+.traystuck { position: absolute; top: -30px; left: 50%; margin-left: -14px; width: 28px; z-index: 2; pointer-events: none; display: none; transform-origin: 50% 0; animation: tStuck 1.4s ease-in-out infinite; }
+.traystuck.on { display: block; }
+.traystuck img { display: block; width: 28px; height: auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+@keyframes tFall { from { transform: translateY(-160%) rotate(var(--tilt)); opacity: 0 } 70% { transform: translateY(-46%) rotate(var(--tilt)); opacity: 1 } 85% { transform: translateY(-58%) rotate(var(--tilt)) } to { transform: translateY(-50%) rotate(var(--tilt)) } }
+@keyframes tBounce { from { transform: translateY(-200%) rotate(var(--tilt)); opacity: 0 } 50% { transform: translateY(-40%) rotate(var(--tilt)); opacity: 1 } 65% { transform: translateY(-90%) rotate(var(--tilt)) } 80% { transform: translateY(-45%) rotate(var(--tilt)) } 90% { transform: translateY(-60%) rotate(var(--tilt)) } to { transform: translateY(-50%) rotate(var(--tilt)) } }
+@keyframes tTaken { to { transform: translateY(80%) rotate(var(--tilt)); opacity: 0 } }
+@keyframes tStuck { 0%, 100% { transform: rotate(-10deg) } 25% { transform: rotate(-4deg) translateY(1px) } 50% { transform: rotate(-12deg) } 75% { transform: rotate(-6deg) translateY(1px) } }
+@media (prefers-reduced-motion: reduce) { .tdrop.fall, .tdrop.bounce, .tdrop.taken, .traystuck { animation: none; } }
 .sw { position: relative; width: 100%; aspect-ratio: 320 / 426; overflow: hidden; border-radius: 4px; background: #000; }
 .screen { position: absolute; left: 0; top: 0; width: 320px; height: 426px; zoom: var(--z, 1); font-family: 'Pix', system-ui, sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
 .grille { display: flex; justify-content: center; gap: 6px; padding: 12px 0 2px; }
@@ -851,10 +868,15 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .wobble.veil { animation: wobble 900ms ease-in-out infinite alternate, veil 520ms steps(2, jump-none) infinite; }
 .wobble.veil[data-veil="2"] { animation-duration: 900ms, 380ms; }
 .wobble.veil[data-veil="3"] { animation-duration: 900ms, 260ms; }
-@keyframes veil { 0%, 55% { filter: opacity(1) blur(0); } 70%, 100% { filter: opacity(var(--veil-lo)) blur(1px); } }
+@keyframes veil { 0%, 55% { filter: opacity(var(--dz-o, 1)) blur(var(--dz-b, 0px)); } 70%, 100% { filter: opacity(calc(var(--veil-lo) * var(--dz-o, 1))) blur(calc(1px + var(--dz-b, 0px))); } }
+/* Your own accuracy lowered (Flash, Sand Attack, Smokescreen, Kinesis, Mud-Slap): your strike ring and its mark are
+   dazzled, dimmer and blurrier at each stage. With an evasive target too, the two stack (the veil keyframes use these). */
+.dazzle { --dz-o: .62; --dz-b: 1.2px; filter: opacity(var(--dz-o)) blur(var(--dz-b)); }
+.dazzle[data-dazzle="2"] { --dz-o: .45; --dz-b: 1.8px; }
+.dazzle[data-dazzle="3"] { --dz-o: .3; --dz-b: 2.4px; }
 @media (prefers-reduced-motion: reduce) {
-  .veil { animation: none; filter: opacity(calc(var(--veil-lo) + .2)); }
-  .wobble.veil { animation: wobble 2400ms ease-in-out infinite alternate; filter: opacity(calc(var(--veil-lo) + .2)); }
+  .veil { animation: none; filter: opacity(calc((var(--veil-lo) + .2) * var(--dz-o, 1))) blur(var(--dz-b, 0px)); }
+  .wobble.veil { animation: wobble 2400ms ease-in-out infinite alternate; filter: opacity(calc((var(--veil-lo) + .2) * var(--dz-o, 1))) blur(var(--dz-b, 0px)); }
 }
 
 .t-cure { background: linear-gradient(#5eead4, #0f766e); }
@@ -1137,6 +1159,9 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
       </div>
     </div>
 
+    <!-- The tray under the screen: what you bought drops into it (tap it to collect). A jammed pack hangs at its mouth. -->
+    <div class="tray" id="tray" role="button" aria-label="The tray: tap to collect"><div class="trayin" id="trayIn"></div><div class="traystuck" id="trayStuck" aria-hidden="true"></div></div>
+
     <!-- Your trainer stuff lives under the machine, not inside its screen. -->
     <div class="tools" id="tools" hidden>
       <button class="tool" id="tParty"><span class="minis" id="partyMinis"></span>PARTY<span class="dot" id="partyDot"></span></button>
@@ -1161,6 +1186,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=a0802897ad"></script>
+<script src="/rpg/game.js?v=f0f759bb85"></script>
 </body>
 </html>

@@ -2200,6 +2200,8 @@ Object.assign(SUPPORT, {
   'DOUBLE TEAM': { type: 'normal', target: 'self', effect: 'evaUp', prio: 0, cost: 1, sub: 'EVA ▲ self', solo: 'EVA ▲' },
 })
 MOVEDEX['MUD-SLAP'].accDown = 1   // damage, and the target's accuracy falls a stage
+/** How far a damaging move lowers its target's accuracy: its own flag, or the move's by name (foes' move lists are copies without it). */
+const accDownOf = (mv) => mv.accDown ?? MOVEDEX[mv.name]?.accDown ?? 0
 /** Each type's accuracy/evasion move, learned at Lv 7 (and what foes of that type use). */
 const STATUS_BY_TYPE = { ground: 'SAND ATTACK', rock: 'SAND ATTACK', fire: 'SMOKESCREEN', electric: 'FLASH', fairy: 'FLASH', psychic: 'KINESIS',
   poison: 'MINIMIZE', ghost: 'MINIMIZE', water: 'MINIMIZE' }
@@ -4643,10 +4645,42 @@ async function run(id) {
       <div class="cobal">Your tokens: ${wallet.toFixed(2)} → <b class="${short ? 'bad' : ''}">${short ? 'not enough' : (wallet - total).toFixed(2)}</b></div>
       <div class="cobtns"><button class="cb back" data-co="back">◀ KEEP SHOPPING</button><button class="cb go" data-co="pay" ${short ? 'disabled' : ''}>PAY ${total.toFixed(2)}</button></div>`
   }
+  /* ── the tray under the screen ──
+     What a checkout dispenses drops into it, one item at a time, each lying at
+     its own tilt (as on the old VVM page). A pack that jams hangs at the
+     tray's mouth, wobbling; someone else's stuck pack that falls out for you
+     bounces in. A tap on the tray collects what's in it; the next checkout
+     empties it too. */
+  const TRAY_MAX = 12   // at most this many drawn, so a big order doesn't take forever
+  /** How a bought thing looks in the tray: its wrapper or box image, or its supply icon. */
+  function trayArt(k) {
+    if (isReal(k)) {
+      const [kind, id] = realKey(k), img = realRow(k)?.image
+      if (img && kind !== 'sup') return `<img src="${esc(img)}" alt="">`
+      return `<span class="supic ${id === 'move_disc' ? 'disc' : BAG_OF[id] ?? 'summon'}"></span>`
+    }
+    return `<span class="supic ${k.startsWith('disc:') ? 'disc' : k.startsWith('bundle:') || k === 'summon' || k === 'elite' ? 'summon' : k}"></span>`
+  }
+  function trayDrop(art, how = 'fall') {
+    const i = $('trayIn').children.length, el = document.createElement('span')
+    el.className = `tdrop ${how}`; el.innerHTML = art
+    el.style.left = `${6 + ((i * 37) % 80)}%`; el.style.setProperty('--tilt', `${80 + ((i * 53) % 24) - 12}deg`)   // spread across, lying down
+    $('trayIn').appendChild(el)
+  }
+  function trayEmpty() { $('trayIn').innerHTML = ''; $('trayStuck').innerHTML = ''; $('trayStuck').classList.remove('on') }
+  $('tray').onclick = (e) => {
+    e.stopPropagation()
+    const els = [...$('trayIn').children]; if (!els.length) return
+    sfx('click'); for (const el of els) el.className = 'tdrop taken'
+    setTimeout(() => { for (const el of els) el.remove() }, 380)
+  }
+
   /** PAY: tokens out, then the machine dispenses, one item at a time, and it all goes in the Bag. */
   async function payCart() {
     const total = cartTotal(), items = [...cart], n = cartCount()
     if (!n || wallet + 1e-9 < total) return
+    // What will drop into the tray, read before the shelf can change.
+    const drops = items.flatMap(([k, q]) => Array(q).fill(k)).slice(0, TRAY_MAX).map((k) => ({ k, art: trayArt(k), jam: false }))
     let collected = [], stuck = 0, freed = 0
     if (vvm()) {
       // The real checkout: the server checks the stock, your tokens and that you still hold the machine.
@@ -4667,9 +4701,16 @@ async function run(id) {
     const packsBought = items.filter(([k]) => k.startsWith('set:')).reduce((a, [, q]) => a + q, 0) - stuck + freed
     const boxesBought = items.filter(([k]) => k.startsWith('box:')).reduce((a, [, q]) => a + q, 0)
     cart.clear(); renderTools(); window.__saveSoon?.()
+    // A jam is on a pack: the last one, so the others drop first.
+    const lastPack = drops.map((d) => d.k.startsWith('set:')).lastIndexOf(true)
+    if (stuck && lastPack >= 0) drops[lastPack].jam = true
+    trayEmpty()
     const co = $('checkout'); co.classList.add('disp')
     for (let i = 1; i <= n; i++) {
       co.innerHTML = `<p class="dsm">COLLECTING</p><p class="dbig">${i} OF ${n} TOTAL ITEM${n === 1 ? '' : 'S'}</p><div class="dline"></div><p class="dsm dim">PLEASE WAIT</p>`
+      const d = drops[i - 1]
+      if (d?.jam) { $('trayStuck').innerHTML = d.art; $('trayStuck').classList.add('on') }   // it never falls
+      else if (d) trayDrop(d.art)
       sfx('click'); await W(i === n ? 700 : 450)
     }
     if (stuck) {
@@ -4680,6 +4721,7 @@ async function run(id) {
     if (freed) {
       sfx('click'); await W(300); sfx('click')
       co.innerHTML = `<p class="dsm">CLUNK!</p><p class="dbig">+1 PACK</p><div class="dline"></div><p class="dsm dim">Someone's stuck pack fell out with yours. Free!</p>`
+      trayDrop(drops[Math.max(0, lastPack)]?.art ?? '<span class="supic summon"></span>', 'bounce')
       await W(2200)
     }
     sfx('tokens')
@@ -6021,7 +6063,8 @@ async function run(id) {
         panel('pStrike'); $('bStrike').innerHTML = `${label === 'STRIKE' ? 'STRIKE!' : label}<small style="font-size:12px;margin-top:6px">tap as the ring closes</small><span class="key">A</span>`
         const conf = !!S(actor.mon).conf; wobble = conf   // confused: its rings wobble and its windows tighten
         veil = Math.max(0, S(T.mon).eva ?? 0)   // an evasive target: its rings flicker
-        try { acc = await strikeInput(mv, h, T.c.x, T.c.y, label, approach, sr.tight * (conf ? 0.85 : 1), planned) } finally { wobble = false; veil = 0 }
+        blind = Math.max(0, -(S(actor.mon).acc ?? 0))   // your accuracy lowered: they're dazzled
+        try { acc = await strikeInput(mv, h, T.c.x, T.c.y, label, approach, sr.tight * (conf ? 0.85 : 1), planned) } finally { wobble = false; veil = 0; blind = 0 }
         panel(null)
       }
       if (whiffOnMiss && acc.label === 'MISS') { pop('MISSED', T.c.x, T.c.y - 70, 'red small'); sfx('dodge'); return null }
@@ -6039,7 +6082,7 @@ async function run(id) {
       if (T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
       if (T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
       if (T.mon.hp > 0 && FLINCH[mv.name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[mv.name]) S(T.mon).flinch = true
-      if (mv.accDown && acc.label !== 'MISS' && T.mon.hp > 0) { const t = S(T.mon); if (t.acc > -STAGE_MAX) { t.acc--; tags(T); await say(`${T.mon.name}'s accuracy`, 'fell!', 250) } }
+      if (accDownOf(mv) && acc.label !== 'MISS' && T.mon.hp > 0) { const t = S(T.mon); if (t.acc > -STAGE_MAX) { t.acc--; tags(T); await say(`${T.mon.name}'s accuracy`, 'fell!', 250) } }
       return { eff, crit: acc.crit, label: acc.label }
     }
 
@@ -7223,6 +7266,8 @@ async function run(id) {
     const r = document.createElement('div'); r.className = 'ring'; r.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
     if (wobble) { t.classList.add('wobble'); r.classList.add('wobble') }
     if (veil > 0) for (const el of [t, r]) { el.classList.add('veil'); el.dataset.veil = String(Math.min(3, veil)) }
+    // Your accuracy lowered (blind, how far it fell): the ring and its mark are dazzled, dimmer and blurrier each stage.
+    if (blind > 0) for (const el of [t, r]) { el.classList.add('dazzle'); el.dataset.dazzle = String(Math.min(3, blind)) }
     fx.append(t, r)
     let g = null
     if (label) { g = document.createElement('div'); g.className = 'glyph'; g.textContent = label; g.style.left = cx + 'px'; g.style.top = (cy - R - 20) + 'px'; fx.appendChild(g) }
@@ -7380,6 +7425,7 @@ async function run(id) {
   const chance = demo ? () => 1 : Math.random
   let wobble = false   // a confused Pokémon's strike rings wobble
   let veil = 0   // the target's evasion stage (1-3) when raised: your strike rings shrink, flicker and fade, more with each stage
+  let blind = 0   // how far your accuracy has fallen (1-3): your strike rings dim and blur, more with each stage
   async function timedTap(planned, cx, cy, label, approach = 820, tight = 1) {
     const t0 = performance.now(), closeAt = t0 + approach
     let first = null
@@ -7894,6 +7940,7 @@ async function run(id) {
       if (ST(me).conf) sr.tight *= 0.85
       wobble = !!ST(me).conf   // confused: its rings wobble
       veil = Math.max(0, ST(foe).eva ?? 0)   // an evasive foe: its rings flicker
+      blind = Math.max(0, -(ST(me).acc ?? 0))   // your accuracy lowered (Flash, Sand Attack...): they're dazzled
       try {
         for (let h = 0; h < hits && foe.hp > 0; h++) {
           panel('pStrike'); $('bStrike').innerHTML = `${hits > 1 ? `HIT ${h + 1} / ${hits}` : 'STRIKE!'}<small style="font-size:12px;margin-top:6px">tap as the ring closes</small><span class="key">A</span>`
@@ -7923,10 +7970,10 @@ async function run(id) {
           if (foe.hp > 0) await afflict(foe, statusFromHit(foe, { ...mv, name }, rand))
           if (foe.hp > 0 && FLINCH[name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[name]) ST(foe).flinch = true
         }
-      } finally { wobble = false; veil = 0 }
+      } finally { wobble = false; veil = 0; blind = 0 }
       // A 0-PP move that lands (any timing but MISS) builds PP: +1 per attack.
       if (mv.cost === 0 && clean) { setPP(pp + 1, true); pop('+1 PP', C.p.x - 30, C.p.y - 96, 'blue small') }
-      if (mv.accDown && clean && foe.hp > 0) await stage(foe, 'acc', -mv.accDown, true)
+      if (accDownOf(mv) && clean && foe.hp > 0) await stage(foe, 'acc', -accDownOf(mv), true)
       if (hits > 1) await say(landed === hits ? `Hit ${hits} times — full damage!` : `Hit ${landed} of ${hits} times.`)
       if (mv.recharge) ST(me).recharge = true
       if (mv.rampage && !crit && !ST(me).conf && me.hp > 0) { ST(me).conf = 2 + Math.floor(rand() * 2); showTags(); await say(me.name, 'became confused from fatigue!', 300) }
@@ -8323,6 +8370,8 @@ async function run(id) {
       // One PP per attack, and only for a clean sweep: parry (or jump) 2 of 3 hits and it's nothing.
       if (evaded === hits) { setPP(pp + 1, true); pop('+1 PP', C.p.x - 30, C.p.y - 96, 'blue small') }
       else if (evaded) pop(`${evaded}/${hits} — no PP`, C.p.x - 30, C.p.y - 96, 'small')
+      // A foe's Mud-Slap that got through lowers your accuracy too (it only ever lowered theirs).
+      if (accDownOf(mv) && evaded < hits && me.hp > 0) await stage(me, 'acc', -accDownOf(mv), false)
       if (released) ST(foe).recharge = true
       if (rampage && foe.hp > 0 && !ST(foe).conf) { ST(foe).conf = 2 + Math.floor(rand() * 2); showTags(); await say(who(foe), 'became confused from fatigue!', 300) }
       if (countered && foe.hp > 0) {
@@ -9087,7 +9136,9 @@ async function run(id) {
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
-    get heals() { return heals }, get findChance() { return findChance }, setHeals: (h) => { heals = h }, FREE_HEALS, get healPrice() { return healPrice },
+    get heals() { return heals }, get findChance() { return findChance },
+    /** A strike ring as it's drawn with your accuracy `b` stages down and the target's evasion `v` up (left on screen; clear() removes it). */
+    ringLook: (b, v, x = 160, y = 110) => { blind = b; veil = v; try { return ring(x, y, 60000, 'STRIKE') } finally { blind = 0; veil = 0 } }, setHeals: (h) => { heals = h }, FREE_HEALS, get healPrice() { return healPrice },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
