@@ -30,6 +30,23 @@ const nextConfig: NextConfig = {
         source: "/rpg/:path*",
         headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
       },
+      {
+        // The battle game's art and cries (about 900 files, fetched as they're
+        // needed) almost never change: kept for a week without the browser
+        // asking again, then a day more while it checks in the background.
+        // A replaced picture shows within the week.
+        source: "/rpg/a/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        // The game's code, as index.html loads it: game.js?v=<the file's hash>.
+        // Every update gets a new address, so each one can be kept for good
+        // (tests/rpg checks the tag matches the file). index.html itself keeps
+        // the default, so an update reaches everyone on their next visit.
+        source: "/rpg/game.js",
+        has: [{ type: "query", key: "v" }],
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
     ];
   },
 };

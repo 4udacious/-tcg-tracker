@@ -1,6 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// A sign-in or role redirect is never stored: some paths it answers (the
+// battle game's files) are cached for long in next.config.ts, and a browser
+// that kept the redirect would keep being sent away after signing in.
+function redirectTo(url: URL) {
+  const res = NextResponse.redirect(url)
+  res.headers.set('Cache-Control', 'no-store')
+  return res
+}
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -44,7 +53,7 @@ export async function proxy(request: NextRequest) {
     if (!isPublic) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      return NextResponse.redirect(url)
+      return redirectTo(url)
     }
     return supabaseResponse
   }
@@ -60,13 +69,13 @@ export async function proxy(request: NextRequest) {
   if (role === 'pending' && pathname !== '/pending') {
     const url = request.nextUrl.clone()
     url.pathname = '/pending'
-    return NextResponse.redirect(url)
+    return redirectTo(url)
   }
 
   if (role !== 'pending' && pathname === '/pending') {
     const url = request.nextUrl.clone()
     url.pathname = '/'
-    return NextResponse.redirect(url)
+    return redirectTo(url)
   }
 
   // Stock check-in stays admin-only while it is reworked. Gated here rather
@@ -75,13 +84,13 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/stock') && role !== 'admin') {
     const url = request.nextUrl.clone()
     url.pathname = '/timers'
-    return NextResponse.redirect(url)
+    return redirectTo(url)
   }
 
   if (pathname.startsWith('/admin') && role !== 'mod' && role !== 'admin') {
     const url = request.nextUrl.clone()
     url.pathname = '/'
-    return NextResponse.redirect(url)
+    return redirectTo(url)
   }
 
   if (
@@ -93,7 +102,7 @@ export async function proxy(request: NextRequest) {
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/admin'
-    return NextResponse.redirect(url)
+    return redirectTo(url)
   }
 
   return supabaseResponse
