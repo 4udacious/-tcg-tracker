@@ -5599,19 +5599,37 @@ async function run(id) {
     const rest = party.filter((m) => m.hp > 0 && !fought.includes(m)); if (!rest.length) return
     const half = Math.max(1, Math.round(amount / 2))
     await say(`The rest of your party got ${half} EXP.`, 'thanks to the EXP. SHARE.', 300)
-    for (const m of rest) {
-      m.exp ??= 0; addBond(m, 4)
-      let left = half
-      while (left > 0 && m.level < LEVEL_CAP) {
-        const need = expToNext(m.level), take = Math.min(left, need - m.exp)
-        m.exp += take; left -= take
-        if (m.exp < need) break
-        const hpBefore = m.stats.hp
-        m.level++; m.exp = 0; m.stats = statsAt(m, m.level); m.hp = Math.min(m.stats.hp, m.hp + (m.stats.hp - hpBefore))
-        sfx('levelup'); await say(`${m.name} grew to`, `Lv. ${m.level}!`, 500)
-        if (evoDue(m)) pendingEvos.add(m)
-        for (const r of learnAtLevel(m)) await say(`${m.name} learned ${r.name}!`, r.equipped ? '' : 'Swap it in from the Box.', 500)
-      }
+    for (const m of rest) { addBond(m, 4); await offFieldExp(m, half) }
+    renderTools()
+  }
+  /** EXP for a Pokémon that isn't out (no bar to fill): only level-ups and new moves are announced. */
+  async function offFieldExp(m, amount) {
+    m.exp ??= 0
+    let left = amount
+    while (left > 0 && m.level < LEVEL_CAP) {
+      const need = expToNext(m.level), take = Math.min(left, need - m.exp)
+      m.exp += take; left -= take
+      if (m.exp < need) break
+      const hpBefore = m.stats.hp
+      m.level++; m.exp = 0; m.stats = statsAt(m, m.level); m.hp = Math.min(m.stats.hp, m.hp + (m.stats.hp - hpBefore))
+      sfx('levelup'); await say(`${m.name} grew to`, `Lv. ${m.level}!`, 500)
+      if (evoDue(m)) pendingEvos.add(m)
+      for (const r of learnAtLevel(m)) await say(`${m.name} learned ${r.name}!`, r.equipped ? '' : 'Swap it in from the Box.', 500)
+    }
+  }
+  /*
+   * A Pokémon that faced a foe but was switched out before it fell still
+   * earns from it: FACED_EXP of its EXP, less than the one that knocked it
+   * out (all of it), more than the EXP. SHARE gives the rest of the party
+   * (half). Not if it fainted since.
+   */
+  const FACED_EXP = 0.75
+  async function facedExp(amount, faced) {
+    const x = Math.max(1, Math.round(amount * FACED_EXP))
+    for (const m of faced) {
+      if (m.hp <= 0 || !party.includes(m)) continue
+      addBond(m, 6); await say(`${m.name} gained`, `${x} EXP. Points!`, 180)
+      await offFieldExp(m, x)
     }
     renderTools()
   }
@@ -5675,6 +5693,7 @@ async function run(id) {
     const mk = (cls, html = '') => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; ts.appendChild(d); made.push(d); return d }
     const sides = { p: { slots: [], tailwind: 0 }, e: { slots: [], tailwind: 0 } }
     const st = new Map()   // per Pokémon, for this battle: stat stages, Helping Hand boost
+    const faced = new Map()   // per foe: your Pokémon that have been on the field against it (facedExp)
     const S = (m) => { if (!st.has(m)) st.set(m, { atk: 0, spa: 0, spe: 0, boost: 1, acc: 0, eva: 0 }); return st.get(m) }
     let dpp = 0
     let weather = null   // { kind: 'rain' | 'sun', turns }
@@ -5720,6 +5739,8 @@ async function run(id) {
       el.style.opacity = '0'   // hidden while its image loads; it used to show, then pop in again
       const r = await place(el, spr(mon, side === 'p'), at.x, at.y, at.scale, at.maxH, at.maxW)
       st.delete(mon); mon.toxN = 0   // a fresh start: no stages, confusion or seed, and bad poison counts from 1 again
+      if (side === 'e') faced.set(mon, new Set(alive('p').filter((x) => !x.ally).map((x) => x.mon)))
+      else if (!owner?.ally) for (const f of alive('e')) faced.get(f.mon)?.add(mon)
       const s = { side, i, mon, owner, ally: !!owner?.ally, el, c: { x: r.x, y: Math.min(r.y, side === 'p' ? 196 : 200) }, hud: mk(`hud dh ${side}${i}`), turns: 0 }
       s.hud.innerHTML = hudHtml(s); s.hud.style.opacity = '0'; sides[side].slots[i] = s; tags(s)
       sfx('ball'); flash('#fff', .35, 140)
@@ -6454,7 +6475,9 @@ async function run(id) {
     /** EXP for one fainted foe, to each of your Pokémon on the field (not a partner's), and the rest of the party with the EXP. SHARE. */
     const pendingExp = []
     async function expFor(foeMon) {
-      await shareExp(expYield(foeMon, true), alive('p').map((x) => x.mon))
+      const out = alive('p').map((x) => x.mon), others = [...(faced.get(foeMon) ?? [])].filter((m) => !out.includes(m))
+      await facedExp(expYield(foeMon, true), others)
+      await shareExp(expYield(foeMon, true), [...out, ...others])
       for (const p of alive('p').filter((x) => !x.ally)) {
         await gainExp(p.mon, expYield(foeMon, true), p.hud.querySelector('.exp i'), (m) => {
           p.hud.querySelector('.lv').textContent = 'Lv' + m.level; p.hud.querySelector('.dhn').textContent = `${m.hp}/${m.stats.hp}`
@@ -8003,7 +8026,12 @@ async function run(id) {
     }
 
     const onLevel = (m) => { if (m === me) { $('plv').textContent = m.level; setHP('p', m.hp, m.stats.hp) } }
-    const winExp = async () => { const n = expYield(foe, kind === 'trainer'); await gainExp(me, n, $('pexp'), onLevel); await shareExp(n, [me]) }
+    // Who has faced the foe that's out now: whoever was out against it, switched out since or not.
+    let faced = new Set([me])
+    const winExp = async () => {
+      const n = expYield(foe, kind === 'trainer'), others = [...faced].filter((m) => m !== me)
+      await gainExp(me, n, $('pexp'), onLevel); await facedExp(n, others); await shareExp(n, [me, ...others])
+    }
 
     /** The foe fainted: EXP, then the scalper's next Pokémon if they have one. Returns the result, or null to fight on. */
     async function foeDown() {
@@ -8037,6 +8065,7 @@ async function run(id) {
     /** A trainer's next Pokémon comes out. */
     async function sendInFoe(next) {
       foe = next; foe.max = foe.stats.hp; foe.turn = 0; foeMoves = movesFor(foe); showTags()   // the new one starts with no stage changes
+      faced = new Set([me])
       await say(...sentOut(trainer, foe), 200)
       $('ename').textContent = foe.name; $('elv').textContent = foe.level; setHP('e', foe.hp, foe.max)
       $('enemy').getAnimations().forEach((a) => a.cancel())
@@ -8051,7 +8080,7 @@ async function run(id) {
       await say(`Come back, ${me.name}!`, '', 200)
       await anim($('player'), [{ transform: 'scale(1)', opacity: 1, filter: 'brightness(1)' }, { transform: 'scale(0)', opacity: 0, filter: 'brightness(3) sepia(1) hue-rotate(-50deg)' }], { duration: 320 }).finished
       $('player').getAnimations().forEach((a) => a.cancel()); $('player').style.visibility = 'hidden'
-      stg.delete(me); me = m; await sendOut(me); showTags()
+      stg.delete(me); me = m; faced.add(me); await sendOut(me); showTags()
     }
 
     /**
@@ -8414,7 +8443,7 @@ async function run(id) {
           drawParty(true); panel('pParty'); msg0('Send out which Pokémon?', '')
           next = party[+(await choose('pParty', null)).slice(1)]; panel(null)
         }
-        me = next; await sendOut(me)
+        me = next; faced.add(me); await sendOut(me)
       }
     }
   }
