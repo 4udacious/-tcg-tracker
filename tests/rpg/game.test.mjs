@@ -12,6 +12,14 @@ import { simulate, SKILLS, AIMS } from './sim.mjs'
 
 const quick = !!process.env.RPG_QUICK
 
+test('index.html loads game.js at the address of this version (browsers keep each one for good)', async () => {
+  // next.config.ts caches /rpg/game.js?v=… for a year, so the tag must change whenever the file does.
+  const { readFile } = await import('node:fs/promises'), { createHash } = await import('node:crypto')
+  const js = await readFile(new URL('../../public/rpg/game.js', import.meta.url)), html = await readFile(new URL('../../public/rpg/index.html', import.meta.url), 'utf8')
+  const tag = html.match(/game\.js\?v=([0-9a-f]+)/)?.[1]
+  assert.equal(tag, createHash('sha1').update(js).digest('hex').slice(0, 10), 'bump the ?v= tag in index.html to the first 10 hex digits of game.js\'s SHA-1')
+})
+
 test('loads cleanly, and every species has its sprites and cry', async () => {
   const g = await openGame()
   try {
