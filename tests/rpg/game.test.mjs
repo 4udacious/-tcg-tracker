@@ -40,6 +40,29 @@ test('loads cleanly, and every species has its sprites and cry', async () => {
   } finally { await g.close() }
 })
 
+test('a quick double tap on a phone: no double-tap scroll, and both taps still count', async () => {
+  const g = await openGame({ touch: true })
+  try {
+    const { page } = g
+    await page.waitForTimeout(800)
+    await page.evaluate(() => {
+      const b = document.createElement('button'); b.id = 'dt'; b.textContent = 'tap'; b.style.cssText = 'position:fixed;left:20px;top:20px;width:120px;height:60px;z-index:99999'
+      window.__dt = { clicks: 0, prevented: [] }
+      b.addEventListener('click', () => window.__dt.clicks++)
+      document.body.append(b)
+      addEventListener('touchend', (e) => setTimeout(() => window.__dt.prevented.push(e.defaultPrevented)), { capture: false })
+    })
+    await page.touchscreen.tap(80, 50); await page.waitForTimeout(120); await page.touchscreen.tap(80, 50)
+    await page.waitForTimeout(400)
+    await page.touchscreen.tap(80, 50)   // a slow third tap: the browser's own
+    await page.waitForTimeout(300)
+    const r = await page.evaluate(() => window.__dt)
+    assert.equal(r.clicks, 3, 'every tap clicked once')
+    assert.deepEqual(r.prevented, [false, true, false], 'only the quick second tap has its default cancelled')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('battle rules', async () => {
   const g = await openGame()
   try {

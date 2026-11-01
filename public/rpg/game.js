@@ -3991,6 +3991,25 @@ document.addEventListener('pointerdown', (e) => {
   if (!el || MODE !== 'play' || el.closest('.panel')?.style.display === 'none') return
   e.preventDefault(); hot(el); press(el.dataset.btn); pointerBtn = el.dataset.btn
 })
+/*
+ * No double-tap scroll on an iPhone. A quick second tap on a spot that isn't a
+ * button (the grey battle panel, say) makes iOS scroll the page to centre it,
+ * whatever touch-action says. So a tap that ends within 350 ms of the last one
+ * has its default cancelled (that stops the gesture, and the browser's own
+ * click), and the click is sent here instead, so the tap still does what it
+ * would have. Typing fields keep the browser's own handling.
+ */
+{
+  let lastEnd = -1e9
+  document.addEventListener('touchend', (e) => {
+    const quick = e.timeStamp - lastEnd < 350; lastEnd = e.timeStamp
+    if (!quick || e.touches.length || e.changedTouches.length !== 1 || !e.cancelable) return
+    const t = e.target, at = e.changedTouches[0]
+    if (!(t instanceof Element) || t.closest('input, textarea, select, [contenteditable]')) return
+    e.preventDefault()
+    t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: at.clientX, clientY: at.clientY, screenX: at.screenX, screenY: at.screenY }))
+  }, { passive: false })
+}
 const KEYS = { x: 'a', X: 'a', Enter: 'a', ' ': 'a', z: 'b', Z: 'b', Backspace: 'b', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }
 addEventListener('keydown', (e) => {
   const k = KEYS[e.key]
