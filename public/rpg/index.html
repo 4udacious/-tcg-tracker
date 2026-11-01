@@ -24,6 +24,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+/* Taps only: a quick double tap on an iPhone would otherwise zoom the page in (it looks like a little scroll). */
+html { touch-action: manipulation; }
 body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; justify-content: center; min-height: 100vh; }
 .wrap { width: min(100%, 400px); padding: 10px 16px 20px; display: flex; flex-direction: column; gap: 9px; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
