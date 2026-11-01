@@ -77,23 +77,29 @@ test('EXP: a Pokémon switched out after facing the foe still gets three quarter
       for (const p of v.party) p.hp = p.stats.hp
     })
     const [lead, second] = await page.evaluate(() => window.__vvm.party.map((m) => m.name))
-    for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
-    await page.selectOption('#nextTap', 'wild'); await page.evaluate(() => document.activeElement?.blur())
-    const from = log.length   // this battle's lines only (the tutorial's EXP is earlier)
-    let fought = false
-    for (let t = 0; t < 5 && !fought; t++) {
-      await page.evaluate(() => document.getElementById('home').click())
-      for (let i = 0; i < 25 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
-    }
-    assert.ok(fought, 'a wild battle started')
-    // Switch on the first turn: POKéMON, then the second slot.
     const shown = (sel) => page.evaluate((sel) => { const b = document.querySelector(sel); return !!(b && b.offsetParent && b.closest('.panel')?.style.display !== 'none') }, sel)
-    for (let i = 0; i < 60 && !(await shown('#pMain [data-act="party"]')); i++) await bot.step()
-    await page.dispatchEvent('#pMain [data-act="party"]', 'pointerdown')
-    for (let i = 0; i < 20 && !(await shown('#pParty [data-act="p1"]')); i++) await page.waitForTimeout(150)
-    await page.dispatchEvent('#pParty [data-act="p1"]', 'pointerdown')
-    for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+    let from = 0
     const gained = (name) => { const l = log.slice(from).find((x) => x.startsWith(`${name} gained`) && /EXP\. Points!/.test(x)); return l ? +l.match(/(\d+) EXP\. Points!/)[1] : null }
+    // A wild one can also leave without fainting (it flees, say): then there's no EXP to check, and it's tried again.
+    for (let attempt = 0; attempt < 3 && !gained(second); attempt++) {
+      await page.evaluate(() => { for (const p of window.__vvm.party) p.hp = p.stats.hp })
+      for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
+      await page.selectOption('#nextTap', 'wild'); await page.evaluate(() => document.activeElement?.blur())
+      from = log.length   // this battle's lines only (the tutorial's EXP is earlier)
+      let fought = false
+      for (let t = 0; t < 5 && !fought; t++) {
+        await page.evaluate(() => document.getElementById('home').click())
+        for (let i = 0; i < 25 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
+      }
+      assert.ok(fought, 'a wild battle started')
+      // Switch on the first turn: POKéMON, then the second slot. The party's order is the same each time: the starter leads.
+      await page.evaluate(() => { const v = window.__vvm.party; if (v[0].name === 'MACHAMP') v.reverse() })
+      for (let i = 0; i < 60 && !(await shown('#pMain [data-act="party"]')); i++) await bot.step()
+      await page.dispatchEvent('#pMain [data-act="party"]', 'pointerdown')
+      for (let i = 0; i < 20 && !(await shown('#pParty [data-act="p1"]')); i++) await page.waitForTimeout(150)
+      await page.dispatchEvent('#pParty [data-act="p1"]', 'pointerdown')
+      for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+    }
     const full = gained(second), part = gained(lead)
     assert.ok(full > 0, `${second}, out when the foe fell, got its EXP (${full})`)
     assert.equal(part, Math.max(1, Math.round(full * 0.75)), `${lead}, switched out after facing it, got three quarters (${part} of ${full})`)
