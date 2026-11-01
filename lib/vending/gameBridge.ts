@@ -182,6 +182,10 @@ export function makeVvmApi(userId: string) {
     },
     /** The game has these gifts in its save: mark them collected. */
     async ackGifts(ids: number[]) { await db.rpc('battle_ack_gifts', { p_ids: ids }) },
+    /** The last session died mid-battle (the browser reloaded it): where it was, and the device (v83, Admin → VVM → Crash reports). */
+    async reportCrash(note: Record<string, unknown>, device: Record<string, unknown>) {
+      await db.rpc('battle_report_crash', { p_note: note, p_device: device })
+    },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })

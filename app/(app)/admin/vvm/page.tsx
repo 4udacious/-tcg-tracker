@@ -5,6 +5,7 @@ import VvmSuppliesClient, { type SupplyRow } from './VvmSuppliesClient'
 import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
 import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
+import CrashReportsClient, { type CrashRow } from './CrashReportsClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export default async function AdminVvmPage() {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
@@ -40,6 +41,12 @@ export default async function AdminVvmPage() {
       .select('id, user_id, species, level, note, created_at, claimed_at, member:profiles!battle_gifts_user_id_fkey(username, display_name)')
       .order('created_at', { ascending: false })
       .limit(15),
+    // Crash reports from the battle game; an error (before v83) hides the section.
+    supabase
+      .from('battle_crash_reports')
+      .select('id, created_at, note, device, member:profiles!battle_crash_reports_user_id_fkey(username, display_name)')
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -92,6 +99,7 @@ export default async function AdminVvmPage() {
           recent={(gifts.data as unknown as GiftRow[] | null) ?? []}
         />
       )}
+      {!crashes.error && <CrashReportsClient reports={(crashes.data as unknown as CrashRow[] | null) ?? []} />}
     </div>
   )
 }

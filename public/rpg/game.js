@@ -3786,6 +3786,58 @@ const APP = (() => {
  * the machine is the game's own simulation.
  */
 const vvm = () => { if (!APP.on) return null; try { return window.parent !== window ? window.parent.__vvmApi ?? null : null } catch { return null } }
+
+/*
+ * Crash notes. Some members' phones reload the game in the middle of a
+ * battle (the browser killing the page). While a battle is on screen, the
+ * game keeps a small note on the device of where it is: the kind of battle
+ * and the opponent, the last lines shown, the music, any script error, and
+ * the device. It's marked closed when the battle ends or the page is left
+ * normally. If the game starts and finds an open note from the last few
+ * minutes, that session died mid-battle: the note goes to the server
+ * (battle_report_crash, v83) for Admin → VVM → Crash reports. App only.
+ */
+const CRUMBS = (() => {
+  const key = 'vvm-crumbs' + (APP.uid ? ':' + APP.uid : ''), on = APP.on
+  const ver = document.querySelector('script[src*="game.js"]')?.src.split('v=')[1] ?? ''
+  let c = null, last = 0
+  const write = (force) => {
+    if (!on || !c) return
+    const now = Date.now(); if (!force && now - last < 400) return
+    last = now; c.at = now; c.hidden = document.visibilityState === 'hidden'
+    const log = window.__audioLog ?? []
+    for (let i = log.length - 1; i >= 0; i--) if (log[i].kind === 'music') { c.music = log[i].name ?? 'none'; break }
+    if (performance.memory) c.heapMB = Math.round(performance.memory.usedJSHeapSize / 1e6)
+    try { localStorage.setItem(key, JSON.stringify(c)) } catch {}
+  }
+  const api = {
+    /** A battle (or its intro) is on screen. */
+    begin() { if (!on || c?.open) return; c = { open: true, started: Date.now(), kind: '', who: '', music: '', lines: [], errors: [], ver }; write(true) },
+    /** What it is, once the battle code knows. */
+    set(o) { if (c?.open) { Object.assign(c, o); write(true) } },
+    /** A line shown on screen. */
+    line(t) { if (!c?.open) return; c.lines.push(String(t).slice(0, 70)); if (c.lines.length > 12) c.lines.shift(); write() },
+    error(t) { if (!on) return; if (!c) api.begin(); c.errors.push(String(t).slice(0, 200)); if (c.errors.length > 3) c.errors.shift(); write(true) },
+    /** Back at the machine, or the page left normally: no crash. */
+    end() { if (!on || !c?.open) return; c.open = false; write(true); c = null },
+    /** Once the app's bridge is up: send the last session's note if it died mid-battle (read at start, before anything new is written). */
+    sendCrash() { const n = crashed; crashed = null; if (n) Promise.resolve(vvm()?.reportCrash?.(n, deviceOf())).catch(() => {}) },
+  }
+  const deviceOf = () => ({ ua: navigator.userAgent, screen: `${screen.width}x${screen.height}@${devicePixelRatio}`, mem: navigator.deviceMemory ?? null, cores: navigator.hardwareConcurrency ?? null })
+  let crashed = null
+  if (on) {
+    let n = null; try { n = JSON.parse(localStorage.getItem(key) || 'null') } catch {}
+    try { localStorage.removeItem(key) } catch {}
+    if (n?.open && Date.now() - n.at < 5 * 60e3) crashed = n
+  }
+  if (on) {
+    setInterval(() => { if (c?.open) write(true) }, 5000)   // a heartbeat, so "when" is close to the end
+    addEventListener('pagehide', () => api.end())
+    addEventListener('error', (e) => api.error(`${e.message} @${(e.filename ?? '').split('/').pop()}:${e.lineno}`))
+    addEventListener('unhandledrejection', (e) => api.error(`unhandled: ${e.reason?.message ?? e.reason}`))
+  }
+  return api
+})()
 /** A short vibration, in the app, if the player hasn't turned it off. */
 const buzz = (p) => { if (APP.haptics) try { navigator.vibrate?.(p) } catch {} }
 /** The sound engine calls this when it builds its mixer: the app's volume settings go on the two buses. */
@@ -4368,6 +4420,7 @@ async function run(id) {
   function panel(name) { for (const p of ['pPick', 'pNext', 'pMain', 'pFight', 'pBag', 'pParty', 'pDefend', 'pStrike', 'pEvo', 'pPad']) $(p).style.display = p === name ? 'block' : 'none' }
   function msg0(a, b) { $('l1').textContent = a; $('l2').textContent = b }
   async function say(a, b = '', hold = demo ? 470 : 620) {
+    CRUMBS.line(`${a} ${b}`.trim())
     msg0('', '')
     const full = [a, b]
     for (let line = 0; line < 2; line++) for (let i = 1; i <= full[line].length; i++) { $(line ? 'l2' : 'l1').textContent = full[line].slice(0, i); await W(APP.charMs) }
@@ -4389,7 +4442,10 @@ async function run(id) {
   async function demoPress(btn, after = 380, el = null) { await W(after); hot(el); press(btn) }
 
   /* ── layers and wipes ── */
-  function showLayer(which) { $('home').style.display = which === 'home' ? 'block' : 'none'; $('battleL').style.display = which === 'battle' ? 'block' : 'none' }
+  function showLayer(which) {
+    $('home').style.display = which === 'home' ? 'block' : 'none'; $('battleL').style.display = which === 'battle' ? 'block' : 'none'
+    if (MODE === 'play') { if (which === 'battle') CRUMBS.begin(); else if (which === 'home') CRUMBS.end() }   // crash notes: a battle on screen, or back
+  }
   /** The classic wild-encounter wipe: three flashes, then black bars sweep in from alternating sides. */
   async function wipeWild(swap) {
     sfx('wipe')
@@ -5824,7 +5880,10 @@ async function run(id) {
    * the same, waiting; when one of an owner's Pokémon faints they send the
    * next (in a solo double, any of theirs).
    */
-  async function duoBattle(o) { try { return await duoBattleCore(o) } finally { restoreForms() } }
+  async function duoBattle(o) {
+    CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
+    try { return await duoBattleCore(o) } finally { restoreForms() }
+  }
   async function duoBattleCore({ foes, bench: foeBench = [], trainers, allies = [], tips = null, plan }) {
     // Tips: what a partner says the first time each thing happens (TUTORIAL_TIPS).
     const shownTips = new Set()
@@ -7649,7 +7708,10 @@ async function run(id) {
     const r = { ...m, id: m.form.id, types: m.form.types, moves: m.form.moves }; delete r.form
     r.stats = statsAt(r, r.level); r.hp = Math.min(r.hp, r.stats.hp); return r
   }
-  async function battle(o) { try { return await battleCore(o) } finally { restoreForms() } }
+  async function battle(o) {
+    CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
+    try { return await battleCore(o) } finally { restoreForms() }
+  }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
     let me = party.find((m) => m.hp > 0)
     const foeTeam = kind === 'trainer' ? [foe, ...roster] : null   // a wild Pokémon has no team to show
@@ -9194,6 +9256,7 @@ async function run(id) {
       if (!live()) return
       if (loaded) resumed(loaded)
       if (!vvm()) return
+      CRUMBS.sendCrash()   // the last session died mid-battle: tell the server where
       await syncMachine(); if (loaded) await collectItems()
     })().catch(() => { cloudReady = true })
     setInterval(() => { if (live() && vvm() && homeState === 'idle' && !busy) syncMachine() }, 8000)
