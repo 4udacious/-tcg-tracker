@@ -134,3 +134,22 @@ test('music: when the audio thread can\'t keep up, the music lightens to its mel
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('iPhones start the music a tier lighter (no ornaments); music at volume 0 isn\'t built at all', async () => {
+  const iphone = await openGame({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1' })
+  const desktop = await openGame()
+  try {
+    assert.deepEqual(await iphone.page.evaluate(() => [IOS, MUSIC_LOAD.tier, MUSIC_LOAD.keep]), [true, 1, 1], 'an iPhone: lighter from the start')
+    assert.deepEqual(await desktop.page.evaluate(() => [IOS, MUSIC_LOAD.tier, MUSIC_LOAD.keep]), [false, 0, 2], 'a desktop: the full arrangement')
+    // In the app, with the music volume at 0 (Settings): no music nodes are made.
+    const made = await desktop.page.evaluate(async () => {
+      RUN++; Sound.stopMusic(); Sound.setOn(true)
+      let n = 0
+      for (const k of Object.getOwnPropertyNames(BaseAudioContext.prototype)) if (/^create/.test(k)) { const f = BaseAudioContext.prototype[k]; BaseAudioContext.prototype[k] = function (...a) { n++; return f.apply(this, a) } }
+      const count = async (off) => { window.__musicOff = () => off; Sound.music('gym'); const a = n; await new Promise((r) => setTimeout(r, 1500)); const b = n; Sound.stopMusic(); await new Promise((r) => setTimeout(r, 300)); return b - a }
+      return { on: await count(false), off: await count(true) }
+    })
+    assert.ok(made.on > 50, `music on builds notes (${made.on})`); assert.equal(made.off, 0, 'music at volume 0 builds none')
+    assert.deepEqual([...iphone.errors, ...desktop.errors], [])
+  } finally { await iphone.close(); await desktop.close() }
+})
