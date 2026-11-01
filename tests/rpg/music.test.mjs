@@ -177,3 +177,45 @@ test('memory: one room reverb per audio context, and only the most recent cries 
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('pre-rendered music: every song has a current file, and plays as one looping buffer at its loop points', async () => {
+  const g = await openGame()
+  try {
+    const { readFile, readdir } = await import('node:fs/promises')
+    const man = JSON.parse(await readFile(new URL('../../public/rpg/music.json', import.meta.url), 'utf8')).songs
+    const onDisk = new Set(await readdir(new URL('../../public/rpg/a/music/', import.meta.url)))
+    const want = await g.page.evaluate(() => Object.fromEntries(RENDERED_SONGS().map((n) => [n, musicSig(n)])))
+    const stale = Object.entries(want).filter(([n, sig]) => man[n]?.sig !== sig).map(([n]) => n)
+    assert.deepEqual(stale, [], `songs changed since their files were rendered: run npm run music:render (${stale.join(', ')})`)
+    assert.deepEqual(Object.keys(man).sort(), Object.keys(want).sort(), 'music.json lists exactly the rendered songs')
+    assert.deepEqual(Object.values(man).filter((f) => !onDisk.has(f.file)).map((f) => f.file), [], 'every file is there')
+    assert.equal(onDisk.size, Object.keys(man).length, 'and no old files are left behind')
+
+    // Playing: this Chromium can't decode AAC, so a stand-in decoder returns a buffer of the file's length (and, the
+    // second time, one that kept AAC's 1024-sample priming).
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic()
+      HTMLMediaElement.prototype.canPlayType = () => 'probably'
+      let extra = 0
+      BaseAudioContext.prototype.decodeAudioData = async function () { const f = window.__decoding; return new AudioBuffer({ numberOfChannels: 2, length: f.samples + extra, sampleRate: f.rate }) }
+      const man = await (await fetch('/rpg/music.json')).json()
+      let n = 0
+      for (const k of Object.getOwnPropertyNames(BaseAudioContext.prototype)) if (/^create/.test(k)) { const f0 = BaseAudioContext.prototype[k]; BaseAudioContext.prototype[k] = function (...a) { n++; return f0.apply(this, a) } }
+      const play = async (name) => {
+        window.__decoding = man.songs[name]; Sound.setOn(true); Sound.music(name)
+        for (let i = 0; i < 50 && window.__musicFile?.name !== name; i++) await new Promise((r) => setTimeout(r, 100))
+        const a = n; await new Promise((r) => setTimeout(r, 3000)); const b = n
+        const m = window.__musicFile, out = m && { name: m.name, loop: m.src.loop, loopStart: m.src.loopStart, loopEnd: m.src.loopEnd, perSec: (b - a) / 3 }
+        Sound.stopMusic(); await new Promise((r) => setTimeout(r, 500)); return out
+      }
+      const gym = await play('gym'); extra = 1024 + 300; const primed = await play('gym')
+      return { gym, primed, want: man.songs.gym, rate: man.songs.gym.rate }
+    })
+    assert.ok(r.gym, 'the gym theme played from its file')
+    assert.equal(r.gym.loop, true)
+    assert.ok(Math.abs(r.gym.loopStart - r.want.loopStart) < 1e-6 && Math.abs(r.gym.loopEnd - r.want.loopEnd) < 1e-6, 'looping at the manifest\'s points')
+    assert.ok(r.gym.perSec < 2, `about no audio nodes a second while it plays (${r.gym.perSec})`)
+    assert.ok(Math.abs(r.primed.loopStart - (r.want.loopStart + 1024 / r.rate)) < 1e-6, 'a decoder that keeps the priming: the loop points move 1024 samples later')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

@@ -1,0 +1,294 @@
+{
+ "songs": {
+  "battle": {
+   "file": "battle.ad80f94e.m4a",
+   "sig": "abc73a20",
+   "rate": 44100,
+   "samples": 2040676,
+   "loop": true,
+   "loopStart": 3.076916,
+   "loopEnd": 46.153832,
+   "gain": 1
+  },
+  "battleB": {
+   "file": "battleB.14a30059.m4a",
+   "sig": "a4b60920",
+   "rate": 44100,
+   "samples": 1989792,
+   "loop": true,
+   "loopStart": 3,
+   "loopEnd": 45,
+   "gain": 1
+  },
+  "caught": {
+   "file": "caught.a97701ff.m4a",
+   "sig": "cf14172e",
+   "rate": 44100,
+   "samples": 299880,
+   "loop": false,
+   "loopStart": 0,
+   "loopEnd": 0,
+   "gain": 1
+  },
+  "champion": {
+   "file": "champion.ab288efe.m4a",
+   "sig": "0a98d44b",
+   "rate": 44100,
+   "samples": 5032692,
+   "loop": true,
+   "loopStart": 6,
+   "loopEnd": 114,
+   "gain": 1
+  },
+  "championIntro": {
+   "file": "championIntro.3f5c1688.m4a",
+   "sig": "96e5728a",
+   "rate": 44100,
+   "samples": 1063692,
+   "loop": true,
+   "loopStart": 4.8,
+   "loopEnd": 24,
+   "gain": 1
+  },
+  "e4Agatha": {
+   "file": "e4Agatha.2e030dfe.m4a",
+   "sig": "e0b6e5b4",
+   "rate": 44100,
+   "samples": 1265292,
+   "loop": true,
+   "loopStart": 5.714286,
+   "loopEnd": 28.571429,
+   "gain": 1
+  },
+  "e4Bruno": {
+   "file": "e4Bruno.94215380.m4a",
+   "sig": "16de9287",
+   "rate": 44100,
+   "samples": 807111,
+   "loop": true,
+   "loopStart": 3.636372,
+   "loopEnd": 18.181837,
+   "gain": 1
+  },
+  "e4KantoLance": {
+   "file": "e4KantoLance.761a0895.m4a",
+   "sig": "e8260db1",
+   "rate": 44100,
+   "samples": 985292,
+   "loop": true,
+   "loopStart": 4.444444,
+   "loopEnd": 22.222222,
+   "gain": 1
+  },
+  "e4Karen": {
+   "file": "e4Karen.bc442f8c.m4a",
+   "sig": "7b812474",
+   "rate": 44100,
+   "samples": 1107792,
+   "loop": true,
+   "loopStart": 5,
+   "loopEnd": 25,
+   "gain": 1
+  },
+  "e4Koga": {
+   "file": "e4Koga.2047b726.m4a",
+   "sig": "1bd13781",
+   "rate": 44100,
+   "samples": 887292,
+   "loop": true,
+   "loopStart": 4,
+   "loopEnd": 20,
+   "gain": 1
+  },
+  "e4Lorelei": {
+   "file": "e4Lorelei.ecf53209.m4a",
+   "sig": "358fd1ba",
+   "rate": 44100,
+   "samples": 714042,
+   "loop": true,
+   "loopStart": 3.214286,
+   "loopEnd": 16.071429,
+   "gain": 1
+  },
+  "e4Will": {
+   "file": "e4Will.6cc1a940.m4a",
+   "sig": "3a71a7a1",
+   "rate": 44100,
+   "samples": 1022984,
+   "loop": true,
+   "loopStart": 4.615374,
+   "loopEnd": 23.076916,
+   "gain": 1
+  },
+  "elite": {
+   "file": "elite.fee4d587.m4a",
+   "sig": "fd80f43b",
+   "rate": 44100,
+   "samples": 2122092,
+   "loop": true,
+   "loopStart": 6,
+   "loopEnd": 48,
+   "gain": 1
+  },
+  "encounter": {
+   "file": "encounter.b636533c.m4a",
+   "sig": "6dc30973",
+   "rate": 44100,
+   "samples": 283818,
+   "loop": true,
+   "loopStart": 0,
+   "loopEnd": 6.315782,
+   "gain": 1
+  },
+  "evolution": {
+   "file": "evolution.e5c88c68.m4a",
+   "sig": "3827826b",
+   "rate": 44100,
+   "samples": 646747,
+   "loop": true,
+   "loopStart": 0,
+   "loopEnd": 14.545465,
+   "gain": 1
+  },
+  "evolved": {
+   "file": "evolved.2dbcc14c.m4a",
+   "sig": "de5a2d91",
+   "rate": 44100,
+   "samples": 434700,
+   "loop": false,
+   "loopStart": 0,
+   "loopEnd": 0,
+   "gain": 1
+  },
+  "gym": {
+   "file": "gym.96b1504c.m4a",
+   "sig": "8164bd46",
+   "rate": 44100,
+   "samples": 1980972,
+   "loop": true,
+   "loopStart": 6.4,
+   "loopEnd": 44.8,
+   "gain": 1
+  },
+  "gymIntro": {
+   "file": "gymIntro.37b6c682.m4a",
+   "sig": "a3817195",
+   "rate": 44100,
+   "samples": 950292,
+   "loop": true,
+   "loopStart": 4.285714,
+   "loopEnd": 21.428571,
+   "gain": 1
+  },
+  "hallOfFame": {
+   "file": "hallOfFame.fbe79b5c.m4a",
+   "sig": "ebefd2a0",
+   "rate": 44100,
+   "samples": 2076075,
+   "loop": true,
+   "loopStart": 5.217392,
+   "loopEnd": 46.956531,
+   "gain": 1
+  },
+  "kantoElite": {
+   "file": "kantoElite.4e0c313c.m4a",
+   "sig": "ee1be6e4",
+   "rate": 44100,
+   "samples": 1605199,
+   "loop": true,
+   "loopStart": 2.790703,
+   "loopEnd": 36.27907,
+   "gain": 1
+  },
+  "red": {
+   "file": "red.c358e17e.m4a",
+   "sig": "af0d1482",
+   "rate": 44100,
+   "samples": 2076075,
+   "loop": true,
+   "loopStart": 5.217392,
+   "loopEnd": 46.956531,
+   "gain": 1
+  },
+  "rival": {
+   "file": "rival.29a7312e.m4a",
+   "sig": "66adf12b",
+   "rate": 44100,
+   "samples": 2273292,
+   "loop": true,
+   "loopStart": 5.714286,
+   "loopEnd": 51.428571,
+   "gain": 1
+  },
+  "rival2": {
+   "file": "rival2.661a8a65.m4a",
+   "sig": "a6f17b3b",
+   "rate": 44100,
+   "samples": 2386692,
+   "loop": true,
+   "loopStart": 6,
+   "loopEnd": 54,
+   "gain": 1
+  },
+  "rival3": {
+   "file": "rival3.ccd1fce7.m4a",
+   "sig": "c018b375",
+   "rate": 44100,
+   "samples": 2220548,
+   "loop": true,
+   "loopStart": 5.581406,
+   "loopEnd": 50.232562,
+   "gain": 1
+  },
+  "rivalTalk": {
+   "file": "rivalTalk.094e75ce.m4a",
+   "sig": "f768c70f",
+   "rate": 44100,
+   "samples": 726929,
+   "loop": true,
+   "loopStart": 1.818186,
+   "loopEnd": 16.363651,
+   "gain": 1
+  },
+  "victory": {
+   "file": "victory.22b899ea.m4a",
+   "sig": "047464fe",
+   "rate": 44100,
+   "samples": 283500,
+   "loop": false,
+   "loopStart": 0,
+   "loopEnd": 0,
+   "gain": 1
+  },
+  "vs": {
+   "file": "vs.d4601c2b.m4a",
+   "sig": "91e8c06b",
+   "rate": 44100,
+   "samples": 236748,
+   "loop": false,
+   "loopStart": 0,
+   "loopEnd": 0,
+   "gain": 1
+  },
+  "wild": {
+   "file": "wild.8854ea91.m4a",
+   "sig": "19c9aeb5",
+   "rate": 44100,
+   "samples": 534492,
+   "loop": true,
+   "loopStart": 0,
+   "loopEnd": 12,
+   "gain": 1
+  },
+  "win": {
+   "file": "win.95763176.m4a",
+   "sig": "35ddbc46",
+   "rate": 44100,
+   "samples": 358092,
+   "loop": true,
+   "loopStart": 0,
+   "loopEnd": 8,
+   "gain": 1
+  }
+ }
+}
