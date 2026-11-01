@@ -405,7 +405,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
@@ -441,6 +441,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf && window.__vvm.bag.potion === 2, null, { timeout: 15000 })
     const start = await frame.evaluate(() => ({ wallet: document.getElementById('wallet').textContent, discs: Object.keys(window.__vvm.bag).filter((k) => k.startsWith('disc:')).length }))
     assert.equal(start.wallet, '10.00 tk', 'the wallet is the real balance'); assert.equal(start.discs, 1, 'a bought Move Disc became a disc in the Bag')
+    assert.equal(await frame.evaluate(() => window.__vvm.bag.fullheal), 1, 'a bought Full Heal is a FULL HEAL in the Bag')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
     await frame.waitForFunction(() => /TAC-07/.test(document.getElementById('poolWhere').textContent), null, { timeout: 10000 })
     const pool = await frame.evaluate(() => ({ where: document.getElementById('poolWhere').textContent, shown: [...document.querySelectorAll('#poolMons .nm')].map((b) => b.textContent), want: window.__vvm.poolFor('TAC-07') }))
