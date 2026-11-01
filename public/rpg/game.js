@@ -520,13 +520,26 @@ scheduleSong = function scheduleSong(ac, out, song, t0) {
    logs each one, so the offline render for videos can place it too. */
 const CRY_VOL = 0.4   // 20% quieter than it was (0.5)
 const cryCache = new WeakMap()
+/**
+ * Decoded cries kept for reuse: the most recently heard CRY_KEEP only. Every
+ * cry heard used to stay decoded for the whole visit (~0.2 MB each, all 372
+ * about 72 MB), which on a long session is the kind of steady growth an
+ * iPhone ends by killing the page. One evicted is just fetched (from the
+ * browser's cache) and decoded again.
+ */
+const CRY_KEEP = 24
 async function cryBuffer(ac, id) {
   const src = ART['cry:' + id]; if (!src) return null
   if (!cryCache.has(ac)) cryCache.set(ac, new Map())
   const m = cryCache.get(ac)
-  if (!m.has(id)) m.set(id, fetch(src).then((r) => r.arrayBuffer()).then((b) => ac.decodeAudioData(b)).catch(() => null))
-  return m.get(id)
+  let p = m.get(id)
+  if (p) m.delete(id)   // re-inserted below: the newest
+  else p = fetch(src).then((r) => r.arrayBuffer()).then((b) => ac.decodeAudioData(b)).catch(() => null)
+  m.set(id, p)
+  while (m.size > CRY_KEEP) m.delete(m.keys().next().value)   // the least recently heard
+  return p
 }
+window.__cryCacheSize = (ac) => cryCache.get(ac)?.size ?? 0
 function playBuffer(ac, out, buf, t, rate) {
   const s = ac.createBufferSource(), g = ac.createGain()
   s.buffer = buf; s.playbackRate.value = rate; g.gain.value = CRY_VOL
@@ -585,7 +598,8 @@ function mixer(ac, out, vol = 1) {
   // A trim after the glue, so the fuller arrangement sits at the old music's level under effects and cries.
   const trim = ac.createGain(); trim.gain.value = 0.3 * vol
   comp.connect(trim).connect(out)
-  const conv = ac.createConvolver(); conv.buffer = roomIR(ac)
+  // One room impulse per audio context, shared by every song's mixer (it was built afresh, ~0.65 MB, each time a song started).
+  const conv = ac.createConvolver(); conv.buffer = (ac.__roomIR ??= roomIR(ac))
   const ret = ac.createGain(); ret.gain.value = 0.32
   conv.connect(ret).connect(comp)
   const ch = {}
@@ -4457,6 +4471,9 @@ async function run(id) {
   function showLayer(which) {
     $('home').style.display = which === 'home' ? 'block' : 'none'; $('battleL').style.display = which === 'battle' ? 'block' : 'none'
     if (MODE === 'play') { if (which === 'battle') CRUMBS.begin(); else if (which === 'home') CRUMBS.end() }   // crash notes: a battle on screen, or back
+    // Back at the machine: let go of the battle's images, so the browser can drop their decoded frames (an animated
+    // sprite is kept decoded, every frame, while it's loaded, up to ~9 MB; hidden isn't enough). The next battle sets them again.
+    if (which === 'home') for (const img of document.querySelectorAll('#enemy img, #player img, #trainer img, #vsImg')) img.removeAttribute('src')
   }
   /** The classic wild-encounter wipe: three flashes, then black bars sweep in from alternating sides. */
   async function wipeWild(swap) {
