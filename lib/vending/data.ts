@@ -22,6 +22,23 @@ const SET_NAMES: Record<string, string> = {
   neo3: 'Neo Revelation',
 }
 
+/**
+ * Every row of a query, a page at a time. Supabase returns at most 1000 rows
+ * per request, so a member with more cards than that was missing their
+ * newest ones. The query must have a stable order (end it on a unique column).
+ */
+const PAGE = 1000
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
+  const rows: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1)
+    if (error) throw error
+    const got = (data as T[] | null) ?? []
+    rows.push(...got)
+    if (got.length < PAGE) return rows
+  }
+}
+
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
 
 /** Your token balance and how it splits into allowance (expires) and earned (kept). */
@@ -70,7 +87,7 @@ export async function loadBoxes(supabase: SupabaseClient, userId: string): Promi
  * before they reach the client). Listed copies are left out.
  */
 export async function loadCards(supabase: SupabaseClient, userId: string): Promise<CollectionCard[]> {
-  const { data } = await supabase
+  const data = await allRows<unknown>((from, to) => supabase
     .from('user_cards')
     .select('id, center_x, center_y, corners, edges, surface, border_wear, wear_seed, ' +
             'crease, holes, rips, cleaning_started_at, cleaning_ready_at, times_cleaned, ' +
@@ -79,6 +96,8 @@ export async function loadCards(supabase: SupabaseClient, userId: string): Promi
     .eq('user_id', userId)
     .is('market_listing_id', null)
     .order('acquired_at')
+    .order('id')
+    .range(from, to))
 
   type Card = { id: number; set_code: string; number: string; name: string; rarity: string; image_url: string }
   type CopyRow = {
@@ -93,7 +112,7 @@ export async function loadCards(supabase: SupabaseClient, userId: string): Promi
   }
 
   const cardMap = new Map<number, CollectionCard>()
-  for (const row of (data as unknown as CopyRow[] | null) ?? []) {
+  for (const row of data as CopyRow[]) {
     const c = one(row.vending_cards)
     if (!c) continue
     let entry = cardMap.get(c.id)
@@ -109,9 +128,9 @@ export async function loadCards(supabase: SupabaseClient, userId: string): Promi
 
 /** Totals per set, for the "12/102" completion counters. */
 export async function loadSetTotals(supabase: SupabaseClient): Promise<SetTotal[]> {
-  const { data } = await supabase.from('vending_cards').select('set_code')
+  const data = await allRows<{ set_code: string }>((from, to) => supabase.from('vending_cards').select('set_code').order('id').range(from, to))
   const counts = new Map<string, number>()
-  for (const c of (data as { set_code: string }[] | null) ?? []) counts.set(c.set_code, (counts.get(c.set_code) ?? 0) + 1)
+  for (const c of data) counts.set(c.set_code, (counts.get(c.set_code) ?? 0) + 1)
   return [...counts.entries()]
     .map(([set_code, total]) => ({ set_code, set_name: SET_NAMES[set_code] ?? set_code, total }))
     .sort((a, b) => a.set_code.localeCompare(b.set_code))
