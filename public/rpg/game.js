@@ -142,7 +142,8 @@ const Sound = (() => {
   }
   function startMusic(name) {
     stopNodes()
-    const song = SONGS[name]; if (!song || !on) return
+    // Music at volume 0 (Settings) isn't built at all, rather than played silently: no nodes, no memory.
+    const song = SONGS[name]; if (!song || !on || window.__musicOff?.()) return
     ensure()
     musGain = ac.createGain(); musGain.connect(musBus)
     let next = ac.currentTime + 0.15   // a short lead-in: the first pass (mixer, reverb, a song's worth of notes) is built in time
@@ -934,6 +935,16 @@ function lightenMusic(why) {
   MUSIC_LOAD.tier++; MUSIC_LOAD.keep = 2 - MUSIC_LOAD.tier; MUSIC_LOAD.slow = 0
   MUSIC_LOAD.changes.push({ tier: MUSIC_LOAD.tier, why, at: performance.now() })
 }
+/*
+ * iPhones and iPads start a tier lighter (no ornaments). Their browser keeps
+ * each finished note's nodes in memory until it gets round to freeing them,
+ * and iOS kills a page that holds too much: members' games were reloading
+ * mid-battle there (Admin → VVM → Crash reports). Without the ornaments a song
+ * builds about half the nodes (trainer B 344 → 170 a second, the Champion
+ * 455 → 183, the gym 193 → 127); the melody, harmony, bass and drums stay.
+ */
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+if (IOS) lightenMusic('iOS: lighter from the start')
 function watchLoad(ac) {
   let wall = performance.now(), clock = ac.currentTime, ran = ac.state === 'running'
   setInterval(() => {
@@ -3804,7 +3815,7 @@ const CRUMBS = (() => {
   const write = (force) => {
     if (!on || !c) return
     const now = Date.now(); if (!force && now - last < 400) return
-    last = now; c.at = now; c.hidden = document.visibilityState === 'hidden'
+    last = now; c.at = now; c.hidden = document.visibilityState === 'hidden'; c.musicTier = MUSIC_LOAD.tier
     const log = window.__audioLog ?? []
     for (let i = log.length - 1; i >= 0; i--) if (log[i].kind === 'music') { c.music = log[i].name ?? 'none'; break }
     if (performance.memory) c.heapMB = Math.round(performance.memory.usedJSHeapSize / 1e6)
@@ -3812,7 +3823,7 @@ const CRUMBS = (() => {
   }
   const api = {
     /** A battle (or its intro) is on screen. */
-    begin() { if (!on || c?.open) return; c = { open: true, started: Date.now(), kind: '', who: '', music: '', lines: [], errors: [], ver }; write(true) },
+    begin() { if (!on || c?.open) return; c = { open: true, started: Date.now(), kind: '', who: '', music: '', musicTier: MUSIC_LOAD.tier, musicVol: APP.music, lines: [], errors: [], ver }; write(true) },
     /** What it is, once the battle code knows. */
     set(o) { if (c?.open) { Object.assign(c, o); write(true) } },
     /** A line shown on screen. */
@@ -3842,6 +3853,7 @@ const CRUMBS = (() => {
 const buzz = (p) => { if (APP.haptics) try { navigator.vibrate?.(p) } catch {} }
 /** The sound engine calls this when it builds its mixer: the app's volume settings go on the two buses. */
 window.__busReady = (sfx, mus) => { if (APP.on) { sfx.gain.value = 0.9 * APP.fx; mus.gain.value = 0.5 * APP.music } }
+window.__musicOff = () => APP.on && APP.music <= 0
 if (APP.on) document.body.classList.add('app')
 // On the app's VVM tab the frame sits under the app's own header, with no exit button over it.
 if (APP.on && new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed')
