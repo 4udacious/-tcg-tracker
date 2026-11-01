@@ -24,12 +24,16 @@ test('the Pokémon Center: three free heals a day, then paid ones; back the next
       return { before, after }
     }
     await page.evaluate(() => document.getElementById('home').click())   // back to idle from the screen the tutorial ends on
+    // One in the Box, hurt and poisoned: the Pokémon Center heals the party only.
+    await page.evaluate(() => { const m = individual(speciesByName('PIDGEY'), 10, Math.random); m.hp = 1; m.status = 'psn'; window.__vvm.box.push(m) })
+    const boxed = () => page.evaluate(() => { const m = window.__vvm.box.at(-1); return { hp: m.hp, status: m.status } })
     const price = await page.evaluate(() => window.__vvm.healPrice)
     for (let n = 1; n <= 3; n++) {
       const h = await heal()
       assert.equal(h.before.off, false, `free heal ${n} is there`)
       assert.match(h.before.text, new RegExp(`free — ${4 - n} left today`))
       assert.ok(h.after.full, `free heal ${n} heals the party`); assert.equal(h.after.wallet, h.before.wallet, 'and costs nothing')
+      assert.deepEqual(await boxed(), { hp: 1, status: 'psn' }, `free heal ${n} leaves the Box alone`)
     }
     // The fourth: paid.
     const paid = await heal()
