@@ -140,19 +140,57 @@ const Sound = (() => {
     if (!ac) { ac = new AudioContext(); const g = graph(ac); sfxBus = g.s; musBus = g.m; window.__busReady?.(sfxBus, musBus) }
     if (ac.state === 'suspended') ac.resume()
   }
+  /*
+   * Pre-rendered music. Each song (but the dev picker's "classic" versions)
+   * is rendered once by this engine (scripts/render-music.mjs) to a file in
+   * /rpg/a/music/: its intro, then one loop, and public/rpg/music.json says
+   * where the loop starts and ends. Playing one is a single buffer looping on
+   * the exact sample, instead of a synthesiser per note (hundreds of audio
+   * nodes a second, which iPhones were killing the page over). One song is
+   * decoded at a time. A song without a file, or whose file won't load, is
+   * played live as before.
+   */
+  let files = null, filesP = null, fileTok = 0, fileSrc = null
+  // The files are AAC: Safari, Chrome and Edge decode it; a browser that can't (some Linux builds) plays the songs live.
+  let aac = null
+  const canAac = () => (aac ??= !!document.createElement('audio').canPlayType?.('audio/mp4; codecs="mp4a.40.2"'))
+  const loadFiles = () => (filesP ??= fetch('/rpg/music.json').then((r) => (r.ok ? r.json() : null)).then((j) => (files = j?.songs ?? {})).catch(() => (files = {})))
+  async function playFile(name, song, g, f) {
+    const tok = ++fileTok
+    try {
+      const bytes = await (await fetch(`/rpg/a/music/${f.file}`)).arrayBuffer()
+      const buf = await ac.decodeAudioData(bytes)
+      if (tok !== fileTok || g.__stopped) return
+      // A decoder that keeps AAC's priming (1024 samples, then up to a frame of padding at the end) puts everything that much
+      // late: the loop points move with it. (One that trims the start but not the end comes out under 1024 long.)
+      const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
+      const src = ac.createBufferSource(), v = ac.createGain()
+      src.buffer = buf; v.gain.value = f.gain ?? 1
+      if (f.loop) { src.loop = true; src.loopStart = f.loopStart + lead; src.loopEnd = f.loopEnd + lead }
+      src.connect(v).connect(g); src.start(ac.currentTime + 0.03, lead)
+      fileSrc = src; window.__musicFile = { name, src, f }
+    } catch { if (tok === fileTok && !g.__stopped) playSynth(song, g) }   // no file to be had: play it live
+  }
+  function playSynth(song, g) {
+    let next = ac.currentTime + 0.15   // a short lead-in: the first pass (mixer, reverb, a song's worth of notes) is built in time
+    const pass = () => { next += scheduleSong(ac, g, song, next) }
+    pass()
+    if (song.loop) loopTimer = setInterval(() => { if (ac.currentTime > next - 2.5) pass() }, 250)
+  }
   function startMusic(name) {
     stopNodes()
     // Music at volume 0 (Settings) isn't built at all, rather than played silently: no nodes, no memory.
     const song = SONGS[name]; if (!song || !on || window.__musicOff?.()) return
     ensure()
-    musGain = ac.createGain(); musGain.connect(musBus)
-    let next = ac.currentTime + 0.15   // a short lead-in: the first pass (mixer, reverb, a song's worth of notes) is built in time
-    const pass = () => { next += scheduleSong(ac, musGain, song, next) }
-    pass()
-    if (song.loop) loopTimer = setInterval(() => { if (ac.currentTime > next - 2.5) pass() }, 250)
+    const g = musGain = ac.createGain(); musGain.connect(musBus)
+    if (window.__synthMusic) return playSynth(song, g)   // testing, and the render script: the live engine
+    const go = () => { if (musGain !== g) return; const f = files[name]; f && f.sig === musicSig(name) && canAac() ? playFile(name, song, g, f) : playSynth(song, g) }
+    files ? go() : loadFiles().then(go)
   }
   function stopNodes() {
+    fileTok++
     if (loopTimer) { clearInterval(loopTimer); loopTimer = null }
+    if (fileSrc) { const s = fileSrc; fileSrc = null; window.__musicFile = null; try { s.stop(ac.currentTime + 0.4) } catch {} }
     if (musGain) { const g = musGain; musGain = null; g.__stopped = true; try { g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => g.disconnect(), 400) } catch {} }
   }
   return {
@@ -1262,6 +1300,23 @@ function schedulePart(ac, out, song, t0) {
   q.sort((a, b) => a.t - b.t)
   return song.lead.length * step
 }
+
+/**
+ * A song's fingerprint: its notes and settings, and the source of everything
+ * that plays them (every instrument and drum, the mixer, the reverb). A
+ * pre-rendered file (public/rpg/music.json) is used only while its
+ * fingerprint still matches, so changing a song, or how an instrument
+ * sounds, falls back to the live engine until it's rendered again
+ * (scripts/render-music.mjs; tests/rpg checks none is stale).
+ */
+let ENGINE_SIG = null
+function musicSig(name) {
+  const h = (str) => { let x = 0x811c9dc5; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0 } return x.toString(16).padStart(8, '0') }
+  ENGINE_SIG ??= h([schedulePart, scheduleSong, mixer, roomIR, voice, kitVoice, adsr, vibrato, oscAt, noiseHit, chordPcs, tone, noise, ...Object.values(INST), ...Object.values(KIT)].map(String).join('\n') + JSON.stringify(CHANNELS))
+  return h(ENGINE_SIG + JSON.stringify(SONGS[name]))
+}
+/** Every song that gets a pre-rendered file: all but the dev picker's classic versions. */
+const RENDERED_SONGS = () => Object.keys(SONGS).filter((n) => !/Classic$/.test(n))
 
 /* ── video soundtrack, now in stereo ──
    Replaces the template's mono render: the same timeline of logged sounds,

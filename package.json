@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "test:rpg": "node --test --test-concurrency=4 \"tests/rpg/game.test.mjs\" \"tests/rpg/play-*.test.mjs\" && node --test \"tests/rpg/music.test.mjs\"",
-    "sim:rpg": "node tests/rpg/sim.mjs"
+    "sim:rpg": "node tests/rpg/sim.mjs",
+    "music:render": "node scripts/render-music.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
