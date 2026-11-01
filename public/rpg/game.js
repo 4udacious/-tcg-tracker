@@ -4708,7 +4708,7 @@ async function run(id) {
      tickets, and the admin's battle supplies. Cart keys are 'set:CODE',
      'ticket:ID' and 'sup:KEY'. */
   // Catalog supplies (vvm_supplies) and what they are in the Bag.
-  const BAG_OF = { potion: 'potion', super_potion: 'super', revive: 'revive', poke_ball: 'ball', great_ball: 'great', rare_candy: 'rarecandy' }
+  const BAG_OF = { potion: 'potion', super_potion: 'super', revive: 'revive', poke_ball: 'ball', great_ball: 'great', rare_candy: 'rarecandy', full_heal: 'fullheal' }
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
