@@ -567,6 +567,22 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .bagtabs button { flex: 1; min-width: 0; padding: 7px 2px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
 .bagtabs button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .bagtabs button i { font-style: normal; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); font-size: 9px; }
+.boxnav { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 6px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.boxnav b { flex: 1; text-align: center; font-size: 13px; letter-spacing: .08em; }
+.boxnav span { font-size: 11px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.boxnav button { width: 36px; height: 32px; border: 0; border-radius: 9px; background: var(--card); color: var(--ink); font-size: 13px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.boxtabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin: 0 0 8px; }
+.boxtabs button { min-width: 0; padding: 5px 0 4px; border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 8px; background: none; color: var(--ink); font-size: 11px; font-weight: 800; cursor: pointer; line-height: 1.1; }
+.boxtabs button i { display: block; font-style: normal; font-size: 9px; font-weight: 700; color: var(--muted); }
+.boxtabs button.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.boxtabs button.on i { color: inherit; opacity: .75; }
+.boxtabs button.full:not(.on) i { color: #dc2626; }
+.boxtabs button:disabled { opacity: .45; cursor: default; }
+.boxtabs button.on:disabled { opacity: 1; }
+.boxsort { display: flex; align-items: center; gap: 4px; margin: 0 0 8px; flex-wrap: wrap; }
+.boxsort span { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.boxsort button { padding: 5px 9px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }
+.boxsort button.on { background: var(--ink); color: var(--card); }
 /* Move Discs in the Bag, and what's learned later in the Box. */
 .irow .ic.disc, .adm .ic.disc, .supic.disc { border-radius: 50%; background: radial-gradient(circle, #f8fafc 0 18%, #1f2937 19% 24%, transparent 25%), conic-gradient(#a78bfa, #60a5fa, #34d399, #fbbf24, #f472b6, #a78bfa); }
 .irow .ic.disc::after, .adm .ic.disc::after, .supic.disc::after { display: none; }
@@ -1193,6 +1209,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=c23c37ce9e"></script>
+<script src="/rpg/game.js?v=59a048b47f"></script>
 </body>
 </html>
