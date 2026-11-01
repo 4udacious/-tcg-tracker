@@ -2251,9 +2251,13 @@ function learn(m) {
   if (m.moves) return m
   const known = levelMoves(m).filter(([lv]) => lv <= m.level).map(([, n]) => n)
   m.learned = known
-  m.moves = [known[0], ...known.slice(1).slice(-(MAX_MOVES - 1))]
+  // Transform is what a Ditto is for: it stays equipped (with the basic move), whatever else it has learned since.
+  const keep = known.includes('TRANSFORM') && known[0] !== 'TRANSFORM' ? ['TRANSFORM'] : []
+  m.moves = [known[0], ...keep, ...known.slice(1).filter((n) => !keep.includes(n)).slice(-(MAX_MOVES - 1 - keep.length))]
   return m
 }
+/** Knows Transform by its level (a Ditto): the CPU's use it on their first turn. */
+const canTransform = (m) => !!SPECIES_MOVES[m.name]?.some(([lv, n]) => n === 'TRANSFORM' && lv <= m.level)
 /** Teaches one move (a level-up or a Move Disc), equipping it if there's a free slot. */
 function teach(m, n, fromDisc = false) {
   learn(m)
@@ -6314,6 +6318,11 @@ async function run(id) {
         const heal = TRAINER_SUPPORT[s.mon.name]
         if (scripted?.move && SUPPORT[scripted.move]) return { actor: s, move: moveInfo(scripted.move), target: s }
         if (s.charged) { const up = alive('p'); return { actor: s, move: s.charged, target: up[Math.floor(rand() * up.length)] } }
+        // A Ditto transforms on its first turn out, into one of yours.
+        if (!scripted && canTransform(s.mon) && !s.mon.form?.stats && !s.triedTransform && !S(s.mon).taunt) {
+          s.triedTransform = true; const up = alive('p')
+          return { actor: s, move: moveInfo('TRANSFORM'), target: up[Math.floor(rand() * up.length)] }
+        }
         // Decided now, when it would pick a move: the wasted turn still happens in speed order.
         if (!scripted && s.owner?.blunder && flavor() < s.owner.blunder) return { actor: s, move: { name: 'BLUNDER', kind: 'blunder', prio: 0, cost: 0 } }
         if (!scripted && heal && s.mon.hp < s.mon.stats.hp * 0.45 && rand() < 0.7) return { actor: s, move: moveInfo(heal), target: s }
@@ -6596,12 +6605,13 @@ async function run(id) {
           const r = teach(actor.mon, n); sfx('levelup'); await say(`${actor.mon.name} sketched`, `${n}!${r.equipped ? '' : ' (swap it in from the Box)'}`, 350); return true
         }
         case 'transform': {
-          if (miss || !mine || actor.ally || actor.mon.form?.stats || !T) return false
+          if (miss || actor.ally || actor.mon.form?.stats || !T) return false
           const m = actor.mon, into = T.mon
           m.form ??= { id: m.id, types: m.types, stats: m.stats, moves: m.moves }
           const names = levelMoves({ name: into.name, types: into.types }).filter(([lv, n]) => lv <= m.level && MOVEDEX[n]).map(([, n]) => n).slice(-4)
           m.id = into.id; m.types = [...into.types]; m.stats = { ...into.stats, hp: m.stats.hp }; if (names.length) m.moves = names
-          sfx('shadow'); const at = DUO_AT.p[actor.i]; await place(actor.el, spr(m, true), at.x, at.y, at.scale, at.maxH, at.maxW)
+          // A foe's attacks follow its types (foeCommands), so it fights with the moves of what it copied.
+          sfx('shadow'); const at = DUO_AT[actor.side][actor.i]; await place(actor.el, spr(m, mine), at.x, at.y, at.scale, at.maxH, at.maxW)
           await say(`${m.name} transformed`, `into ${into.name}!`, 300); return true
         }
         case 'curse': {
@@ -8003,13 +8013,18 @@ async function run(id) {
       }
       return false
     }
-    /** Transform: you become the foe for this battle (put back by restoreForms()). */
+    /**
+     * Transform: becomes the other side for this battle. Yours is put back by
+     * restoreForms(); a wild one you catch, when it's caught. A foe then
+     * fights with the moves its trainer (or the wild) would give what it copied.
+     */
     async function transformInto(m, into) {
       m.form ??= { id: m.id, types: m.types, stats: m.stats, moves: m.moves }
       const names = levelMoves({ name: into.name, types: into.types }).filter(([lv, n]) => lv <= m.level && MOVEDEX[n]).map(([, n]) => n).slice(-4)
       m.id = into.id; m.types = [...into.types]; m.stats = { ...into.stats, hp: m.stats.hp }; m.moves = names.length ? names : m.moves
-      sfx('shadow'); const pr = await place($('player'), spr(m, true), FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW); C.p = { x: pr.x, y: Math.min(pr.y, 200) }
-      if (m.shiny) shinySparkle(C.p)
+      sfx('shadow')
+      if (m === me) { const pr = await place($('player'), spr(m, true), FOOT.p.x, FOOT.p.y, 2.0, FOOT.p.maxH, FOOT.p.maxW); C.p = { x: pr.x, y: Math.min(pr.y, 200) }; if (m.shiny) shinySparkle(C.p) }
+      else { foeMoves = movesFor({ ...m, name: into.name, roamer: false }); const er = await place($('enemy'), spr(m), FOOT.e.x, FOOT.e.y, 1.6, FOOT.e.maxH, FOOT.e.maxW); C.e = { x: er.x, y: er.y }; if (m.shiny) shinySparkle(C.e) }
       await say(`${m.name} transformed`, `into ${into.name}!`, 350)
     }
     /**
@@ -8028,7 +8043,7 @@ async function run(id) {
           if (!foeLast || (!MOVEDEX[foeLast] && !SUPPORT[foeLast]) || learn(me).learned.includes(foeLast)) return false
           const r = teach(me, foeLast); sfx('levelup'); await say(`${me.name} sketched`, `${foeLast}!${r.equipped ? '' : ' (swap it in from the Box)'}`, 400); return true
         }
-        case 'transform': if (miss || user !== me || user.form?.stats) return false; await transformInto(user, other); return true
+        case 'transform': if (miss || user.form?.stats) return false; await transformInto(user, other); return true
         case 'curse': {
           const cost = Math.floor(user.stats.hp / 2)
           if (ot.cursed || user.hp <= cost) return false   // not enough HP left to pay for it
@@ -8523,6 +8538,14 @@ async function run(id) {
       }
       if (kind === 'trainer' && !demoNoBlunder && (await blunder(trainer, foe))) return
       if (await blockedByStatus(foe)) return
+      // A Ditto transforms on its first turn out, into yours.
+      if (canTransform(foe) && !foe.form?.stats && !foe.triedTransform && !ST(foe).taunt && !foe.charged) {
+        foe.triedTransform = true; foe.turn++
+        await announce(`${kind === 'trainer' ? '' : 'The wild '}${foe.name} used`, 'TRANSFORM!', 300); foeLast = 'TRANSFORM'
+        if (ST(me).protect) await say(who(me), 'protected itself!', 300)
+        else if (!(await specialMove(SUPPORT.TRANSFORM, foe, { label: 'GOOD', mult: 1 }))) await say('But it failed!', '', 300)
+        return
+      }
       // A wild Abra, Kadabra or Alakazam may just teleport away (not if Mean Look holds it).
       if (kind === 'wild' && TELEPORTERS.has(foe.name) && !ST(foe).trapped && chance() < TELEPORT_CHANCE) {
         await announce(`${who(foe)} used`, 'TELEPORT!', 300); foeLast = 'TELEPORT'
@@ -8913,13 +8936,15 @@ async function run(id) {
     const b = bangOn($('home'), 150, 160); await W(560); b.remove()
     // Now and then, one of the roaming legendaries instead: the shared one, HP and all.
     const roamer = legend || (!demoPlan && flavor() < LEGEND_RATE) ? pickLegend() : null
-    const species = demoPlan ? DATA.wild.find((w) => w.name === demoPlan.wild) : wildFrom(YOU)   // from your seed's pool this week
+    const species = demoPlan ? DATA.wild.find((w) => w.name === demoPlan.wild) : window.__forceWild ? speciesByName(window.__forceWild) : wildFrom(YOU)   // from your seed's pool this week (__forceWild: testing only)
     const foe = roamer ?? individual(species, demoPlan ? 4 : wildLevel(species), rand)
     if (!roamer && !demoPlan && SHINY_IDS.has(foe.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) foe.shiny = true   // __forceShiny: testing only
     if (roamer) { sfx('quake'); $('homeSub').textContent = `a powerful presence... ${roamer.name} burst out!` }
     await wipeWild(async () => { setScene(WILD_SCENES, sceneRoll); showLayer('battle') })
     const out = await battle({ kind: 'wild', foe, plan: demoPlan?.turns, planD: demoPlan?.defend })
     if (out.result === 'caught') {
+      if (foe.form) { Object.assign(foe, unformed(foe)); delete foe.form }   // a Ditto that transformed is a Ditto again
+      delete foe.triedTransform
       foe.hp = foe.stats.hp
       if (party.length < 6) party.push(foe); else box.push(foe)
       $('player').style.visibility = 'hidden'; $('phud').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'

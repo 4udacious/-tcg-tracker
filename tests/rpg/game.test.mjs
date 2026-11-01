@@ -1060,6 +1060,15 @@ test('trainers and wild Pokémon keep pace with you only up to a few levels belo
   } finally { await g.close() }
 })
 
+test('Ditto keeps Transform equipped as it levels', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(() => [5, 20, 40, 70].map((lv) => { const m = individual(speciesByName('DITTO'), lv, Math.random); learn(m); return { lv, moves: m.moves, n: m.moves.length } }))
+    for (const x of r) { assert.ok(x.moves.includes('TRANSFORM'), `Lv ${x.lv}: ${x.moves}`); assert.ok(x.n <= 4) }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('names: Nidoran\'s ♀ and ♂ are in the game font and sit on the line', async () => {
   const g = await openGame()
   try {
