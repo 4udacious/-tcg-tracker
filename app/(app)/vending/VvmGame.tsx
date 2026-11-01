@@ -84,7 +84,7 @@ export default function VvmGame({ userId, initialBuys }: { userId: string; initi
           title="The VVM"
           allow="autoplay; vibrate"
           className="block w-full border-0 bg-[#eef1f6]"
-          style={{ height: 'calc(100dvh - 56px - 64px - env(safe-area-inset-bottom))' }}
+          style={{ height: 'calc(100dvh - 56px - 64px - env(safe-area-inset-bottom))', touchAction: 'manipulation' }}
         />
       </div>
 

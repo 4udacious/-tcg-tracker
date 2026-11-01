@@ -35,6 +35,7 @@ test('loads cleanly, and every species has its sprites and cry', async () => {
       return bad
     })
     assert.deepEqual(broken, [])
+    assert.equal(await g.page.evaluate(() => getComputedStyle(document.documentElement).touchAction), 'manipulation', 'no double-tap zoom')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
