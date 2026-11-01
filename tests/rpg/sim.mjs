@@ -30,7 +30,7 @@ const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
  * Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2): Alex's first battle is the friendly one, the last the hardest in the game.
  * Herb's and Paul's first glitcher battles are easy too (their Pokémon haven't evolved yet), their last a little harder than a leader.
  */
-export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.35, 'HERB 1': 0.9, 'PAUL 1': 0.9, 'HERB 4': 0.65, 'PAUL 4': 0.65 }
+export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.25, 'HERB 1': 0.9, 'PAUL 1': 0.9, 'HERB 4': 0.65, 'PAUL 4': 0.65 }
 
 export const SKILLS = {
   casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1 },
@@ -100,7 +100,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
       // Confused (after a rampage): a third of the time it hurts itself instead.
       if (conf && --conf && R() < 1 / 3) { foe.hp = Math.max(0, foe.hp - confusionDmg(foe)); if (foe.hp <= 0) { if (!roster.length) return true; next(roster.shift()) } continue }
       // The toughest leaders pull a Pokémon out of a bad matchup: the game's own rule (switchPick).
-      if (switches > 0 && roster.length > 1 && !charged && R() < 0.7) {
+      if (switches > 0 && roster.length > 1 && !charged && (T.switchSure || R() < 0.7)) {
         const to = switchPick(foe, roster.slice(0, -1), me, me.sim, (f) => movesFor(f, false))
         if (to) { switches--; roster.splice(roster.indexOf(to), 1); roster.splice(roster.length - 1, 0, foe); next(to); continue }
       }

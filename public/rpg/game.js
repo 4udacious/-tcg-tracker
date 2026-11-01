@@ -3556,8 +3556,9 @@ const ALEX = {
  * `last` words) with one Full Restore at most. A battle's own `tellRate`,
  * `ringFast` and `ivs` override its phase's, tuned to its aim (sim.mjs: 3
  * wins in 4, the friendly first 9 in 10). Battle 7, the hardest fight in the
- * game, has Red's rings, the fastest, but fewer tells and softer IVs: about 1
- * win in 3 for an average player.
+ * game, has the fastest rings, two Full Restores, and pulls a Pokémon out of a
+ * bad matchup every time it pays (switchSure, up to 3), with fewer tells and
+ * softer IVs: about 1 win in 4 for an average player.
  */
 const RIVAL_PHASE_OF = [1, 1, 1, 2, 2, 3, 3]
 /** Each phase's look (its art: rival-<phase>-vs.jpg, -face, -body, and -defeated and -face-down for a loss), theme and scene. */
@@ -3598,7 +3599,7 @@ const RIVAL_BATTLES = [
     intro: ["You're better off vending with Paul and Herb. Do you even like Pokémon?", "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ["I won't let the other trainers down…", "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ['Go back to Johto.', 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, low: 77, min: 80, restores: 1, tellRate: 0.33, switches: 2, ringFast: 0.66, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, low: 77, min: 80, restores: 2, tellRate: 0.33, switches: 3, switchSure: true, ringFast: 0.6, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['Your story ends here.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ["Hmm, maybe I had the wrong idea about you. You're not a scalper.", "Thanks for not letting me win the wrong way. See you around, Champion."],
@@ -4814,7 +4815,7 @@ async function run(id) {
       const sp = speciesByName(x.species); if (!sp) continue
       const m = individual(sp, x.level ?? wildLevel(sp), rand); m.hp = m.stats.hp
       if (SHINY_IDS.has(m.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) m.shiny = true   // __forceShiny: testing only
-      if (party.length < 6) party.push(m); else box.push(m)
+      if (party.length < 6) party.push(m); else toBox(m)
       giftIds = [...giftIds, x.id].slice(-200)
       got.push({ m, note: x.note, boxed: !party.includes(m) })
     }
@@ -5217,6 +5218,43 @@ async function run(id) {
       }).join('')
   }
   const everyone = () => [...party, ...box]
+  /*
+   * Boxes: the Box is many boxes of BOX_CAP each, BOX_MIN to start and another
+   * whenever they're all full. `box` stays one list (the save's), and each
+   * Pokémon in it keeps its box number (m.boxNo). You look at one box at a
+   * time (boxAt), sorted as you choose (boxSort); both are saved.
+   */
+  const BOX_CAP = 30, BOX_MIN = 8
+  let boxAt = 0, boxSort = 'caught'
+  const BOX_SORTS = { caught: 'Caught', level: 'Level', name: 'Name', type: 'Type', dex: 'No.' }
+  const boxOf = (m) => (Number.isInteger(m.boxNo) && m.boxNo >= 0 ? m.boxNo : -1)   // -1: not settled yet (settleBoxes)
+  const boxFill = (b) => box.reduce((n, m) => n + (boxOf(m) === b), 0)
+  function boxCount() {
+    const n = Math.max(BOX_MIN, ...box.map((m) => boxOf(m) + 1))
+    return Array.from({ length: n }, (_, b) => boxFill(b)).every((c) => c >= BOX_CAP) ? n + 1 : n
+  }
+  /** Where a Pokémon goes into the Box: the box you're looking at if it has room, otherwise the next one that does. */
+  function boxRoom(from = boxAt) {
+    const n = boxCount()
+    for (let k = 0; k < n; k++) { const b = (from + k) % n; if (boxFill(b) < BOX_CAP) return b }
+    return n
+  }
+  /** Puts a Pokémon in the Box (in boxRoom()); returns its box number. */
+  function toBox(m, from) { m.boxNo = boxRoom(from); box.push(m); return m.boxNo }
+  /** A save from before boxes (or one with gaps): each Pokémon without a box goes in the first with room, in the order caught. */
+  function settleBoxes() {
+    const loose = box.filter((m) => !Number.isInteger(m.boxNo) || m.boxNo < 0)
+    for (const m of loose) delete m.boxNo
+    for (const m of loose) m.boxNo = boxRoom(0)
+    boxAt = Math.min(Math.max(0, boxAt | 0), boxCount() - 1)
+    if (!BOX_SORTS[boxSort]) boxSort = 'caught'
+  }
+  /** The Box indexes (into `box`) of one box's Pokémon, in the chosen order. */
+  function boxView(b) {
+    const js = box.map((m, j) => j).filter((j) => boxOf(box[j]) === b)
+    const by = { level: (x, y) => y.level - x.level, name: (x, y) => x.name.localeCompare(y.name), type: (x, y) => x.types[0].localeCompare(y.types[0]) || x.id - y.id, dex: (x, y) => x.id - y.id }[boxSort]
+    return by ? js.sort((i, k) => by(unformed(box[i]), unformed(box[k])) || i - k) : js
+  }
   /**
    * The Box: your party, then everyone else. Tap a Pokémon for its moves; the
    * button beside it moves it between party and Box. With a full party, SWAP IN
@@ -5230,12 +5268,19 @@ async function run(id) {
     const inParty = party.map((m, i) => row(m, i, pick != null
       ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
       : `<button class="pbtn" data-deposit="${i}" ${party.length > 1 ? '' : 'disabled'} aria-label="Move ${m.name} to the Box">→ BOX</button>`)).join('')
-    const inBox = box.map((m, j) => row(m, party.length + j, party.length < 6
+    const n = boxCount(); boxAt = Math.min(boxAt, n - 1)
+    const inBox = boxView(boxAt).map((j) => { const m = box[j]; return row(m, party.length + j, party.length < 6
       ? `<button class="pbtn" data-withdraw="${j}" aria-label="Move ${m.name} to your party">→ PARTY</button>`
-      : `<button class="pbtn${pick === party.length + j ? ' on' : ''}" data-withdraw="${j}" aria-label="Swap ${m.name} into your party">${pick === party.length + j ? 'CANCEL' : 'SWAP IN'}</button>`)).join('')
-    return `<p class="note" style="margin:0 2px 8px">${pick != null ? `Now tap <b>SWAP</b> on the party Pokémon that ${everyone()[pick].name} replaces.` : 'Tap a Pokémon to choose its four moves. The button beside it moves it between your party and the Box.'}</p>` +
+      : `<button class="pbtn${pick === party.length + j ? ' on' : ''}" data-withdraw="${j}" aria-label="Swap ${m.name} into your party">${pick === party.length + j ? 'CANCEL' : 'SWAP IN'}</button>`) }).join('')
+    const tabs = Array.from({ length: n }, (_, b) => { const c = boxFill(b)
+      return `<button class="${b === boxAt ? 'on' : ''}${c >= BOX_CAP ? ' full' : ''}" data-boxto="${b}" aria-label="Box ${b + 1}, ${c} of ${BOX_CAP}" aria-current="${b === boxAt}">${b + 1}<i>${c}</i></button>` }).join('')
+    return `<p class="note" style="margin:0 2px 8px">${pick != null ? `Now tap <b>SWAP</b> on the party Pokémon that ${everyone()[pick].name} replaces.` : 'Tap a Pokémon to choose its four moves (and move it to another box). The button beside it moves it between your party and the Box.'}</p>` +
       `<div class="lbl">Party <span>${party.length}/6 · battle order is set in Party</span></div>${inParty}` +
-      `<div class="lbl">Box <span>${box.length ? `${box.length} Pokémon` : 'empty'}</span></div>${inBox || '<p class="note">Catches land here once your party has six. You can also send party Pokémon here.</p>'}`
+      `<div class="lbl">Boxes <span>${box.length} Pokémon in ${n} boxes</span></div>` +
+      `<div class="boxnav"><button data-boxgo="-1" aria-label="Previous box">◀</button><b>BOX ${boxAt + 1}</b><span>${boxFill(boxAt)}/${BOX_CAP}</span><button data-boxgo="1" aria-label="Next box">▶</button></div>` +
+      `<div class="boxtabs" role="tablist">${tabs}</div>` +
+      `<div class="boxsort"><span>Sort</span>${Object.entries(BOX_SORTS).map(([k, l]) => `<button class="${k === boxSort ? 'on' : ''}" data-boxsort="${k}" aria-pressed="${k === boxSort}">${l}</button>`).join('')}</div>` +
+      (inBox || `<p class="note">BOX ${boxAt + 1} is empty. Catches land in the box you're looking at once your party has six (the next box with room if it's full), and you can send party Pokémon here.</p>`)
   }
   /** What a move does, in a line: its category and power (or its effect), and anything special about it. */
   function moveDetail(n) {
@@ -5252,6 +5297,8 @@ async function run(id) {
     return `<button class="back" data-back>◀ ${backTo}</button>
       <div class="svhead"><img src="${spr(m)}" alt=""><div><div class="nm"><b>${m.name}</b> <span>Lv ${m.level}</span></div>
         <div class="types">${m.types.map((t) => `<span style="background:${TYPE_COL[t]}">${t}</span>`).join('')}</div></div></div>
+      ${box.includes(m) ? `<div class="lbl">In BOX ${boxOf(m) + 1} <span>move it to another box</span></div><div class="boxtabs">${Array.from({ length: boxCount() }, (_, b) => { const c = boxFill(b)
+        return `<button class="${b === boxOf(m) ? 'on' : ''}${c >= BOX_CAP ? ' full' : ''}" data-moveto="${b}" ${b === boxOf(m) || c >= BOX_CAP ? 'disabled' : ''} aria-label="Move to box ${b + 1}, ${c} of ${BOX_CAP}">${b + 1}<i>${c}</i></button>` }).join('')}</div>` : ''}
       <div class="lbl">Equipped · ${m.moves.length}/${MAX_MOVES} <span>${slot == null ? 'tap one to swap it out' : 'now tap a learned move below'}</span></div>
       <div class="mvgrid">${m.moves.map((n, i) => moveCard(n, `data-slot="${i}"`, i === slot ? ' sel' : '')).join('')}</div>
       <div class="lbl">Learned <span>${spare.length} more</span></div>
@@ -5378,7 +5425,15 @@ async function run(id) {
       // Box: pick a Pokémon, pick an equipped slot, pick a learned move to put there.
       if (a.mon != null) { view = { page: 'moves', mon: everyone()[a.mon], slot: null }; sfx('select') }
       // Party ⇄ Box (the Box sheet). The party never goes below one.
-      if (a.deposit != null && party.length > 1) { const [m] = party.splice(a.deposit, 1); box.push(m); view.pick = null; sfx('move'); toast = `${m.name} went to the Box.` }
+      if (a.deposit != null && party.length > 1) { const [m] = party.splice(a.deposit, 1); const b = toBox(m); boxAt = b; view.pick = null; sfx('move'); toast = `${m.name} went to BOX ${b + 1}.` }
+      // Boxes: step through them, jump to one, sort, or move a Pokémon (from its page) to another.
+      if (a.boxgo != null) { const n = boxCount(); boxAt = (boxAt + a.boxgo + n) % n; view.pick = null; sfx('move') }
+      if (a.boxto != null) { boxAt = a.boxto; view.pick = null; sfx('move') }
+      if (a.boxsort != null && BOX_SORTS[a.boxsort]) { boxSort = a.boxsort; sfx('move') }
+      if (a.moveto != null && view.mon && box.includes(view.mon)) {
+        if (boxFill(a.moveto) >= BOX_CAP) { toast = `BOX ${a.moveto + 1} is full.`; toastBad = true; sfx('blocked') }
+        else { view.mon.boxNo = a.moveto; sfx('select'); toast = `${view.mon.name} moved to BOX ${a.moveto + 1}.` }
+      }
       if (a.withdraw != null) {
         const j = a.withdraw, m = box[j]
         if (party.length < 6) { box.splice(j, 1); party.push(m); view.pick = null; sfx('select'); toast = `${m.name} joined your party.` }
@@ -5386,7 +5441,7 @@ async function run(id) {
       }
       if (a.swapat != null && view.pick != null) {
         const j = view.pick - party.length, m = box[j], out = party[a.swapat]
-        party[a.swapat] = m; box[j] = out; view.pick = null; sfx('select'); toast = `${m.name} swapped in for ${out.name}, who went to the Box.`
+        out.boxNo = boxOf(m); party[a.swapat] = m; box[j] = out; view.pick = null; sfx('select'); toast = `${m.name} swapped in for ${out.name}, who went to the Box.`
       }
       if (a.slot != null) { view.slot = view.slot === a.slot ? null : a.slot; sfx('move') }
       if (a.learn != null) {
@@ -5418,7 +5473,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'boxgo', 'boxto', 'boxsort', 'moveto']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -8552,7 +8607,7 @@ async function run(id) {
         await specialMove(SUPPORT.TELEPORT, foe, { label: 'GOOD', mult: 1 }); return
       }
       // The toughest leaders pull a Pokémon out of a bad matchup (switchPick), most of the time.
-      if (switches > 0 && roster.length > 1 && !ST(foe).trapped && !foe.charged && !demo && rand() < 0.7) {
+      if (switches > 0 && roster.length > 1 && !ST(foe).trapped && !foe.charged && !demo && (trainer.switchSure || rand() < 0.7)) {   // switchSure (Alex's last): every time it pays
         const to = switchPick(foe, roster.slice(0, -1), me, movesOf(me).map((n) => MOVEDEX[n]), movesFor)
         if (to) { switches--; await foeSwitchTo(to); return }
       }
@@ -8946,11 +9001,11 @@ async function run(id) {
       if (foe.form) { Object.assign(foe, unformed(foe)); delete foe.form }   // a Ditto that transformed is a Ditto again
       delete foe.triedTransform
       foe.hp = foe.stats.hp
-      if (party.length < 6) party.push(foe); else box.push(foe)
+      const boxed = party.length < 6 ? (party.push(foe), null) : toBox(foe)
       $('player').style.visibility = 'hidden'; $('phud').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'
       renderTools()
       if (demo) cap('CAUGHT', `It arrives with its own IVs and nature, rolled the moment it appeared. ${party[0].name} kept its damage — HP carries over.`)
-      await summary(foe, evoText(foe) ? `Evolves: ${evoText(foe)}` : 'It does not evolve.', `${foe.name} joined your party!`, `Party ${party.length}/6`)
+      await summary(foe, evoText(foe) ? `Evolves: ${evoText(foe)}` : 'It does not evolve.', boxed == null ? `${foe.name} joined your party!` : `${foe.name} was sent to BOX ${boxed + 1}.`, boxed == null ? `Party ${party.length}/6` : `Your party is full · BOX ${boxed + 1}: ${boxFill(boxed)}/${BOX_CAP}`)
       Sound.stopMusic()
     }
     else if (out.result === 'lost') { await say('You have no Pokémon left', 'that can fight!') }
@@ -9344,7 +9399,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -9401,6 +9456,7 @@ async function run(id) {
   function loadGame(s = readLocal()) {
     if (!s?.v || !s.party?.length) return false
     party.splice(0, party.length, ...s.party); box.splice(0, box.length, ...(s.box ?? []))
+    boxAt = s.boxAt ?? 0; boxSort = s.boxSort ?? 'caught'; settleBoxes()
     restoreForms()   // a save from before that fix may still have one in it
     for (const k of Object.keys(bag)) delete bag[k]
     for (const [k, n] of Object.entries(s.bag ?? {})) {

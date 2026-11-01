@@ -1060,6 +1060,58 @@ test('trainers and wild Pokémon keep pace with you only up to a few levels belo
   } finally { await g.close() }
 })
 
+test('boxes: an old save fills Box 1 then 2, and you can switch boxes, sort, move one across and deposit', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.waitForTimeout(600)
+    await page.evaluate(() => {
+      const mk = (n, lv) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; learn(m); return m }
+      const names = ['PIDGEY', 'RATTATA', 'ZUBAT', 'GEODUDE', 'ODDISH', 'MAGIKARP', 'ABRA', 'EEVEE']
+      const party = names.slice(0, 6).map((n) => mk(n, 20))
+      const box = Array.from({ length: 40 }, (_, i) => mk(names[i % names.length], 5 + (i * 7) % 40))   // a save from before boxes: no boxNo
+      localStorage.setItem('vvm-save', JSON.stringify({ v: 1, at: Date.now(), party, box, bag: {}, wallet: 5, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+    })
+    await page.click('#mPlay')
+    await page.waitForFunction(() => window.__vvm?.party?.length === 6, null, { timeout: 10000 })
+    await page.waitForTimeout(800)
+    const open = async () => { await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBox').click() }); await page.waitForSelector('#sheet.open .boxnav') }
+    const shown = () => page.evaluate(() => ({
+      title: document.querySelector('.boxnav b').textContent, count: document.querySelector('.boxnav span').textContent,
+      rows: document.querySelectorAll('#sheetBody .boxrow').length - window.__vvm.party.length,
+      levels: [...document.querySelectorAll('#sheetBody .boxrow')].slice(window.__vvm.party.length).map((r) => +r.querySelector('.nm span').textContent.match(/Lv (\d+)/)[1]),
+      tabs: [...document.querySelectorAll('.boxtabs button')].map((b) => b.querySelector('i').textContent),
+    }))
+    await open()
+    let r = await shown()
+    assert.deepEqual([r.title, r.count, r.rows], ['BOX 1', '30/30', 30], 'the first 30 fill Box 1')
+    assert.deepEqual(r.tabs, ['30', '10', '0', '0', '0', '0', '0', '0'], 'eight boxes; the other 10 went to Box 2')
+    await page.click('[data-boxgo="1"]'); r = await shown()
+    assert.deepEqual([r.title, r.rows], ['BOX 2', 10])
+    await page.click('[data-boxsort="level"]'); r = await shown()
+    assert.deepEqual(r.levels, [...r.levels].sort((a, b) => b - a), 'sorted by level, highest first')
+    // A Pokémon's page: move it to Box 5.
+    await page.evaluate(() => document.querySelectorAll('#sheetBody .boxrow .boxmon')[window.__vvm.party.length].click())
+    await page.click('[data-moveto="4"]')
+    assert.match(await page.textContent('#sheetBody .toast'), /moved to BOX 5/)
+    await page.click('[data-back]'); r = await shown()
+    assert.deepEqual([r.title, r.rows, r.tabs[4]], ['BOX 2', 9, '1'])
+    await page.click('[data-boxto="4"]'); r = await shown()
+    assert.deepEqual([r.title, r.rows], ['BOX 5', 1], 'a tab jumps straight to its box')
+    // Deposit from the party: into the box being looked at.
+    await page.click('[data-deposit="5"]')
+    assert.match(await page.textContent('#sheetBody .toast'), /went to BOX 5/); r = await shown()
+    assert.equal(r.rows, 2)
+    // Box 1 is full: a deposit there goes to the next box with room.
+    await page.click('[data-boxto="0"]'); await page.click('[data-deposit="4"]')
+    assert.match(await page.textContent('#sheetBody .toast'), /went to BOX 2/)
+    const saved = await page.evaluate(() => { window.__saveNow(); const s = JSON.parse(localStorage.getItem('vvm-save')); return { at: s.boxAt, sort: s.boxSort, nos: s.box.map((m) => m.boxNo) } })
+    assert.equal(saved.sort, 'level'); assert.equal(saved.at, 1)
+    assert.deepEqual([0, 1, 4].map((b) => saved.nos.filter((n) => n === b).length), [30, 10, 2], 'each Pokémon\'s box is in the save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Ditto keeps Transform equipped as it levels', async () => {
   const g = await openGame()
   try {
