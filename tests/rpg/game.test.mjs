@@ -850,7 +850,7 @@ test('rival: Alex\'s seven battles, their phases, teams, Full Restores and miles
     assert.deepEqual(b.map((x) => x.phase), [1, 1, 1, 2, 2, 3, 3], 'phase 1: battles 1-3, phase 2: 4-5, phase 3: 6-7')
     assert.deepEqual(b.map((x) => x.theme), ['rival', 'rival', 'rival', 'rival2', 'rival2', 'rival3', 'rival3'])
     assert.ok(r.songs, 'the three rival themes and the encounter music exist')
-    assert.deepEqual(b.map((x) => x.restores), [1, 1, 1, 1, 1, 1, 1], 'one Full Restore at most, in every battle')
+    assert.deepEqual(b.map((x) => x.restores), [1, 1, 1, 1, 1, 1, 2], 'one Full Restore in each battle, two in the last')
     assert.deepEqual(b.map((x) => x.pory.join()), ['PORYGON', 'PORYGON', 'PORYGON', 'PORYGON2', 'PORYGON2', 'PORYGON-Z', 'PORYGON-Z'], 'Porygon in every team, evolving with the phases')
     assert.deepEqual(b.map((x) => x.mewtwo), [false, false, false, false, false, false, true], 'Mewtwo joins for the last battle')
     assert.ok(b.every((x) => ['PORYGON', 'PORYGON2', 'PORYGON-Z', 'MEWTWO'].includes(x.last)), 'the ace is always Porygon or Mewtwo')

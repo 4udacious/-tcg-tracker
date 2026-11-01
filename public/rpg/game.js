@@ -5268,6 +5268,7 @@ async function run(id) {
     const inParty = party.map((m, i) => row(m, i, pick != null
       ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
       : `<button class="pbtn" data-deposit="${i}" ${party.length > 1 ? '' : 'disabled'} aria-label="Move ${m.name} to the Box">→ BOX</button>`)).join('')
+    settleBoxes()   // anything put in the Box without a box number gets one
     const n = boxCount(); boxAt = Math.min(boxAt, n - 1)
     const inBox = boxView(boxAt).map((j) => { const m = box[j]; return row(m, party.length + j, party.length < 6
       ? `<button class="pbtn" data-withdraw="${j}" aria-label="Move ${m.name} to your party">→ PARTY</button>`
