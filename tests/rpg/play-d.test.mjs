@@ -73,6 +73,7 @@ test('a wild Ditto transforms on its first turn, into your Pokémon', { skip: qu
     await bot.finishTutorial()
     await page.evaluate(() => {
       const m = individual(speciesByName('CHARMANDER'), 20, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      m.stats.atk = m.stats.spa = 1   // weak hits, so the Ditto always lives to take its first turn
       window.__vvm.party.splice(0, 9, m); window.__forceWild = 'DITTO'
     })
     const from = log.length
