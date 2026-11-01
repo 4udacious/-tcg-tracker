@@ -742,6 +742,10 @@ test('in the app: one Gym Summon at a time: not for sale while one is in the Bag
     let frame = await open({ ball: 1, 'summon:2': 1 }, {})
     const held = await frame.$eval('[data-buy="sup:gym_summon"]', (b) => ({ off: b.disabled, meta: b.querySelector('.meta').textContent }))
     assert.equal(held.off, true, 'a summon in the Bag: the Gym Summon is greyed out'); assert.match(held.meta, /you have one/)
+    // Spares for a gym already beaten (bought before one at a time): they become the next gym's.
+    frame = await open({ ball: 1, 'summon:0': 2 }, {})
+    const carried = await frame.evaluate(() => ({ old: window.__vvm.bag['summon:0'] ?? 0, next: window.__vvm.bag['summon:2'] ?? 0, feed: document.body.textContent }))
+    assert.deepEqual([carried.old, carried.next], [0, 2], 'two spare Zephyr summons are now two for gym 3'); assert.match(carried.feed, /2 spare summons/)
     frame = await open({ ball: 1 }, {})
     assert.equal(await frame.$eval('[data-buy="sup:gym_summon"]', (b) => b.disabled), false, 'none in the Bag: on sale')
     for (let t = 0; t < 10 && !/CART 1/.test(await frame.$eval('#cbSum', (e) => e.textContent)); t++) {   // once the machine's screen has settled
