@@ -153,3 +153,27 @@ test('iPhones start the music a tier lighter (no ornaments); music at volume 0 i
     assert.deepEqual([...iphone.errors, ...desktop.errors], [])
   } finally { await iphone.close(); await desktop.close() }
 })
+
+test('memory: one room reverb per audio context, and only the most recent cries kept decoded', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic(); Sound.setOn(true)
+      // Long buffers made (a room impulse is 1.7 s): starting four songs in a row should build at most one.
+      const long = []
+      const make = BaseAudioContext.prototype.createBuffer
+      BaseAudioContext.prototype.createBuffer = function (ch, n, rate) { if (n > rate) long.push(n / rate); return make.call(this, ch, n, rate) }
+      for (const song of ['gymIntro', 'gym', 'victory', 'win']) { Sound.music(song); await new Promise((r) => setTimeout(r, 400)) }
+      Sound.stopMusic()
+      // Cries: 40 different ones heard, on a context of our own.
+      const ac = new AudioContext(), ids = Object.keys(ART).filter((k) => k.startsWith('cry:')).slice(0, 40).map((k) => k.slice(4))
+      for (const id of ids) await window.__playCry(ac, ac.destination, id)
+      const kept = window.__cryCacheSize(ac)
+      await ac.close()
+      return { impulses: long.filter((s) => s > 1.5 && s < 2).length, kept, CRY_KEEP }
+    })
+    assert.ok(r.impulses <= 1, `the room reverb built once for four songs (${r.impulses})`)
+    assert.equal(r.kept, r.CRY_KEEP, `40 cries heard, the latest ${r.CRY_KEEP} kept decoded`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

@@ -606,6 +606,8 @@ test('in the app: a roaming legendary met in a wild battle is reported for the h
       await page.waitForTimeout(250)
     }
     await page.waitForTimeout(500)
+    // Back at the machine, the battle's images are let go (their decoded frames can be dropped).
+    assert.deepEqual(await frame.evaluate(() => [...document.querySelectorAll('#enemy img, #player img, #trainer img, #vsImg')].map((i) => i.getAttribute('src'))), [null, null, null, null], 'the battle\'s sprites released')
     const calls = await page.evaluate(() => window.__calls)
     assert.equal(calls.length, 1, `one report for the feed (${JSON.stringify(calls)})`)
     const [kind, species, id, level] = calls[0]
