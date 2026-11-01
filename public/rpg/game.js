@@ -3877,6 +3877,42 @@ const vvm = () => { if (!APP.on) return null; try { return window.parent !== win
  * minutes, that session died mid-battle: the note goes to the server
  * (battle_report_crash, v83) for Admin → VVM → Crash reports. App only.
  */
+/*
+ * A newer version of the game. A member who keeps the app open for hours
+ * stays on the version they loaded. In the app, the game compares its own
+ * ?v= tag with the one in the server's index.html every few minutes and
+ * when the tab comes back; once they differ, a bar under the machine says so
+ * (only at the machine, never mid-battle), and a tap saves and reloads the
+ * game. A reload is leaving normally (pagehide), so it's never reported as a crash.
+ */
+const UPDATE = (() => {
+  const mine = document.querySelector('script[src*="game.js"]')?.src.split('v=')[1] ?? ''
+  let ready = false
+  const atMachine = () => document.getElementById('battleL')?.style.display !== 'block' && !document.getElementById('sheet')?.classList.contains('open')
+  const paint = () => { const b = document.getElementById('updateBar'); if (b) b.hidden = !(ready && atMachine()) }
+  async function check() {
+    if (!APP.on || ready || !mine) return ready
+    try {
+      const html = await (await fetch('/rpg/index.html', { cache: 'no-store' })).text()
+      const v = /game\.js\?v=([0-9a-f]+)/.exec(html)?.[1]
+      if (v && v !== mine) { ready = true; paint() }
+    } catch {}
+    return ready
+  }
+  if (APP.on) {
+    setTimeout(check, 60e3); setInterval(check, 5 * 60e3)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check() })
+    setInterval(() => { if (ready) paint() }, 1000)   // shown and hidden as you go between the machine and battles
+    document.getElementById('updateBar')?.addEventListener('click', (e) => {
+      e.stopPropagation(); if (!atMachine()) return
+      try { window.__saveNow?.() } catch {}
+      setTimeout(() => location.reload(), 250)
+    })
+  }
+  return { check, get ready() { return ready } }
+})()
+window.__checkUpdate = () => UPDATE.check()
+
 const CRUMBS = (() => {
   const key = 'vvm-crumbs' + (APP.uid ? ':' + APP.uid : ''), on = APP.on
   const ver = document.querySelector('script[src*="game.js"]')?.src.split('v=')[1] ?? ''

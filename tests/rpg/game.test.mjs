@@ -754,6 +754,45 @@ test('in the app: one Gym Summon at a time: not for sale while one is in the Bag
   } finally { await g.close() }
 })
 
+test('in the app: when a newer version is out, a bar at the machine offers to refresh; a tap saves and reloads the game', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      window.__vvmApi = {
+        async machine() { return { status: 'out_of_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 10, wild: false, trainers: false, heal_price: 0.5, find_chance: 0, packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 10 }, async claim() { return { ok: false, reason: 'not_stocked' } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 15, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: 1, party: [m], box: [], bag: { ball: 1 }, wallet: 10, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    let frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    assert.equal(await frame.evaluate(() => window.__checkUpdate()), false, 'the same version: nothing to offer')
+    assert.equal(await frame.$eval('#updateBar', (b) => b.hidden), true)
+    // A newer version goes out: the server's index.html names another game.js.
+    await page.route('**/rpg/index.html', async (route) => { const r = await route.fetch(); route.fulfill({ response: r, body: (await r.text()).replace(/game\.js\?v=[0-9a-f]+/, 'game.js?v=0123456789') }) })
+    assert.equal(await frame.evaluate(() => window.__checkUpdate()), true, 'a newer version noticed')
+    assert.equal(await frame.$eval('#updateBar', (b) => b.hidden), false, 'the bar shows at the machine')
+    // Not mid-battle.
+    await frame.evaluate(() => { document.getElementById('battleL').style.display = 'block' }); await page.waitForTimeout(1300)
+    assert.equal(await frame.$eval('#updateBar', (b) => b.hidden), true, 'hidden during a battle')
+    await frame.evaluate(() => { document.getElementById('battleL').style.display = 'none' }); await page.waitForTimeout(1300)
+    // A tap: saved, then the game reloads.
+    await page.unroute('**/rpg/index.html')
+    const reloaded = new Promise((res) => page.on('framenavigated', (f) => { if (f.url().includes('/rpg/index.html?app=1')) res(true) }))
+    await frame.evaluate(() => document.getElementById('updateBar').click())
+    assert.equal(await Promise.race([reloaded, new Promise((r) => setTimeout(() => r(false), 5000))]), true, 'the game reloaded')
+    assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('vvm-save:u1')).at > 1), 'saved first')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
   const g = await openGame()
   try {
