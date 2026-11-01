@@ -1,0 +1,80 @@
+'use client'
+
+export interface CrashRow {
+  id: number
+  created_at: string
+  note: {
+    kind?: string; who?: string; foeLv?: number; party?: string; music?: string; lines?: string[]; errors?: string[]
+    started?: number; at?: number; hidden?: boolean; heapMB?: number; ver?: string
+  }
+  device: { ua?: string; screen?: string; mem?: number | null; cores?: number | null }
+  member: { username: string; display_name: string | null } | null
+}
+
+/** A browser user agent, shortened: the phone or computer, and the browser. */
+function deviceName(ua = '') {
+  const os = /iPhone OS ([\d_]+)/.exec(ua) ? `iPhone, iOS ${/iPhone OS ([\d_]+)/.exec(ua)![1].replace(/_/g, '.')}`
+    : /iPad/.test(ua) ? 'iPad' : /Android ([\d.]+)/.exec(ua) ? `Android ${/Android ([\d.]+)/.exec(ua)![1]}`
+    : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Other'
+  const browser = /CriOS|Chrome\//.test(ua) && !/Edg/.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Edg/.test(ua) ? 'Edge' : /Safari/.test(ua) ? 'Safari' : 'a browser'
+  return `${os} · ${browser}`
+}
+
+function ago(iso: string) {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 60) return `${Math.max(1, m)}m ago`
+  const h = Math.floor(m / 60)
+  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
+}
+
+/**
+ * Crash reports from the battle game (v83): a member's game reloaded in the
+ * middle of a battle, and on the next start it sent where it was. "In the
+ * background" means the page was hidden at its last heartbeat, so the phone
+ * most likely dropped a backgrounded tab rather than crashing.
+ */
+export default function CrashReportsClient({ reports }: { reports: CrashRow[] }) {
+  return (
+    <section className="space-y-2">
+      <div className="space-y-1">
+        <h2 className="font-display font-semibold text-base">Crash reports</h2>
+        <p className="text-xs text-muted leading-snug">
+          When a member&apos;s game reloads in the middle of a battle, it reports where it was the next time it starts:
+          the battle, the last lines on screen, the music, any script error, and the device.
+        </p>
+      </div>
+      {reports.length === 0 ? (
+        <p className="text-xs text-muted">None yet.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {reports.map((r) => (
+            <li key={r.id} className="bg-card border border-card-border rounded-xl px-3 py-2">
+              <details>
+                <summary className="cursor-pointer list-none text-xs flex items-baseline gap-2">
+                  <span className="font-medium shrink-0">{r.member ? (r.member.display_name || `@${r.member.username}`) : 'A member'}</span>
+                  <span className="min-w-0 flex-1 truncate text-muted">
+                    {r.note.who || r.note.kind || 'a battle'} · {deviceName(r.device.ua)}{r.note.hidden ? ' · in the background' : ''}{r.note.errors?.length ? ' · script error' : ''}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted shrink-0">{ago(r.created_at)}</span>
+                </summary>
+                <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-x-2 gap-y-1 text-[11px]">
+                  <dt className="text-muted">Battle</dt><dd>{[r.note.kind, r.note.who, r.note.foeLv ? `Lv ${r.note.foeLv}` : ''].filter(Boolean).join(' · ') || '—'}</dd>
+                  <dt className="text-muted">Their party</dt><dd>{r.note.party || '—'}</dd>
+                  <dt className="text-muted">Music</dt><dd>{r.note.music || '—'}</dd>
+                  <dt className="text-muted">In battle for</dt><dd>{r.note.started && r.note.at ? `${Math.round((r.note.at - r.note.started) / 1000)} s` : '—'}</dd>
+                  <dt className="text-muted">Last on screen</dt>
+                  <dd className="space-y-0.5">{(r.note.lines ?? []).slice(-6).map((l, i) => <p key={i} className="font-mono">{l}</p>)}</dd>
+                  {!!r.note.errors?.length && (<><dt className="text-muted">Script errors</dt><dd className="space-y-0.5 text-signal">{r.note.errors.map((e, i) => <p key={i} className="font-mono break-all">{e}</p>)}</dd></>)}
+                  <dt className="text-muted">Device</dt>
+                  <dd>{deviceName(r.device.ua)} · screen {r.device.screen ?? '?'}{r.device.mem ? ` · ${r.device.mem} GB` : ''}{r.device.cores ? ` · ${r.device.cores} cores` : ''}{r.note.heapMB ? ` · ${r.note.heapMB} MB used` : ''}</dd>
+                  <dt className="text-muted">Browser</dt><dd className="font-mono break-all text-muted">{r.device.ua ?? '—'}</dd>
+                  <dt className="text-muted">Game version</dt><dd className="font-mono">{r.note.ver || '—'}</dd>
+                </dl>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}

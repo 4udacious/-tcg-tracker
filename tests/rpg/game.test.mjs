@@ -659,6 +659,54 @@ test('in the app: Pokémon an admin gifts arrive rolled like wild ones, once eac
   } finally { await g.close() }
 })
 
+test('in the app: a game that dies mid-battle reports where it was on the next start; leaving normally reports nothing', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      window.__vvmApi = {
+        async machine() { return { status: 'out_of_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 10, wild: true, trainers: true, heal_price: 0.5, find_chance: 0, packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 10 }, async claim() { return { ok: false, reason: 'not_stocked' } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+        async reportCrash(note, device) { calls.push(['crash', note, device]) },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 15, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 10, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      localStorage.removeItem('vvm-crumbs:u1')
+      window.__open = () => { const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'; RUN++; document.body.replaceChildren(f) }
+      window.__open()
+    })
+    let frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(1200)
+    await frame.evaluate(() => { document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click() })
+    await frame.waitForFunction(() => getComputedStyle(document.getElementById('battleL')).display !== 'none', null, { timeout: 10000 })
+    await page.waitForTimeout(3500)
+    const note = await page.evaluate(() => JSON.parse(localStorage.getItem('vvm-crumbs:u1')))
+    assert.equal(note.open, true, 'a battle on screen: the note is open')
+    assert.equal(note.kind, 'wild'); assert.match(note.who, /^wild [A-Z]/); assert.match(note.party, /CHARMANDER 15/)
+    assert.ok(note.lines.length > 0 && note.music, `the lines shown and the music: ${JSON.stringify(note.lines)} ${note.music}`)
+    // Leaving the page normally (pagehide) closes it: nothing to report.
+    await page.evaluate(() => document.body.replaceChildren()); await page.waitForTimeout(300)
+    assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('vvm-crumbs:u1'))))?.open, false, 'leaving normally closes the note')
+    // A session that died mid-battle leaves its note open (no pagehide): the next start reports it, once.
+    await page.evaluate((n) => { localStorage.setItem('vvm-crumbs:u1', JSON.stringify({ ...n, at: Date.now() - 20000 })); window.__open() }, note)
+    frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(500)
+    const calls = (await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'crash')
+    assert.equal(calls.length, 1, 'reported once')
+    assert.equal(calls[0][1].who, note.who); assert.deepEqual(calls[0][1].lines, note.lines)
+    assert.match(calls[0][2].ua, /Chrome|HeadlessChrome/); assert.ok(calls[0][2].screen)
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('vvm-crumbs:u1')))
+    assert.ok(!after?.open && after?.started !== note.started, 'and the old note is gone, so it is never sent twice')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rival: Alex\'s seven battles, their phases, teams, Full Restores and milestones', async () => {
   const g = await openGame()
   try {
