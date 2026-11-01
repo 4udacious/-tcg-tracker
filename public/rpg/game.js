@@ -6961,6 +6961,19 @@ async function run(id) {
       return m
     })
   }
+  /**
+   * Summons for gyms you've already beaten (bought before one-at-a-time, v84)
+   * can't be used, and they'd stop you buying the next one: they become your
+   * next gym's instead. Returns what moved, for the feed.
+   */
+  function carrySummons() {
+    const g = nextGym(); if (g >= GYMS.length) return ''
+    let n = 0
+    for (const k of Object.keys(bag)) { const m = /^summon:(\d+)$/.exec(k); if (m && +m[1] < g && bag[k] > 0) { n += bag[k]; bag[k] = 0 } }
+    if (!n) return ''
+    summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + n
+    return `<b>${n === 1 ? 'Your spare summon' : `Your ${n} spare summons`}</b> now ${n === 1 ? 'summons' : 'summon'} ${GYMS[g].short} of ${GYMS[g].city}.`
+  }
   /** Summoned from the Bag: the leader's VS, their words, the battle, a badge. The summon is spent either way. */
   async function gymBattle(n, demoPlan) {
     const L = GYMS[n]
@@ -6984,6 +6997,7 @@ async function run(id) {
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
       badges.push(n); sfx('levelup'); showBadge(L)
+      { const moved = carrySummons(); if (moved) feed(moved) }
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
       await payMilestone(`gym:${n}`, L.tokens)
       // A Move Disc of the leader's type, and half the time a booster pack.
@@ -9359,6 +9373,7 @@ async function run(id) {
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
     tutorialDone = true
+    { const moved = carrySummons(); if (moved) setTimeout(() => feed(moved), 0) }
     $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderRoamers?.(); renderPool?.(); renderTools()
     return new Date(s.at)
   }
