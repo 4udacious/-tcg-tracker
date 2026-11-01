@@ -66,3 +66,21 @@ test('a shiny wild Pokémon: its own sprite, a sparkle and its own announcement'
   } finally { await g.close() }
 })
 
+test('a wild Ditto transforms on its first turn, into your Pokémon', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot, log } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const m = individual(speciesByName('CHARMANDER'), 20, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      window.__vvm.party.splice(0, 9, m); window.__forceWild = 'DITTO'
+    })
+    const from = log.length
+    assert.ok(await bot.encounter('wild'), 'a wild battle started')
+    const lines = log.slice(from), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
+    assert.match(firstFoe ?? '', /TRANSFORM/, 'the first thing the wild Ditto does is Transform')
+    assert.ok(lines.some((l) => /DITTO transformed/.test(l) && /CHARMANDER/.test(l)), 'it transformed into your Charmander')
+    assert.ok(!lines.some((l) => /The wild DITTO used/.test(l) && /TACKLE/.test(l)), 'and then fought with fire moves, not Tackle')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
