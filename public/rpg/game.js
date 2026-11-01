@@ -4691,9 +4691,11 @@ async function run(id) {
   }
   const isReal = (k) => /^(set|ticket|sup|box):/.test(k)
   /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
+  /** A Gym Summon already in the Bag (for any gym): one at a time, so another isn't sold until it's used. */
+  const heldSummon = () => Object.entries(bag).some(([k, v]) => /^summon:\d+$/.test(k) && v > 0)
   function supNot(key) {
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
-    if (key === 'gym_summon') return nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
+    if (key === 'gym_summon') return heldSummon() ? 'you have one' : nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
     if (key === 'elite_ticket') { const lg = leagueNow(); return !lg ? (redBeaten ? "you've beaten Red" : champion ? 'needs all 16 badges' : 'needs all 8 Johto badges') : bag[summonKey(lg)] ? 'you have one' : '' }
     return ''
   }
@@ -4972,7 +4974,7 @@ async function run(id) {
   const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
     insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
     ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty',
-    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can' }
+    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first' }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
   $('checkout').onclick = (e) => {
@@ -7286,7 +7288,7 @@ async function run(id) {
    */
   /** This restock's shelf: each enabled supply (and bundle) with its rate as the chance; a MOVE DISC slot becomes one random disc. */
   function rollShelf() {
-    return [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (leagueNow() && !bag[summonKey(leagueNow())])) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate)
+    return [...Object.keys(SHOP).filter((k) => SHOP[k].on && (k !== 'summon' || (!heldSummon() && nextGym() < GYMS.length && (nextGym() < 8 || champion))) && (k !== 'elite' || (leagueNow() && !bag[summonKey(leagueNow())])) && !(ITEMS[k].key && bag[k]) && flavor() * 100 < SHOP[k].rate)
       .map((k) => { if (k !== 'disc') return k; const n = pickOf(DISC_POOL); discItem(n); return discKey(n) }),
       ...BUNDLES.filter((b) => b.on && BUNDLE_ITEMS.some((i) => b.items[i] > 0) && flavor() * 100 < b.rate).map((b) => 'bundle:' + b.id)]
   }
