@@ -41,6 +41,8 @@
 /* Only apply once a theme is resolved, so the pre-paint script can't flash. */
 html {
   color-scheme: light;
+  /* Taps and scrolling, no double-tap zoom: on an iPhone a quick double tap (in the VVM game, say) zooms or scrolls the page to the tapped spot. Pinch zoom still works. */
+  touch-action: manipulation;
 }
 
 html[data-theme='dark'] {
