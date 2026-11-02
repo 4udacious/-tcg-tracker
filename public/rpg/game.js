@@ -7427,10 +7427,24 @@ async function run(id) {
   ]
   const POOL_SIZE = 6
   const hashStr = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0 }
-  // Weeks since the epoch, rolling over on Monday. The demo is pinned to one week so it always plays the same.
+  /*
+   * Weeks since the epoch, rolling over at midnight on Monday in Seattle: the
+   * same clock as the Pokémon Center's day and the purchase limits, on every
+   * device whatever its own time zone. (It used to roll over at midnight UTC,
+   * Sunday afternoon in Seattle, while the countdown counted to the device's
+   * own Monday midnight.) The demo is pinned to one week so it always plays
+   * the same.
+   */
   let weekShift = 0
-  const thisWeek = () => (demo ? 2900 : Math.floor((Date.now() / 864e5 + 3) / 7)) + weekShift
-  const nextRotation = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d - Date.now() }
+  /** Now in Seattle: its calendar day (as days since the epoch) and the ms since its midnight. */
+  const seattleNow = () => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+      .formatToParts(new Date()).map((x) => [x.type, +x.value]))
+    return { day: Date.UTC(p.year, p.month - 1, p.day) / 864e5, ms: ((p.hour * 60 + p.minute) * 60 + p.second) * 1000 }
+  }
+  const thisWeek = () => (demo ? 2900 : Math.floor((seattleNow().day + 3) / 7)) + weekShift   // day 0 was a Thursday: +3 puts the turn on Monday
+  /** ms until the next Monday midnight in Seattle. */
+  const nextRotation = () => { const { day, ms } = seattleNow(); return (7 - ((day + 3) % 7)) * 864e5 - ms }
   /**
    * A machine's six species for a week, drawn by rarity (RARITY_WEIGHT): a
    * rare one is in about 1 machine's pool in 7. The demo keeps its old
@@ -7479,7 +7493,11 @@ async function run(id) {
     const pool = poolFor(seedOf(who).m.code).map((n) => DATA.wild.find((w) => w.name === n))
     return demo ? pool[Math.floor(roll() * pool.length)] : weightedPick(pool, rarityWeight, roll)
   }
+  let poolWeek = null   // the week the panel shows: when it turns (the game left open, or a phone bringing back a tab from last week), it's redrawn
+  const freshPool = () => { if (poolWeek !== null && poolWeek !== thisWeek() && !$('poolPanel').hidden) { renderPool(true); if (MODE === 'play') feed('A new week: the wild pool has changed.') } }
+  if (!demo) { setInterval(() => { if (live()) freshPool() }, 60e3); document.addEventListener('visibilitychange', () => { if (live() && document.visibilityState === 'visible') freshPool() }) }
   function renderPool(flash = false) {
+    poolWeek = thisWeek()
     const { m, why } = seedOf(YOU), ms = nextRotation(), dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24
     $('poolWhere').innerHTML = `<b>${esc(m.code)}</b> · ${esc(m.venue)}${m.city ? `, ${esc(m.city)}` : ''}<small>${why === 'report' ? 'from your latest timer report' : `random machine this week (no timer reports yet) · report a timer${realSeed ? ' on the Timers tab' : ''} to choose`}</small>`
     $('poolWhen').textContent = demo ? 'changes every Monday' : weekShift ? `week +${weekShift}` : `changes in ${dd}d ${hh}h`
@@ -9656,7 +9674,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
