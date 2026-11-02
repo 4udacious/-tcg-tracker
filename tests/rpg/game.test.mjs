@@ -1213,6 +1213,26 @@ test('played, the sound log keeps only its recent end, so it never grows for as 
   } finally { await g.close() }
 })
 
+test('the wild pool turns over at midnight on Monday in Seattle, and its countdown points there', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const at = async (iso) => { await page.clock.setFixedTime(new Date(iso)); return page.evaluate(() => ({ week: window.__vvm.thisWeek(), next: window.__vvm.nextRotation() })) }
+    // 1 Nov 2026 is a Sunday, after the clocks went back: Seattle is UTC-8.
+    const sunAfternoon = await at('2026-11-01T23:30:00Z')   // Sunday 3:30 pm in Seattle: Monday already in UTC
+    const sunLate = await at('2026-11-02T07:59:00Z')        // Sunday 11:59 pm
+    const monEarly = await at('2026-11-02T08:01:00Z')       // Monday 12:01 am
+    const monLater = await at('2026-11-02T18:00:00Z')       // Monday 10 am: this morning stays this week
+    assert.equal(sunAfternoon.week, sunLate.week, 'Sunday afternoon in Seattle is still last week (it used to turn over here, at midnight UTC)')
+    assert.equal(monEarly.week, sunLate.week + 1, 'it turns over at midnight on Monday in Seattle')
+    assert.equal(monLater.week, monEarly.week, 'and stays turned over through Monday')
+    assert.ok(Math.abs(sunLate.next - 60e3) < 2000, `the countdown points at that midnight (${sunLate.next} ms to go at 11:59 pm)`)
+    assert.ok(monEarly.next > 6.9 * 864e5, 'and then a week on')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Ditto keeps Transform equipped as it levels', async () => {
   const g = await openGame()
   try {
