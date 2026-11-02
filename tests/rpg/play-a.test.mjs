@@ -67,3 +67,26 @@ test('the EXP. SHARE switches off and on from the Bag, and after Alex\'s last ba
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('CPU trainers use a Full Heal on a Pokémon with a status, instead of moving', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot, log } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      for (const t of [MOVEDEX, SUPPORT]) for (const k in t) t[k].cost = 0
+      const m = individual(speciesByName('CHARMANDER'), 40, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      m.moves = ['SCRATCH', 'TOXIC', 'THUNDER WAVE', 'WILL-O-WISP']; m.learned = [...new Set([...m.learned, ...m.moves])]
+      m.stats.atk = m.stats.spa = 1   // a long battle: statuses, not damage
+      window.__vvm.party.splice(0, 9, m); window.__forceFoeHeal = true
+    })
+    bot.want = ['TOXIC', 'THUNDER WAVE', 'WILL-O-WISP', 'SCRATCH']
+    const from = log.length
+    assert.ok(await bot.encounter('scalper', 500), 'a trainer battle happened')
+    const lines = log.slice(from)
+    assert.ok(lines.some((l) => /used\s*a FULL HEAL!/.test(l)), 'the trainer used a Full Heal')
+    assert.ok(lines.some((l) => /is no longer\s*(poisoned|badly poisoned|paralyzed|burned)/.test(l)), 'and its Pokémon was cured')
+    assert.ok(lines.filter((l) => /used\s*a FULL HEAL!$/.test(l)).length <= 1, 'a regular trainer has just one')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
