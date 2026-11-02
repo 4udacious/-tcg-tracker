@@ -3,6 +3,7 @@ import { ButtonLink } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { createClient } from '@/lib/supabase/server'
 import ShowcaseRoom, { type ShowcaseItem } from '@/app/(app)/vending/ShowcaseRoom'
+import { loadEmblem } from '@/lib/vending/data'
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? v[0] ?? null : v ?? null
@@ -16,10 +17,11 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 export default async function TrainerCard({ id, self = false }: { id: string; self?: boolean }) {
   const supabase = await createClient()
 
-  const [{ data: showcaseRows }, { data: showcaseCfgRow }] = await Promise.all([
+  const [{ data: showcaseRows }, { data: showcaseCfgRow }, emblem] = await Promise.all([
     supabase.rpc('get_showcase', { p_user: id }),
     supabase.from('showcase_settings')
       .select('warmth, brightness, shelf, light_mode, hue').eq('user_id', id).maybeSingle(),
+    loadEmblem(supabase, id),
   ])
   const showcase = (showcaseRows as ShowcaseItem[] | null) ?? []
   const showcaseCfg = showcaseCfgRow
@@ -182,11 +184,12 @@ export default async function TrainerCard({ id, self = false }: { id: string; se
       </section>
 
       {/* Their display room. Read-only: arrangement and lighting are theirs. */}
-      {showcase.length > 0 && (
+      {(showcase.length > 0 || emblem?.showcase_slot != null) && (
         <section className="space-y-3">
           <h2 className="font-display font-semibold text-base">Showcase</h2>
           <ShowcaseRoom
             items={showcase}
+            emblem={emblem}
             lighting={showcaseCfg ?? { warmth: 55, brightness: 60, shelf: 'oak' }}
           />
         </section>

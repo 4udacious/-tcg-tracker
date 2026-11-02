@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UnopenedPack, CollectionCard, SetTotal, OwnedTicket, OwnedItem, OwnedBox } from '@/app/(app)/vending/CollectionPanel'
 import type { ShowcaseItem, Lighting } from '@/app/(app)/vending/ShowcaseRoom'
+import type { BattleEmblemData } from '@/app/(app)/vending/BattleEmblem'
 import type { MarketListing } from '@/app/(app)/vending/MarketPanel'
 
 /*
@@ -179,13 +180,21 @@ export async function loadServiceSettings(supabase: SupabaseClient) {
   }
 }
 
-/** Your showcase and its lighting. */
+/** A member's Champion's Emblem (v87), or null: none yet, or before v87. */
+export async function loadEmblem(supabase: SupabaseClient, userId: string): Promise<BattleEmblemData | null> {
+  const { data } = await supabase.rpc('get_battle_emblem', { p_user: userId })
+  return one(data as BattleEmblemData | BattleEmblemData[] | null)
+}
+
+/** Your showcase and its lighting, and your Champion's Emblem. */
 export async function loadShowcase(supabase: SupabaseClient, userId: string) {
-  const [{ data: rows }, { data: cfg }] = await Promise.all([
+  const [{ data: rows }, { data: cfg }, emblem] = await Promise.all([
     supabase.rpc('get_showcase', { p_user: userId }),
     supabase.from('showcase_settings').select('warmth, brightness, shelf, light_mode, hue').eq('user_id', userId).maybeSingle(),
+    loadEmblem(supabase, userId),
   ])
   return {
+    emblem,
     items: (rows as ShowcaseItem[] | null) ?? [],
     lighting: (cfg as Lighting | null) ?? ({ warmth: 55, brightness: 60, shelf: 'oak' } as Lighting),
   }
