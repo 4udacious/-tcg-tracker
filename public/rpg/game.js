@@ -4872,7 +4872,7 @@ async function run(id) {
     const ok = await api.claimEmblem(fame.team.map((m) => ({ id: m.id, name: m.name, level: m.level, shiny: !!m.shiny && SHINY_IDS.has(m.id) }))).catch(() => false)
     if (!ok) return
     emblemSent = true; saveGame()
-    feed(`<b>You</b> earned the <b>CHAMPION'S EMBLEM</b>, with your Hall of Fame team. Put it on a shelf in your Showcase.`)
+    feed(`<b>You</b> earned the <b>CHAMPION'S EMBLEM</b>, with your Hall of Fame team. It's in your Collection: put it on a shelf of your Showcase when you're ready.`)
   }
   async function collectItems() {
     claimEmblem()
