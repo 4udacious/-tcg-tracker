@@ -21,6 +21,20 @@ export default function SupplyIcon({ supplyKey, className }: { supplyKey: string
           <path d="M6.5 10a3 3 0 0 1 3-3h5a3 3 0 0 1 3 3V19a3 3 0 0 1-3 3h-5a3 3 0 0 1-3-3Z" fill="#facc15" stroke="#a16207" strokeWidth="1.2" />
           <path d="M12 11.5v6M9 14.5h6" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
         </>
+      ) : STONES[supplyKey] ? (
+        <Stone {...STONES[supplyKey]} />
+      ) : supplyKey === 'linking_cord' ? (
+        <>
+          <path d="M5 17c0-6 5-6 7-6s7 0 7-6" fill="none" stroke="#1d4ed8" strokeWidth="2.6" strokeLinecap="round" />
+          <path d="M5 17c0-6 5-6 7-6s7 0 7-6" fill="none" stroke="#93c5fd" strokeWidth="1" strokeLinecap="round" strokeDasharray="1.5 2" />
+          <rect x="2.5" y="16.5" width="5" height="5" rx="1.2" fill="#e5e7eb" stroke="#374151" strokeWidth="1" />
+          <rect x="16.5" y="2.5" width="5" height="5" rx="1.2" fill="#e5e7eb" stroke="#374151" strokeWidth="1" />
+        </>
+      ) : supplyKey === 'dragon_scale' ? (
+        <>
+          <path d="M12 2.5c4.5 2.5 7 6.5 7 11a7 7 0 0 1-14 0c0-4.5 2.5-8.5 7-11Z" fill="#60a5fa" stroke="#1e3a8a" strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M12 6.5c2.6 1.8 4 4.4 4 7.2a4 4 0 0 1-8 0c0-2.8 1.4-5.4 4-7.2Z" fill="#bfdbfe" opacity="0.8" />
+        </>
       ) : supplyKey === 'rare_candy' ? (
         <>
           <path d="M5.5 12 2 8.5v7Z M18.5 12 22 8.5v7Z" fill="#93c5fd" stroke="#1e3a8a" strokeWidth="1" strokeLinejoin="round" />
@@ -65,6 +79,39 @@ function Bottle({ body, edge }: { body: string; edge: string }) {
       <rect x="10.25" y="4.5" width="3.5" height="3" fill="#9ca3af" />
       <path d="M6.5 10.5a3 3 0 0 1 3-3h5a3 3 0 0 1 3 3V19a3 3 0 0 1-3 3h-5a3 3 0 0 1-3-3Z" fill={body} stroke={edge} strokeWidth="1.2" />
       <rect x="8.5" y="12.5" width="7" height="4.5" rx="1" fill="#fff" opacity="0.85" />
+    </>
+  )
+}
+
+/** The evolution stones (v88): one shape, each in its own colours and with its own mark inside. */
+const STONES: Record<string, { body: string; edge: string; mark: string; glyph: 'bolt' | 'drop' | 'flame' | 'leaf' | 'flake' | 'moon' | 'sun' | 'dusk' | 'star' }> = {
+  thunder_stone: { body: '#86efac', edge: '#15803d', mark: '#facc15', glyph: 'bolt' },
+  water_stone: { body: '#7dd3fc', edge: '#0369a1', mark: '#1d4ed8', glyph: 'drop' },
+  fire_stone: { body: '#fdba74', edge: '#c2410c', mark: '#dc2626', glyph: 'flame' },
+  leaf_stone: { body: '#bef264', edge: '#4d7c0f', mark: '#15803d', glyph: 'leaf' },
+  ice_stone: { body: '#e0f2fe', edge: '#0284c7', mark: '#38bdf8', glyph: 'flake' },
+  moon_stone: { body: '#94a3b8', edge: '#334155', mark: '#f8fafc', glyph: 'moon' },
+  sun_stone: { body: '#fde047', edge: '#c2410c', mark: '#ea580c', glyph: 'sun' },
+  dusk_stone: { body: '#6b21a8', edge: '#3b0764', mark: '#f472b6', glyph: 'dusk' },
+  shiny_stone: { body: '#f5f5f4', edge: '#a8a29e', mark: '#facc15', glyph: 'star' },
+}
+
+function Stone({ body, edge, mark, glyph }: (typeof STONES)[string]) {
+  return (
+    <>
+      <path d="M12 2 19.5 7.5 18 18 12 22 6 18 4.5 7.5Z" fill={body} stroke={edge} strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M12 2 4.5 7.5 9 9.5Z" fill="#fff" opacity="0.35" />
+      <g fill={mark} stroke={mark} strokeLinecap="round" strokeLinejoin="round">
+        {glyph === 'bolt' && <path d="M13 6.5 9.5 12.5h3l-1.5 5.5 4-7h-3l1-4.5Z" stroke="none" />}
+        {glyph === 'drop' && <path d="M12 7c2 2.6 3 4.4 3 6a3 3 0 0 1-6 0c0-1.6 1-3.4 3-6Z" stroke="none" />}
+        {glyph === 'flame' && <path d="M12 7c2.6 2.4 3.5 4.3 3.5 6.2a3.5 3.5 0 0 1-7 0c0-1.3.6-2.4 1.6-3.3.2 1 .8 1.6 1.4 1.8-.3-1.6 0-3.1.5-4.7Z" stroke="none" />}
+        {glyph === 'leaf' && <path d="M8.5 16c0-5 3-8 7-8.5-.3 4.6-3 8-7 8.5Zm0 0 4-4.5" fill="none" strokeWidth="1.4" />}
+        {glyph === 'flake' && <path d="M12 7.5v9M8.1 9.8l7.8 4.4M8.1 14.2l7.8-4.4" fill="none" strokeWidth="1.4" />}
+        {glyph === 'moon' && <path d="M14 8a4.5 4.5 0 1 0 0 8.5A4 4 0 0 1 14 8Z" stroke="none" />}
+        {glyph === 'sun' && <><circle cx="12" cy="12" r="2.6" stroke="none" /><path d="M12 7v1.3M12 15.7V17M7 12h1.3M15.7 12H17M8.5 8.5l.9.9M14.6 14.6l.9.9M8.5 15.5l.9-.9M14.6 9.4l.9-.9" fill="none" strokeWidth="1.2" /></>}
+        {glyph === 'dusk' && <><circle cx="12" cy="13" r="3" stroke="none" opacity="0.9" /><path d="M8 10.5h8" fill="none" strokeWidth="1.2" /></>}
+        {glyph === 'star' && <path d="M12 7.5l1.3 3 3.2.3-2.4 2.1.7 3.1L12 14.4 9.2 16l.7-3.1-2.4-2.1 3.2-.3Z" stroke="none" />}
+      </g>
     </>
   )
 }
