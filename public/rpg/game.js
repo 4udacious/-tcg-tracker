@@ -3608,6 +3608,13 @@ const LEGEND_MOVES = {
 // Herb and Paul pick their hardest-hitting move, like a leader (no tells, though).
 HERB.smart = PAUL.smart = true
 const SCALPERS = [HERB, PAUL, BRIAN, ...CREW]
+/** What a Gym Leader says turning up for a rematch ({city}, {badge}: theirs). */
+const REMATCH_LINES = [
+  ['I heard the new Champion taps this machine.', "I've rebuilt my whole team since you took the {badge} BADGE."],
+  ['The {city} GYM gets quiet once you have every badge.', "So I came to you. Let's go again."],
+  ["You beat me once. That was my gym team.", 'This is the team I train with on my days off.'],
+  ["A Champion should still answer a challenge.", "Mine's been evolving since we last met."],
+]
 /** What a veteran says first, before their usual line (veteranOf()). */
 const VETERAN_LINES = [
   ["I've been camping this machine since before it had a screen.", "You're not the first to try."],
@@ -7180,6 +7187,69 @@ async function run(id) {
    */
   let tutorialDone = false, gifted = false
 
+  /* ══════════ gym rematches ══════════ */
+  /*
+   * After you're Champion, a Gym Leader whose badge you hold may turn up at
+   * the machine wanting a rematch: REMATCH_SHARE of the everyday 1v1 trainer
+   * encounters. Their team is fully evolved, at your level (their ace two
+   * above your best, the rest climbing to it), with good IVs and a leader's
+   * smarts. No summon, no badge, no milestone: half their tokens and a Move
+   * Disc of their type for a win.
+   */
+  const REMATCH_SHARE = 0.25
+  const rematchReady = () => champion && badges.length > 0 && modeOn('trainers') && party.some((m) => m.hp > 0)
+  /** The last form a species evolves into (by level, stone, cord or Bond), as far as the game has it. */
+  function finalForm(name) {
+    for (let i = 0, n = name; i < 4; i++) {
+      const next = DATA.evos?.[n]?.[0]?.to ?? EVO_HOW[n]?.find((r) => r.item || r.bond || r.move)?.to
+      if (!next || !speciesByName(next)) return n
+      n = next; name = n
+    }
+    return name
+  }
+  function rematchTeam(L) {
+    const ace = Math.min(LEVEL_CAP, trainerLevel() + 2), lv = leaderLevels({ ...L, min: ace, low: Math.max(2, ace - 6) })
+    return L.team.map((name, i) => {
+      const f = finalForm(name), m = individual(DATA.trainer.find((t) => t.name === f) ?? speciesByName(f), lv[i], rand)
+      for (const k of STAT_KEYS) m.ivs[k] = Math.max(25, m.ivs[k])
+      m.stats = statsAt(m, m.level); m.hp = m.stats.hp
+      return m
+    })
+  }
+  async function rematchEncounter(state = 'in', n = null) {
+    const gym = n ?? pickOf(badges), L0 = GYMS[gym]
+    // A leader's smarts (hard), the stronger moves on the way to their ace (strong), and their own on it (sig).
+    const L = { ...L0, strong: true, rematch: true, restores: 1 }
+    toolsEnabled(false)
+    Sound.music('gymIntro')
+    await wipeTrainer(async () => {
+      setScene([L.scene]); showLayer('battle')
+      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', L.color)
+      $('vsImg').src = ART[L.vs]; $('vsName').textContent = L.full; vs.querySelector('.name span').textContent = 'REMATCH'; vs.style.display = 'block'
+      vsIn(vs)
+    })
+    await W(1400)
+    await talk(L, pickOf(REMATCH_LINES).map((x) => x.replaceAll('{city}', L.city).replaceAll('{badge}', L.badge)))
+    vsHide()
+    Sound.music('gym')
+    const team = rematchTeam(L)
+    const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: L })
+    if (out.result === 'won') {
+      Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
+      await trainerOn(L); await talk(L, L.outro); await trainerOff()
+      await out.exp?.()
+      await payTokens((+L0.tokens / 2).toFixed(2), 'rematch')
+      const disc = gymDisc(L0); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
+      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${disc}!`, 900)
+      feed(`<b>You</b> won a rematch with ${esc(L.full)}.`)
+      renderTools()
+    } else {
+      await trainerOn(L); await talk(L, L.gloat); await trainerOff()
+      await say(`${L.short} headed back to the ${L.city} GYM.`, 'They might come back for another.')
+    }
+    Sound.stopMusic(); saveGame(); await backToMachine(state)
+  }
+
   /* ══════════ gym battles ══════════ */
   /** A leader's team for this fight: their set levels (leaderLevels), every IV at least their floor (`ivs`, 20 unless set). */
   function gymTeam(n) {
@@ -7660,6 +7730,8 @@ async function run(id) {
     if (found) collectFind(found)
     if (pity) feed(`<b>You</b>: after two empty taps, this one was sure to turn something up.`)
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
+    if (enc === 'scalper' && !demo && (force.enc === 'rematch' || (!('enc' in force) && rematchReady() && flavor() < REMATCH_SHARE))) return rematchEncounter(state)
+    if (enc === 'rematch' && rematchReady()) return rematchEncounter(state)
     if (enc === 'scalper') return scalperEncounter(force.plan, state)
     if (enc === 'rival') return rivalEncounter(state)
     if (enc === 'story') return storyEncounter(glitcher, state)
@@ -9738,7 +9810,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, SCALPERS, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, SCALPERS, rematchTeam, finalForm, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),

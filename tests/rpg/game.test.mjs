@@ -1262,6 +1262,25 @@ test('everyday trainers grow up with you: evolved teams late, their earliest sta
   } finally { await g.close() }
 })
 
+test('gym rematches: every leader comes back fully evolved, at your level', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARMANDER'), 60, Math.random); m.hp = m.stats.hp; v.party.splice(0, 9, m)
+      return GYMS.map((L) => ({ who: L.short, before: L.team, after: v.rematchTeam(L).map((x) => `${x.name} ${x.level}`), ok: v.rematchTeam(L).every((x) => x.stats && ART[x.id]) }))
+    })
+    for (const t of r) {
+      assert.ok(t.ok, `${t.who}'s rematch team is real species with sprites`)
+      assert.equal(+t.after.at(-1).split(' ').at(-1), 62, `${t.who}'s ace is two above your best (${t.after})`)
+    }
+    const falkner = r.find((t) => t.who === 'FALKNER').after.map((x) => x.split(' ')[0])
+    assert.ok(!falkner.includes('PIDGEY') && falkner.some((n) => n === 'PIDGEOT' || n === 'NOCTOWL'), `Falkner's birds have evolved: ${falkner}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Ditto keeps Transform equipped as it levels', async () => {
   const g = await openGame()
   try {

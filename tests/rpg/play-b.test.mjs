@@ -107,3 +107,26 @@ test('EXP: a Pokémon switched out after facing the foe still gets three quarter
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('after you\'re Champion, a Gym Leader comes back for a rematch: half their tokens and a Move Disc, no badge', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const before = await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARIZARD'), 80, Math.random); learnAtLevel(m)
+      Object.assign(m.stats, { hp: 2000, atk: 900, spa: 900, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp   // so the test is about the rematch, not the fight
+      v.party.splice(0, 9, m); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
+      v.setChampion(true); v.setRival(7)
+      return { wallet: v.wallet, badges: v.badges.length, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) }
+    })
+    const from = g.log.length
+    assert.ok(await bot.encounter('rematch', 500), 'a rematch happened')
+    assert.match(g.log.slice(from).join(' | '), /gave you a MOVE DISC/, 'won, and handed a Move Disc over')
+    const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, badges: v.badges.length, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0), feed: document.getElementById('feedList')?.textContent ?? '' } })
+    assert.equal(after.badges, before.badges, 'no badge')
+    assert.equal(after.discs, before.discs + 1, 'a Move Disc')
+    assert.ok(after.wallet > before.wallet, 'and tokens')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
