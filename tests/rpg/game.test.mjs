@@ -1234,6 +1234,34 @@ test('the wild pool turns over at midnight on Monday in Seattle, and its countdo
   } finally { await g.close() }
 })
 
+test('everyday trainers grow up with you: evolved teams late, their earliest stages retired, three or four Pokémon', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, at = (lv) => { const m = individual(speciesByName('CHARMANDER'), lv, Math.random); m.hp = m.stats.hp; v.party.splice(0, 9, m); v.badges.splice(0, 99, ...Array.from({ length: 16 }, (_, i) => i)) }
+      const out = {}
+      for (const lv of [10, 35, 60]) {
+        at(lv)
+        out[lv] = v.SCALPERS.map((T) => { const decks = Array.from({ length: 12 }, () => v.deckFor(T, lv)); return { who: T.short, sizes: [...new Set(decks.map((d) => d.length))], names: [...new Set(decks.flat().map((m) => m.name))], missing: decks.flat().filter((m) => !m?.stats).length } })
+      }
+      return out
+    })
+    for (const t of r[10]) assert.ok(t.sizes.every((n) => n === 2 || n === 3), `${t.who} at Lv 10 brings two or three (${t.sizes})`)
+    for (const t of r[60]) {
+      assert.ok(t.sizes.every((n) => n === 3 || n === 4), `${t.who} at Lv 60 brings three or four (${t.sizes})`)
+      assert.equal(t.missing, 0)
+    }
+    const late = Object.fromEntries(r[60].map((t) => [t.who, t.names]))
+    assert.ok(!late.ROSE.includes('SKITTY') && !late.TYLER.includes('PIKACHU') && !late.DEREK.includes('PATRAT'), 'the earliest stages have retired by Lv 60')
+    assert.ok(late.TYLER.includes('ELECTIVIRE') || late.TYLER.includes('JOLTEON') || late.TYLER.includes('RAICHU'), `Tyler's late team is evolved: ${late.TYLER}`)
+    assert.ok(late.MARCUS.includes('MACHAMP') || late.MARCUS.includes('ARCANINE'), `Marcus's: ${late.MARCUS}`)
+    assert.ok(!r[10].find((t) => t.who === 'DEREK').names.includes('PORYGON-Z'), 'and none of it turns up early')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Ditto keeps Transform equipped as it levels', async () => {
   const g = await openGame()
   try {

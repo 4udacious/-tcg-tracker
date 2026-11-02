@@ -3530,6 +3530,35 @@ Object.assign(POOLS, {
   KYLE: [{ name: 'PURRLOIN', min: 1 }, { name: 'CROAGUNK', min: 1 }, { name: 'GARBODOR', min: 8 }, { name: 'LIEPARD', min: 14 }],
   MIKA: [{ name: 'DITTO', min: 1 }, { name: 'SMEARGLE', min: 1 }, { name: 'MIMIKYU', min: 10 }],
 })
+/*
+ * Late-game teams. The pools above stop at trainer level 8-14, so past that
+ * every trainer kept bringing the same few early Pokémon. Each gets the
+ * evolutions and a few new members, turning up from levels 20-50, and its
+ * earliest stages retire (`max`: the last trainer level one still turns up
+ * at). Every pool keeps at least three for any level. With deckFor()'s team
+ * size (three from level 30, three or four from 45), a late trainer is a
+ * real team rather than a Skitty and a Chansey.
+ */
+for (const [who, late] of Object.entries({
+  ROSE: [['SKITTY', 0, 30], ['CHANSEY', 0, 40], ['DELCATTY', 22], ['WIGGLYTUFF', 28], ['KANGASKHAN', 34]],
+  DEREK: [['PATRAT', 0, 24], ['MAGNEMITE', 0, 28], ['PORYGON', 0, 36], ['MAGNETON', 20], ['PORYGON2', 26], ['MAGNEZONE', 42], ['PORYGON-Z', 50]],
+  NATE: [['SLAKOTH', 0, 24], ['HOOTHOOT', 0, 26], ['DROWZEE', 0, 32], ['VIGOROTH', 20], ['NOCTOWL', 22], ['HYPNO', 28], ['SLAKING', 44]],
+  HANA: [['JIGGLYPUFF', 0, 30], ['CLEFAIRY', 0, 36], ['WIGGLYTUFF', 24], ['CLEFABLE', 32], ['SYLVEON', 42]],
+  TYLER: [['PIKACHU', 0, 32], ['RAICHU', 22], ['JOLTEON', 32], ['ELECTIVIRE', 46]],
+  DANA: [['SUNKERN', 0, 24], ['SKWOVET', 0, 28], ['SUNFLORA', 20], ['EXEGGUTOR', 34]],
+  MARCUS: [['GROWLITHE', 0, 30], ['MACHOKE', 0, 40], ['HITMONLEE', 20], ['MACHAMP', 34]],
+  GRANT: [['SLOWPOKE', 0, 30], ['NATU', 0, 28], ['PORYGON', 0, 34], ['KADABRA', 0, 42], ['XATU', 22], ['SLOWBRO', 26], ['PORYGON2', 30], ['ALAKAZAM', 40]],
+  KYLE: [['PURRLOIN', 0, 26], ['CROAGUNK', 0, 32], ['TOXICROAK', 26], ['HONCHKROW', 38]],
+  MIKA: [['MR. MIME', 26], ['KANGASKHAN', 40]],
+  HERB: [['ROTOM', 30], ['LIEPARD', 36]],
+  PAUL: [['SLOWBRO', 30], ['SLAKING', 46]],
+  BRIAN: [['BIDOOF', 0, 26], ['SUNKERN', 0, 26], ['BIBAREL', 22], ['GOLDUCK', 24], ['SUNFLORA', 28], ['GYARADOS', 32]],
+})) {
+  for (const [name, min, max] of late) {
+    const had = POOLS[who].find((p) => p.name === name)
+    if (had) { if (max) had.max = max } else POOLS[who].push({ name, min, ...(max ? { max } : {}) })
+  }
+}
 /* What each says sending out two at once (as SOLO_DOUBLE above). */
 Object.assign(SOLO_DOUBLE, {
   ROSE: [["Two at once? The grandkids call that a 'double battle.'", "Nana's going to try it."], ['I brought two. One for each grandkid.', 'Otherwise they argue.']],
@@ -3579,6 +3608,13 @@ const LEGEND_MOVES = {
 // Herb and Paul pick their hardest-hitting move, like a leader (no tells, though).
 HERB.smart = PAUL.smart = true
 const SCALPERS = [HERB, PAUL, BRIAN, ...CREW]
+/** What a veteran says first, before their usual line (veteranOf()). */
+const VETERAN_LINES = [
+  ["I've been camping this machine since before it had a screen.", "You're not the first to try."],
+  ['Veteran of a hundred restocks.', "Let's see how you do against my real team."],
+  ["You've beaten me before? That was a warm-up.", 'This is the version I bring to release day.'],
+  ['I trained all week for this restock.', "Don't take it personally."],
+]
 /*
  * Alex: the trainer who steps in the first time you meet the scalpers. He
  * has you pick a starter, then fights beside you with his Porygon, which he
@@ -5952,10 +5988,11 @@ async function run(id) {
   function deckFor(T, lv, force) {
     const tl = trainerLevel()
     const names = force ?? (() => {
-      const size = rand() < 0.5 ? 2 : 3   // every trainer brings two or three
-      // What your level has unlocked from their pool, topped up with the next in line when that's fewer than they bring.
+      // Two or three, then three from trainer level 30, then three or four from 45 (the late-game teams above).
+      const size = tl >= 45 ? (rand() < 0.5 ? 3 : 4) : tl >= 30 ? 3 : rand() < 0.5 ? 2 : 3
+      // What your level has unlocked from their pool (and not yet retired, `max`), topped up with the next in line when that's fewer than they bring.
       const pool = [...POOLS[T.short]].sort((a, b) => a.min - b.min), out = []
-      const avail = pool.filter((p) => p.min <= tl).map((p) => p.name)
+      const avail = pool.filter((p) => p.min <= tl && (p.max == null || tl <= p.max)).map((p) => p.name)
       for (const p of pool) if (avail.length < size && !avail.includes(p.name)) avail.push(p.name)
       while (out.length < Math.min(size, avail.length)) { const n = avail[Math.floor(rand() * avail.length)]; if (!out.includes(n)) out.push(n) }
       return out
@@ -5963,7 +6000,7 @@ async function run(id) {
     // Levels from the band for this kind of trainer, around `lv` (your lead); their ace, last, one above the rest,
     // and never above your next challenge's (trainerCap()).
     const [lo, hi] = levelBand(T, lv), base = Math.min(lv + lo + Math.floor(rand() * (hi - lo + 1)), trainerCap() - 1)
-    return names.map((n, i) => individual(DATA.trainer.find((t) => t.name === n), Math.max(2, Math.min(LEVEL_CAP, base + (i === names.length - 1 && names.length > 1 ? 1 : 0))), rand))
+    return names.map((n, i) => individual(DATA.trainer.find((t) => t.name === n) ?? speciesByName(n), Math.max(2, Math.min(LEVEL_CAP, base + (i === names.length - 1 && names.length > 1 ? 1 : 0))), rand))
   }
   /** A partner's timing ring, tapped by them: usually GREAT, sometimes PERFECT, now and then GOOD. */
   async function autoTap(cx, cy, label, approach = 820) {
@@ -9307,12 +9344,32 @@ async function run(id) {
     }
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
+  /*
+   * Veterans: now and then (VETERAN_CHANCE, from VETERAN_BADGES badges) an
+   * everyday trainer turns up as a veteran of the machine. Same person, a
+   * tougher fight: their Pokémon a few levels higher with good IVs, a leader's
+   * smarts (better move choices, tells, a Full Restore and Full Heals: `hard`),
+   * one more Pokémon, and no blunders. The reward is three times their tokens,
+   * a pack, and their usual drops. 1v1 only.
+   */
+  const VETERAN_CHANCE = 0.1, VETERAN_BADGES = 4, VETERAN_LEVELS = 3
+  const veteranOf = (T) => ({ ...T, full: `VETERAN ${T.full}`, title: 'VETERAN', veteran: true, hard: true, tellRate: 0.3, ringFast: 0.86, restores: 1,
+    blunder: 0, easy: false, tokens: (+T.tokens * 3).toFixed(2) })
+  /** A veteran's team: their deck, one more if they can, a few levels up, every IV at least 20. */
+  function veteranDeck(T) {
+    const lv = leadLevel() + VETERAN_LEVELS, deck = deckFor(T, lv)
+    if (deck.length < 4) { const more = deckFor(T, lv).find((m) => !deck.some((d) => d.name === m.name)); if (more) deck.splice(deck.length - 1, 0, more) }
+    // (deckFor still keeps them under your next challenge's cap, like any trainer's: before you're Champion, a veteran's edge is mostly its IVs and smarts.)
+    for (const m of deck) { for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k]); m.stats = statsAt(m, m.level); m.hp = m.stats.hp }
+    return deck
+  }
   async function scalperEncounter(demoPlan, state = 'in') {
     toolsEnabled(false)
     if (demoPlan?.who) scalper = demoPlan.who
     // Who's camping it. The demo always meets Herb; in Play it's anyone, at random.
     if (!demoPlan && $('homeLoiterer').style.display !== 'block') scalper = randomTrainers(1)[0]
-    const T = scalper
+    const vet = !demoPlan && (window.__forceVeteran || (badges.length >= VETERAN_BADGES && flavor() < VETERAN_CHANCE))   // __forceVeteran: testing only
+    const T = vet ? veteranOf(scalper) : scalper
     // The machine restocks... and someone's already standing at it.
     renderHome(state); if (state === 'in') sfx('restock'); await W(demo ? 1200 : 700)
     $('homeLoiterer').src = ART[T.body]
@@ -9331,11 +9388,12 @@ async function run(id) {
     setTimeout(() => { if (live()) Sound.music('encounter') }, 1500)
     if (demo) cap('SCALPER', 'Scalpers get their own wipe and a VS splash, then say their piece. They block the restock for everyone until someone beats them.')
     await W(1300)
+    if (vet) await talk(T, [pickOf(VETERAN_LINES)])
     await talk(T, demoPlan ? T.intro[0] : pickOf(T.intro))
     $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
     Sound.music(trainerTheme())
     // Their Pokémon for this battle, from their pool; the demo always meets Herb's GHOLDENGO.
-    const deck = deckFor(T, leadLevel(), demoPlan ? [T.mon] : null)   // around your lead: see levelBand()
+    const deck = vet ? veteranDeck(T) : deckFor(T, leadLevel(), demoPlan ? [T.mon] : null)   // around your lead: see levelBand()
     demoNoBlunder = !!demoPlan?.noBlunder
     const out = await battle({ kind: 'trainer', foe: deck[0], roster: deck.slice(1), trainer: T, plan: demoPlan?.turns, planD: demoPlan?.defend })
     if (out.result === 'won') {
@@ -9345,7 +9403,8 @@ async function run(id) {
       anim($('trainer'), [{ transform: 'none' }, { transform: 'translateY(3px) scaleY(.97)', offset: .5 }, { transform: 'none' }], { duration: 520, easing: 'ease-in-out' })
       await talk(T, pickOf(T.outro), 'faceDown'); await trainerOff()
       await out.exp?.()   // EXP after their parting words, then tokens
-      await payTokens(T.tokens, 'trainer', 'The VVM is free!')   // always
+      await payTokens(T.tokens, vet ? 'veteran' : 'trainer', 'The VVM is free!')   // always
+      if (vet) { const p = await givePack('veteran'); if (p) { sfx('click'); await say(`${scalper.short} handed over`, `${p}!`, 700) } feed(`<b>You</b> beat a veteran: ${esc(T.full)}.`) }
       await loot(T)   // sometimes
       Sound.stopMusic()
       await backToMachine(state)
@@ -9679,7 +9738,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, SCALPERS, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
