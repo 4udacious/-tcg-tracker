@@ -25,7 +25,7 @@ export default async function AdminVvmPage() {
     supabase.from('vending_set_info').select('set_code, description, total_quantity, claimed_quantity'),
     supabase
       .from('vvm_supplies')
-      .select('key, kind, name, description, contents, token_price, appearance_rate, is_active, sort_order, updated_at')
+      .select('*')   // '*': max_per_checkout and daily_limit are v86's
       .order('sort_order'),
     supabase.from('vending_settings').select('*').single(),   // '*': battle_heal_price is v79's, battle_find_chance v80's
     // Empty (and the section hidden) before v62.
