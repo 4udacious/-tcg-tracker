@@ -2417,6 +2417,16 @@ DISC_POOL.push('SAND ATTACK', 'SMOKESCREEN', 'DOUBLE TEAM', 'MINIMIZE', 'FLASH')
  *    Headbutt, Air Slash…) can cost it that turn.
  */
 const STATUS_NAME = { par: 'PAR', frz: 'FRZ', brn: 'BRN', psn: 'PSN', tox: 'TOX', slp: 'SLP' }
+/*
+ * CPU trainers carry Full Heals: leaders (Gym Leaders, the Elite Fours, Red,
+ * Alex, Herb and Paul: trainer.hard) two a battle, regular trainers one. They
+ * use one on a Pokémon whose status is holding it back, if it isn't nearly
+ * out (then it's not worth it), more readily for a leader. Never in the Watch
+ * demos, which play a set script.
+ */
+const FOE_FULL_HEALS = (T) => T?.fullHeals ?? (T?.hard ? 2 : 1)
+const FOE_HEAL_CHANCE = (T) => (window.__forceFoeHeal ? 1 : T?.hard ? 0.65 : 0.3)   // __forceFoeHeal: testing only
+const foeWantsFullHeal = (m, T, rand) => !!m.status && m.hp > m.stats.hp * 0.25 && rand() < FOE_HEAL_CHANCE(T)
 const STATUS_WORD = { par: 'paralyzed', frz: 'frozen', brn: 'burned', psn: 'poisoned', tox: 'badly poisoned', slp: 'asleep' }
 const STATUS_IMMUNE = { par: ['electric'], brn: ['fire'], frz: ['ice'], psn: ['poison', 'steel'], tox: ['poison', 'steel'], slp: [] }
 /** Moves with a chance to inflict a status when they land, per hit: [status, chance]. */
@@ -6367,6 +6377,7 @@ async function run(id) {
         return pick && { actor: s, move: pick.m, target: pick.f }
       }).filter(Boolean)
     }
+    const foeHeals = new Map()   // each trainer's Full Heals left this battle
     function foeCommands(step) {
       return alive('e').map((s) => {
         const scripted = step?.foes?.[s.mon.name]
@@ -6374,6 +6385,11 @@ async function run(id) {
         const heal = TRAINER_SUPPORT[s.mon.name]
         if (scripted?.move && SUPPORT[scripted.move]) return { actor: s, move: moveInfo(scripted.move), target: s }
         if (s.charged) { const up = alive('p'); return { actor: s, move: s.charged, target: up[Math.floor(rand() * up.length)] } }
+        // Its trainer's Full Heal (FOE_FULL_HEALS a battle each): used first thing in the turn, like yours.
+        if (!scripted && !demo && s.owner && (foeHeals.get(s.owner) ?? FOE_FULL_HEALS(s.owner)) > 0 && foeWantsFullHeal(s.mon, s.owner, rand)) {
+          foeHeals.set(s.owner, (foeHeals.get(s.owner) ?? FOE_FULL_HEALS(s.owner)) - 1)
+          return { actor: s, move: { name: 'FULL HEAL', kind: 'item', item: 'fullheal', prio: 6, cost: 0, foe: true }, target: s }
+        }
         // A Ditto transforms on its first turn out, into one of yours.
         if (!scripted && canTransform(s.mon) && !s.mon.form?.stats && !s.triedTransform && !S(s.mon).taunt) {
           s.triedTransform = true; const up = alive('p')
@@ -6836,6 +6852,13 @@ async function run(id) {
     }
 
     async function useItemDuo(act) {
+      if (act.actor.side === 'e') {   // a foe trainer's Full Heal, on its own Pokémon
+        const m = act.actor.mon, was = m.status
+        await say(`${act.actor.owner.short} used`, 'a FULL HEAL!', 200); sfx('heal')
+        if (!was) { await say("It didn't have any effect."); return }
+        m.status = null; m.toxN = 0; m.sleep = 0; tags(act.actor)
+        await say(`${m.name} is no longer`, `${STATUS_WORD[was]}!`, 250); return
+      }
       if (act.move.item === 'revive') {
         const m = act.target.mon
         await say('You used', `a REVIVE on ${m.name}!`, 200)
@@ -8167,6 +8190,7 @@ async function run(id) {
     foe.max = foe.stats.hp; foe.turn = 0
     const movesFor = (f) => (f.roamer && LEGEND_MOVES[f.name]) || (kind === 'trainer' && trainer?.movesFor?.(f)) || (kind === 'trainer' && trainer?.sig && !roster.length && trainer.sig) || (kind === 'trainer' && (trainer?.region === 'kanto' || (trainer?.strong && roster.length)) && strongMoves(f)) || (kind === 'trainer' && TRAINER_MOVES[f.name]) || (f.name === 'MAGIKARP' ? MAGIKARP : WILD_MOVES[f.types[0]] ?? WILD_MOVES.normal)   // a leader's ace (their last) fights with the leader's own moves
     let restores = trainer?.hard ? trainer.restores ?? 1 : 0   // Full Restores in the bag: a Gym Leader's one, Alex's one to three
+    let fullHeals = kind === 'trainer' && !demo ? FOE_FULL_HEALS(trainer) : 0   // Full Heals in the trainer's bag (FOE_FULL_HEALS)
     let switches = trainer?.switches ?? 0   // times this trainer may still pull a Pokémon out (switchPick)
     let sigUsed = false    // a leader's signature status move, once a battle
     let quipped = false    // a leader's first tell always gets a quip; later ones, half the time
@@ -8593,6 +8617,14 @@ async function run(id) {
         fled = true; return
       }
       if (kind === 'trainer' && !demoNoBlunder && (await blunder(trainer, foe))) return
+      // A Full Heal, used instead of moving (so even asleep or frozen), unless a Full Restore is about to cover it.
+      if (fullHeals > 0 && !(restores > 0 && foe.hp < foe.max * 0.35) && foeWantsFullHeal(foe, trainer, rand)) {
+        fullHeals--; const was = foe.status
+        await say(`${trainer.short} used`, 'a FULL HEAL!', 300); sfx('heal')
+        foe.status = null; foe.toxN = 0; foe.sleep = 0; showTags()
+        await say(`${foe.name} is no longer`, `${STATUS_WORD[was]}!`, 300); foe.turn++
+        return
+      }
       if (await blockedByStatus(foe)) return
       // A Ditto transforms on its first turn out, into yours.
       if (canTransform(foe) && !foe.form?.stats && !foe.triedTransform && !ST(foe).taunt && !foe.charged) {
@@ -8617,7 +8649,7 @@ async function run(id) {
       if (restores > 0 && (!roster.length || restores > 1) && foe.hp < foe.max * 0.35) {
         restores--
         await say(`${trainer.short} used`, 'a FULL RESTORE!', 300); sfx('heal')
-        const from = foe.hp; foe.hp = foe.max; await drain('e', from, foe.hp, foe.max)
+        const from = foe.hp; foe.hp = foe.max; foe.status = null; foe.toxN = 0; showTags(); await drain('e', from, foe.hp, foe.max)
         await say(`${foe.name}'s HP was restored!`); return
       }
       // Leaders choose: usually the move that hits you hardest, sometimes the next best.
