@@ -271,13 +271,13 @@
    "gain": 1
   },
   "wild": {
-   "file": "wild.8854ea91.m4a",
-   "sig": "19c9aeb5",
+   "file": "wild.f9765ca2.m4a",
+   "sig": "2c662d08",
    "rate": 44100,
-   "samples": 534492,
+   "samples": 1989792,
    "loop": true,
-   "loopStart": 0,
-   "loopEnd": 12,
+   "loopStart": 3,
+   "loopEnd": 45,
    "gain": 1
   },
   "win": {

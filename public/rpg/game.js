@@ -1619,6 +1619,58 @@ SONGS.battle = { file: null, loop: true, bpm: 156, div: 4, chordLen: 16,
   ] }
 
 /*
+ * The wild battle, rearranged for the newer engine like trainer battle A (the
+ * original 8-bar loop is SONGS.wildClassic, in the music picker). The melody
+ * is the same, note for note, on a sixteenth grid at the same 160 bpm, in
+ * D minor:
+ *   - Intro, once: a two-bar brass call on A7, the dominant, into the theme.
+ *   - The theme on brass with a synth over it; driving bass; power guitar.
+ *   - Again, fuller: violins with the brass under them, octave-bouncing bass,
+ *     sixteenth hats, and a run up the last bar.
+ *   - A bridge that lifts into F major (the lift the original only hinted
+ *     at): half-time, a new tune on the synth over a choir, walking bass.
+ *   - A build: piano ostinato and toms climbing back to the top.
+ * A 3 s intro, then a 42 s loop.
+ */
+SONGS.wildClassic = SONGS.wild
+const WILD_THEME = x2(bars('D5 . F5 A5 . G5 F5 E5', 'F5 . D5 . Bb4 . D5 F5', 'E5 . G5 . C6 . Bb5 A5', 'A5 . . . E5 . C#5 E5',
+  'D6 . C6 A5 . F5 G5 A5', 'Bb5 . A5 F5 . D5 F5 Bb5', 'A5 . G5 . F5 . E5 D5', 'C#5 . E5 . A5 . . -'))
+const WILD_CHORDS = 'Dm Bb C A Dm Bb Gm A'.split(' ')
+SONGS.wild = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16,
+  leadInst: 'brass', leadDouble: 'synth', leadDoubleVel: 0.26, harmInst: 'strings', power: true,
+  comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: { chords: ['A7', 'A7'], power: false, leadDouble: null,
+    lead: bars('A4 . . A4 . . A4 . C#5 . . C#5 . . E5 .', 'G5~ . . . . . . . - - - - - - - -'),
+    bass: bars('A1 . . A1 . . A1 . A1 . . A1 . . A1 .', 'A1 . . . . . . . - - - - - - - -'),
+    drums: 'K..K..K.S..S..S.' + 'K...S...TTttSSSS' },
+  sections: [
+    { // The theme, on brass
+      chords: WILD_CHORDS, lead: WILD_THEME,
+      bass: bars(drive('D2'), drive('Bb1'), drive('C2'), drive('A1'), drive('D2'), drive('Bb1'), drive('G1'), 'A1 . . A2 . . A1 . C#2 . . E2 . . G2 .'),
+      drums: 'K.h.S.hKK.h.S.h.'.repeat(7) + 'K.h.S.hKTTttSSSS' },
+    { // Fuller: violins with the brass under them, octave bass, sixteenth hats, a run up the last bar
+      chords: WILD_CHORDS, leadInst: 'violins', leadDouble: null, doubles: [['brass', -1, 0.5]], hats16: true, runs: '...f...f',
+      lead: [...WILD_THEME.slice(0, 112), ...bars('C#5 . E5 . G5 . A5 . C#6 . E6 . G6 . A6 .')],
+      bass: bars(pump('D2'), pump('Bb1'), pump('C2'), pump('A1'), pump('D2'), pump('Bb1'), pump('G1'), 'A1 . A2 . A1 . A2 . C#2 . E2 . G2 . A2 .'),
+      drums: 'K.hKS.hgK.hKS.hg'.repeat(7) + 'K.hKS.hgSSSSXXXX' },
+    { // The bridge: the lift into F major, half-time, a new tune over a choir
+      chords: 'F C Dm Bb F C Bb A7'.split(' '), leadInst: 'synth', leadDouble: 'brass', leadDoubleOct: -1, leadDoubleVel: 0.4, padInst: 'choir', power: false,
+      lead: bars('C6 . . . A5 . . . F5 . . . A5 . C6 .', 'E6 . . . D6 . . . C6 . . . G5 . . .',
+        'F6^ . . . . . . . D6 . E6 . F6 . A6 .', 'G6 . . . F6 . . . D6 . . . Bb5 . D6 .',
+        'C6 . . . A5 . C6 . F6 . . . E6 . F6 .', 'G6 . . . E6 . C6 . G5 . . . C6 . E6 .',
+        'D6~ . . . . . . . . . . . C6 . Bb5 .', 'A5 . . . C#6 . . . E6 . . . G6 . . .'),
+      bass: bars(walk('F1', 'A1', 'C2', 'A1'), walk('C2', 'E2', 'G2', 'E2'), walk('D2', 'F2', 'A2', 'F2'), walk('Bb1', 'D2', 'F2', 'D2'),
+        walk('F1', 'A1', 'C2', 'A1'), walk('C2', 'E2', 'G2', 'E2'), walk('Bb1', 'D2', 'F2', 'D2'), 'A1 . . . . . . . A1 . . . C#2 . E2 .'),
+      drums: 'K.hgh.hgS.hgh.hg'.repeat(7) + 'K.hgS.hgTTttSSSS' },
+    { // The build: piano ostinato and toms, climbing back to the top
+      chords: 'Dm Dm A7 A7'.split(' '), leadInst: 'synth', leadDouble: null, power: false, ostinato: '0 1 2 3 2 1 0 1'.split(' '),
+      lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - A4 . D5 .',
+        'C#5 . . . . . . . E5 . . . . . . .', 'G5 . . . A5 . . . C#6 . . . E6 . . .'),
+      bass: bars('D2 . . . . . . . D2 . . D2 . . D2 .', 'D2 . . . . . . . D2 . . D2 . . D2 .', drive('A1'), 'A1 . A2 . A1 . A2 . A1 A2 A1 A2 A1 A2 A1 A2'),
+      drums: 'K...h...S...h...' + 'K...h...S...h.K.' + 'K.hgS.hgK.hgS.hg' + 'TTttTTttSSSSXXXX' },
+  ] }
+
+/*
  * The Elite Four battle, second version (the first is SONGS.eliteClassic).
  * Where the gym theme drives, this one looms. It's the only battle theme not
  * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.
