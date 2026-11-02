@@ -1281,6 +1281,27 @@ test('gym rematches: every leader comes back fully evolved, at your level', asyn
   } finally { await g.close() }
 })
 
+test('the daily challenge: one type a day, the same all day, four fully evolved Pokémon of it', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, days = Array.from({ length: 14 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`)
+      const cs = days.map((d) => v.dailyChallenge(d))
+      return { same: JSON.stringify(v.dailyChallenge('2026-11-02')) === JSON.stringify(v.dailyChallenge('2026-11-02')),
+        types: [...new Set(cs.map((c) => c.type))].length,
+        bad: cs.flatMap((c) => c.team.filter((n) => { const sp = speciesByName(n); return !sp || !sp.types.includes(c.type) || v.finalForm(n) !== n }).map((n) => `${c.day} ${c.type}: ${n}`)),
+        sizes: [...new Set(cs.map((c) => new Set(c.team).size))], who: cs.every((c) => c.who?.vs) }
+    })
+    assert.ok(r.same, 'the same challenge all day')
+    assert.ok(r.types >= 6, `it changes from day to day (${r.types} types in 14 days)`)
+    assert.deepEqual(r.bad, [], 'every Pokémon is of the day\'s type, and fully evolved')
+    assert.deepEqual(r.sizes, [4], 'four different ones to draw from'); assert.ok(r.who)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Ditto keeps Transform equipped as it levels', async () => {
   const g = await openGame()
   try {

@@ -7187,6 +7187,78 @@ async function run(id) {
    */
   let tutorialDone = false, gifted = false
 
+  /* ══════════ the daily challenge ══════════ */
+  /*
+   * Once a day (Seattle's day, like the Pokémon Center), from your first
+   * badge: one type, the same for everyone that day, and an everyday trainer
+   * with three fully evolved Pokémon of it (four once you're Champion), a
+   * level or two above you (no higher than your next challenge allows), with
+   * a leader's move choices. Beat it for a pack and DAILY_TOKENS; lose, and
+   * it's there to try again all day. A bar under the machine offers it.
+   */
+  const DAILY_TOKENS = '1.00'
+  let dailyWon = null   // the day it was last won (localDay()), saved
+  const DAILY_TYPES = ['fire', 'water', 'grass', 'electric', 'psychic', 'fighting', 'ghost', 'dragon', 'rock', 'ground', 'ice', 'poison', 'bug', 'flying', 'normal', 'dark', 'steel', 'fairy']
+  /** The day's challenge: its type, its trainer and their team's species (all fully evolved), the same for everyone. */
+  function dailyChallenge(day = localDay()) {
+    const r = rng(hashStr(`daily:${day}`)), finals = new Map()
+    for (const sp of [...DATA.wild, ...DATA.trainer]) { const f = finalForm(sp.name), s = speciesByName(f); if (s && ART[s.id] && !LEGENDS.includes(f) && f !== 'MEWTWO' && f !== 'ZAPDOS') finals.set(f, s) }
+    const types = DAILY_TYPES.filter((t) => [...finals.values()].filter((s) => s.types.includes(t)).length >= 4)
+    const type = types[Math.floor(r() * types.length)]
+    const pool = [...finals.values()].filter((s) => s.types.includes(type)).map((s) => s.name)
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]] }
+    const crew = CREW.filter((T) => POOLS[T.short])
+    return { day, type, who: crew[Math.floor(r() * crew.length)], team: pool.slice(0, 4) }
+  }
+  const dailyOpen = () => MODE === 'play' && tutorialDone && badges.length >= 1 && modeOn('trainers') && dailyWon !== localDay()
+  function paintDaily() {
+    const b = $('dailyBar'); if (!b) return
+    const show = dailyOpen() && !busy && homeState === 'idle' && $('battleL').style.display !== 'block' && !$('sheet').classList.contains('open')
+    b.hidden = !show
+    if (show) { const c = dailyChallenge(); b.innerHTML = `<b>DAILY CHALLENGE</b> · ${c.type.toUpperCase()} TYPES · <span>a pack and ${DAILY_TOKENS} tk</span>` }
+  }
+  if (!demo) setInterval(() => { if (live()) paintDaily() }, 1000)
+  async function dailyEncounter(state = 'in') {
+    const c = dailyChallenge()
+    if (!dailyOpen() || !party.some((m) => m.hp > 0)) { if (!party.some((m) => m.hp > 0)) $('homeSub').textContent = 'heal your party to take on the daily challenge'; return }
+    const T = { ...c.who, title: 'DAILY CHALLENGE', smart: true, blunder: 0, easy: false }
+    toolsEnabled(false); $('dailyBar').hidden = true
+    Sound.music('vs')
+    await wipeTrainer(async () => {
+      setScene(SCALPER_SCENES, sceneRoll); showLayer('battle')
+      const vs = $('vs'); $('vsImg').src = ART[T.vs]; $('vsName').textContent = T.full; vs.querySelector('.name span').textContent = 'DAILY CHALLENGE'; vs.style.display = 'block'
+      vsIn(vs)
+    })
+    setTimeout(() => { if (live()) Sound.music('encounter') }, 1500)
+    await W(1300)
+    await talk(T, [`Today's challenge: ${c.type.toUpperCase()} types, and they're all fully evolved.`, `Beat my ${champion ? 'four' : 'three'} and the prize is yours.`])
+    $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
+    Sound.music(trainerTheme())
+    // A level above your best, their ace two, never past your next challenge's cap; every IV at least 20.
+    const top = trainerLevel(), cap = trainerCap()
+    const team = c.team.slice(0, champion ? 4 : 3).map((n, i, all) => {
+      const m = individual(DATA.trainer.find((t) => t.name === n) ?? speciesByName(n), Math.max(2, Math.min(LEVEL_CAP, cap - (i === all.length - 1 ? 0 : 1), top + (i === all.length - 1 ? 2 : 1))), rand)
+      for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k])
+      m.stats = statsAt(m, m.level); m.hp = m.stats.hp
+      return m
+    })
+    const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: T })
+    if (out.result === 'won') {
+      dailyWon = localDay()
+      Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
+      await trainerOn(T, 'down'); await talk(T, ["That's today's challenge done.", 'Come back tomorrow: a new type, a new team.'], 'faceDown'); await trainerOff()
+      await out.exp?.()
+      await payTokens(DAILY_TOKENS, 'daily')
+      const p = await givePack('daily'); if (p) { sfx('click'); await say('Your prize:', `${p}!`, 700) }
+      feed(`<b>You</b> beat today's DAILY CHALLENGE: ${c.type.toUpperCase()} types.`)
+      renderTools()
+    } else {
+      await trainerOn(T); await talk(T, [`${c.type.toUpperCase()} types too much for you?`, "The challenge is here all day. Come back when you're ready."]); await trainerOff()
+    }
+    Sound.stopMusic(); saveGame(); await backToMachine(state)
+  }
+  $('dailyBar') && ($('dailyBar').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !live()) return; guard(() => dailyEncounter(homeState))() })
+
   /* ══════════ gym rematches ══════════ */
   /*
    * After you're Champion, a Gym Leader whose badge you hold may turn up at
@@ -9676,7 +9748,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -9743,7 +9815,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
-    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; emblemSent = !!s.emblemSent; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
+    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; emblemSent = !!s.emblemSent; dailyWon = s.dailyWon ?? null; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     storyGap = { taps: 0, who: null, ...s.storyGap }
@@ -9810,7 +9882,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, SCALPERS, rematchTeam, finalForm, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
