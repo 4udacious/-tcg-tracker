@@ -6140,7 +6140,9 @@ async function run(id) {
       const m = s.mon, from = m.hp; m.hp = Math.max(0, Math.min(m.stats.hp, to))
       const bar = s.hud.querySelector('.hpb i'), a = from / m.stats.hp * 100, b = m.hp / m.stats.hp * 100
       const dur = Math.min(650, 160 + Math.abs(from - m.hp) * 36)
-      anim(bar, [{ width: a + '%', background: hpColor(a) }, { width: b + '%', background: hpColor(b) }], { duration: dur })
+      // The end state on the bar itself, the animation only the way there (as drain(): a held one could leave it wrong).
+      bar.getAnimations().forEach((x) => x.cancel()); bar.style.width = b + '%'; bar.style.background = hpColor(b)
+      bar.animate([{ width: a + '%', background: hpColor(a) }, { width: b + '%', background: hpColor(b) }], { duration: dur })
       const n = s.hud.querySelector('.dhn')
       if (n) { const steps = Math.max(1, Math.abs(from - m.hp)); for (let i = 1; i <= steps; i++) { await W(dur / steps); n.textContent = `${Math.round(from + (m.hp - from) * i / steps)}/${m.stats.hp}` } } else await W(dur)
       renderTools()
@@ -7872,7 +7874,10 @@ async function run(id) {
     const bar = $(which === 'p' ? 'php' : 'ehp')
     const a = from / max * 100, b = Math.max(0, Math.min(max, to)) / max * 100
     const dur = Math.min(700, 180 + Math.abs(from - to) * 40)
-    anim(bar, [{ width: a + '%', background: hpColor(a) }, { width: b + '%', background: hpColor(b) }], { duration: dur })
+    // The end state goes on the bar itself and the animation only plays the way there (no fill): an HP bar kept
+    // at a held animation's width could stay empty, or at an old Pokémon's HP, after the next one came out.
+    bar.getAnimations().forEach((x) => x.cancel()); bar.style.width = b + '%'; bar.style.background = hpColor(b)
+    bar.animate([{ width: a + '%', background: hpColor(a) }, { width: b + '%', background: hpColor(b) }], { duration: dur })
     if (which === 'p') {
       const steps = Math.max(1, Math.abs(from - to))
       for (let i = 1; i <= steps; i++) { await W(dur / steps); $('pnum').textContent = `${Math.max(0, Math.round(from + (to - from) * i / steps))}/${max}` }
@@ -7968,7 +7973,7 @@ async function run(id) {
     const scr = { p: {}, e: {} }   // each side's REFLECT / LIGHT SCREEN turns left
     $('battleL').dataset.wx = ''
     let foeLast = null     // the last move the foe used on you (for Sketch and Disable)
-    let wish = null        // { turns, amt }: Wish, healing whoever of yours is out
+    let wish = null        // { turns, amt, mine }: Wish, healing whoever is out on the side that made it
     let escaped = false    // Teleport
     const showTags = () => {
       const field = (m) => { const c = scr[m === me ? 'p' : 'e']; return [c.reflect && 'REFLECT', c.light && 'L.SCREEN', ST(m).protect && 'PROTECT', m === me && weather && WEATHER_TEXT[weather.kind][2]] }
@@ -8029,7 +8034,10 @@ async function run(id) {
     }
     /** End of a turn for the field: the weather and each side's screens count down. */
     async function endField() {
-      if (wish && !--wish.turns) { const amt = wish.amt; wish = null; if (me.hp > 0 && me.hp < me.stats.hp) { sfx('heal'); rise(C.p, '#86efac', 'dot'); await setHPOf(me, me.hp + amt); await say('The wish came true', `for ${me.name}!`, 300) } }
+      if (wish && !--wish.turns) {
+        const amt = wish.amt, m = wish.mine ? me : foe, full = wish.mine ? me.stats.hp : foe.max; wish = null   // a foe's Wish heals the foe, not you
+        if (m.hp > 0 && m.hp < full) { sfx('heal'); rise(m === me ? C.p : C.e, '#86efac', 'dot'); await setHPOf(m, m.hp + amt); await say('The wish came true', `for ${m.name}!`, 300) }
+      }
       if (weather && !--weather.turns) { await say(WEATHER_TEXT[weather.kind][1], '', 300); weather = null; $('battleL').dataset.wx = '' }
       for (const side of ['p', 'e']) for (const k of ['reflect', 'light']) if (scr[side][k] && !--scr[side][k]) await say(`${side === 'p' ? 'Your' : "The foe's"} ${k === 'reflect' ? 'REFLECT' : 'LIGHT SCREEN'}`, 'wore off.', 250)
       showTags()
@@ -8135,7 +8143,7 @@ async function run(id) {
           sfx('heal'); await setHPOf(user, user.stats.hp); user.status = 'slp'; user.sleep = 2; showTags()
           await say(`${who(user)} slept`, 'and became healthy!', 400); return true
         }
-        case 'wish': if (wish) return false; wish = { turns: 2, amt: Math.floor(user.stats.hp / 2) }; sfx('perfect'); await say(`${who(user)} made a wish!`, '', 300); return true
+        case 'wish': if (wish) return false; wish = { turns: 2, amt: Math.floor(user.stats.hp / 2), mine: user === me }; sfx('perfect'); await say(`${who(user)} made a wish!`, '', 300); return true
         case 'disable': {
           if (miss || !foeLast || ot.disabled) return false
           ot.disabled = { name: foeLast, turns: 3 }; sfx('flinch'); showTags(); await say(`${who(other)}'s ${foeLast}`, 'was disabled!', 350); return true
@@ -8197,6 +8205,7 @@ async function run(id) {
     let quipped = false    // a leader's first tell always gets a quip; later ones, half the time
     let fled = false       // a roaming legendary ran
     let foeMoves = movesFor(foe)
+    window.__battleFoe = () => foe   // testing only: the foe out now
     plan = plan ? [...plan] : null; planD = planD ? [...planD] : null
 
     $('ename').textContent = foe.name; $('elv').textContent = foe.level; setHP('e', foe.hp, foe.max)
