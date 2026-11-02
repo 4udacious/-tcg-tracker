@@ -104,6 +104,15 @@ export function makeVvmApi(userId: string) {
       }
     },
     balance,
+    /**
+     * The Champion's Emblem (v87), after the Hall of Fame: the team that did it. The server
+     * gives it only once the Kanto Elite Four, Red and Alex's last battle are all paid
+     * milestones, and keeps the first team. True once you have it; false if not (yet).
+     */
+    async claimEmblem(team: { id: number; name: string; level: number; shiny: boolean }[]) {
+      const { data, error } = await db.rpc('battle_claim_emblem', { p_team: team })
+      return !error && data === true
+    },
     /** The purchase screen: one member at a time. */
     async claim() {
       const { data } = await db.rpc('vending_claim')

@@ -4530,6 +4530,7 @@ async function run(id) {
   let kantoStep = 0, redBeaten = false   // the Kanto League: who's next (Lorelei ... Red), and whether Red is beaten
   let shareOn = true   // the EXP. SHARE's switch, in the Bag
   let fame = null   // the Hall of Fame, after Alex's last battle: { at, team: [{ id, name, level }] }
+  let emblemSent = false   // app: the Champion's Emblem (v87) has been claimed for the Hall of Fame team
   /** The League whose ticket you can use now: Johto's ('elite') with all 8 Johto badges, Kanto's ('kanto') as Champion with all 16; or null. */
   const leagueNow = () => (!champion ? (badges.length >= 8 ? 'elite' : null) : badges.length >= GYMS.length && !redBeaten ? 'kanto' : null)
   /** Where you are on a League's ladder. */
@@ -4844,7 +4845,21 @@ async function run(id) {
    * your account into the Bag: the game's save holds them from then on. A Move
    * Disc becomes a random disc now; a Gym Summon is for your next gym.
    */
+  /**
+   * The Champion's Emblem, for the app's showcase: claimed with the Hall of Fame
+   * team once, right after it or on the next start for a game finished before
+   * there was one. The server checks the battles were really won.
+   */
+  async function claimEmblem() {
+    const api = vvm(); if (!api?.claimEmblem || !fame?.team?.length || emblemSent) return
+    // Shiny only where there's a shiny sprite, as spr() draws it.
+    const ok = await api.claimEmblem(fame.team.map((m) => ({ id: m.id, name: m.name, level: m.level, shiny: !!m.shiny && SHINY_IDS.has(m.id) }))).catch(() => false)
+    if (!ok) return
+    emblemSent = true; saveGame()
+    feed(`<b>You</b> earned the <b>CHAMPION'S EMBLEM</b>, with your Hall of Fame team. Put it on a shelf in your Showcase.`)
+  }
   async function collectItems() {
+    claimEmblem()
     const api = vvm(); if (!api || !tutorialDone) return []
     const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k))]
     const got = await api.takeItems(keys).catch(() => [])
@@ -9205,7 +9220,7 @@ async function run(id) {
       await say('Pokémon that sit out a battle', 'now get half of its EXP.', 700)
     }
     if (out.result !== 'won') await say('ALEX headed off.', "There'll be a rematch soon.")
-    else if (n === RIVAL_BATTLES.length - 1) await hallOfFame()
+    else if (n === RIVAL_BATTLES.length - 1) { await hallOfFame(); claimEmblem() }
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
   /**
@@ -9494,7 +9509,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -9561,7 +9576,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
-    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
+    champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; emblemSent = !!s.emblemSent; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     storyGap = { taps: 0, who: null, ...s.storyGap }

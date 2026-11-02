@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import ConditionedCard, { type Condition } from './ConditionedCard'
 import Slab from './Slab'
+import BattleEmblem, { type BattleEmblemData } from './BattleEmblem'
 
 export interface ShowcaseItem extends Condition {
   slot: number
@@ -121,11 +122,13 @@ function Item({ item }: { item: ShowcaseItem }) {
  * and visiting someone else's.
  */
 export default function ShowcaseRoom({
-  items, lighting, onSlotClick,
+  items, lighting, onSlotClick, emblem = null,
 }: {
   items: ShowcaseItem[]
   lighting: Lighting
   onSlotClick?: (slot: number) => void
+  /** The Champion's Emblem (v87), drawn in its slot when it's on display. */
+  emblem?: BattleEmblemData | null
 }) {
   const bySlot = useMemo(() => {
     const m = new Map<number, ShowcaseItem>()
@@ -180,10 +183,12 @@ export default function ShowcaseRoom({
               {Array.from({ length: PER_SHELF }, (_, col) => {
                 const slot = shelfIndex * PER_SHELF + col
                 const item = bySlot.get(slot)
+                const shown = !item && emblem?.showcase_slot === slot
                 const interactive = !!onSlotClick
 
                 const content = item
                   ? <Item item={item} />
+                  : shown ? <BattleEmblem emblem={emblem!} />
                   : (
                     <div
                       className="w-full aspect-[100/161] rounded-lg flex items-center justify-center"
@@ -206,14 +211,14 @@ export default function ShowcaseRoom({
                       <button
                         onClick={() => onSlotClick(slot)}
                         className="block w-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal rounded-lg"
-                        aria-label={item ? `Change ${item.name} on shelf` : `Add a card to slot ${slot + 1}`}
+                        aria-label={item ? `Change ${item.name} on shelf` : shown ? "Change the Champion's Emblem on the shelf" : `Add a card to slot ${slot + 1}`}
                       >
                         {content}
                       </button>
                     ) : content}
 
                     {/* What the plank throws back up under the item. */}
-                    {item && (
+                    {(item || shown) && (
                       <div
                         className="absolute inset-x-1 -bottom-0.5 h-2 rounded-[50%] pointer-events-none blur-[2px]"
                         style={{ background: `rgba(0,0,0,${(0.55 - b * 0.2).toFixed(3)})` }}

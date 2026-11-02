@@ -783,6 +783,50 @@ test('in the app: one Gym Summon at a time: not for sale while one is in the Bag
   } finally { await g.close() }
 })
 
+test('in the app: a finished game claims the Champion\'s Emblem once, with the Hall of Fame team', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    const open = async (bag, owned) => {
+      await page.evaluate(([bag, owned]) => {
+        let balance = 10
+        window.__vvmApi = {
+          async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: true, heal_price: 0.5, find_chance: 0,
+            packs: [], tickets: [], supplies: [{ key: 'gym_summon', kind: 'item', name: 'Gym Summon', description: 'Summons your next Gym Leader', price: 3, contents: null }], boxes: [] } },
+          async balance() { return balance }, async claim() { return { ok: true, reason: 'ok' } }, async heartbeat() {}, async release() {},
+          async checkout(p, t, sup) { balance -= 3; for (const x of sup) owned[x.key] = (owned[x.key] ?? 0) + x.qty; return { ok: true, reason: 'ok', packs_bought: 0, supplies_bought: 1, balance } },
+          async takeItems(keys) { const out = keys.filter((k) => owned[k]).map((k) => ({ key: k, qty: owned[k] })); for (const k of keys) delete owned[k]; return out },
+          async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+          async loadSave() { return null }, async claimEmblem(team) { (window.__claims ??= []).push(team); return true }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+          async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+        }
+        const m = individual(speciesByName('CHARMANDER'), 15, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+        localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag, wallet: 10, badges: [0, 1], champion: true, eliteStep: 0, redBeaten: true, gifted: true, roam: {}, weekShift: 0, reports: {}, emblemSent: bag.sent ?? false, fame: { at: Date.now(), team: [{ id: 6, name: 'CHARIZARD', level: 70, shiny: false }, { id: 25, name: 'PIKACHU', level: 68, shiny: true }] } }))
+        const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+        RUN++; document.body.replaceChildren(f)
+      }, [bag, owned])
+      const frame = await (await page.waitForSelector('#game')).contentFrame()
+      await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+      await page.waitForTimeout(1200)
+      // Empty taps: with trainer battles live, Alex (due after the first badge) would otherwise jump out.
+      for (let t = 0; t < 4 && !(await frame.$('[data-buy="sup:gym_summon"]')); t++) { await frame.evaluate(() => { document.getElementById('nextTap').value = 'none'; document.getElementById('home').click() }); await page.waitForTimeout(1500) }
+      await page.waitForTimeout(1200)
+      return frame
+    }
+    let frame = await open({ ball: 1 }, {})
+    await frame.waitForFunction(() => window.parent.__claims?.length === 1, null, { timeout: 10000 })
+    const r = await frame.evaluate(() => ({ claims: window.parent.__claims, saved: JSON.parse(localStorage.getItem('vvm-save:u1')).emblemSent, feed: document.body.textContent }))
+    assert.deepEqual(r.claims[0].map((m) => `${m.name} ${m.level}${m.shiny ? ' shiny' : ''}`), ['CHARIZARD 70', 'PIKACHU 68 shiny'], 'claimed with the Hall of Fame team')
+    assert.equal(r.saved, true, 'and the save remembers it'); assert.match(r.feed, /CHAMPION'S EMBLEM/)
+    // A save that has claimed it doesn't claim again.
+    await page.evaluate(() => { window.__claims = [] })
+    frame = await open({ ball: 1, sent: true }, {})
+    await page.waitForTimeout(1500)
+    assert.deepEqual(await page.evaluate(() => window.__claims), [], 'claimed once')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: a supply\'s purchase limits: no more in the cart than is left today, and greyed out once today\'s are bought', async () => {
   const g = await openGame()
   try {

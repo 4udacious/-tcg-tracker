@@ -8,6 +8,7 @@ import ConditionedCard from './ConditionedCard'
 import type { CollectionCard, OwnedBox } from './CollectionPanel'
 import HoloMark, { rarityLabel } from './HoloMark'
 import { Sheet } from '@/components/ui/Sheet'
+import BattleEmblem, { type BattleEmblemData } from './BattleEmblem'
 
 const SHELF_OPTIONS: { value: string; label: string }[] = [
   { value: 'oak', label: 'Oak' },
@@ -18,13 +19,15 @@ const SHELF_OPTIONS: { value: string; label: string }[] = [
 
 /** The owner's view: the same room, plus the means to arrange it. */
 export default function ShowcasePanel({
-  initialItems, initialLighting, collection, boxes = [],
+  initialItems, initialLighting, collection, boxes = [], emblem: initialEmblem = null,
 }: {
   initialItems: ShowcaseItem[]
   initialLighting: Lighting
   collection: CollectionCard[]
   /** Sealed booster boxes, which can stand on a shelf too. */
   boxes?: OwnedBox[]
+  /** The Champion's Emblem, once you've finished the battle game (v87). */
+  emblem?: BattleEmblemData | null
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -33,6 +36,7 @@ export default function ShowcasePanel({
   // should not post on every pixel.
   const [light, setLight] = useState<Lighting>(initialLighting)
   const [items, setItems] = useState<ShowcaseItem[]>(initialItems)
+  const [emblem, setEmblem] = useState<BattleEmblemData | null>(initialEmblem)
   const [picking, setPicking] = useState<number | null>(null)
   // null = every set. Reset each time the picker opens, since the set you
   // wanted last time says nothing about the slot you are filling now.
@@ -116,12 +120,38 @@ export default function ShowcasePanel({
       : await supabase.rpc('set_showcase_slot', { p_slot: slot, p_user_card_id: pick.user_card_id })
     setBusy(false)
     if (error) { setNote(box ? 'Could not place that box.' : 'Could not place that card.'); return }
+    // Whatever goes in the emblem's slot takes it down (the database does the same).
+    if (emblem?.showcase_slot === slot) setEmblem({ ...emblem, showcase_slot: null })
     setItems((prev) => [
       // A card (or box) can only stand in one place, so clear it from any
       // other slot the way the database just did.
       ...prev.filter((i) => i.slot !== slot && keyOf(i) !== keyOf(pick)),
       { ...pick, slot },
     ])
+    setPicking(null)
+    startTransition(() => router.refresh())
+  }
+
+  /** Puts the emblem in a slot, taking down whatever was there. */
+  async function placeEmblem(slot: number) {
+    if (!emblem) return
+    setBusy(true); setNote(null)
+    const { error } = await createClient().rpc('set_showcase_emblem_slot', { p_slot: slot })
+    setBusy(false)
+    if (error) { setNote('Could not place your emblem.'); return }
+    setItems((prev) => prev.filter((i) => i.slot !== slot))
+    setEmblem({ ...emblem, showcase_slot: slot })
+    setPicking(null)
+    startTransition(() => router.refresh())
+  }
+
+  async function clearEmblem() {
+    if (!emblem) return
+    setBusy(true); setNote(null)
+    const { error } = await createClient().rpc('clear_showcase_emblem')
+    setBusy(false)
+    if (error) { setNote('Could not take your emblem down.'); return }
+    setEmblem({ ...emblem, showcase_slot: null })
     setPicking(null)
     startTransition(() => router.refresh())
   }
@@ -138,13 +168,14 @@ export default function ShowcasePanel({
   }
 
   const occupant = picking == null ? null : items.find((i) => i.slot === picking) ?? null
+  const emblemHere = picking != null && !occupant && emblem?.showcase_slot === picking
 
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display font-semibold text-base">Showcase</h2>
         <span className="font-mono text-[10px] text-muted">
-          {items.length}/{SLOTS} on display
+          {items.length + (emblem?.showcase_slot != null ? 1 : 0)}/{SLOTS} on display
         </span>
       </div>
       <p className="text-xs text-muted leading-snug -mt-2">
@@ -160,6 +191,7 @@ export default function ShowcasePanel({
       <ShowcaseRoom
         items={items}
         lighting={light}
+        emblem={emblem}
         onSlotClick={(slot) => { setPicking(slot); setSetFilter(null) }}
       />
 
@@ -271,6 +303,34 @@ export default function ShowcasePanel({
         {picking !== null && (
           <>
 
+            {emblemHere && (
+              <button
+                onClick={clearEmblem}
+                disabled={busy}
+                className="w-full min-h-10 shrink-0 text-xs font-medium text-red-500 border border-red-500/30 rounded-lg px-3 py-2 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+              >
+                Take your Champion&apos;s Emblem off the shelf
+              </button>
+            )}
+
+            {/* The emblem leads the picker: there is only ever one, and it's earned. */}
+            {emblem && !emblemHere && (
+              <button
+                onClick={() => placeEmblem(picking)}
+                disabled={busy}
+                className="mt-3 w-full shrink-0 flex items-center gap-3 rounded-xl border border-amber-400/50 bg-amber-400/10 p-2 text-left hover:bg-amber-400/15 transition-colors disabled:opacity-40"
+                aria-label={`Put your Champion's Emblem in slot ${picking + 1}`}
+              >
+                <BattleEmblem emblem={emblem} className="!w-14 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Champion&apos;s Emblem</span>
+                  <span className="block text-xs text-muted leading-snug">
+                    {emblem.showcase_slot != null ? `On slot ${emblem.showcase_slot + 1} now: tap to move it here.` : 'For finishing the battle game. Tap to put it on this shelf.'}
+                  </span>
+                </span>
+              </button>
+            )}
+
             {occupant && (
               <button
                 onClick={() => clear(picking)}
@@ -281,7 +341,7 @@ export default function ShowcasePanel({
               </button>
             )}
 
-            {candidates.length === 0 ? (
+            {candidates.length === 0 ? (!emblem &&
               <p className="text-sm text-muted mt-4">
                 Nothing to display yet. Open a pack, or buy a sealed box.
               </p>
