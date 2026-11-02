@@ -128,6 +128,11 @@ const Sound = (() => {
   let ac = null, sfxBus, musBus, on = false, current = null, loopTimer = null, musGain = null
   const log = []
   window.__audioLog = log
+  // Played, the log only needs its recent end (the crash note's music, the tests): kept from growing for as long as the
+  // game is open. The Watch demos keep all of it, for the recorded video's soundtrack.
+  const logged = (e) => { log.push(e); if (log.length > 3000 && MODE === 'play') log.splice(0, 1000) }
+  let decodes = 0, playingSecs = 0   // for the crash note: songs decoded since the page loaded, and how long the one playing is
+  window.__musicStats = () => ({ decodes, secs: playingSecs })
   const stamp = () => performance.timeOrigin + performance.now()
 
   function graph(ctx) {
@@ -160,7 +165,9 @@ const Sound = (() => {
     try {
       const bytes = await (await fetch(`/rpg/a/music/${f.file}`)).arrayBuffer()
       const buf = await ac.decodeAudioData(bytes)
+      decodes++
       if (tok !== fileTok || g.__stopped) return
+      playingSecs = Math.round(buf.duration)
       // A decoder that keeps AAC's priming (1024 samples, then up to a frame of padding at the end) puts everything that much
       // late: the loop points move with it. (One that trims the start but not the end comes out under 1024 long.)
       const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
@@ -195,13 +202,13 @@ const Sound = (() => {
   }
   return {
     sfx(name) {
-      log.push({ t: stamp(), kind: 'sfx', name })
+      logged({ t: stamp(), kind: 'sfx', name })
       if (!on || !SFX[name]) return
       ensure(); SFX[name].synth(ac, sfxBus, ac.currentTime + 0.005)
     },
-    cry(id, rate = 1) { log.push({ t: stamp(), kind: 'cry', id, rate }); if (!on) return; ensure(); window.__playCry?.(ac, sfxBus, id, rate) },
-    music(name) { log.push({ t: stamp(), kind: 'music', name }); current = name; startMusic(name) },
-    stopMusic() { log.push({ t: stamp(), kind: 'music', name: null }); current = null; stopNodes() },
+    cry(id, rate = 1) { logged({ t: stamp(), kind: 'cry', id, rate }); if (!on) return; ensure(); window.__playCry?.(ac, sfxBus, id, rate) },
+    music(name) { logged({ t: stamp(), kind: 'music', name }); current = name; startMusic(name) },
+    stopMusic() { logged({ t: stamp(), kind: 'music', name: null }); current = null; stopNodes() },
     setOn(v) {
       on = v
       try { localStorage.setItem('vvm-sound', v ? '1' : '0') } catch {}
@@ -3983,7 +3990,8 @@ window.__checkUpdate = () => UPDATE.check()
 const CRUMBS = (() => {
   const key = 'vvm-crumbs' + (APP.uid ? ':' + APP.uid : ''), on = APP.on
   const ver = document.querySelector('script[src*="game.js"]')?.src.split('v=')[1] ?? ''
-  let c = null, last = 0
+  let c = null, last = 0, battles = 0
+  const loadedAt = Date.now()
   const write = (force) => {
     if (!on || !c) return
     const now = Date.now(); if (!force && now - last < 400) return
@@ -3991,11 +3999,16 @@ const CRUMBS = (() => {
     const log = window.__audioLog ?? []
     for (let i = log.length - 1; i >= 0; i--) if (log[i].kind === 'music') { c.music = log[i].name ?? 'none'; break }
     if (performance.memory) c.heapMB = Math.round(performance.memory.usedJSHeapSize / 1e6)
+    // The session so far, for telling a slow build-up from a one-off: minutes open, battles, songs decoded (and the
+    // playing one's length), and what the page holds (elements, images, running animations).
+    const ms = window.__musicStats?.() ?? {}
+    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0,
+      nodes: document.getElementsByTagName('*').length, imgs: document.images.length, anims: document.getAnimations?.().length ?? 0 }
     try { localStorage.setItem(key, JSON.stringify(c)) } catch {}
   }
   const api = {
     /** A battle (or its intro) is on screen. */
-    begin() { if (!on || c?.open) return; c = { open: true, started: Date.now(), kind: '', who: '', music: '', musicTier: MUSIC_LOAD.tier, musicVol: APP.music, lines: [], errors: [], ver }; write(true) },
+    begin() { if (!on || c?.open) return; battles++; c = { open: true, started: Date.now(), kind: '', who: '', music: '', musicTier: MUSIC_LOAD.tier, musicVol: APP.music, lines: [], errors: [], ver }; write(true) },
     /** What it is, once the battle code knows. */
     set(o) { if (c?.open) { Object.assign(c, o); write(true) } },
     /** A line shown on screen. */
