@@ -16,6 +16,8 @@ import { playPackSound } from './packSounds'
 import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
 import SupplyIcon from '@/components/SupplyIcon'
+import EmblemInventory from './EmblemInventory'
+import type { BattleEmblemData } from './BattleEmblem'
 
 export interface UnopenedPack {
   id: number
@@ -253,6 +255,8 @@ interface Props {
   gradingDays: number
   cleaningCost: number
   cleaningDays: number
+  /** The Champion's Emblem (v87), once earned: it lives here until it's put on a shelf. */
+  emblem?: BattleEmblemData | null
 }
 
 const TICKET_RARITY_COLOR: Record<string, string> = {
@@ -393,7 +397,7 @@ function rarityRing(r: string): string {
 }
 
 export default function CollectionPanel({
-  packs, boxes, collection, setTotals, tickets, items, gradingCost, gradingDays, cleaningCost, cleaningDays,
+  packs, boxes, collection, setTotals, tickets, items, gradingCost, gradingDays, cleaningCost, cleaningDays, emblem = null,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -827,6 +831,9 @@ export default function CollectionPanel({
 
   return (
     <div className="space-y-5">
+      {/* ── The Champion's Emblem, until it's on a shelf ── */}
+      {emblem && <EmblemInventory emblem={emblem} />}
+
       {/* ── Sealed booster boxes ── */}
       {(visibleBoxes.length > 0 || boxNote) && (
         <section className="space-y-2">
