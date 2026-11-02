@@ -6,6 +6,8 @@ export interface CrashRow {
   note: {
     kind?: string; who?: string; foeLv?: number; party?: string; music?: string; lines?: string[]; errors?: string[]
     started?: number; at?: number; hidden?: boolean; heapMB?: number; ver?: string; musicTier?: number; musicVol?: number
+    /** The session so far (newer games): minutes open, battles, songs decoded, the playing song's length, and the page's size. */
+    session?: { mins?: number; battles?: number; decodes?: number; songSecs?: number; nodes?: number; imgs?: number; anims?: number }
   }
   device: { ua?: string; screen?: string; mem?: number | null; cores?: number | null }
   member: { username: string; display_name: string | null } | null
@@ -61,6 +63,9 @@ export default function CrashReportsClient({ reports }: { reports: CrashRow[] })
                   <dt className="text-muted">Battle</dt><dd>{[r.note.kind, r.note.who, r.note.foeLv ? `Lv ${r.note.foeLv}` : ''].filter(Boolean).join(' · ') || '—'}</dd>
                   <dt className="text-muted">Their party</dt><dd>{r.note.party || '—'}</dd>
                   <dt className="text-muted">Music</dt><dd>{r.note.music || '—'}{r.note.musicTier != null ? ` · ${['full', 'lighter', 'lightest'][r.note.musicTier] ?? r.note.musicTier} detail` : ''}{r.note.musicVol != null ? ` · volume ${Math.round(r.note.musicVol * 60)}%` : ''}</dd>
+                  {r.note.session && (<><dt className="text-muted">Session</dt><dd>
+                    {r.note.session.mins ?? '?'} min open · battle {r.note.session.battles ?? '?'} · {r.note.session.decodes ?? '?'} songs loaded{r.note.session.songSecs ? ` (this one ${r.note.session.songSecs} s)` : ''} · {r.note.session.nodes ?? '?'} elements, {r.note.session.imgs ?? '?'} images, {r.note.session.anims ?? '?'} animations
+                  </dd></>)}
                   <dt className="text-muted">In battle for</dt><dd>{r.note.started && r.note.at ? `${Math.round((r.note.at - r.note.started) / 1000)} s` : '—'}</dd>
                   <dt className="text-muted">Last on screen</dt>
                   <dd className="space-y-0.5">{(r.note.lines ?? []).slice(-6).map((l, i) => <p key={i} className="font-mono">{l}</p>)}</dd>

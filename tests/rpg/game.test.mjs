@@ -716,6 +716,7 @@ test('in the app: a game that dies mid-battle reports where it was on the next s
     assert.equal(note.open, true, 'a battle on screen: the note is open')
     assert.equal(note.kind, 'wild'); assert.match(note.who, /^wild [A-Z]/); assert.match(note.party, /CHARMANDER 15/)
     assert.ok(note.lines.length > 0 && note.music, `the lines shown and the music: ${JSON.stringify(note.lines)} ${note.music}`)
+    assert.ok(note.session?.battles >= 1, 'the session so far: battles'); assert.ok(note.session.mins >= 0 && note.session.nodes > 100 && note.session.imgs > 0, JSON.stringify(note.session))
     // Leaving the page normally (pagehide) closes it: nothing to report.
     await page.evaluate(() => document.body.replaceChildren()); await page.waitForTimeout(300)
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('vvm-crumbs:u1'))))?.open, false, 'leaving normally closes the note')
@@ -1197,6 +1198,17 @@ test('boxes: an old save fills Box 1 then 2, and you can switch boxes, sort, mov
     const saved = await page.evaluate(() => { window.__saveNow(); const s = JSON.parse(localStorage.getItem('vvm-save')); return { at: s.boxAt, sort: s.boxSort, nos: s.box.map((m) => m.boxNo) } })
     assert.equal(saved.sort, 'level'); assert.equal(saved.at, 1)
     assert.deepEqual([0, 1, 4].map((b) => saved.nos.filter((n) => n === b).length), [30, 10, 2], 'each Pokémon\'s box is in the save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('played, the sound log keeps only its recent end, so it never grows for as long as the game is open', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const n = await page.evaluate(() => { for (let i = 0; i < 5000; i++) Sound.sfx('click'); return window.__audioLog.length })
+    assert.ok(n <= 3000, `${n} entries`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
