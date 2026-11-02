@@ -9209,9 +9209,11 @@ async function run(id) {
     sfx('levelup')
     await say(`${badges.length} badges. Johto and Kanto.`, 'The Champion, RED... and ALEX.', 1400)
     // The credits, on the lower screen.
-    for (const [a, b] of [['CONGRATULATIONS!', 'Your team is in the HALL OF FAME.'], ['ALEX, the rival', '"See you around, Champion."'],
-      ['Pokémon art and cries', 'PokéAPI · Pokémon Showdown'], ['Trainer art', 'Bulbagarden Archives'], ['Music', 'Played live by the VVM, note by note'],
-      ['Pokémon', '© Nintendo · Creatures · GAME FREAK'], ['THE END', 'Thanks for playing!']]) await say(a, b, demo ? 500 : 1500)
+    // The music is written in the game's own engine and, on phones, played from recordings of it (pre-rendered), so not "live".
+    // The emblem line only in the app, where the Champion's Emblem waits in your Collection.
+    for (const [a, b] of [['CONGRATULATIONS!', 'Your team is in the HALL OF FAME.'], ['Directed and inspired by', 'Alexander Perez'], ['ALEX, the rival', '"See you around, Champion."'],
+      ['Pokémon art and cries', 'PokéAPI · Pokémon Showdown'], ['Trainer art', 'Bulbagarden Archives'], ['Music', 'Written note by note for the VVM'],
+      ['Pokémon', '© Nintendo · Creatures · GAME FREAK'], ...(APP.on ? [["CHAMPION'S EMBLEM", 'Find it in your Collection.']] : []), ['THE END', 'Thanks for playing!']]) await say(a, b, demo ? 500 : 1500)
     if (!demo) { $('msg').classList.add('wait'); try { await waitFor(['a']) } finally { $('msg').classList.remove('wait') } }
     await anim(h, [{ opacity: 1 }, { opacity: 0 }], { duration: 700 }).finished
     h.remove()
