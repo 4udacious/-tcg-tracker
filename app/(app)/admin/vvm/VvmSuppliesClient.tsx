@@ -24,9 +24,15 @@ export interface SupplyRow {
   is_active: boolean
   sort_order: number
   updated_at: string
+  /** The most one checkout can hold, 1-99 (v86; absent before it). */
+  max_per_checkout?: number
+  /** The most a member can buy in a day (Seattle's day), or null for no daily limit (v86). */
+  daily_limit?: number | null
 }
 
 const NAME_MAX = 40
+const PER_CHECKOUT_MAX = 99
+const DAILY_MAX = 999
 const BUNDLE_ITEM_MAX = 99
 
 type Toast = (msg: string) => void
@@ -61,6 +67,8 @@ export default function VvmSuppliesClient({ supplies }: { supplies: SupplyRow[] 
       is_active: true,
       sort_order: lastSort + 10,
       updated_at: '',
+      max_per_checkout: 20,
+      daily_limit: null,
     })
   }
 
@@ -73,7 +81,9 @@ export default function VvmSuppliesClient({ supplies }: { supplies: SupplyRow[] 
           <p className="text-xs text-muted leading-snug">
             Sold on the machine&apos;s shelf beside the packs. <b>Appearance rate</b> is the
             chance an item is on the shelf when the machine restocks. Changes apply from
-            the next restock.
+            the next restock. <b>Purchase limits</b> apply straight away: the most of it one
+            checkout can hold, and (optionally) the most a member can buy in a day, which
+            resets at midnight Seattle time.
           </p>
         </div>
         <ul className="space-y-2">
@@ -198,6 +208,72 @@ function PriceAndRate({
   )
 }
 
+/** A limit field: a whole number in range, '' for none (daily only), or undefined if it isn't usable. */
+function parseLimit(raw: string, max: number, blankOk: boolean): number | null | undefined {
+  if (raw.trim() === '') return blankOk ? null : undefined
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 1 && n <= max ? n : undefined
+}
+
+function Limits({
+  perCheckout, daily, onPerCheckout, onDaily,
+}: {
+  perCheckout: string
+  daily: string
+  onPerCheckout: (v: string) => void
+  onDaily: (v: string) => void
+}) {
+  return (
+    <div className="rounded-xl border border-card-border bg-paper p-3 space-y-2">
+      <p className="text-xs font-medium">Purchase limits</p>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs text-muted">Most in one checkout</label>
+        <input
+          type="number"
+          min={1}
+          max={PER_CHECKOUT_MAX}
+          step={1}
+          value={perCheckout}
+          onChange={(e) => onPerCheckout(e.target.value)}
+          aria-label="Most in one checkout"
+          className="w-20 bg-card border border-card-border rounded-lg px-2 py-1 text-sm text-right font-mono outline-none focus:border-signal"
+        />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs text-muted">Most per member per day <span className="text-muted/80">(blank: no limit)</span></label>
+        <input
+          type="number"
+          min={1}
+          max={DAILY_MAX}
+          step={1}
+          value={daily}
+          placeholder="none"
+          onChange={(e) => onDaily(e.target.value)}
+          aria-label="Most per member per day"
+          className="w-20 bg-card border border-card-border rounded-lg px-2 py-1 text-sm text-right font-mono outline-none focus:border-signal"
+        />
+      </div>
+    </div>
+  )
+}
+
+/** The limit fields of a card: their text, whether they changed, and the values to save (or an error). */
+function useLimits(row: SupplyRow) {
+  const startPer = String(row.max_per_checkout ?? 20), startDaily = row.daily_limit == null ? '' : String(row.daily_limit)
+  const [perCheckout, setPerCheckout] = useState(startPer)
+  const [daily, setDaily] = useState(startDaily)
+  const per = parseLimit(perCheckout, PER_CHECKOUT_MAX, false), day = parseLimit(daily, DAILY_MAX, true)
+  return {
+    perCheckout, daily, setPerCheckout, setDaily,
+    dirty: perCheckout.trim() !== startPer || daily.trim() !== startDaily,
+    reset: () => { setPerCheckout(startPer); setDaily(startDaily) },
+    error: per === undefined ? `Most in one checkout must be a whole number from 1 to ${PER_CHECKOUT_MAX}.`
+      : day === undefined ? `Most per day must be blank or a whole number from 1 to ${DAILY_MAX}.` : null,
+    // Only sent once v86 is in (the row has the columns), so saving still works before it.
+    fields: row.max_per_checkout === undefined ? {} : { max_per_checkout: per, daily_limit: day },
+  }
+}
+
 /* ─────────────────────────────────── items ───────────────────────────────── */
 
 function ItemCard({ item, onToast, onSaved }: { item: SupplyRow; onToast: Toast; onSaved: () => void }) {
@@ -205,17 +281,19 @@ function ItemCard({ item, onToast, onSaved }: { item: SupplyRow; onToast: Toast;
   const [price, setPrice] = useState(fmt(item.token_price))
   const [rate, setRate] = useState(item.appearance_rate)
   const [saving, setSaving] = useState(false)
+  const lim = useLimits(item)
 
   const dirty = active !== item.is_active || rate !== item.appearance_rate ||
-    parsePrice(price) !== money(num(item.token_price))
+    parsePrice(price) !== money(num(item.token_price)) || lim.dirty
 
   async function save() {
     const p = parsePrice(price)
     if (p === null) { onToast('Price must be more than 0.'); return }
+    if (lim.error) { onToast(lim.error); return }
     setSaving(true)
     const { error } = await createClient()
       .from('vvm_supplies')
-      .update({ is_active: active, token_price: p, appearance_rate: rate })
+      .update({ is_active: active, token_price: p, appearance_rate: rate, ...lim.fields })
       .eq('key', item.key)
     setSaving(false)
     if (error) { onToast('Failed to save.'); return }
@@ -235,11 +313,14 @@ function ItemCard({ item, onToast, onSaved }: { item: SupplyRow; onToast: Toast;
       </div>
 
       <PriceAndRate price={price} rate={rate} onPrice={setPrice} onRate={setRate} />
+      {item.max_per_checkout !== undefined && (
+        <Limits perCheckout={lim.perCheckout} daily={lim.daily} onPerCheckout={lim.setPerCheckout} onDaily={lim.setDaily} />
+      )}
 
       {dirty && (
         <div className="flex justify-end gap-1.5">
           <button
-            onClick={() => { setActive(item.is_active); setPrice(fmt(item.token_price)); setRate(item.appearance_rate) }}
+            onClick={() => { setActive(item.is_active); setPrice(fmt(item.token_price)); setRate(item.appearance_rate); lim.reset() }}
             className="text-xs font-medium text-muted border border-card-border rounded-lg px-2.5 py-1 hover:text-ink transition-colors"
           >
             Cancel
@@ -275,6 +356,7 @@ function BundleCard({
   const [rate, setRate] = useState(bundle.appearance_rate)
   const [counts, setCounts] = useState<Record<string, number>>(bundle.contents ?? {})
   const [saving, setSaving] = useState(false)
+  const lim = useLimits(bundle)
 
   // Only the items actually in it, so an emptied count does not linger as a 0.
   const contents = Object.fromEntries(Object.entries(counts).filter(([, n]) => n > 0))
@@ -283,7 +365,7 @@ function BundleCard({
 
   const dirty = isNew || name.trim() !== bundle.name || active !== bundle.is_active ||
     rate !== bundle.appearance_rate || parsePrice(price) !== money(num(bundle.token_price)) ||
-    JSON.stringify(sorted(contents)) !== JSON.stringify(sorted(bundle.contents ?? {}))
+    JSON.stringify(sorted(contents)) !== JSON.stringify(sorted(bundle.contents ?? {})) || lim.dirty
 
   function setCount(key: string, raw: string) {
     const n = Math.max(0, Math.min(BUNDLE_ITEM_MAX, Math.round(Number(raw)) || 0))
@@ -292,7 +374,7 @@ function BundleCard({
 
   function reset() {
     setName(bundle.name); setActive(bundle.is_active); setPrice(fmt(bundle.token_price))
-    setRate(bundle.appearance_rate); setCounts(bundle.contents ?? {})
+    setRate(bundle.appearance_rate); setCounts(bundle.contents ?? {}); lim.reset()
   }
 
   async function save() {
@@ -301,8 +383,9 @@ function BundleCard({
     if (!trimmed) { onToast('Give the bundle a name.'); return }
     if (size === 0) { onToast('Put at least one item in the bundle.'); return }
     if (p === null) { onToast('Price must be more than 0.'); return }
+    if (lim.error) { onToast(lim.error); return }
 
-    const fields = { name: trimmed, contents, token_price: p, appearance_rate: rate, is_active: active }
+    const fields = { name: trimmed, contents, token_price: p, appearance_rate: rate, is_active: active, ...lim.fields }
     setSaving(true)
     const supabase = createClient()
     const { error } = isNew
@@ -369,6 +452,9 @@ function BundleCard({
         onRate={setRate}
         hint={`(${size} item${size === 1 ? '' : 's'}, ${fmt(worth)} bought separately)`}
       />
+      {bundle.max_per_checkout !== undefined && (
+        <Limits perCheckout={lim.perCheckout} daily={lim.daily} onPerCheckout={lim.setPerCheckout} onDaily={lim.setDaily} />
+      )}
 
       <div className="flex items-center justify-between gap-2">
         {isNew ? (

@@ -4766,7 +4766,7 @@ async function run(id) {
     const pack = (p) => `<button class="tile pack" data-buy="set:${esc(p.set_code)}"><span class="art"><img src="${esc(p.image)}" alt=""></span><span class="qty">${p.quantity}</span><b>${esc(p.set_name)}</b><span class="meta">1 token · ${p.quantity} left</span></button>`
     const ticket = (x) => `<button class="tile summon" data-buy="ticket:${x.ticket_id}"><span class="art">${x.image ? `<img src="${esc(x.image)}" alt="">` : '<span class="supic summon"></span>'}</span><i class="kind">RAFFLE</i><b>${esc(x.name)}</b><span class="meta">${x.price.toFixed(2)} tk · ${x.quantity} left</span></button>`
     const sup = (x) => {
-      const no = supNot(x.key), off = no ? ' disabled' : '', meta = (sub) => `<span class="meta">${x.price.toFixed(2)} tk · ${esc(no || sub)}</span>`
+      const no = supNot(x.key) || (x.max === 0 ? (x.left_today === 0 ? "today's limit is bought" : 'none left') : ''), off = no ? ' disabled' : '', meta = (sub) => `<span class="meta">${x.price.toFixed(2)} tk · ${esc(no || (x.left_today != null ? `${x.left_today} left today` : sub))}</span>`
       if (x.kind === 'bundle') return `<button class="tile bundle" data-buy="sup:${esc(x.key)}"><span class="art">${(x.contents ?? []).map((c) => `<span class="brow"><span class="supic ${BAG_OF[c.key] ?? ''}"></span>×${c.qty}</span>`).join('')}</span><i class="kind">BUNDLE</i><b>${esc(x.name.toUpperCase())}</b>${meta(`${(x.contents ?? []).reduce((a, c) => a + c.qty, 0)} items`)}</button>`
       if (x.key === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
       if (x.key === 'elite_ticket') { const c = LEAGUES[leagueNow() ?? (champion ? 'kanto' : 'elite')].card; return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b>${meta('all 5 battles')}</button>` }
@@ -4910,7 +4910,7 @@ async function run(id) {
      tokens and the machine dispenses (like the packs in the app), and the
      items land in the Bag. A summon, a ticket or a key item is one at a time. */
   const cartMax = (k) => {
-    if (isReal(k)) { const [kind, id] = realKey(k), r = realRow(k); return !r ? 0 : kind === 'set' ? r.quantity : kind === 'ticket' || kind === 'box' ? r.max : id === 'gym_summon' || id === 'elite_ticket' ? 1 : 20 }
+    if (isReal(k)) { const [kind, id] = realKey(k), r = realRow(k); return !r ? 0 : kind === 'set' ? r.quantity : kind === 'ticket' || kind === 'box' ? r.max : r.max ?? (id === 'gym_summon' || id === 'elite_ticket' ? 1 : 20) }   // a supply's max: its per-checkout max and what's left today (v86)
     return k === 'summon' || k === 'elite' || ITEMS[k]?.key ? 1 : 9
   }
   const priceOf = (k) => (isReal(k) ? (realKey(k)[0] === 'set' ? 1 : realRow(k)?.price ?? 0) : k.startsWith('bundle:') ? bundleById(k.slice(7))?.price ?? 0 : shopOf(k).price)
@@ -5034,7 +5034,8 @@ async function run(id) {
   const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
     insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
     ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty',
-    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first' }
+    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first',
+    supply_limit_reached: 'that is more of it than one checkout allows', supply_daily_limit: "that's more of it than you can buy today" }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
   $('checkout').onclick = (e) => {

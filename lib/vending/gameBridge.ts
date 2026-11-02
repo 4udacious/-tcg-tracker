@@ -35,7 +35,11 @@ export interface VvmMachine {
   find_chance: number | null
   packs: { set_code: string; set_name: string; image: string; quantity: number; description: string | null }[]
   tickets: { ticket_id: number; name: string; image: string | null; price: number; quantity: number; max: number }[]
-  supplies: { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; price: number; contents: { key: string; qty: number }[] | null }[]
+  /**
+   * Battle supplies on the shelf. `max` is how many you may add now: its per-checkout max, and what's left of its
+   * daily limit (v86; 20 before it, 1 for a Gym Summon or Elite Four Ticket). `left_today` is null with no daily limit.
+   */
+  supplies: { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; price: number; contents: { key: string; qty: number }[] | null; max: number; left_today: number | null }[]
   /** Sealed booster boxes on the shelf; `max` is how many you may add now (stock, what's left, your own cap). */
   boxes: { box_id: number; name: string; set_name: string | null; packs: number; price: number; image: string | null; quantity: number; max: number }[]
 }
@@ -57,7 +61,7 @@ export function makeVvmApi(userId: string) {
       const st = one(data as { status: string; cycle_no: number; seconds_left: number; frozen: boolean; holder_id: string | null; holder_name: string | null; holder_expires: string | null } | null)
       if (!st) return null
       const stocked = st.status === 'in_stock' || st.status === 'out_of_stock'
-      const [stock, tickets, supplies, boxes, me, bal, battles] = await Promise.all([
+      const [stock, tickets, supplies, boxes, me, bal, battles, limits] = await Promise.all([
         stocked ? db.rpc('get_vending_stock', { p_cycle: st.cycle_no }) : Promise.resolve({ data: [] }),
         stocked ? db.rpc('get_vending_ticket_stock', { p_cycle: st.cycle_no }) : Promise.resolve({ data: [] }),
         stocked ? db.rpc('get_vending_supply_stock', { p_cycle: st.cycle_no }) : Promise.resolve({ data: [] }),
@@ -65,10 +69,19 @@ export function makeVvmApi(userId: string) {
         db.from('profiles').select('vending_cooldown_until').eq('id', userId).single(),
         balance(),
         db.rpc('battle_modes'),
+        stocked ? db.rpc('vvm_supply_limits') : Promise.resolve({ data: [] }),   // an error (before v86): the old fixed limits
       ])
       type P = { set_code: string; set_name: string; display_image_url: string; quantity: number; description: string | null }
       type T = { ticket_id: number; name: string; image_url: string | null; token_price: number; quantity: number; remaining: number; per_user_limit: number | null; owned: number }
       type S = { key: string; kind: 'item' | 'bundle'; name: string; description: string | null; token_price: number; contents: { key: string; qty: number }[] | null }
+      type L = { key: string; max_per_checkout: number; daily_limit: number | null; bought_today: number }
+      const lim = new Map(((limits.data as L[] | null) ?? []).map((l) => [l.key, l]))
+      const supplyMax = (key: string) => {
+        const l = lim.get(key)
+        const left = l?.daily_limit == null ? null : Math.max(0, l.daily_limit - l.bought_today)
+        const per = l?.max_per_checkout ?? (key === 'gym_summon' || key === 'elite_ticket' ? 1 : 20)
+        return { max: Math.min(per, left ?? Infinity), left_today: left }
+      }
       type B = { box_id: number; name: string; set_name: string | null; packs: number; token_price: number; quantity: number; remaining: number; per_user_limit: number | null; owned: number; pack_images: string[] | null; image_url?: string | null }
       holding = st.holder_id === userId
       return {
@@ -83,7 +96,7 @@ export function makeVvmApi(userId: string) {
           ticket_id: t.ticket_id, name: t.name, image: t.image_url, price: n(t.token_price), quantity: t.quantity,
           max: Math.max(0, Math.min(t.quantity, t.remaining, t.per_user_limit == null ? Infinity : t.per_user_limit - t.owned)),
         })),
-        supplies: ((supplies.data as S[] | null) ?? []).map((s) => ({ key: s.key, kind: s.kind, name: s.name, description: s.description, price: n(s.token_price), contents: s.contents?.map((c) => ({ key: c.key, qty: c.qty })) ?? null })),
+        supplies: ((supplies.data as S[] | null) ?? []).map((s) => ({ key: s.key, kind: s.kind, name: s.name, description: s.description, price: n(s.token_price), contents: s.contents?.map((c) => ({ key: c.key, qty: c.qty })) ?? null, ...supplyMax(s.key) })),
         boxes: ((boxes.data as B[] | null) ?? []).map((b) => ({
           box_id: b.box_id, name: b.name, set_name: b.set_name, packs: b.packs, price: n(b.token_price), image: b.image_url ?? b.pack_images?.[0] ?? null, quantity: b.quantity,
           max: Math.max(0, Math.min(b.quantity, b.remaining, b.per_user_limit == null ? Infinity : b.per_user_limit - b.owned)),
