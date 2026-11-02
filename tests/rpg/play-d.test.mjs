@@ -85,3 +85,31 @@ test('a wild Ditto transforms on its first turn, into your Pokémon', { skip: qu
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('the foe\'s HP bar always shows its HP, Pokémon after Pokémon', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const mk = (n) => { const m = individual(speciesByName(n), 30, Math.random); m.hp = m.stats.hp; learnAtLevel(m); return m }
+      window.__vvm.party.splice(0, 9, mk('CHARMANDER'), mk('SQUIRTLE'), mk('PIKACHU'))
+      window.__hpBad = []; window.__hpSeen = 0
+      // Whenever you're asked for a move, the bar's width matches the foe's HP.
+      window.__hpWatch = setInterval(() => {
+        const f = window.__battleFoe?.(); if (!f || !/What will/.test(document.getElementById('msg')?.textContent ?? '')) return
+        const bar = document.getElementById('ehp'), shown = bar.getBoundingClientRect().width / bar.parentElement.getBoundingClientRect().width
+        window.__hpSeen++
+        if (Math.abs(shown - f.hp / f.max) > 0.08) window.__hpBad.push(`${f.name} ${f.hp}/${f.max} shown ${(shown * 100).toFixed(0)}%`)
+      }, 300)
+    })
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } })
+      await bot.encounter('scalper', 400)
+    }
+    const r = await page.evaluate(() => { clearInterval(window.__hpWatch); return { bad: window.__hpBad, seen: window.__hpSeen } })
+    assert.ok(r.seen >= 3, `checked at ${r.seen} move prompts`)
+    assert.deepEqual(r.bad.slice(0, 5), [], 'the bar matched the foe\'s HP every time')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

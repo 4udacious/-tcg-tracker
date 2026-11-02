@@ -81,12 +81,17 @@ test('CPU trainers use a Full Heal on a Pokémon with a status, instead of movin
       window.__vvm.party.splice(0, 9, m); window.__forceFoeHeal = true
     })
     bot.want = ['TOXIC', 'THUNDER WAVE', 'WILL-O-WISP', 'SCRATCH']
-    const from = log.length
-    assert.ok(await bot.encounter('scalper', 500), 'a trainer battle happened')
-    const lines = log.slice(from)
+    // A status has to land first (some Pokémon shrug some off), so up to three battles until one does.
+    let lines = []
+    for (let i = 0; i < 3 && !lines.some((l) => /used\s*a FULL HEAL!/.test(l)); i++) {
+      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } })
+      const from = log.length
+      assert.ok(await bot.encounter('scalper', 500), 'a trainer battle happened')
+      lines = log.slice(from)
+      assert.ok(lines.filter((l) => /used\s*a FULL HEAL!$/.test(l)).length <= 1, 'a regular trainer has just one')
+    }
     assert.ok(lines.some((l) => /used\s*a FULL HEAL!/.test(l)), 'the trainer used a Full Heal')
     assert.ok(lines.some((l) => /is no longer\s*(poisoned|badly poisoned|paralyzed|burned)/.test(l)), 'and its Pokémon was cured')
-    assert.ok(lines.filter((l) => /used\s*a FULL HEAL!$/.test(l)).length <= 1, 'a regular trainer has just one')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
