@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import VvmItemsClient, { type SetItem } from './VvmItemsClient'
-import VvmSuppliesClient, { type SupplyRow } from './VvmSuppliesClient'
+import VvmSuppliesClient, { isRematch, type SupplyRow } from './VvmSuppliesClient'
 import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
 import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
@@ -9,7 +10,20 @@ import CrashReportsClient, { type CrashRow } from './CrashReportsClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminVvmPage() {
+/** The page's tabs, in order; `?tab=` picks one (Packs when it's missing or unknown). */
+const TABS = [
+  { id: 'packs', label: 'Packs' },
+  { id: 'supplies', label: 'Supplies' },
+  { id: 'rematches', label: 'Rematches' },
+  { id: 'game', label: 'Game settings' },
+  { id: 'gifts', label: 'Gifts' },
+  { id: 'crashes', label: 'Crash reports' },
+] as const
+type TabId = (typeof TABS)[number]['id']
+
+export default async function AdminVvmPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const asked = (await searchParams).tab
+  const tab: TabId = TABS.some((t) => t.id === asked) ? (asked as TabId) : 'packs'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -82,24 +96,57 @@ export default async function AdminVvmPage() {
     }
   }
 
+  const supplyRows = (supplies as SupplyRow[] | null) ?? []
+  const crashRows = (crashes.data as unknown as CrashRow[] | null) ?? []
+  // A count beside a tab's name, where one helps: rematch tickets on, and crash reports from the last day.
+  const dayAgo = Date.now() - 86_400_000
+  const counts: Partial<Record<TabId, number>> = {
+    rematches: supplyRows.filter((s) => isRematch(s) && s.is_active).length,
+    crashes: crashRows.filter((c) => new Date(c.created_at).getTime() > dayAgo).length,
+  }
+
   return (
-    <div className="space-y-8">
-      <VvmItemsClient sets={[...bySet.values()]} />
-      <VvmBoxesClient boxes={((boxes as (Omit<BoxRow, 'image_url'> & { image_url?: string | null })[] | null) ?? []).map((b) => ({ ...b, image_url: b.image_url ?? bySet.get(b.set_code)?.image_url ?? null }))} />
-      <VvmSuppliesClient supplies={(supplies as SupplyRow[] | null) ?? []} />
-      <BattlesLiveClient
-        wild={!!(settings as { wild_live: boolean } | null)?.wild_live}
-        trainers={!!(settings as { battle_rewards_open: boolean } | null)?.battle_rewards_open}
-        healPrice={(settings as { battle_heal_price?: number | string | null } | null)?.battle_heal_price ?? null}
-        findChance={(settings as { battle_find_chance?: number | string | null } | null)?.battle_find_chance ?? null}
-      />
-      {!gifts.error && (
+    <div className="space-y-5">
+      <nav aria-label="VVM settings" className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+        {TABS.filter((t) => (t.id !== 'gifts' || !gifts.error) && (t.id !== 'crashes' || !crashes.error)).map((t) => (
+          <Link
+            key={t.id}
+            href={t.id === 'packs' ? '/admin/vvm' : `/admin/vvm?tab=${t.id}`}
+            aria-current={tab === t.id ? 'page' : undefined}
+            scroll={false}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+              tab === t.id ? 'bg-ink text-white border-ink' : 'bg-card border-card-border text-ink hover:border-ink/20'
+            }`}
+          >
+            {t.label}
+            {counts[t.id] ? <span className={`ml-1.5 text-xs ${tab === t.id ? 'opacity-70' : 'text-muted'}`}>{counts[t.id]}</span> : null}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === 'packs' && (
+        <div className="space-y-8">
+          <VvmItemsClient sets={[...bySet.values()]} />
+          <VvmBoxesClient boxes={((boxes as (Omit<BoxRow, 'image_url'> & { image_url?: string | null })[] | null) ?? []).map((b) => ({ ...b, image_url: b.image_url ?? bySet.get(b.set_code)?.image_url ?? null }))} />
+        </div>
+      )}
+      {tab === 'supplies' && <VvmSuppliesClient supplies={supplyRows} />}
+      {tab === 'rematches' && <VvmSuppliesClient supplies={supplyRows} show="rematches" />}
+      {tab === 'game' && (
+        <BattlesLiveClient
+          wild={!!(settings as { wild_live: boolean } | null)?.wild_live}
+          trainers={!!(settings as { battle_rewards_open: boolean } | null)?.battle_rewards_open}
+          healPrice={(settings as { battle_heal_price?: number | string | null } | null)?.battle_heal_price ?? null}
+          findChance={(settings as { battle_find_chance?: number | string | null } | null)?.battle_find_chance ?? null}
+        />
+      )}
+      {tab === 'gifts' && !gifts.error && (
         <GiftPokemonClient
           members={((members as GiftMember[] | null) ?? []).map((m) => ({ user_id: m.user_id, username: m.username, display_name: m.display_name }))}
           recent={(gifts.data as unknown as GiftRow[] | null) ?? []}
         />
       )}
-      {!crashes.error && <CrashReportsClient reports={(crashes.data as unknown as CrashRow[] | null) ?? []} />}
+      {tab === 'crashes' && !crashes.error && <CrashReportsClient reports={crashRows} />}
     </div>
   )
 }

@@ -37,14 +37,23 @@ const BUNDLE_ITEM_MAX = 99
 
 type Toast = (msg: string) => void
 
-export default function VvmSuppliesClient({ supplies }: { supplies: SupplyRow[] }) {
+/** A rematch ticket (v89): a supply of its own, shown on the admin page's Rematches tab. */
+export const isRematch = (s: Pick<SupplyRow, 'key'>) => s.key.startsWith('rematch_')
+
+/**
+ * `show`: 'supplies' for the battle items and bundles (the Supplies tab), or
+ * 'rematches' for the rematch tickets alone (the Rematches tab).
+ */
+export default function VvmSuppliesClient({ supplies, show = 'supplies' }: { supplies: SupplyRow[]; show?: 'supplies' | 'rematches' }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const toast = useToast()
   // A bundle being made, before it exists in the database.
   const [draft, setDraft] = useState<SupplyRow | null>(null)
 
-  const items = supplies.filter((s) => s.kind === 'item')
+  // A bundle holds battle items only, never a rematch ticket.
+  const items = supplies.filter((s) => s.kind === 'item' && !isRematch(s))
+  const rematches = supplies.filter((s) => s.kind === 'item' && isRematch(s))
   const bundles = supplies.filter((s) => s.kind === 'bundle')
 
   const showToast = (msg: string) => toast.show(msg)
@@ -70,6 +79,30 @@ export default function VvmSuppliesClient({ supplies }: { supplies: SupplyRow[] 
       max_per_checkout: 20,
       daily_limit: null,
     })
+  }
+
+  if (show === 'rematches') {
+    const on = rematches.filter((s) => s.is_active).length
+    return (
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h2 className="font-display font-semibold text-base">Rematch tickets</h2>
+          <p className="text-xs text-muted leading-snug">
+            One ticket per Gym Leader, Elite Four member, Red and Alex ({on} of {rematches.length} on).
+            On the shelf at random like any supply, and only for sale to members who have
+            beaten that opponent. A won rematch pays its tokens even past the daily battle
+            limit. <b>Appearance rate</b> applies from the next restock; purchase limits
+            straight away.
+          </p>
+        </div>
+        <ul className="space-y-2">
+          {rematches.map((s) => (
+            <ItemCard key={`${s.key}-${s.updated_at}`} item={s} onToast={showToast} onSaved={refresh} />
+          ))}
+        </ul>
+        {!rematches.length && <p className="text-sm text-muted">No rematch tickets yet.</p>}
+      </section>
+    )
   }
 
   return (
