@@ -2544,6 +2544,16 @@ const cantDefend = (m) => m.status === 'slp' || m.status === 'frz' || m.status =
 /** How much of the usual parry, dodge and jump windows a confused Pokémon gets. */
 const CONF_DEFEND = 0.6
 /*
+ * The leaders parry back: a Gym Leader, an Elite Four member, Red or Alex
+ * (`parry`, the chance a hit of yours is parried) can parry your strikes. A
+ * parried hit does a fifth of its damage (DEFEND_TAKEN.parry) and nothing
+ * else (no status, no flinch). A PERFECT strike can't be parried, and a MISS
+ * isn't worth it; nor can a leader's Pokémon that's asleep, frozen or
+ * paralyzed, and a confused one parries less (CONF_DEFEND). The simulator
+ * uses this same rule.
+ */
+const leaderParries = (T, foe, label, confused, r) => !!T?.parry && label !== 'PERFECT' && label !== 'MISS' && !cantDefend(foe) && r() < T.parry * (confused ? CONF_DEFEND : 1)
+/*
  * CPU trainers carry Full Heals: leaders (Gym Leaders, the Elite Fours, Red,
  * Alex, Herb and Paul: trainer.hard) two a battle, regular trainers one. They
  * use one on a Pokémon whose status is holding it back, if it isn't nearly
@@ -3838,7 +3848,7 @@ for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id 
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
-  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true,
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? 0.12 + n * 0.02,
     vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
@@ -4571,8 +4581,8 @@ KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig }
 
 /*
  * Balance (tests/rpg/sim.mjs, `npm run sim:rpg`: thousands of simulated battles).
- * Aim, for an average player arriving at the leader's level: about 3 wins in 4
- * (Lance and Red about 1 in 2, Alex's last 1 in 3). Levels are set (`low` to
+ * Aim, for an average player arriving at the leader's level: about 2 wins in 3
+ * now the leaders parry (Lance and Red about 1 in 3, Alex's last 1 in 7). Levels are set (`low` to
  * `min`, leaderLevels). Each leader's `tellRate` (how often an attack comes
  * with a tell) is tuned to that aim; where tells top out (0.7), `ringFast`
  * (how fast their rings close; lower is faster) takes over: the first gyms
@@ -4603,6 +4613,8 @@ ELITE.forEach((L) => Object.assign(L, { gap: GAP.elite,
   ...(L.role === 'CHAMPION' ? { tellRate: 0.69, ringFast: 0.9 } : { tellRate: ELITE_TELL[L.short], ringFast: ELITE_RING[L.short], strong: true }) }))
 KANTO_ELITE.forEach((L) => { L.gap = L.red ? GAP.red : GAP.kantoElite })
 ;[...GYMS, ...ELITE, ...KANTO_ELITE].forEach((L) => { if (IV31.includes(L.short)) L.ivs = 31 })
+// How often each parries your strikes (leaderParries): the gyms least, the Elite Fours more, Red most.
+GYMS.forEach((L) => { L.parry ??= 0.15 }); ELITE.forEach((L) => { L.parry ??= 0.2 }); KANTO_ELITE.forEach((L) => { L.parry ??= L.red ? 0.25 : 0.2 })
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {
@@ -6695,9 +6707,12 @@ async function run(id) {
         panel(null)
       }
       if (whiffOnMiss && acc.label === 'MISS') { pop('MISSED', T.c.x, T.c.y - 70, 'red small'); sfx('dodge'); return null }
-      pop(`${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, ACC_CLS[acc.label])
-      sfx(mv.snd); await strikeFx(mv, actor.c, T.c, actor.el, approach < 820)
-      const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult)
+      // A leader's Pokémon can parry it (not a PERFECT): a fifth of the damage, and nothing else.
+      const parried = !demo && T.side !== 'p' && leaderParries(T.owner, T.mon, acc.label, !!S(T.mon).conf, chance)
+      pop(parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+      sfx(parried ? 'parry' : mv.snd); await strikeFx(mv, actor.c, T.c, actor.el, approach < 820)
+      if (parried) { anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(T.c.x - 20, T.c.y - 20) }
+      const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult * (parried ? DEFEND_TAKEN.parry : 1))
       const from = T.mon.hp
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
       impactFx(T.c, mv.type, eff > 1 || acc.crit); hitReact(T.el, actor.c, T.c, mv.type, eff > 1 || acc.crit)
@@ -6706,6 +6721,7 @@ async function run(id) {
       pop(`-${from - T.mon.hp}`, T.c.x + 30, T.c.y - 30, acc.crit ? 'gold' : '')
       if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
       if (mv.recoil && actor.mon.hp > 1) { await hpTo(actor, Math.max(1, actor.mon.hp - Math.max(1, Math.round((from - T.mon.hp) * mv.recoil)))); await say(actor.mon.name, 'is damaged by recoil!', 250) }
+      if (parried) return { eff, crit: false, label: acc.label, parried }
       if (T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
       if (T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
       if (T.mon.hp > 0 && FLINCH[mv.name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[mv.name]) S(T.mon).flinch = true
@@ -8795,10 +8811,13 @@ async function run(id) {
           // One ring per hit. Miss a ring and that hit misses, so only landing
           // every ring deals the move's full damage.
           if (hits > 1 && acc.label === 'MISS') { pop('MISSED', C.e.x, C.e.y - 70, 'red small'); sfx('dodge'); continue }
-          pop(`${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, ACC_CLS[acc.label])
-          sfx(mv.snd)
+          // A leader can parry it (not a PERFECT): a fifth of the damage, and nothing else.
+          const parried = !demo && leaderParries(trainer, foe, acc.label, !!ST(foe).conf, chance)
+          pop(parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+          sfx(parried ? 'parry' : mv.snd)
           await strikeFx(mv, C.p, C.e, $('player'), h > 0)
-          const r = damage(me, foe, mv, acc.mult)
+          if (parried) { anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(C.e.x - 20, C.e.y - 20) }
+          const r = damage(me, foe, mv, parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult)
           if (mv.furyCutter && acc.label === 'MISS') t.fury = -1   // a miss starts the run over
           const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
           sfx(r.eff > 1 ? 'hitSuper' : r.eff < 1 ? 'hitWeak' : 'hit')
@@ -8812,6 +8831,7 @@ async function run(id) {
           if (mv.knockOff && restores > 0 && foe.hp > 0) { restores--; sfx('flinch'); await say(`${me.name} knocked away`, `${trainer.short}'s FULL RESTORE!`, 400) }
           if (acc.crit) addBond(me, 2)
           landed++; crit ||= acc.crit; eff = r.eff; if (acc.label !== 'MISS') clean = true
+          if (parried) continue
           if (foe.hp > 0 && foe.status === 'frz' && mv.type === 'fire') { foe.status = null; showTags(); await say(who(foe), STATUS_TEXT.thaw, 300) }
           if (foe.hp > 0) await afflict(foe, statusFromHit(foe, { ...mv, name }, rand))
           if (foe.hp > 0 && FLINCH[name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[name]) ST(foe).flinch = true
