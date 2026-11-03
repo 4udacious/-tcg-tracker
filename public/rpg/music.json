@@ -140,6 +140,16 @@
    "loopEnd": 6.315782,
    "gain": 1
   },
+  "endgame": {
+   "file": "endgame.916edfd2.m4a",
+   "sig": "a208814c",
+   "rate": 44100,
+   "samples": 1918063,
+   "loop": true,
+   "loopStart": 2.891565,
+   "loopEnd": 43.373492,
+   "gain": 1
+  },
   "evolution": {
    "file": "evolution.e5c88c68.m4a",
    "sig": "3827826b",
