@@ -13,6 +13,8 @@ export default function SupplyIcon({ supplyKey, className }: { supplyKey: string
         <Bottle body="#a855f7" edge="#6b21a8" />
       ) : supplyKey === 'super_potion' ? (
         <Bottle body="#ec4899" edge="#9d174d" />
+      ) : supplyKey === 'hyper_potion' ? (
+        <Bottle body="#d946ef" edge="#86198f" />
       ) : supplyKey === 'full_heal' ? (
         <>
           <rect x="9.5" y="1.5" width="5" height="2.5" rx="0.8" fill="#4b5563" />
@@ -46,6 +48,12 @@ export default function SupplyIcon({ supplyKey, className }: { supplyKey: string
         <>
           <path d="M12 2 21 12 12 22 3 12Z" fill="#facc15" stroke="#a16207" strokeWidth="1.2" strokeLinejoin="round" />
           <path d="M12 6.5 16.5 12 12 17.5 7.5 12Z" fill="#fef9c3" />
+        </>
+      ) : supplyKey === 'max_revive' ? (
+        <>
+          <path d="M12 2 21 12 12 22 3 12Z" fill="#f59e0b" stroke="#92400e" strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M12 6.5 16.5 12 12 17.5 7.5 12Z" fill="#fde68a" />
+          <path d="M19 1.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z" fill="#fff" stroke="#92400e" strokeWidth="0.5" />
         </>
       ) : (
         <>
