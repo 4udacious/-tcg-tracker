@@ -2352,8 +2352,16 @@ function levelMoves(m) {
     [15, SPREAD_BY_TYPE[t] ?? 'HYPER VOICE'], [18, sup === 'HELPING HAND' ? 'AFTER YOU' : 'HELPING HAND'], ...(STATUS2_BY_TYPE[t] ? [[20, STATUS2_BY_TYPE[t]]] : []),
     ...(basic !== 'TACKLE' ? [[21, 'TACKLE']] : []), [25, 'PROTECT'], ...(STAT_BY_TYPE[t] ? [[27, STAT_BY_TYPE[t]]] : []), ...(COUNTER_BY_TYPE[t] ? [[36, COUNTER_BY_TYPE[t]]] : []),
     ...(t === 'grass' ? [[24, 'ABSORB']] : []), ...(LATE_MOVES[t] ?? []).map((n, i) => [30 + 15 * i, n])]
+  // A second type brings moves of its own: its basic move at 8, then its first two later moves at 22 and 38
+  // (Houndour, Dark/Fire: Ember, Fire Fang, Flamethrower). Before, only the first type taught anything.
+  const t2 = m.types[1], second = t2 && t2 !== t ? [[8, OWN_MOVE[t2]], [22, LATE_MOVES[t2]?.[0]], [38, LATE_MOVES[t2]?.[1]]].filter(([, n]) => n && (MOVEDEX[n] || SUPPORT[n])) : []
   const seen = new Set()
-  return [...list, ...(SPECIES_MOVES[m.name] ?? [])].sort((a, b) => a[0] - b[0]).filter(([, n]) => !seen.has(n) && seen.add(n))
+  return [...list, ...second, ...(SPECIES_MOVES[m.name] ?? [])].sort((a, b) => a[0] - b[0]).filter(([, n]) => !seen.has(n) && seen.add(n))
+}
+/** A Pokémon's level-up moves it has passed but not learned (a move added to its schedule since): into Learned, not equipped. */
+function catchUpMoves(m) {
+  if (!m?.learned) return
+  for (const [lv, n] of levelMoves(m)) if (lv <= m.level && !m.learned.includes(n)) m.learned.push(n)
 }
 /**
  * Fills in learned and equipped moves the first time they're needed: all
@@ -3775,23 +3783,23 @@ const RIVAL_BATTLES = [
     intro: ["Three badges? Same. I've been keeping count.", 'I rebuilt my whole team around Porygon. Let me show you what it can do now.'],
     outro: ['You read every move. How?', '...I need to rethink the whole setup.'],
     gloat: ['See? The new setup works.', "Don't fall behind now. That'd be boring."] },
-  { due: (p) => p.johto >= 5, low: 27, min: 31, restores: 1, tellRate: 0.69, ivs: 31, ringFast: 0.76, tokens: '5.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'GROWLITHE', 'PORYGON'],
+  { due: (p) => p.johto >= 5, low: 27, min: 31, restores: 1, tellRate: 0.7, ivs: 31, ringFast: 0.61, tokens: '5.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'GROWLITHE', 'PORYGON'],
     intro: ["Five badges. You're keeping up. I hate that.", "Staryu evolved last night. Let's see you handle the full lineup."],
     outro: ['Again?! I ran every matchup. Every single one.', "...Fine. There's an upgrade I've been putting off. Not anymore."],
     gloat: ['Told you. Every matchup.', 'Keep training. I want you at your best when I win.'] },
-  { due: (p) => p.johto >= 7, low: 33, min: 37, restores: 1, tellRate: 0.62, ringFast: 0.76, tokens: '6.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'ARCANINE', 'PORYGON2'],
+  { due: (p) => p.johto >= 7, low: 33, min: 37, restores: 1, tellRate: 0.69, ringFast: 0.76, tokens: '6.00', team: ['STARMIE', 'MAGNETON', 'PUPITAR', 'ARCANINE', 'PORYGON2'],
     intro: ["You noticed. Porygon's different now. I installed the UPGRADE.", "Friends? We were. Now you're just the number I have to beat."],
     outro: ["...That doesn't make sense. The numbers were on my side.", "I'll find what's missing. Whatever it takes."],
     gloat: ["The upgrade works. You don't.", "Go home. The machine's mine today."] },
-  { due: (p) => p.kanto >= 1, low: 50, min: 54, restores: 1, tellRate: 0.33, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
+  { due: (p) => p.kanto >= 1, low: 50, min: 54, restores: 1, tellRate: 0.45, tokens: '8.00', team: ['STARMIE', 'ROTOM', 'ARCANINE', 'MAGNEZONE', 'TYRANITAR', 'PORYGON2'],
     intro: ['Champion. And? Lance was a pushover for me.', "I won't let you or those Team Unemployed freaks hog all the Kanto machines."],
     outro: ['…Stay out of my way, scalper.', "I won't let you bully the trainers here too."],
     gloat: ['Champion of what, exactly?', 'Go back to your badges.'] },
-  { due: (p) => p.kanto >= 7, low: 62, min: 66, restores: 1, tellRate: 0.58, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
+  { due: (p) => p.kanto >= 7, low: 62, min: 66, restores: 1, tellRate: 0.65, ringFast: 0.88, tokens: '12.00', team: ['STARMIE', 'MAGNEZONE', 'TYRANITAR', 'ARCANINE', 'ALAKAZAM', 'PORYGON-Z'],
     intro: ["You're better off vending with Paul and Herb. Do you even like Pokémon?", "Porygon-Z and I rewrote everything since last time. Let's see if it was enough."],
     outro: ["I won't let the other trainers down…", "There's one more thing. Something I found in a lab outside Cerulean. Next time, the last time."],
     gloat: ['Go back to Johto.', 'Come back when you can actually beat us.'] },
-  { due: (p) => p.red, low: 77, min: 80, restores: 2, tellRate: 0.33, switches: 3, switchSure: true, ringFast: 0.6, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
+  { due: (p) => p.red, low: 77, min: 80, restores: 2, tellRate: 0.41, switches: 3, switchSure: true, ringFast: 0.6, ivs: 15, tokens: '20.00', team: ['STARMIE', 'ARCANINE', 'ZAPDOS', 'TYRANITAR', 'PORYGON-Z', 'MEWTWO'],
     intro: ['Your story ends here.', "I brought something back from that lab. Get through the rest of my team, and you'll meet it."],
     last: ['Meet Mewtwo. Made in a lab, like Porygon was.', 'This is everything I have.'],
     outro: ["Hmm, maybe I had the wrong idea about you. You're not a scalper.", "Thanks for not letting me win the wrong way. See you around, Champion."],
@@ -3869,11 +3877,11 @@ const STORY = {
         intro: ['Remember Gimmighoul? It ate enough glitched coins to evolve.', 'And Rotom gets inside the machine now. It spits out whatever I point at.'],
         outro: ["Rotom, out of the machine. We're blown.", "...Here. That's one less pack on my table this weekend."],
         gloat: ['The machine likes me better. Facts.', 'Three tables at the Goldenrod card show. Come buy something.'] },
-      { due: (p) => p.kanto >= 2, low: 52, min: 56, restores: 2, tellRate: 0.16, ringFast: 0.8, ivs: 23, tokens: '7.00', team: ['MAWILE', 'ROTOM', 'SABLEYE', 'LIEPARD', 'PERSIAN', 'GHOLDENGO'],
+      { due: (p) => p.kanto >= 2, low: 52, min: 56, restores: 2, tellRate: 0.31, ringFast: 0.8, ivs: 23, tokens: '7.00', team: ['MAWILE', 'ROTOM', 'SABLEYE', 'LIEPARD', 'PERSIAN', 'GHOLDENGO'],
         intro: ["Kanto machines are older. They glitch if you look at 'em funny.", 'Celadon card show, five tables. All glitched stock. Move.'],
         outro: ['You followed me to KANTO?', "Fine. Take a pack back. The Celadon show's off anyway."],
         gloat: ["Kanto's my market now, chief.", "You can't stop a glitch. It's a feature."] },
-      { due: (p) => p.kanto >= 6, low: 60, min: 64, restores: 2, tellRate: 0.38, ringFast: 0.8, ivs: 25, tokens: '10.00', team: ['MIMIKYU', 'MAWILE', 'ROTOM', 'SABLEYE', 'PERSIAN', 'GHOLDENGO'],
+      { due: (p) => p.kanto >= 6, low: 60, min: 64, restores: 2, tellRate: 0.54, ringFast: 0.8, ivs: 25, tokens: '10.00', team: ['MIMIKYU', 'MAWILE', 'ROTOM', 'SABLEYE', 'PERSIAN', 'GHOLDENGO'],
         intro: ["Saffron card show. Biggest in Kanto. My whole year's in that van.", 'Every glitch I know, every Pokémon I got. Last time, chief.'],
         last: ['Gholdengo. Made out of every coin I ever glitched.', 'Make it rain.'],
         outro: ["...That's it. I'm out. No more glitching.", "Take the pack. Take the table. I'm gonna go get a real job. Probably."],
@@ -3886,15 +3894,15 @@ const STORY = {
         intro: ["Trubbish sits in the coin slot. Machine jams. Goes into 'maintenance'.", "Then the tech opens it up, and I'm standing right there. With a box."],
         outro: ['Okay. Okay. Trubbish, out of the slot.', "Here, take one back. I've got plenty for the card show."],
         gloat: ["Shh. It's not stealing if the machine's broken.", "Card show's Sunday. Bring a wagon."] },
-      { due: (p) => p.champion, low: 49, min: 54, restores: 2, tellRate: 0.68, ringFast: 0.76, ivs: 31, tokens: '6.00', team: ['MUNCHLAX', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'HIPPOWDON'],
+      { due: (p) => p.champion, low: 49, min: 54, restores: 2, tellRate: 0.7, ringFast: 0.6, ivs: 31, tokens: '6.00', team: ['MUNCHLAX', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'HIPPOWDON'],
         intro: ["Champion, huh? Cool. I've got a basement full of glitched boxes.", 'Greedent stuffs its cheeks every time a machine jams. Saves me trips.'],
         outro: ['My mom found the boxes.', '...Take one back. I have to downsize for the card show anyway.'],
         gloat: ['Shelf space secured. Again.', 'Swing by my table at the card show. Champion discount: none.'] },
-      { due: (p) => p.kanto >= 4, low: 56, min: 60, restores: 2, tellRate: 0.41, ringFast: 0.76, ivs: 23, tokens: '8.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
+      { due: (p) => p.kanto >= 4, low: 56, min: 60, restores: 2, tellRate: 0.47, ringFast: 0.76, ivs: 23, tokens: '8.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
         intro: ['Kanto machines jam even easier. Snorlax just leans on them.', "Paul's Pack Palace: six tables at the Celadon card show. Hippowdon guards the van."],
         outro: ['The Pack Palace is... closing early today.', "Here. One back. Don't tell Herb how many I have."],
         gloat: ['The Palace stands.', 'Next show is bigger. So is my basement.'] },
-      { due: (p) => p.kanto >= 8, low: 65, min: 69, restores: 3, tellRate: 0.54, ringFast: 0.78, ivs: 25, tokens: '12.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
+      { due: (p) => p.kanto >= 8, low: 65, min: 69, restores: 3, tellRate: 0.6, ringFast: 0.78, ivs: 25, tokens: '12.00', team: ['GOLEM', 'SLOWBRO', 'GREEDENT', 'GARBODOR', 'SNORLAX', 'HIPPOWDON'],
         intro: ['Last card show of the year. I jammed every machine from Pewter to Fuchsia for it.', "Everything I've got. Every box, every Pokémon. Let's go, buddy."],
         last: ["Hippowdon. It's held the line since the first machine I jammed.", 'Hold the line, buddy.'],
         outro: ["...Okay. I'm done. I'll unjam them all.", 'Take the pack. And maybe the forty boxes. Mom says they have to go.'],
@@ -4463,7 +4471,7 @@ const KANTO_ELITE = [
     sig: [S_('VOLT TACKLE', 'electric', 90, 'phys', 'zap'), S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('IRON TAIL', 'steel', 75, 'phys', 'crunch'), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true })],
     intro: ['…', '…!'], outro: ['…Be careful…', 'Another trainer came by… very powerful.'], gloat: ['…'] },
 ]
-KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: [0.67, 0.51, 0.69, 0.22, 0.69][i], ringFast: [0.73, 0.82, 0.78, 0.9, 0.66][i],   // Lance: his dragons hit hardest, so he tells least; Red: the most tells and the fastest rings in the game
+KANTO_ELITE.forEach((L, i) => Object.assign(L, { elite: true, kanto: true, region: 'kanto', introSong: ['e4Lorelei', 'e4Bruno', 'e4Agatha', 'e4KantoLance', null][i], city: L.city ?? 'INDIGO PLATEAU', role: L.role ?? 'ELITE FOUR', hard: true, tellRate: [0.7, 0.7, 0.7, 0.35, 0.7][i], ringFast: [0.67, 0.81, 0.68, 0.9, 0.56][i],   // Lance: his dragons hit hardest, so he tells least; Red: the most tells and the fastest rings in the game
   title: L.red ? 'MT. SILVER · THE LEGEND' : `KANTO ELITE FOUR · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const KANTO_CARD = { short: 'THE KANTO LEAGUE', city: 'INDIGO PLATEAU', summonName: 'KANTO LEAGUE TICKET', face: 'gymFace:red', color: '#ef4444', tag: 'LEAGUE' }
 /** The two Leagues, by their ticket's summon id: Johto's ('elite') and Kanto's ('kanto'). */
@@ -4561,9 +4569,10 @@ KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig }
  * Aim, for an average player arriving at the leader's level: about 3 wins in 4
  * (Lance and Red about 1 in 2, Alex's last 1 in 3). Levels are set (`low` to
  * `min`, leaderLevels). Each leader's `tellRate` (how often an attack comes
- * with a tell) is tuned to that aim; `ringFast` (how fast their rings close;
- * lower is faster) stays as it was: the first gyms gentle, Kanto's gyms
- * nearly as quick as Red, Red the quickest of all. From Morty on, the Johto
+ * with a tell) is tuned to that aim; where tells top out (0.7), `ringFast`
+ * (how fast their rings close; lower is faster) takes over: the first gyms
+ * gentle, Kanto's gyms nearly as quick as Red, Red the quickest of all.
+ * Retuned when Pokémon began learning moves of their second type. From Morty on, the Johto
  * leaders below their ace fight with the stronger moves, as Kanto's do
  * (`strong`). Lance, the Champion, is the toughest of the Johto League.
  */
@@ -4574,19 +4583,19 @@ KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig }
  * everyday battles.
  */
 const GAP = { johto: 3, elite: 4, kanto: 6, kantoElite: 7, red: 8 }
-const JOHTO_TELL = [0.11, 0.4, 0.33, 0.23, 0.26, 0.03, 0.45, 0.25]
+const JOHTO_TELL = [0.11, 0.4, 0.35, 0.23, 0.31, 0.03, 0.48, 0.33]
 const JOHTO_RING = [0.9, 0.9, 0.96, 0.9, 0.98, 0.93, 0.74, 0.92]
-const KANTO_TELL = [0.54, 0.51, 0.59, 0.54, 0.65, 0.69, 0.7, 0.56]
+const KANTO_TELL = [0.66, 0.6, 0.63, 0.7, 0.7, 0.69, 0.7, 0.64]
 // Tells stop at 0.7 (more and nearly every attack is a trick); past that, a leader's IVs are at least 31 instead of 20.
 const IV31 = ['LT. SURGE', 'JANINE', 'SABRINA', 'BLAINE', 'BLUE', 'KAREN', 'RED']
-const KANTO_RING = [0.73, 0.68, 0.69, 0.73, 0.7, 0.71, 0.69, 0.8]
+const KANTO_RING = [0.73, 0.68, 0.69, 0.62, 0.57, 0.71, 0.56, 0.8]
 GYMS.forEach((L, i) => Object.assign(L, i < 8
   ? { gap: GAP.johto, tellRate: JOHTO_TELL[i], ringFast: JOHTO_RING[i], strong: i >= 3 }
   : { gap: GAP.kanto, tellRate: KANTO_TELL[i - 8], ringFast: KANTO_RING[i - 8] }))
 // Lance: the highest levels, fewer tells and slower rings (sim.mjs: a little under 1 in 2).
-const ELITE_TELL = { WILL: 0.58, KOGA: 0.57, BRUNO: 0.57, KAREN: 0.67 }, ELITE_RING = { WILL: 0.77, KOGA: 0.83, BRUNO: 0.83, KAREN: 0.76 }
+const ELITE_TELL = { WILL: 0.64, KOGA: 0.67, BRUNO: 0.7, KAREN: 0.7 }, ELITE_RING = { WILL: 0.77, KOGA: 0.83, BRUNO: 0.8, KAREN: 0.63 }
 ELITE.forEach((L) => Object.assign(L, { gap: GAP.elite,
-  ...(L.role === 'CHAMPION' ? { tellRate: 0.48, ringFast: 0.9 } : { tellRate: ELITE_TELL[L.short], ringFast: ELITE_RING[L.short], strong: true }) }))
+  ...(L.role === 'CHAMPION' ? { tellRate: 0.69, ringFast: 0.9 } : { tellRate: ELITE_TELL[L.short], ringFast: ELITE_RING[L.short], strong: true }) }))
 KANTO_ELITE.forEach((L) => { L.gap = L.red ? GAP.red : GAP.kantoElite })
 ;[...GYMS, ...ELITE, ...KANTO_ELITE].forEach((L) => { if (IV31.includes(L.short)) L.ivs = 31 })
 
@@ -9922,6 +9931,7 @@ async function run(id) {
     party.splice(0, party.length, ...s.party); box.splice(0, box.length, ...(s.box ?? []))
     boxAt = s.boxAt ?? 0; boxSort = s.boxSort ?? 'caught'; settleBoxes()
     restoreForms()   // a save from before that fix may still have one in it
+    for (const m of [...party, ...box]) catchUpMoves(m)   // moves added to their schedule since (a second type's): in Learned, to swap in
     for (const k of Object.keys(bag)) delete bag[k]
     for (const [k, n] of Object.entries(s.bag ?? {})) {
       // Discs and summons are registered as items the first time one turns up: do that again.
