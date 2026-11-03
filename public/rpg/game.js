@@ -3608,13 +3608,39 @@ const LEGEND_MOVES = {
 // Herb and Paul pick their hardest-hitting move, like a leader (no tells, though).
 HERB.smart = PAUL.smart = true
 const SCALPERS = [HERB, PAUL, BRIAN, ...CREW]
-/** What a Gym Leader says turning up for a rematch ({city}, {badge}: theirs). */
-const REMATCH_LINES = [
-  ['I heard the new Champion taps this machine.', "I've rebuilt my whole team since you took the {badge} BADGE."],
-  ['The {city} GYM gets quiet once you have every badge.', "So I came to you. Let's go again."],
-  ["You beat me once. That was my gym team.", 'This is the team I train with on my days off.'],
-  ["A Champion should still answer a challenge.", "Mine's been evolving since we last met."],
-]
+/*
+ * Rematch dialogue, one set each: `intro` when they arrive, `outro` when you
+ * win again, `gloat` when they win this time.
+ */
+const REMATCH_TALK = {
+  gym_0: { intro: ['A vending machine? Fine. The wind blows everywhere.', "My birds have been flying higher since you took the ZEPHYR BADGE. Watch them."], outro: ['Grounded again...', "Father would say I'm still learning. He'd be right."], gloat: ['That was a tailwind you never saw coming.', 'Violet City sends its regards.'] },
+  gym_1: { intro: ["I've been researching you since our last battle.", 'Bugs evolve. So did my whole team. Let me show you!'], outro: ['Fascinating! You adapted faster than my bugs.', "I'll write this one up in my notes."], gloat: ['Ha! Never underestimate bug types!', 'Told you they evolve.'] },
+  gym_2: { intro: ['You again! I totally did not cry about last time.', "Miltank's been training. Like, a LOT. Let's go!"], outro: ["Waaah! No fair! I'm not crying!", "...Okay, maybe a little. Good battle, though."], gloat: ['Yay! Miltank wins!', 'Rollout gets them every time!'] },
+  gym_3: { intro: ['I foresaw this rematch in the mist at the Burned Tower.', 'The vision ended there. Shall we find out the rest?'], outro: ['So that was the ending I could not see.', 'The legend continues with you, it seems.'], gloat: ['Even ghosts must fade... but not today.', 'The mist chose me this time.'] },
+  gym_4: { intro: ['WAHAHAHA! I trained under the Cianwood waterfall all week!', 'My fists are ready! Are yours?!'], outro: ['Hmph! You hit like a waterfall yourself!', 'Back to the falls for me!'], gloat: ['WAHAHA! The waterfall never lies!', 'Train harder, champion!'] },
+  gym_5: { intro: ['Oh, hello again. The lighthouse is quiet these days.', 'I polished my team until they shine like steel. May we battle?'], outro: ["You're so strong... it's wonderful.", "Amphy will be glad to hear about this."], gloat: ['Um... I won? Steel is very sturdy.', 'Please come back. I liked that battle.'] },
+  gym_6: { intro: ['Fifty years on the ice, and a young Champion beat me.', 'Let me see if that was luck. My team has wintered well.'], outro: ['Hm. Not luck, then.', "The ice always tells the truth. So did you."], gloat: ['Patience. Winter comes for everyone.', 'Even Champions.'] },
+  gym_7: { intro: ['I am Clair, the best dragon master in the world. Again.', "You've only beaten me once. That doesn't count as a pattern."], outro: ['...Fine. Twice. It counts.', "Don't tell Lance about this."], gloat: ['See? The best dragon master in the world.', 'Remember that.'] },
+  gym_8: { intro: ["You're back. I've been thinking about our battle at Pewter.", 'My rock types are harder than ever. Rock-hard, you could say.'], outro: ['Solid work. Nothing cracked your resolve.', 'I need to dig deeper.'], gloat: ['Rock-solid defense wins again.', 'Come back when you can break it.'] },
+  gym_9: { intro: ['Hey! The tomboyish mermaid is back for round two!', "My water Pokémon have been training at Cerulean Cape. Splash attack!"], outro: ["Ugh, you're good! Really good.", "I'm still not giving you my bike back."], gloat: ["Ha! That's the Cerulean style!", 'Come swim with us again sometime.'] },
+  gym_10: { intro: ['Hey, kid! A soldier never forgets a battle.', "My electric team's been charging since our last fight. ZAP!"], outro: ["Whoa! You've got more spark than a power plant!", "Ten-hut! You win, soldier."], gloat: ["That's how we do it in the war!", 'Electric types kept me alive, kid!'] },
+  gym_11: { intro: ['Oh... I must have dozed off in the sun.', 'Ah, it is you. My flowers have bloomed beautifully. Shall we?'], outro: ['Oh! You were wonderful.', 'I shall arrange a bouquet in your honor.'], gloat: ['My, my. Nature finds a way.', 'Do come back. The garden enjoys visitors.'] },
+  gym_12: { intro: ["Fa-la-la! You won't see my ninja techniques coming!", "I trained with father again. I'm a real ninja now!"], outro: ['Ugh! Even my best ninja tricks!', "Don't tell father. He'll make me practice more."], gloat: ['Fa-ha! A ninja always wins in the shadows!', 'Bet you never saw it coming.'] },
+  gym_13: { intro: ['I knew you would come. I knew you would buy that ticket.', 'I even knew which Pokémon you would lead with. Shall we confirm it?'], outro: ['I saw this ending too. I simply hoped I was wrong.', 'Your strength is beyond my visions.'], gloat: ['As foreseen.', 'You will come back. I have seen that too.'] },
+  gym_14: { intro: ['Hah! A rematch! My fire still burns hot!', 'Quiz time: what melts a Champion? My new team, that is!'], outro: ['Hah! I\'m burned out!', 'You answered that quiz perfectly.'], gloat: ['Hah! Hot hot hot!', 'Wrong answer, Champion!'] },
+  gym_15: { intro: ["So you've come back to Viridian. Smell ya later? Not yet.", "I've built a new team since you took the EARTH BADGE. This time I'm ready."], outro: ['Tch. I hate that you keep getting stronger.', "Fine. You're the best. For now."], gloat: ["Hah! Told you I'd be ready!", 'Smell ya later, Champion!'] },
+  elite_will: { intro: ['A rematch, outside the Indigo Plateau? How irregular.', 'I have trained my psychic team on every continent since. Prepare yourself.'], outro: ['Even my mind could not read you.', 'I shall continue my training. We will meet again.'], gloat: ['My psychic Pokémon saw every move you made.', 'Come back with a clearer mind.'] },
+  elite_koga: { intro: ['Fwahahaha! A ninja accepts every challenge.', 'Poison, illusion, confusion: I have refined them all since we last met.'], outro: ['You saw through every illusion.', 'A true master. I shall return to Fuchsia to train.'], gloat: ['Fwahahaha! The ninja way prevails!', 'Even a Champion can be poisoned.'] },
+  elite_bruno: { intro: ['I am Bruno of the Elite Four! I trained with my fighting Pokémon day and night!', 'Again! Let our strength speak!'], outro: ['Hoo hah! A splendid battle!', 'My muscles ache with respect.'], gloat: ['Hoo hah! Strength is everything!', 'Train your body as well as your team!'] },
+  elite_karen: { intro: ['I\'m Karen of the Elite Four. You remember what I said?', 'Strong Pokémon, weak Pokémon: only selfish perceptions. Show me your favorites.'], outro: ["You've raised them well. Really well.", "I'd battle you again any day."], gloat: ['Dark types, all heart.', "Go raise your favorites some more, then come back."] },
+  elite_lance: { intro: ['I am Lance, the dragon master. We meet again, Champion.', 'A true Champion keeps proving it. Let my dragons test you.'], outro: ["You still have what it takes. I'm glad.", 'The title of Champion suits you.'], gloat: ['My dragons remember losing to you.', 'They will not forget winning, either.'] },
+  kanto_lorelei: { intro: ['Welcome back. I was hoping you would challenge me again.', 'My ice team has been chilling at the Four Island lab. Let us begin.'], outro: ["You're better than I thought. Again.", 'Go on. You earned the cold shoulder.'], gloat: ['Frozen solid.', 'Warm up and try again.'] },
+  kanto_bruno: { intro: ['We meet again, in Kanto this time!', 'My Pokémon and I trained in the Sevii Islands. Hoo hah!'], outro: ['Hoo hah! You are strong in any region!', 'I respect you more than ever.'], gloat: ['The sea air made us stronger!', 'Again, any time!'] },
+  kanto_agatha: { intro: ["Hah! You again, child. Oak sends his regards, I'm sure.", "That old duffer never understood. Pokémon are for battling!"], outro: ['Hehehe... You have more spirit than I thought.', 'Off you go. Make Oak proud.'], gloat: ['Hehehe! My ghosts are never through with you.', 'Now run along.'] },
+  kanto_lance: { intro: ['Kanto suits a rematch, doesn\'t it?', 'My dragons have flown these routes since I was young. Let us battle.'], outro: ['Magnificent. As always.', 'Kanto has a fine Champion in you.'], gloat: ['The dragons of Kanto take this round.', 'Come back stronger. You always do.'] },
+  kanto_red: { intro: ['...', '......!'], outro: ['...', '(RED smiled.)'], gloat: ['...', '(RED turned back to the snow.)'] },
+  alex: { intro: ['Back for another round? I was hoping you would be.', "No scalpers, no machine rules. Just you, me and our best teams."], outro: ["Okay, okay. You're still the Champion.", 'Same time next week?'], gloat: ['Finally! That one goes on the leaderboard.', "Don't worry, I'll let you have it back."] },
+}
 /** What a veteran says first, before their usual line (veteranOf()). */
 const VETERAN_LINES = [
   ["I've been camping this machine since before it had a screen.", "You're not the first to try."],
@@ -4876,6 +4902,7 @@ async function run(id) {
   /** A Gym Summon already in the Bag (for any gym): one at a time, so another isn't sold until it's used. */
   const heldSummon = () => Object.entries(bag).some(([k, v]) => /^summon:\d+$/.test(k) && v > 0)
   function supNot(key) {
+    if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r ? 'not in this game' : !r.beaten() ? 'beat them first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
     if (key === 'gym_summon') return heldSummon() ? 'you have one' : nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
     if (key === 'elite_ticket') { const lg = leagueNow(); return !lg ? (redBeaten ? "you've beaten Red" : champion ? 'needs all 16 badges' : 'needs all 8 Johto badges') : bag[summonKey(lg)] ? 'you have one' : '' }
@@ -4891,6 +4918,8 @@ async function run(id) {
       const no = supNot(x.key) || (x.max === 0 ? (x.left_today === 0 ? "today's limit is bought" : 'none left') : ''), off = no ? ' disabled' : '', meta = (sub) => `<span class="meta">${x.price.toFixed(2)} tk · ${esc(no || (x.left_today != null ? `${x.left_today} left today` : sub))}</span>`
       if (x.kind === 'bundle') return `<button class="tile bundle" data-buy="sup:${esc(x.key)}"><span class="art">${(x.contents ?? []).map((c) => `<span class="brow"><span class="supic ${BAG_OF[c.key] ?? ''}"></span>×${c.qty}</span>`).join('')}</span><i class="kind">BUNDLE</i><b>${esc(x.name.toUpperCase())}</b>${meta(`${(x.contents ?? []).reduce((a, c) => a + c.qty, 0)} items`)}</button>`
       if (x.key === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
+      if (x.key.startsWith('rematch_')) { const r = rematchOf(x.key.slice(8)); if (!r) return ''
+        return `<button class="tile summon" data-buy="sup:${esc(x.key)}"${off}><span class="art"><img src="${ART[r.T.face]}" alt=""></span><i class="kind">REMATCH</i><b>${esc(r.T.short)}</b>${meta('1v1 or 2v2')}</button>` }
       if (x.key === 'elite_ticket') { const c = LEAGUES[leagueNow() ?? (champion ? 'kanto' : 'elite')].card; return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b>${meta('all 5 battles')}</button>` }
       const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
       return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
@@ -4920,11 +4949,12 @@ async function run(id) {
   async function collectItems() {
     claimEmblem()
     const api = vvm(); if (!api || !tutorialDone) return []
-    const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k))]
+    const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k)), ...rematchFoes().map((r) => 'rematch_' + r.id)]
     const got = await api.takeItems(keys).catch(() => [])
     const said = []
     for (const { key, qty } of got) {
       if (BAG_OF[key]) { bag[BAG_OF[key]] = (bag[BAG_OF[key]] ?? 0) + qty; said.push(`${qty} ${ITEMS[BAG_OF[key]].name}`) }
+      else if (key.startsWith('rematch_') && rematchItem(key.slice(8))) { const k = rematchKey(key.slice(8)); bag[k] = (bag[k] ?? 0) + qty; said.push(`${qty} ${ITEMS[k].name}`) }
       else if (key === 'gym_summon') { const g = nextGym(); summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + qty; said.push(`${qty} ${ITEMS[summonKey(g)].name}`) }
       else if (key === 'elite_ticket') { const k = leagueKey(); bag[k] = 1; said.push(`a ${ITEMS[k].name}`) }   // the catalog's one League ticket: for the League that's open
       else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
@@ -5170,7 +5200,7 @@ async function run(id) {
   const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
     insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
     ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty',
-    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first',
+    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first', rematch_not_beaten: 'that rematch is only for those who beat them',
     supply_limit_reached: 'that is more of it than one checkout allows', supply_daily_limit: "that's more of it than you can buy today" }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
@@ -5293,6 +5323,10 @@ async function run(id) {
         const id = it.summon, st = leagueStep(id), L = LEAGUES[id].members[st], ok = leagueNow() === id
         const why = id === 'elite' ? (champion ? "you're already Champion" : 'needs all 8 Johto badges') : redBeaten ? "you've beaten Red" : 'needs all 16 badges'
         return `<button class="irow" data-item="${k}"${ok ? '' : ' disabled'}><img class="ic face" src="${ART[L.face]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${!ok ? why : `next: ${L.short} (${st + 1} of 5) · tap`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
+      }
+      if (it.rematch) {
+        const r = rematchOf(it.rematch), ok = !!r && modeOn('trainers')
+        return `<button class="irow" data-rematch="${it.rematch}"${ok ? '' : ' disabled'}><img class="ic face" src="${r ? ART[r.T.face] : ''}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${ok ? 'rematch them now (1v1 or 2v2) · tap' : 'trainer battles are off'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
       if (it.summon != null) {
         const n = it.summon, L = GYMS[n], done = badges.includes(n), ready = n === nextGym() && (n < 8 || champion)
@@ -5535,6 +5569,8 @@ async function run(id) {
       if (a.elite != null) { pendingSummon = a.elite || 'elite'; sfx('select'); sheetCloser?.(); return }
       // Summon: spend it, close the sheet, and the leader turns up.
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
+      // A rematch ticket: spent, and they turn up once the sheet closes.
+      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some((m) => m.hp > 0)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
       if (a.target != null && ITEMS[view.item].disc) {
         // A Move Disc: learned now, equipped if there's room, otherwise straight to the move editor.
         const m = party[a.target], n = ITEMS[view.item].disc, r = teach(m, n, true)
@@ -5611,7 +5647,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'boxgo', 'boxto', 'boxsort', 'moveto']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -7259,25 +7295,42 @@ async function run(id) {
   }
   $('dailyBar') && ($('dailyBar').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !live()) return; guard(() => dailyEncounter(homeState))() })
 
-  /* ══════════ gym rematches ══════════ */
+  /* ══════════ rematch tickets ══════════ */
   /*
-   * After you're Champion, a Gym Leader whose badge you hold may turn up at
-   * the machine wanting a rematch: REMATCH_SHARE of the everyday 1v1 trainer
-   * encounters. Their team is fully evolved, at your level (their ace two
-   * above your best, the rest climbing to it), with good IVs and a leader's
-   * smarts. No summon, no badge, no milestone: half their tokens and a Move
-   * Disc of their type for a win.
+   * A rematch with someone you've beaten: a Gym Leader, a Johto or Kanto
+   * Elite Four member, Red or Alex. Each has a ticket on the machine's shelf
+   * (v89: its own supply, 1 token, at random on the shelf everyone shares),
+   * only for sale to those who've beaten them (the server checks the battle's
+   * milestone; the tile is greyed out first). In the Bag, a ticket challenges
+   * them: a 1v1, or a 2v2 where they send out two, their team fully evolved
+   * at your level (their ace two above your best), with a leader's smarts and
+   * their own words (REMATCH_TALK). A win pays REMATCH_TOKENS and a Move Disc
+   * of their type.
    */
-  const REMATCH_SHARE = 0.25
-  const rematchReady = () => champion && badges.length > 0 && modeOn('trainers') && party.some((m) => m.hp > 0)
+  const REMATCH_TOKENS = '2.00'
+  function rematchFoes() {
+    const alex = rivalTrainer(Math.max(0, Math.min(rivalStep, RIVAL_BATTLES.length) - 1))
+    return [
+      ...GYMS.map((L, i) => ({ id: `gym_${i}`, T: L, beaten: () => badges.includes(i) })),
+      ...ELITE.map((L, j) => ({ id: `elite_${L.short.toLowerCase()}`, T: L, beaten: () => champion || eliteStep > j })),
+      ...KANTO_ELITE.map((L, j) => ({ id: `kanto_${L.short.toLowerCase()}`, T: L, beaten: () => redBeaten || kantoStep > j })),
+      { id: 'alex', T: alex, beaten: () => rivalStep >= 1 },
+    ]
+  }
+  const rematchOf = (id) => rematchFoes().find((r) => r.id === id) ?? null
+  const rematchKey = (id) => 'rematch:' + id
+  /** A ticket as a Bag item, registered the first time one turns up. */
+  const rematchItem = (id) => { const r = rematchOf(id); if (!r) return null
+    return (ITEMS[rematchKey(id)] ??= { name: `${r.T.short} REMATCH`, sub: `${r.T.full}: 1v1 or 2v2`, cls: 't-summon', rematch: id }) }
   /** The last form a species evolves into (by level, stone, cord or Bond), as far as the game has it. */
   function finalForm(name) {
-    for (let i = 0, n = name; i < 4; i++) {
+    let n = name
+    for (let i = 0; i < 4; i++) {
       const next = DATA.evos?.[n]?.[0]?.to ?? EVO_HOW[n]?.find((r) => r.item || r.bond || r.move)?.to
-      if (!next || !speciesByName(next)) return n
-      n = next; name = n
+      if (!next || !speciesByName(next)) break
+      n = next
     }
-    return name
+    return n
   }
   function rematchTeam(L) {
     const ace = Math.min(LEVEL_CAP, trainerLevel() + 2), lv = leaderLevels({ ...L, min: ace, low: Math.max(2, ace - 6) })
@@ -7288,38 +7341,48 @@ async function run(id) {
       return m
     })
   }
-  async function rematchEncounter(state = 'in', n = null) {
-    const gym = n ?? pickOf(badges), L0 = GYMS[gym]
+  let pendingRematch = null   // a ticket used in the Bag, to fight once the sheet closes
+  /** The rematch itself (`duo`: true for a 2v2, false for a 1v1; random if left out). */
+  async function rematchBattle(id, duo = rand() < 0.5) {
+    const r = rematchOf(id); if (!r) return
+    const words = REMATCH_TALK[id]
     // A leader's smarts (hard), the stronger moves on the way to their ace (strong), and their own on it (sig).
-    const L = { ...L0, strong: true, rematch: true, restores: 1 }
+    const T = { ...r.T, hard: true, strong: true, rematch: true, restores: 1, outro: [words.outro], gloat: [words.gloat] }
+    const team = rematchTeam(T), two = duo && team.length >= 2
     toolsEnabled(false)
-    Sound.music('gymIntro')
+    Sound.music(T.gym != null ? 'gymIntro' : 'vs')
     await wipeTrainer(async () => {
-      setScene([L.scene]); showLayer('battle')
-      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', L.color)
-      $('vsImg').src = ART[L.vs]; $('vsName').textContent = L.full; vs.querySelector('.name span').textContent = 'REMATCH'; vs.style.display = 'block'
+      setScene([T.scene ?? RIVAL_LOOKS[T.phase]?.scene ?? 'hall']); showLayer('battle')
+      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', T.color ?? RIVAL_LOOKS[T.phase]?.color ?? '#f59e0b')
+      $('vsImg').src = ART[T.vs]; $('vsName').textContent = T.full; vs.querySelector('.name span').textContent = two ? 'REMATCH · 2 ON 2' : 'REMATCH'; vs.style.display = 'block'
       vsIn(vs)
     })
     await W(1400)
-    await talk(L, pickOf(REMATCH_LINES).map((x) => x.replaceAll('{city}', L.city).replaceAll('{badge}', L.badge)))
+    await talk(T, words.intro)
     vsHide()
-    Sound.music('gym')
-    const team = rematchTeam(L)
-    const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: L })
-    if (out.result === 'won') {
-      Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
-      await trainerOn(L); await talk(L, L.outro); await trainerOff()
-      await out.exp?.()
-      await payTokens((+L0.tokens / 2).toFixed(2), 'rematch')
-      const disc = gymDisc(L0); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
-      sfx('click'); await say(`${L.short} gave you a MOVE DISC:`, `${disc}!`, 900)
-      feed(`<b>You</b> won a rematch with ${esc(L.full)}.`)
+    Sound.music(T.gym != null ? 'gym' : T.rival ? RIVAL_LOOKS[T.phase].theme : T.elite ? (T.kanto ? 'champion' : 'elite') : trainerTheme())
+    let won
+    if (two) {
+      const out = await duoBattle({ foes: team.slice(0, 2).map((mon) => ({ mon, owner: T })), bench: team.slice(2).map((mon) => ({ mon, owner: T })), trainers: [T] })
+      won = out.result === 'won'
+      if (won) { Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450); await trainerOn(T, 'down'); await talk(T, words.outro, 'faceDown'); await trainerOff(); await out.exp?.() }
+      out.cleanup?.()
+    } else {
+      const out = await battle({ kind: 'trainer', foe: team[0], roster: team.slice(1), trainer: T })
+      won = out.result === 'won'
+      if (won) { Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450); await trainerOn(T, 'down'); await talk(T, words.outro, 'faceDown'); await trainerOff(); await out.exp?.() }
+    }
+    if (won) {
+      await payTokens(REMATCH_TOKENS, 'rematch')
+      const disc = T.type ? gymDisc(T) : pickOf(DISC_POOL); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
+      sfx('click'); await say(`${T.short} gave you a MOVE DISC:`, `${disc}!`, 900)
+      feed(`<b>You</b> won a rematch with ${esc(T.full)}.`)
       renderTools()
     } else {
-      await trainerOn(L); await talk(L, L.gloat); await trainerOff()
-      await say(`${L.short} headed back to the ${L.city} GYM.`, 'They might come back for another.')
+      await trainerOn(T); await talk(T, words.gloat); await trainerOff()
+      await say(`${T.short} won the rematch.`, 'Another ticket, another try.')
     }
-    Sound.stopMusic(); saveGame(); await backToMachine(state)
+    Sound.stopMusic(); saveGame(); await backToMachine('in')
   }
 
   /* ══════════ gym battles ══════════ */
@@ -7802,8 +7865,6 @@ async function run(id) {
     if (found) collectFind(found)
     if (pity) feed(`<b>You</b>: after two empty taps, this one was sure to turn something up.`)
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
-    if (enc === 'scalper' && !demo && (force.enc === 'rematch' || (!('enc' in force) && rematchReady() && flavor() < REMATCH_SHARE))) return rematchEncounter(state)
-    if (enc === 'rematch' && rematchReady()) return rematchEncounter(state)
     if (enc === 'scalper') return scalperEncounter(force.plan, state)
     if (enc === 'rival') return rivalEncounter(state)
     if (enc === 'story') return storyEncounter(glitcher, state)
@@ -9812,6 +9873,7 @@ async function run(id) {
       // Discs and summons are registered as items the first time one turns up: do that again.
       if (k.startsWith('disc:')) discItem(k.slice(5))
       if (k.startsWith('summon:')) summonItem(LEAGUES[k.slice(7)] ? k.slice(7) : +k.slice(7))
+      if (k.startsWith('rematch:')) rematchItem(k.slice(8))
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
@@ -9882,7 +9944,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
@@ -9935,6 +9997,7 @@ async function run(id) {
       saveGame()
       // A summon chosen in the Bag: the Gym Leader appears once the sheet is closed.
       if (pendingSummon != null) { const n = pendingSummon; pendingSummon = null; await (LEAGUES[n] ? leagueBattle(n) : gymBattle(n)) }
+      if (pendingRematch != null) { const id = pendingRematch; pendingRematch = null; await rematchBattle(id) }
       // An evolution item used in the Bag: the evolution plays on the battle screen, then back to the machine.
       if (pendingEvoItem) {
         pendingEvoItem = false; toolsEnabled(false)

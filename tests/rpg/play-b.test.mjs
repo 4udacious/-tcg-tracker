@@ -108,25 +108,27 @@ test('EXP: a Pokémon switched out after facing the foe still gets three quarter
   } finally { await g.close() }
 })
 
-test('after you\'re Champion, a Gym Leader comes back for a rematch: half their tokens and a Move Disc, no badge', { skip: quick }, async () => {
+test('rematch tickets: a leader you beat, 1v1 or 2v2, for tokens and a Move Disc', { skip: quick }, async () => {
   const g = await openGame()
   try {
     const { page, bot } = g
     await bot.finishTutorial()
-    const before = await page.evaluate(() => {
-      const v = window.__vvm, m = individual(speciesByName('CHARIZARD'), 80, Math.random); learnAtLevel(m)
-      Object.assign(m.stats, { hp: 2000, atk: 900, spa: 900, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp   // so the test is about the rematch, not the fight
-      v.party.splice(0, 9, m); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
-      v.setChampion(true); v.setRival(7)
-      return { wallet: v.wallet, badges: v.badges.length, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) }
+    await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARIZARD'), 80, Math.random), n = individual(speciesByName('BLASTOISE'), 80, Math.random)
+      for (const x of [m, n]) { learnAtLevel(x); Object.assign(x.stats, { hp: 4000, atk: 6000, spa: 6000, def: 900, spd: 900, spe: 900 }); x.hp = x.stats.hp }   // the test is about the rematch, not the fight
+      v.party.splice(0, 9, m, n); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
     })
-    const from = g.log.length
-    assert.ok(await bot.encounter('rematch', 500), 'a rematch happened')
-    assert.match(g.log.slice(from).join(' | '), /gave you a MOVE DISC/, 'won, and handed a Move Disc over')
-    const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, badges: v.badges.length, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0), feed: document.getElementById('feedList')?.textContent ?? '' } })
-    assert.equal(after.badges, before.badges, 'no badge')
-    assert.equal(after.discs, before.discs + 1, 'a Move Disc')
-    assert.ok(after.wallet > before.wallet, 'and tokens')
+    for (const [id, duo] of [['gym_5', false], ['gym_2', true]]) {
+      const before = await page.evaluate(() => { const v = window.__vvm; for (const m of v.party) m.hp = m.stats.hp; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
+      const from = g.log.length
+      await page.evaluate(([id, duo]) => { window.__rm = false; window.__vvm.rematchBattle(id, duo).then(() => { window.__rm = true }) }, [id, duo])
+      for (let i = 0; i < 900 && !(await page.evaluate(() => window.__rm)); i++) await bot.step()
+      const lines = g.log.slice(from).join(' | ')
+      assert.match(lines, /gave you a MOVE DISC/, `${id} (${duo ? '2v2' : '1v1'}): won, and a Move Disc`)
+      if (duo) assert.match(lines, /sent out.*and/i, '2v2: they send out two')
+      const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
+      assert.equal(after.discs, before.discs + 1); assert.ok(after.wallet > before.wallet, 'and tokens')
+    }
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
