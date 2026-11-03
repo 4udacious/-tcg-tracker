@@ -5082,6 +5082,20 @@ async function run(id) {
     if (r?.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, '', 600) }
     return say(r?.reason === 'already_paid' ? "You've already been paid for this win." : 'No tokens this time.', '', 600)
   }
+  /**
+   * A won rematch's tokens: in the app, the server pays one of your bought
+   * tickets outside the daily battle cap (v93); before v93, or with no ticket
+   * on record, the usual capped battle tokens.
+   */
+  async function payRematch() {
+    const api = vvm()
+    if (!api?.awardRematch) return payTokens(REMATCH_TOKENS, 'rematch')
+    const r = await api.awardRematch().catch(() => null)
+    if (!r || r.reason === 'no_ticket' || r.reason === 'error') return payTokens(REMATCH_TOKENS, 'rematch')
+    wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+    if (r.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, '', 600) }
+    return say('No tokens this time.', '', 600)
+  }
   /** A battle supply's tile in the grid: an item, a bundle, or your next gym's summon. */
   function supplyTile(k) {
     if (k.startsWith('bundle:')) {
@@ -7368,7 +7382,8 @@ async function run(id) {
    * them: a 1v1, or a 2v2 where they send out two, their team fully evolved
    * at your level (their ace two above your best), with a leader's smarts and
    * their own words (REMATCH_TALK). A win pays REMATCH_TOKENS and a Move Disc
-   * of their type.
+   * of their type. The ticket was bought, so in the app its tokens come
+   * outside the daily battle cap (payRematch, v93).
    */
   const REMATCH_TOKENS = '2.00'
   function rematchFoes() {
@@ -7436,7 +7451,7 @@ async function run(id) {
       if (won) { Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450); await trainerOn(T, 'down'); await talk(T, words.outro, 'faceDown'); await trainerOff(); await out.exp?.() }
     }
     if (won) {
-      await payTokens(REMATCH_TOKENS, 'rematch')
+      await payRematch()
       const disc = T.type ? gymDisc(T) : pickOf(DISC_POOL); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
       sfx('click'); await say(`${T.short} gave you a MOVE DISC:`, `${disc}!`, 900)
       feed(`<b>You</b> won a rematch with ${esc(T.full)}.`)
@@ -10008,7 +10023,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),

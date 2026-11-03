@@ -509,6 +509,50 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
   } finally { await g.close() }
 })
 
+test('in the app: a won rematch pays for its ticket even after the day\'s battle tokens are used up', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      let owed = 1, balance = 10
+      window.__vvmApi = {
+        async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: true, trainers: true, heal_price: 0.5, find_chance: 0.8,
+          packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return balance }, async claim() { return { ok: false } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        // The day's battle tokens are used up...
+        async awardTokens(amount, source) { calls.push(['awardTokens', amount, source]); return { ok: false, reason: 'daily_cap', awarded: 0, balance } },
+        // ...but a bought ticket's win is paid outside the cap, once a ticket.
+        async awardRematch() { calls.push(['awardRematch']); if (!owed) return { ok: false, reason: 'no_ticket', awarded: 0, balance }; owed--; balance += 2; return { ok: true, reason: 'ok', awarded: 2, balance } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 10, badges: [0], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    const pay = async () => {
+      await frame.evaluate(() => { window.__paid = false; window.__said = []; const msg = document.getElementById('msg')
+        const o = new MutationObserver(() => window.__said.push(msg.textContent)); o.observe(msg, { childList: true, subtree: true, characterData: true })
+        window.__vvm.payRematch().then(() => { o.disconnect(); window.__paid = true }) })
+      for (let i = 0; i < 40 && !(await frame.evaluate(() => window.__paid)); i++) { await frame.evaluate(() => document.getElementById('msg')?.click()); await page.waitForTimeout(250) }
+      return frame.evaluate(() => ({ said: window.__said.join(' | '), wallet: window.__vvm.wallet }))
+    }
+    const first = await pay()
+    assert.match(first.said, /You got 2\.00 tokens/, `the ticket's win is paid though the cap is reached (${first.said})`)
+    assert.equal(first.wallet, 12)
+    const second = await pay()
+    assert.match(second.said, /all the battle tokens for today/, `with no ticket owed, it's the usual capped battle tokens (${second.said})`)
+    assert.equal(second.wallet, 12)
+    assert.deepEqual((await page.evaluate(() => window.__calls)).map((c) => c[0]), ['awardRematch', 'awardRematch', 'awardTokens'])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: while someone else shops, your taps stay on the machine and battles still jump out; the admin sets how often spare items turn up', async () => {
   const g = await openGame()
   try {

@@ -208,6 +208,16 @@ export function makeVvmApi(userId: string) {
     async reportCrash(note: Record<string, unknown>, device: Record<string, unknown>) {
       await db.rpc('battle_report_crash', { p_note: note, p_device: device })
     },
+    /**
+     * A won rematch's tokens (v93): the server's amount for one of the rematch
+     * tickets you've taken into the game, outside the daily cap. 'no_ticket'
+     * when none is owed (the game then pays through awardTokens).
+     */
+    async awardRematch() {
+      const { data } = await db.rpc('battle_award_rematch')
+      const r = one(data as { ok: boolean; reason: string; awarded: number; balance: number } | null)
+      return r ? { ...r, awarded: n(r.awarded), balance: n(r.balance) } : { ok: false, reason: 'error', awarded: 0, balance: await balance() }
+    },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })
