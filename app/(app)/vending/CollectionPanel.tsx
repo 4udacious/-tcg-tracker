@@ -310,8 +310,10 @@ const BINDERS: Record<string, Binder> = {
   neo2:  { cover: '/packs/neo-discovery-umbreon.webp',  spine: '#134e4a', body: '#0f766e', foil: '#99f6e4', fit: 'contain' },
   // Neo Revelation: burgundy, for the burned tower's brick, kept clear of Base Set 2's red.
   neo3:  { cover: '/packs/neo-revelation-suicune.webp', spine: '#4c0519', body: '#881337', foil: '#fecdd3', fit: 'contain' },
-  // Neo Destiny: the wrappers' purple, with their lime rays for the foil, kept clear of Neo Revelation's burgundy.
-  neo4:  { cover: '/packs/neo-destiny-celebi.webp',    spine: '#3b0764', body: '#581c87', foil: '#d9f99d', fit: 'contain' },
+  // The real Neo Destiny binder: Celebi bursting out of magenta and gold rays.
+  // Fuchsia body, kept clear of Neo Revelation's burgundy, with the rays' gold
+  // for the foil. Held a little left of centre so the logo stays in frame.
+  neo4:  { cover: '/binders/neo-destiny.webp',         spine: '#4a044e', body: '#86198f', foil: '#fde047', fit: 'cover', pos: '30% 50%' },
   // The real Southern Islands collection box, which was its binder: the island
   // in a deep-blue sea, framed in orange ferns. Ocean-teal body (kept clear of
   // the Base Set and Neo Genesis blues) with the ferns' orange for the foil.
