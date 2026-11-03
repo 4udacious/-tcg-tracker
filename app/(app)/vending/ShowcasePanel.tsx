@@ -410,7 +410,7 @@ export default function ShowcasePanel({
                         // The badge is no help to a screen reader, which would
                         // otherwise hear two identical "Put Haunter" buttons.
                         aria-label={
-                          `Put ${c.name}` + rarityLabel(c.rarity) +
+                          `Put ${c.name}` + rarityLabel(c.rarity, c.image_url) +
                           (c.grade != null ? `, graded ${c.grade}` : '') +
                           `, in slot ${picking + 1}`
                         }
@@ -419,7 +419,7 @@ export default function ShowcasePanel({
                           src={c.image_url} alt={c.name} condition={c} rarity={c.rarity}
                           className={`w-full aspect-[245/342] rounded ${already ? 'opacity-45' : ''}`}
                         />
-                        <HoloMark rarity={c.rarity} />
+                        <HoloMark rarity={c.rarity} setCode={c.image_url} />
                         {c.grade != null && (
                           <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1.5 py-0.5 shadow">
                             {c.grade}

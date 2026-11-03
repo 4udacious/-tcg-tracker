@@ -15,6 +15,7 @@ import SoundToggle from './SoundToggle'
 import { playPackSound } from './packSounds'
 import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
+import { compareCardNumbers, GAMES, gameOf, isHit, rarityName, type Game } from '@/lib/vending/games'
 import SupplyIcon from '@/components/SupplyIcon'
 import EmblemInventory from './EmblemInventory'
 import type { BattleEmblemData } from './BattleEmblem'
@@ -267,9 +268,8 @@ const TICKET_RARITY_COLOR: Record<string, string> = {
   legendary: '#F6A609',
 }
 
-const RARITY_LABEL: Record<string, string> = {
-  C: 'Common', U: 'Uncommon', R: 'Rare', H: 'Holo Rare', S: 'Secret Rare',
-}
+/** Rarities from least to most special (the reveal's best pull), across both games. */
+const RANK = 'CURLHPS'
 
 /**
  * Binder styling per set.
@@ -283,7 +283,8 @@ const RARITY_LABEL: Record<string, string> = {
  * loses its sides; `pos` (an object-position) says which part to keep when
  * the middle is not the part that matters.
  */
-type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain'; pos?: string }
+/** `label`: for a binder with no cover art, set in large type in its window instead (One Piece's set numbers). */
+type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain'; pos?: string; label?: string }
 
 const BINDERS: Record<string, Binder> = {
   base1: { cover: '/binders/base-set.webp',           spine: '#1e3a8a', body: '#1d4ed8', foil: '#93c5fd', fit: 'cover' },
@@ -318,6 +319,11 @@ const BINDERS: Record<string, Binder> = {
   // in a deep-blue sea, framed in orange ferns. Ocean-teal body (kept clear of
   // the Base Set and Neo Genesis blues) with the ferns' orange for the foil.
   // Held left of centre so the logo and island stay in frame, not the sticker.
+  // One Piece (v96): plain binders in each pack's colour, with the set's number, until there's binder art.
+  op01:  { cover: '', label: 'OP-01', spine: '#172554', body: '#1e3a8a', foil: '#fcd34d', fit: 'contain' },   // Romance Dawn: navy and gold
+  op02:  { cover: '', label: 'OP-02', spine: '#451a03', body: '#7c2d12', foil: '#fdba74', fit: 'contain' },   // Paramount War: burnt brown
+  op03:  { cover: '', label: 'OP-03', spine: '#083344', body: '#155e75', foil: '#fde68a', fit: 'contain' },   // Pillars of Strength: teal blue
+  op04:  { cover: '', label: 'OP-04', spine: '#a16207', body: '#ca8a04', foil: '#fef3c7', fit: 'contain' },   // Kingdoms of Intrigue: yellow
   si1:   { cover: '/binders/southern-islands.webp',     spine: '#164e63', body: '#0e7490', foil: '#fb923c', fit: 'cover', pos: '35% 50%' },
 }
 
@@ -376,6 +382,10 @@ function BinderCover({
             style={t.pos ? { objectPosition: t.pos } : undefined}
             loading="lazy"
           />
+        ) : t.label ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="font-display font-black tracking-wider text-2xl" style={{ color: t.foil }}>{t.label}</span>
+          </div>
         ) : null}
       </div>
 
@@ -399,6 +409,8 @@ function rarityRing(r: string): string {
   switch (r) {
     case 'S': return 'ring-2 ring-fuchsia-400 shadow-[0_0_10px_rgba(232,121,249,0.6)]'
     case 'H': return 'ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+    case 'P': return 'ring-2 ring-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.6)]'   // a One Piece parallel
+    case 'L': return 'ring-1 ring-amber-300'   // a One Piece Leader
     case 'R': return 'ring-1 ring-sky-400'
     case 'U': return 'ring-1 ring-emerald-400'
     default: return 'ring-1 ring-black/10'
@@ -439,7 +451,7 @@ export default function CollectionPanel({
     // The first card of a god pack gets the full fanfare: it is the moment
     // the pack gives itself away.
     const fanfare = godPack && revealed === 0
-    if (!lastOne && (card.rarity === 'H' || card.rarity === 'S')) {
+    if (!lastOne && isHit(card.rarity)) {
       playPackSound(card.rarity === 'S' || fanfare ? 'secret' : 'holo', { delayMs: delayMs + 60 })
     }
   }, [reveal, revealed, godPack])
@@ -449,7 +461,7 @@ export default function CollectionPanel({
     if (!lastFlipped || !reveal) return
     const card = reveal[reveal.length - 1]
     playPackSound('flip')
-    playPackSound(card.rarity === 'S' ? 'secret' : card.rarity === 'H' ? 'holo' : 'chime', { delayMs: 560 })
+    playPackSound(card.rarity === 'S' ? 'secret' : isHit(card.rarity) ? 'holo' : 'chime', { delayMs: 560 })
   }, [lastFlipped, reveal])
 
   /** One tap on the reveal: turn the last card over first, otherwise move on. */
@@ -513,6 +525,8 @@ export default function CollectionPanel({
   const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
   // The vault is a peer of the shelf, not a binder inside it.
   const [shelf, setShelf] = useState<'binders' | 'vault'>('binders')
+  // Which game's binders and vault are showing: Pokémon or One Piece (v96).
+  const [game, setGame] = useState<Game>('pkm')
   const [slabIndex, setSlabIndex] = useState<number | null>(null)
   // A grade being ripped out of its mystery pack. Opens before the server has
   // answered, so grade starts null and the pack waits on it.
@@ -573,7 +587,7 @@ export default function CollectionPanel({
       map.get(c.set_code)!.push({ ...c, raw, slabbed })
     }
     for (const list of map.values()) {
-      list.sort((a, b) => Number(a.number) - Number(b.number))
+      list.sort((a, b) => compareCardNumbers(a.number, b.number))
     }
     return map
   }, [collection, withPatch])
@@ -621,9 +635,14 @@ export default function CollectionPanel({
   }, [collection, withPatch, now])
   const cleanReadyCount = atCleaners.filter((c) => c.ready).length
 
-  const totalCards = collection.reduce((n, c) => n + c.copies.length, 0)
-  const uniqueCards = collection.length
-  const allTotal = setTotals.reduce((n, s) => n + s.total, 0)
+  // The Collection shows one game at a time; the switch only appears once there's a second game's sets.
+  const games = GAMES.filter((g) => setTotals.some((s) => gameOf(s.set_code) === g.id))
+  const gameSets = setTotals.filter((s) => gameOf(s.set_code) === game)
+  const gameCards = collection.filter((c) => gameOf(c.set_code) === game)
+  const gameSlabs = slabs.map((x, i) => ({ ...x, i })).filter((x) => gameOf(x.card.set_code) === game)
+  const totalCards = gameCards.reduce((n, c) => n + c.copies.length, 0)
+  const uniqueCards = gameCards.length
+  const allTotal = gameSets.reduce((n, s) => n + s.total, 0)
 
   async function openPack(id: number) {
     // Before anything is awaited: browsers only start audio inside the tap.
@@ -1180,6 +1199,25 @@ export default function CollectionPanel({
           </span>
         </div>
 
+        {/* Pokémon or One Piece: each game's binders and vault on their own. */}
+        {openBinder === null && games.length > 1 && (
+          <div className="flex rounded-xl border border-card-border p-0.5 bg-card" role="tablist" aria-label="Card game">
+            {games.map((g) => (
+              <button
+                key={g.id}
+                role="tab"
+                aria-selected={game === g.id}
+                onClick={() => setGame(g.id)}
+                className={`flex-1 text-sm font-semibold rounded-[10px] px-3 py-1.5 transition-colors ${
+                  game === g.id ? 'bg-ink text-white' : 'text-muted hover:text-ink'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Raw cards live in binders, graded ones in the vault - the two do
             not mix, so they get their own shelves rather than a filter. */}
         {openBinder === null && (
@@ -1196,8 +1234,8 @@ export default function CollectionPanel({
                 aria-pressed={shelf === k}
               >
                 {label}
-                {k === 'vault' && slabs.length > 0 && (
-                  <span className={shelf === k ? 'text-white/60' : 'text-muted'}> · {slabs.length}</span>
+                {k === 'vault' && gameSlabs.length > 0 && (
+                  <span className={shelf === k ? 'text-white/60' : 'text-muted'}> · {gameSlabs.length}</span>
                 )}
               </button>
             ))}
@@ -1206,13 +1244,13 @@ export default function CollectionPanel({
 
         {openBinder === null && shelf === 'vault' ? (
           /* ── The vault ── */
-          slabs.length === 0 ? (
+          gameSlabs.length === 0 ? (
             <p className="text-sm text-muted">
               Nothing graded yet. Open a card in a binder and send it off.
             </p>
           ) : (
             <div className="grid grid-cols-3 gap-2.5 pt-1">
-              {slabs.map(({ card, copy }, i) => (
+              {gameSlabs.map(({ card, copy, i }) => (
                 <button
                   key={copy.id}
                   onClick={() => setSlabIndex(i)}
@@ -1239,7 +1277,7 @@ export default function CollectionPanel({
             <p className="text-sm text-muted">Nothing collected yet. Open a pack to start.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 pt-1">
-              {setTotals.map((s) => {
+              {gameSets.map((s) => {
                 const owned = bySet.get(s.set_code)?.length ?? 0
                 return (
                   <BinderCover
@@ -1295,8 +1333,8 @@ export default function CollectionPanel({
                           disabled={c.raw.length === 0}
                           className="block w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-default"
                           aria-label={c.raw.length === 0
-                            ? `${c.name}${rarityLabel(c.rarity)}, in the vault`
-                            : `Enlarge ${c.name}${rarityLabel(c.rarity)}`}
+                            ? `${c.name}${rarityLabel(c.rarity, c.set_code)}, in the vault`
+                            : `Enlarge ${c.name}${rarityLabel(c.rarity, c.set_code)}`}
                         >
                           {c.raw.length > 0 ? (
                             /* The first copy stands in for the stack, so the
@@ -1328,7 +1366,7 @@ export default function CollectionPanel({
                         {/* Also on an "in vault" slot: that placeholder shows
                             no art and no name, so holo and plain prints of the
                             same card would otherwise be identical boxes. */}
-                        <HoloMark rarity={c.rarity} />
+                        <HoloMark rarity={c.rarity} setCode={c.set_code} />
                         {c.raw.length > 1 && (
                           <span className="pointer-events-none absolute -top-1 -right-1 rounded-full bg-ink text-white text-[10px] font-bold px-1.5 py-0.5 shadow">
                             ×{c.raw.length}
@@ -1416,9 +1454,9 @@ export default function CollectionPanel({
             <div className="text-center" onClick={(e) => e.stopPropagation()}>
               <p className="text-white font-semibold text-sm">{c.name}</p>
               <p className={`text-xs font-medium ${
-                c.rarity === 'H' ? 'text-amber-300' : c.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
+                c.rarity === 'H' ? 'text-amber-300' : c.rarity === 'S' ? 'text-fuchsia-300' : c.rarity === 'P' ? 'text-sky-300' : 'text-white/50'
               }`}>
-                {RARITY_LABEL[c.rarity] ?? c.rarity} · #{c.number}
+                {rarityName(c.rarity, c.set_code)} · #{c.number}
               </p>
               {/* Damage you can see is said in words - the numbers behind
                   ordinary wear stay sealed until grading. */}
@@ -1956,7 +1994,7 @@ export default function CollectionPanel({
             const card = reveal[idx]
             const done = revealed >= reveal.length
             if (done) {
-              const best = [...reveal].sort((a, b) => 'CURHS'.indexOf(b.rarity) - 'CURHS'.indexOf(a.rarity))[0]
+              const best = [...reveal].sort((a, b) => RANK.indexOf(b.rarity) - RANK.indexOf(a.rarity))[0]
               return (
                 <>
                   {godPack ? (
@@ -1985,7 +2023,7 @@ export default function CollectionPanel({
                   {/* Every card is the best pull in a god pack. */}
                   {!godPack && (
                     <p className="text-white/70 text-xs">
-                      Best pull: <span className="font-semibold text-white">{best.name}</span> · {RARITY_LABEL[best.rarity]}
+                      Best pull: <span className="font-semibold text-white">{best.name}</span> · {rarityName(best.rarity, best.image_url)}
                     </p>
                   )}
                   <button onClick={closeReveal} className="bg-signal text-white font-semibold rounded-xl px-6 py-2.5 text-sm">
@@ -1994,7 +2032,7 @@ export default function CollectionPanel({
                 </>
               )
             }
-            const special = card.rarity === 'H' || card.rarity === 'S'
+            const special = isHit(card.rarity)
             const n = reveal.length
             const last = idx === n - 1
             // The camera pushes in with every card, so the pack builds toward
@@ -2036,7 +2074,7 @@ export default function CollectionPanel({
                     the game away. */}
                 {special && (!last || lastFlipped) && (
                   <Delayed key={`c${idx}`} ms={last ? 620 : 0}>
-                    <CardCelebration rarity={card.rarity as 'H' | 'S'} />
+                    <CardCelebration rarity={card.rarity === 'S' ? 'S' : 'H'} />
                   </Delayed>
                 )}
 
@@ -2085,7 +2123,7 @@ export default function CollectionPanel({
                               detail="full"
                               className={`w-full h-full rounded-lg ${rarityRing(card.rarity)} ${
                                 lastFlipped && card.rarity === 'S' ? 'vm-glow-secret'
-                                  : lastFlipped && card.rarity === 'H' ? 'vm-glow-holo' : ''
+                                  : lastFlipped && (card.rarity === 'H' || card.rarity === 'P') ? 'vm-glow-holo' : ''
                               }`}
                             />
                           </div>
@@ -2120,9 +2158,9 @@ export default function CollectionPanel({
                     <div key={`cap${idx}`} className={last ? 'vm-caption-in' : undefined}>
                       <p className={`font-semibold ${special ? 'text-base' : 'text-sm'} text-white`}>{card.name}</p>
                       <p className={`text-xs font-medium ${
-                        card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : 'text-white/50'
+                        card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : card.rarity === 'P' ? 'text-sky-300' : 'text-white/50'
                       }`}>
-                        {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? '✦ HOLO RARE ✦' : RARITY_LABEL[card.rarity] ?? card.rarity}
+                        {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? `✦ ${rarityName('H', card.image_url).toUpperCase()} ✦` : card.rarity === 'P' ? '◆ PARALLEL ◆' : rarityName(card.rarity, card.image_url)}
                       </p>
                     </div>
                   )}

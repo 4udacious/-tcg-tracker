@@ -537,7 +537,7 @@ function ListingDetail({
                       rarity={it.rarity ?? undefined}
                       className="w-full aspect-[245/342] rounded"
                     />
-                    <HoloMark rarity={it.rarity ?? ''} />
+                    <HoloMark rarity={it.rarity ?? ''} setCode={it.image_url} />
                     {it.grade != null && (
                       <span className="absolute -bottom-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1.5 py-0.5 shadow">
                         {it.grade}
@@ -1009,7 +1009,7 @@ function Compose({ collection, packs, boxes, feePercent, onClose, onDone, onErro
                           on ? 'ring-2 ring-white scale-95 shadow-[0_0_0_4px_rgba(15,23,42,0.45)]' : ''
                         }`}
                         aria-pressed={on}
-                        aria-label={`${on ? 'Remove' : 'Add'} ${card.name}` + rarityLabel(card.rarity)
+                        aria-label={`${on ? 'Remove' : 'Add'} ${card.name}` + rarityLabel(card.rarity, card.image_url)
                           + (copy.graded_at && copy.grade != null ? `, graded ${copy.grade}` : '')}
                       >
                         <ConditionedCard
@@ -1017,7 +1017,7 @@ function Compose({ collection, packs, boxes, feePercent, onClose, onDone, onErro
                           rarity={card.rarity}
                           className="w-full aspect-[245/342] rounded"
                         />
-                        <HoloMark rarity={card.rarity} />
+                        <HoloMark rarity={card.rarity} setCode={card.image_url} />
                         {copy.grade != null && copy.graded_at && (
                           <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-ink text-[10px] font-bold px-1 shadow">
                             {copy.grade}
