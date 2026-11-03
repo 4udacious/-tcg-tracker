@@ -5,7 +5,7 @@
 // sits in are the same yellow, and widening one side reads as a bad cut
 // rather than a coloured mat.
 
-/** The yellow 111 of 957 cards share. */
+/** The yellow 111 of 975 cards share. */
 export const DEFAULT_BORDER = '#f8d000'
 
 /** Only cards whose scan differs from the common yellow. */
@@ -856,6 +856,24 @@ export const CARD_BORDER: Record<string, string> = {
   '/cards/neo3-7.webp': '#f8d800',
   '/cards/neo3-8.webp': '#f0d800',
   '/cards/neo3-9.webp': '#f0d000',
+  '/cards/si1-1.webp': '#f0d000',
+  '/cards/si1-10.webp': '#f8c800',
+  '/cards/si1-11.webp': '#f0d000',
+  '/cards/si1-12.webp': '#f8c800',
+  '/cards/si1-13.webp': '#f8c000',
+  '/cards/si1-14.webp': '#f0c800',
+  '/cards/si1-15.webp': '#f0c000',
+  '/cards/si1-16.webp': '#f8c800',
+  '/cards/si1-17.webp': '#f0d000',
+  '/cards/si1-18.webp': '#f8c800',
+  '/cards/si1-2.webp': '#f8c800',
+  '/cards/si1-3.webp': '#f8c800',
+  '/cards/si1-4.webp': '#f0c800',
+  '/cards/si1-5.webp': '#f0c000',
+  '/cards/si1-6.webp': '#f8c800',
+  '/cards/si1-7.webp': '#f0c800',
+  '/cards/si1-8.webp': '#f8c800',
+  '/cards/si1-9.webp': '#f0c800',
 }
 
 export function borderColor(imageUrl: string): string {

@@ -310,6 +310,8 @@ const BINDERS: Record<string, Binder> = {
   neo2:  { cover: '/packs/neo-discovery-umbreon.webp',  spine: '#134e4a', body: '#0f766e', foil: '#99f6e4', fit: 'contain' },
   // Neo Revelation: burgundy, for the burned tower's brick, kept clear of Base Set 2's red.
   neo3:  { cover: '/packs/neo-revelation-suicune.webp', spine: '#4c0519', body: '#881337', foil: '#fecdd3', fit: 'contain' },
+  // Southern Islands: sea blue under its own wrapper, with the sunset's gold.
+  si1:   { cover: '/packs/southern-islands-mew.webp',   spine: '#075985', body: '#0284c7', foil: '#fcd34d', fit: 'contain' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
