@@ -3,10 +3,8 @@
 -- Revelation's). The usual eleven-card pack.
 --
 -- Art from pokemontcg.io at /cards/neo4-<number>.webp (image_url is a
--- generated column). Wrappers: Dark Espeon, Dark Tyranitar, Light Arcanine
--- and Light Dragonite, made from the set's logo and those holos' art (no pack
--- photos could be fetched); swap in photos with scripts/import-pack-art.mjs
--- under the same file names.
+-- generated column). Wrappers: Noctowl, Togetic, Celebi and Tyranitar, from
+-- pack photos through scripts/import-pack-art.mjs.
 --
 -- Not stocked: the packs are active so the set shows up in /admin/vvm, and
 -- vending_set_info starts at 0 of 0 to keep it out of the machine until
@@ -138,10 +136,10 @@ on conflict (set_code, number) do nothing;
 
 insert into public.vending_packs (set_name, pack_name, image_url, sort_order, is_active, set_code)
 values
-  ('Neo Destiny', 'Dark Espeon',     '/packs/neo-destiny-dark-espeon.webp',     74, true, 'neo4'),
-  ('Neo Destiny', 'Dark Tyranitar',  '/packs/neo-destiny-dark-tyranitar.webp',  75, true, 'neo4'),
-  ('Neo Destiny', 'Light Arcanine',  '/packs/neo-destiny-light-arcanine.webp',  76, true, 'neo4'),
-  ('Neo Destiny', 'Light Dragonite', '/packs/neo-destiny-light-dragonite.webp', 77, true, 'neo4')
+  ('Neo Destiny', 'Celebi',    '/packs/neo-destiny-celebi.webp',    74, true, 'neo4'),
+  ('Neo Destiny', 'Noctowl',   '/packs/neo-destiny-noctowl.webp',   75, true, 'neo4'),
+  ('Neo Destiny', 'Togetic',   '/packs/neo-destiny-togetic.webp',   76, true, 'neo4'),
+  ('Neo Destiny', 'Tyranitar', '/packs/neo-destiny-tyranitar.webp', 77, true, 'neo4')
 on conflict (set_name, pack_name) do update
   set image_url = excluded.image_url,
       sort_order = excluded.sort_order,

@@ -310,8 +310,8 @@ const BINDERS: Record<string, Binder> = {
   neo2:  { cover: '/packs/neo-discovery-umbreon.webp',  spine: '#134e4a', body: '#0f766e', foil: '#99f6e4', fit: 'contain' },
   // Neo Revelation: burgundy, for the burned tower's brick, kept clear of Base Set 2's red.
   neo3:  { cover: '/packs/neo-revelation-suicune.webp', spine: '#4c0519', body: '#881337', foil: '#fecdd3', fit: 'contain' },
-  // Neo Destiny: midnight indigo for the Dark Pokémon, with the Light ones' gold.
-  neo4:  { cover: '/packs/neo-destiny-dark-espeon.webp', spine: '#1e1b4b', body: '#312e81', foil: '#fcd34d', fit: 'contain' },
+  // Neo Destiny: the wrappers' purple, with their lime rays for the foil, kept clear of Neo Revelation's burgundy.
+  neo4:  { cover: '/packs/neo-destiny-celebi.webp',    spine: '#3b0764', body: '#581c87', foil: '#d9f99d', fit: 'contain' },
   // The real Southern Islands collection box, which was its binder: the island
   // in a deep-blue sea, framed in orange ferns. Ocean-teal body (kept clear of
   // the Base Set and Neo Genesis blues) with the ferns' orange for the foil.
