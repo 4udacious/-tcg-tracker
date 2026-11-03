@@ -405,12 +405,13 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, thunder_stone: 1, linking_cord: 2, dragon_scale: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
           supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null },
-            { key: 'elite_ticket', kind: 'item', name: 'Elite Four Ticket', description: 'All five League battles', price: 5, contents: null }],
+            { key: 'elite_ticket', kind: 'item', name: 'Elite Four Ticket', description: 'All five League battles', price: 5, contents: null },
+            { key: 'rematch_gym_0', kind: 'item', name: 'Falkner Rematch', description: 'Rematch Falkner', price: 1, contents: null, max: 1, left_today: null }],
           boxes: [{ box_id: 5, name: 'Jungle Booster Box', set_name: 'Jungle', packs: 36, price: 3, image: '/rpg/a/jungle-scyther.webp', quantity: 2, max: 1 }] } },
         async balance() { return balance },
         async claim() { calls.push(['claim']); return { ok: true, reason: 'ok', holder_name: null, expires_at: null } },
@@ -443,6 +444,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(start.wallet, '10.00 tk', 'the wallet is the real balance'); assert.equal(start.discs, 1, 'a bought Move Disc became a disc in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag.fullheal), 1, 'a bought Full Heal is a FULL HEAL in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale]), [1, 2, 1], 'bought evolution items are the game\'s own in the Bag')
+    assert.equal(await frame.evaluate(() => window.__vvm.bag['rematch:gym_1']), 1, 'a bought rematch ticket is in the Bag, for that leader')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
     await frame.waitForFunction(() => /TAC-07/.test(document.getElementById('poolWhere').textContent), null, { timeout: 10000 })
     const pool = await frame.evaluate(() => ({ where: document.getElementById('poolWhere').textContent, shown: [...document.querySelectorAll('#poolMons .nm')].map((b) => b.textContent), want: window.__vvm.poolFor('TAC-07') }))
@@ -454,6 +456,8 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     await frame.evaluate(() => { document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click() })
     await frame.waitForSelector('[data-buy="set:base2"]', { timeout: 10000 }); await page.waitForTimeout(1200)   // the screen finishes fading in
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:elite_ticket"]')), null, 'no Elite Four ticket on the shelf before all 8 badges')
+    const rematchTile = await frame.$eval('[data-buy="sup:rematch_gym_0"]', (b) => ({ off: b.disabled, text: b.textContent }))
+    assert.ok(rematchTile.off && /beat them first/.test(rematchTile.text), `a rematch with a leader you haven't beaten is greyed out (${rematchTile.text})`)
     await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball', 'box:5', 'box:5']) document.querySelector(`[data-buy="${k}"]`).click() })   // the box twice: only 1 is allowed
     await frame.evaluate(() => document.getElementById('cbGo').click())
     await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
@@ -1230,6 +1234,74 @@ test('the wild pool turns over at midnight on Monday in Seattle, and its countdo
     assert.equal(monLater.week, monEarly.week, 'and stays turned over through Monday')
     assert.ok(Math.abs(sunLate.next - 60e3) < 2000, `the countdown points at that midnight (${sunLate.next} ms to go at 11:59 pm)`)
     assert.ok(monEarly.next > 6.9 * 864e5, 'and then a week on')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('everyday trainers grow up with you: evolved teams late, their earliest stages retired, three or four Pokémon', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, at = (lv) => { const m = individual(speciesByName('CHARMANDER'), lv, Math.random); m.hp = m.stats.hp; v.party.splice(0, 9, m); v.badges.splice(0, 99, ...Array.from({ length: 16 }, (_, i) => i)) }
+      const out = {}
+      for (const lv of [10, 35, 60]) {
+        at(lv)
+        out[lv] = v.SCALPERS.map((T) => { const decks = Array.from({ length: 12 }, () => v.deckFor(T, lv)); return { who: T.short, sizes: [...new Set(decks.map((d) => d.length))], names: [...new Set(decks.flat().map((m) => m.name))], missing: decks.flat().filter((m) => !m?.stats).length } })
+      }
+      return out
+    })
+    for (const t of r[10]) assert.ok(t.sizes.every((n) => n === 2 || n === 3), `${t.who} at Lv 10 brings two or three (${t.sizes})`)
+    for (const t of r[60]) {
+      assert.ok(t.sizes.every((n) => n === 3 || n === 4), `${t.who} at Lv 60 brings three or four (${t.sizes})`)
+      assert.equal(t.missing, 0)
+    }
+    const late = Object.fromEntries(r[60].map((t) => [t.who, t.names]))
+    assert.ok(!late.ROSE.includes('SKITTY') && !late.TYLER.includes('PIKACHU') && !late.DEREK.includes('PATRAT'), 'the earliest stages have retired by Lv 60')
+    assert.ok(late.TYLER.includes('ELECTIVIRE') || late.TYLER.includes('JOLTEON') || late.TYLER.includes('RAICHU'), `Tyler's late team is evolved: ${late.TYLER}`)
+    assert.ok(late.MARCUS.includes('MACHAMP') || late.MARCUS.includes('ARCANINE'), `Marcus's: ${late.MARCUS}`)
+    assert.ok(!r[10].find((t) => t.who === 'DEREK').names.includes('PORYGON-Z'), 'and none of it turns up early')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('gym rematches: every leader comes back fully evolved, at your level', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARMANDER'), 60, Math.random); m.hp = m.stats.hp; v.party.splice(0, 9, m)
+      return GYMS.map((L) => ({ who: L.short, before: L.team, after: v.rematchTeam(L).map((x) => `${x.name} ${x.level}`), ok: v.rematchTeam(L).every((x) => x.stats && ART[x.id]) }))
+    })
+    for (const t of r) {
+      assert.ok(t.ok, `${t.who}'s rematch team is real species with sprites`)
+      assert.equal(+t.after.at(-1).split(' ').at(-1), 62, `${t.who}'s ace is two above your best (${t.after})`)
+    }
+    const falkner = r.find((t) => t.who === 'FALKNER').after.map((x) => x.split(' ')[0])
+    assert.ok(!falkner.includes('PIDGEY') && falkner.some((n) => n === 'PIDGEOT' || n === 'NOCTOWL'), `Falkner's birds have evolved: ${falkner}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the daily challenge: one type a day, the same all day, four fully evolved Pokémon of it', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, days = Array.from({ length: 14 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`)
+      const cs = days.map((d) => v.dailyChallenge(d))
+      return { same: JSON.stringify(v.dailyChallenge('2026-11-02')) === JSON.stringify(v.dailyChallenge('2026-11-02')),
+        types: [...new Set(cs.map((c) => c.type))].length,
+        bad: cs.flatMap((c) => c.team.filter((n) => { const sp = speciesByName(n); return !sp || !sp.types.includes(c.type) || v.finalForm(n) !== n }).map((n) => `${c.day} ${c.type}: ${n}`)),
+        sizes: [...new Set(cs.map((c) => new Set(c.team).size))], who: cs.every((c) => c.who?.vs) }
+    })
+    assert.ok(r.same, 'the same challenge all day')
+    assert.ok(r.types >= 6, `it changes from day to day (${r.types} types in 14 days)`)
+    assert.deepEqual(r.bad, [], 'every Pokémon is of the day\'s type, and fully evolved')
+    assert.deepEqual(r.sizes, [4], 'four different ones to draw from'); assert.ok(r.who)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

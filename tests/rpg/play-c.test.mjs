@@ -116,3 +116,32 @@ test('in battle, a Potion can go to a Pokémon on the bench, in 1v1 and 2v2', { 
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('the daily challenge: offered under the machine, won once a day for a pack and tokens', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot, log } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARIZARD'), 40, Math.random); learnAtLevel(m)
+      Object.assign(m.stats, { hp: 2000, atk: 900, spa: 900, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp   // the test is about the challenge, not the fight
+      v.party.splice(0, 9, m); if (!v.badges.includes(0)) v.badges.push(0)
+      document.getElementById('home').click()
+    })
+    await page.waitForFunction(() => !document.getElementById('dailyBar').hidden, null, { timeout: 10000 })
+    const bar = await page.textContent('#dailyBar')
+    assert.match(bar, /DAILY CHALLENGE · [A-Z]+ TYPES/, 'the bar names the day\'s type')
+    const from = log.length, wallet = await page.evaluate(() => window.__vvm.wallet)
+    await page.waitForTimeout(1500); await page.waitForFunction(() => !document.getElementById('dailyBar').hidden)   // shown once the machine has settled
+    await page.click('#dailyBar')
+    for (let i = 0; i < 400 && !(await page.evaluate(() => window.__vvm.dailyWon)); i++) await bot.step()
+    for (let i = 0; i < 200 && !(await bot.atHome()); i++) await bot.step()
+    const r = await page.evaluate(() => ({ won: window.__vvm.dailyWon, wallet: window.__vvm.wallet, saved: JSON.parse(localStorage.getItem('vvm-save')).dailyWon, hidden: document.getElementById('dailyBar').hidden }))
+    assert.ok(r.won && r.saved === r.won, 'won today, and saved')
+    assert.match(log.slice(from).join(' | '), /Your prize/, 'a pack')
+    assert.ok(r.wallet > wallet, 'and tokens')
+    await page.waitForTimeout(1500)
+    assert.equal(await page.evaluate(() => document.getElementById('dailyBar').hidden), true, 'and no more today')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

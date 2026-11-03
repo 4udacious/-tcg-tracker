@@ -107,3 +107,28 @@ test('EXP: a Pokémon switched out after facing the foe still gets three quarter
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('rematch tickets: a leader you beat, 1v1 or 2v2, for tokens and a Move Disc', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARIZARD'), 80, Math.random), n = individual(speciesByName('BLASTOISE'), 80, Math.random)
+      for (const x of [m, n]) { learnAtLevel(x); Object.assign(x.stats, { hp: 4000, atk: 6000, spa: 6000, def: 900, spd: 900, spe: 900 }); x.hp = x.stats.hp }   // the test is about the rematch, not the fight
+      v.party.splice(0, 9, m, n); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
+    })
+    for (const [id, duo] of [['gym_5', false], ['gym_2', true]]) {
+      const before = await page.evaluate(() => { const v = window.__vvm; for (const m of v.party) m.hp = m.stats.hp; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
+      const from = g.log.length
+      await page.evaluate(([id, duo]) => { window.__rm = false; window.__vvm.rematchBattle(id, duo).then(() => { window.__rm = true }) }, [id, duo])
+      for (let i = 0; i < 900 && !(await page.evaluate(() => window.__rm)); i++) await bot.step()
+      const lines = g.log.slice(from).join(' | ')
+      assert.match(lines, /gave you a MOVE DISC/, `${id} (${duo ? '2v2' : '1v1'}): won, and a Move Disc`)
+      if (duo) assert.match(lines, /sent out.*and/i, '2v2: they send out two')
+      const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
+      assert.equal(after.discs, before.discs + 1); assert.ok(after.wallet > before.wallet, 'and tokens')
+    }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

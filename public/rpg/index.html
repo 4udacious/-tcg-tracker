@@ -48,6 +48,10 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 /* The tray, as on the old VVM page: bought items drop in one by one and lie at their own tilt. */
 .updatebar { display: block; width: calc(100% - 8px); margin: 10px 4px 0; padding: 9px 12px; border: 0; border-radius: 12px; background: #fde047; color: #0f172a; font: 800 13px system-ui, sans-serif; letter-spacing: .02em; cursor: pointer; box-shadow: 0 2px 0 #ca8a04; }
 .updatebar[hidden] { display: none; }
+.dailybar { display: block; width: calc(100% - 8px); margin: 10px 4px 0; padding: 9px 12px; border: 0; border-radius: 12px; background: linear-gradient(90deg, #4f46e5, #7c3aed); color: #fff; font: 700 12px system-ui, sans-serif; letter-spacing: .02em; cursor: pointer; box-shadow: 0 2px 0 #3730a3; text-align: center; }
+.dailybar b { font-weight: 900; letter-spacing: .06em; }
+.dailybar span { color: #fde68a; }
+.dailybar[hidden] { display: none; }
 .tray { position: relative; margin: 10px 4px 0; height: 46px; border-radius: 12px; background: #111; border: 3px solid #ff3b53; box-shadow: inset 0 4px 14px rgba(0,0,0,.8); cursor: pointer; }
 .trayin { position: absolute; inset: 0; overflow: hidden; border-radius: 9px; }
 .tdrop { position: absolute; top: 50%; transform: translateY(-50%) rotate(var(--tilt)); }
@@ -1182,6 +1186,8 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
     <!-- The tray under the screen: what you bought drops into it (tap it to collect). A jammed pack hangs at its mouth. -->
     <!-- A newer version of the game is out (app only): tap to save and reload. Only shown at the machine, never mid-battle. -->
     <button class="updatebar" id="updateBar" type="button" hidden>New version available · tap to refresh</button>
+    <!-- The daily challenge (Play and the app): a type a day, for a pack and tokens. Only at the machine, until it's won. -->
+    <button class="dailybar" id="dailyBar" type="button" hidden></button>
 
     <div class="tray" id="tray" role="button" aria-label="The tray: tap to collect"><div class="trayin" id="trayIn"></div><div class="traystuck" id="trayStuck" aria-hidden="true"></div></div>
 
@@ -1209,6 +1215,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=1ead9d2343"></script>
+<script src="/rpg/game.js?v=099c89abe1"></script>
 </body>
 </html>

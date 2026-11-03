@@ -95,3 +95,25 @@ test('CPU trainers use a Full Heal on a Pokémon with a status, instead of movin
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('a veteran: an everyday trainer, tougher, for three times the tokens and a pack', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot, log } = g
+    await bot.finishTutorial()
+    const before = await page.evaluate(() => {
+      const m = individual(speciesByName('CHARIZARD'), 70, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      window.__vvm.party.splice(0, 9, m); for (let i = 0; i < 4; i++) window.__vvm.badges.push(i)
+      window.__forceVeteran = true
+      return window.__vvm.wallet
+    })
+    const from = log.length
+    assert.ok(await bot.encounter('scalper', 500), 'a trainer battle happened')
+    const lines = log.slice(from).join(' | ')
+    assert.match(await page.evaluate(() => document.getElementById('feedList')?.textContent ?? ''), /beat a veteran: VETERAN /, 'the feed says who')
+    assert.match(lines, /handed over/, 'a pack for beating them')
+    const after = await page.evaluate(() => window.__vvm.wallet)
+    assert.ok(after - before >= 1.5 - 1e-9, `three times their tokens (${(after - before).toFixed(2)})`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
