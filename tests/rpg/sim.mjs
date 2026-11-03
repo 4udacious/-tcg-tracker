@@ -7,10 +7,12 @@
 //
 // It runs inside the game page, so it uses the game's own numbers: the same
 // damage formula, type chart, stats, leader levels (leaderLevels), teams, IVs,
-// move sets, Full Restores, tells (tellRate) and ring speeds (ringFast). What
+// move sets, Full Restores, tells (tellRate), ring speeds (ringFast) and the
+// leaders' parries (parry, leaderParries). What
 // it can't use is a person: the player is modelled as timing errors on the
 // rings, at three skill levels (SKILLS). The aim, for the average player: about
-// 3 wins in 4 against a leader, Lance (each League's last) about 1 in 2.
+// 2 wins in 3 against a leader (they parry), Lance and Red (each League's last)
+// about 1 in 3.
 //
 // Left out, so read the numbers as a guide: statuses and stat moves (yours and
 // theirs; a rampage's confusion is in), your own switching to a better
@@ -27,10 +29,11 @@ const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
  * low-high) makes them press at the wrong time. Potions: used under 35% HP.
  */
 /**
- * Fights with an aim of their own (the rest: 3 in 4, each League's last 1 in 2): Alex's first battle is the friendly one, the last the hardest in the game.
- * Herb's and Paul's first glitcher battles are easy too (their Pokémon haven't evolved yet), their last a little harder than a leader.
+ * Fights with an aim of their own (the rest, the leaders who parry: about 2 in 3, each League's last about 1 in 3): Alex's first battle is the friendly one,
+ * the last the hardest in the game. Herb and Paul don't parry: 3 in 4, their first glitcher battles easy (their Pokémon haven't evolved yet), their last 2 in 3.
+ * The leaders' aims went down when they began parrying (players asked for more of a challenge).
  */
-export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.25, 'HERB 1': 0.9, 'PAUL 1': 0.9, 'HERB 4': 0.65, 'PAUL 4': 0.65 }
+export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.15, 'HERB 1': 0.9, 'PAUL 1': 0.9, 'HERB 2': 0.75, 'HERB 3': 0.75, 'PAUL 2': 0.75, 'PAUL 3': 0.75, 'HERB 4': 0.65, 'PAUL 4': 0.65 }
 
 export const SKILLS = {
   casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1 },
@@ -85,10 +88,12 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
         pp -= mv.cost ?? 0
         let clean = false
         for (let h = 0; h < (mv.hits ?? 1) && foe.hp > 0; h++) {
-          const g = grade(Math.abs(gauss() * skill.strike))
+          const dt = Math.abs(gauss() * skill.strike), g = grade(dt)
           if ((mv.hits ?? 1) > 1 && g.miss) continue
           clean ||= !g.miss
-          foe.hp = Math.max(0, foe.hp - damage(me, foe, mv, g.mult))
+          // A leader parries now and then (the game's own rule): a fifth of the damage.
+          const parried = leaderParries(T, foe, dt <= 40 ? 'PERFECT' : g.miss ? 'MISS' : 'GOOD', conf > 0, R)
+          foe.hp = Math.max(0, foe.hp - damage(me, foe, mv, g.mult * (parried ? DEFEND_TAKEN.parry : 1)))
         }
         if ((mv.cost ?? 0) === 0 && clean) pp = Math.min(5, pp + 1)
       }
@@ -161,7 +166,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
   ]
   list.filter((c) => new RegExp(ONLY, 'i').test(`${c.group}:${c.name}`)).forEach((c) => {
     const lv = arrive(c), size = sizeAt(lv)
-    const out = { name: c.name, group: c.group, arrive: lv, ace: c.T.min, aim: AIMS[c.name] ?? (c.last ? 0.5 : 0.75) }
+    const out = { name: c.name, group: c.group, arrive: lv, ace: c.T.min, aim: AIMS[c.name] ?? (c.last ? 0.35 : 0.65) }
     for (const [k, skill] of Object.entries(SKILLS)) {
       let w = 0
       for (let b = 0; b < N; b++) w += battle(skill, c.T, c.team, partyFor(size, lv)) ? 1 : 0
