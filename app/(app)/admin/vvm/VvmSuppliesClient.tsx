@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { isRematch } from './supplies'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SupplyIcon from '@/components/SupplyIcon'
@@ -36,9 +37,6 @@ const DAILY_MAX = 999
 const BUNDLE_ITEM_MAX = 99
 
 type Toast = (msg: string) => void
-
-/** A rematch ticket (v89): a supply of its own, shown on the admin page's Rematches tab. */
-export const isRematch = (s: Pick<SupplyRow, 'key'>) => s.key.startsWith('rematch_')
 
 /**
  * `show`: 'supplies' for the battle items and bundles (the Supplies tab), or
