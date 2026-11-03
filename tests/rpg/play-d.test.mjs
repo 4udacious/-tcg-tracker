@@ -114,3 +114,29 @@ test('the foe\'s HP bar always shows its HP, Pokémon after Pokémon', { skip: q
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still takes the hit', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const fight = async (status) => {
+      await page.evaluate((st) => {
+        const m = individual(speciesByName('MACHOP'), 20, Math.random); learnAtLevel(m)
+        Object.assign(m.stats, { hp: 2000, atk: Math.ceil(m.stats.atk / 3), spa: Math.ceil(m.stats.spa / 3) }); m.hp = m.stats.hp; m.status = st   // weak hits, so the foe lives to attack
+        window.__vvm.party.splice(0, 9, m); window.__forceWild = 'RATTATA'; window.__autoParry = true
+      }, status)
+      const from = g.log.length
+      assert.ok(await bot.encounter('wild'), 'a wild battle started')
+      const attacked = g.log.slice(from).some((l) => /The wild RATTATA used\s*(TACKLE|QUICK ATTACK|BITE|HYPER FANG|DOUBLE HIT|CRUNCH|SUPER FANG)/.test(l))
+      return { attacked, hp: await page.evaluate(() => window.__vvm.party[0].hp) }
+    }
+    const healthy = await fight(null)
+    if (healthy.attacked) assert.equal(healthy.hp, 2000, 'healthy: every PERFECT parry takes no damage')
+    let para = { attacked: false }
+    for (let i = 0; i < 4 && !para.attacked; i++) para = await fight('par')   // until the Rattata lands an attack (not just Tail Whip)
+    assert.ok(para.attacked, 'the Rattata attacked the paralyzed Pokémon')
+    assert.ok(para.hp < 2000, `paralyzed: the same PERFECT parry is no defence (${para.hp}/2000)`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

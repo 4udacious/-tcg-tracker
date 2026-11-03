@@ -2514,8 +2514,8 @@ DISC_POOL.push('SAND ATTACK', 'SMOKESCREEN', 'DOUBLE TEAM', 'MINIMIZE', 'FLASH')
  * Status conditions: one at a time on a Pokémon (`m.status`). They carry over
  * between battles, like HP, until cured: a cure item, Refresh or Heal Bell,
  * the Pokémon Center, a Revive, or fainting.
- *  · PAR, paralysis: 25% of turns it can't move; its parry, dodge and jump
- *    windows are 20% narrower; half Speed (in 2v2, where Speed sets order).
+ *  · PAR, paralysis: 25% of turns it can't move; it can't parry, dodge or
+ *    jump (rings on it land); half Speed (in 2v2, where Speed sets order).
  *  · FRZ, frozen: can't move; thaws 20% of turns, or at once when hit by a
  *    fire move. Rings on it can't be parried, dodged or jumped.
  *  · BRN, burned: its physical attacks do half damage; loses 1/16 of max HP
@@ -2529,8 +2529,9 @@ DISC_POOL.push('SAND ATTACK', 'SMOKESCREEN', 'DOUBLE TEAM', 'MINIMIZE', 'FLASH')
  * Poison and Steel types poisoned.
  *
  * And for one battle only (gone on a switch), alongside any of those:
- *  · CONF, confused (2-4 turns): its rings wobble, and a third of the time it
- *    hurts itself instead of moving.
+ *  · CONF, confused (2-4 turns): its rings wobble, its parry, dodge and jump
+ *    windows are 40% narrower (CONF_DEFEND), and a third of the time it hurts
+ *    itself instead of moving.
  *  · SEED, Leech Seed: loses 1/8 of max HP each turn to whoever seeded it.
  *    Grass types can't be seeded.
  *  · DROWSY, from Yawn: falls asleep at the end of the next turn.
@@ -2538,6 +2539,10 @@ DISC_POOL.push('SAND ATTACK', 'SMOKESCREEN', 'DOUBLE TEAM', 'MINIMIZE', 'FLASH')
  *    Headbutt, Air Slash…) can cost it that turn.
  */
 const STATUS_NAME = { par: 'PAR', frz: 'FRZ', brn: 'BRN', psn: 'PSN', tox: 'TOX', slp: 'SLP' }
+/** Asleep, frozen solid or paralyzed: no parry, dodge or jump; every ring on it lands. */
+const cantDefend = (m) => m.status === 'slp' || m.status === 'frz' || m.status === 'par'
+/** How much of the usual parry, dodge and jump windows a confused Pokémon gets. */
+const CONF_DEFEND = 0.6
 /*
  * CPU trainers carry Full Heals: leaders (Gym Leaders, the Elite Fours, Red,
  * Alex, Herb and Paul: trainer.hard) two a battle, regular trainers one. They
@@ -6773,7 +6778,7 @@ async function run(id) {
      */
     let defendShownAt = 0   // when the last attack's announcement was moved on (see DEFEND_SETTLE_MS)
     async function defendHit(T, actor, mv, h, step, mult, ownPartner = false) {
-      const dr = defendRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); if (T.mon.status === 'par') dr.wide *= 0.8
+      const dr = defendRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); if (S(T.mon).conf) dr.wide *= CONF_DEFEND
       // Every ring closes at its own speed, after a wind-up of its own (see attackPace).
       const pace = attackPace(ownPartner ? null : actor.owner, leadLevel())
       const vary = demo ? 1 : paceRoll(pace.speed), windup = demo || ownPartner ? 0 : Math.round(Math.random() * pace.wait)
@@ -6803,10 +6808,10 @@ async function run(id) {
       await W(approach); rg.clear()
       if (!first) await W(240)
       off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed')); panel(null)
-      if (T.mon.status === 'frz' || T.mon.status === 'slp') first = null   // frozen solid or asleep: no parry, dodge or jump
+      if (cantDefend(T.mon)) { first = null; if (h === 0 && !auto) pop(`${STATUS_NAME[T.mon.status]}: CAN'T DEFEND`, T.c.x, T.c.y - 90, 'small') }   // asleep, frozen or paralyzed: no parry, dodge or jump
       const dt = first ? first.t - hitAt : Infinity
       // A partner defends their own: usually good, now and then PERFECT.
-      const res = auto ? (flavor() < (mv.kind === 'low' ? 0.8 : 0.65) ? { r: mv.kind === 'low' ? 'jump' : 'parry', perfect: flavor() < 0.3 } : { r: 'miss' })
+      const res = auto && cantDefend(T.mon) ? { r: 'miss' } : auto ? (flavor() < (mv.kind === 'low' ? 0.8 : 0.65) * (S(T.mon).conf ? CONF_DEFEND : 1) ? { r: mv.kind === 'low' ? 'jump' : 'parry', perfect: flavor() < 0.3 } : { r: 'miss' })
         : defendResult(first, dt, mv.kind === 'low', dr.wide)
       const { r, perfect } = res, taken = takenOf(res)
       if (mv.fx === 'quake' && !ownPartner) { sfx('quake'); shake(8, 420) }
@@ -9160,7 +9165,7 @@ async function run(id) {
       for (let h = 0; h < hits; h++) {
         const kind_ = kindOf(h), feint = tell === 'feint' && h === 0 ? 450 : 0   // a feint holds the ring still this long
         // Leaders' attacks close faster: less time to react.
-        const dr = defendRing(ringNet(ST(foe).acc, ST(me).eva)); if (me.status === 'par') dr.wide *= 0.8
+        const dr = defendRing(ringNet(ST(foe).acc, ST(me).eva)); if (ST(me).conf) dr.wide *= CONF_DEFEND
         // Every ring closes at its own speed, after a wind-up of its own: no two attacks share a rhythm.
         const vary = demo ? 1 : paceRoll(pace.speed), windup = demo ? 0 : Math.round(Math.random() * pace.wait)
         const quick = Math.max(0.7, 1 + 0.08 * ((ST(me).spe ?? 0) - (ST(foe).spe ?? 0)))   // Speed stages: more (or less) time on its rings
@@ -9195,7 +9200,8 @@ async function run(id) {
         await W(approach + feint); rg.clear()
         if (!first) await W(kind_ === 'low' ? 260 : 230)
         off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed'))
-        if (me.status === 'frz' || me.status === 'slp') first = null   // frozen solid or asleep: no parry, dodge or jump
+        if (window.__autoParry && !demo) first = { btn: 'a', t: hitAt }   // testing only: a PERFECT parry on every ring
+        if (cantDefend(me)) { first = null; if (h === 0) pop(`${STATUS_NAME[me.status]}: CAN'T DEFEND`, C.p.x, C.p.y - 110, 'small') }   // asleep, frozen or paralyzed: no parry, dodge or jump
         const dt = first ? first.t - hitAt : Infinity
         const res = defendResult(first, dt, kind_ === 'low', dr.wide), { r, perfect } = res, taken = takenOf(res)
         if (mv.fx === 'quake') { sfx('quake'); shake(10, 520) }

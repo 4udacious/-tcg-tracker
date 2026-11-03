@@ -89,6 +89,9 @@ test('battle rules', async () => {
         // Every status move, by timing: never certain, better timing always at least as likely, MISS never.
         statusOdds: Object.entries(SUPPORT).filter(([, m]) => ['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(m.effect)).map(([n, m]) => [n, ...['PERFECT', 'GREAT', 'GOOD', 'OK', 'MISS'].map((l) => statusOdds(m, l))]),
         sorted: sched.every((lv, i) => i === 0 || sched[i - 1] <= lv),
+        cantDefend: ['slp', 'frz', 'par', 'brn', 'psn', 'tox', null].map((s) => cantDefend({ status: s })),
+        // A confused Pokémon's windows: a parry 80 ms off lands (the window is 90), not once confused.
+        confParry: [defendResult({ btn: 'a' }, 80, false, 1).r, defendResult({ btn: 'a' }, 80, false, CONF_DEFEND).r, defendResult({ btn: 'b' }, 150, false, CONF_DEFEND).r],
         abra15: evoDue(mon('ABRA', 15)), abra16: evoDue(mon('ABRA', 16))?.to,
         kadabra: evoByItem(mon('KADABRA', 20), 'linkcable', {}).rule?.to,
         golbat: [evoDue(mon('GOLBAT', 30)), evoDue(mon('GOLBAT', 30, { bond: 100 }))?.to],
@@ -124,6 +127,8 @@ test('battle rules', async () => {
     assert.deepEqual(r.defend, ['parry*', 'parry', 'miss', 'dodge', 'miss', 'jump*', 'jump', 'miss'])
     assert.deepEqual(r.tox, [10, 20, 30])
     assert.deepEqual(r.sleep, ['asleep', 'asleep', 'wake'])
+    assert.deepEqual(r.cantDefend, [true, true, true, false, false, false, false], 'asleep, frozen and paralyzed can\'t defend; burned or poisoned can')
+    assert.deepEqual(r.confParry, ['parry', 'miss', 'miss'], 'confused: the parry and dodge windows are narrower')
     assert.ok(r.sing.perfect > 0.75 && r.sing.perfect < 0.87, `Sing on PERFECT: ${r.sing.perfect}`); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)
     for (const [n, perfect, great, good, ok, miss] of r.statusOdds) {
       assert.ok(perfect < 1 && perfect > 0.8, `${n} on PERFECT: ${perfect}`)
