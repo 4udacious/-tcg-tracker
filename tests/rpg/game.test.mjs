@@ -424,7 +424,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
@@ -462,6 +462,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     const start = await frame.evaluate(() => ({ wallet: document.getElementById('wallet').textContent, discs: Object.keys(window.__vvm.bag).filter((k) => k.startsWith('disc:')).length }))
     assert.equal(start.wallet, '10.00 tk', 'the wallet is the real balance'); assert.equal(start.discs, 1, 'a bought Move Disc became a disc in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag.fullheal), 1, 'a bought Full Heal is a FULL HEAL in the Bag')
+    assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.hyper, window.__vvm.bag.maxrevive]), [2, 1], 'bought Hyper Potions and a Max Revive are in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale]), [1, 2, 1], 'bought evolution items are the game\'s own in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag['rematch:gym_1']), 1, 'a bought rematch ticket is in the Bag, for that leader')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
@@ -568,6 +569,27 @@ test('in the app: a won rematch pays for its ticket even after the day\'s battle
     assert.match(second.said, /all the battle tokens for today/, `with no ticket owed, it's the usual capped battle tokens (${second.said})`)
     assert.equal(second.wallet, 12)
     assert.deepEqual((await page.evaluate(() => window.__calls)).map((c) => c[0]), ['awardRematch', 'awardRematch', 'awardTokens'])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the Bag: a Hyper Potion heals 90%, a Max Revive brings a fainted Pokémon back at full HP', async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 40, Math.random); learnAtLevel(m); return m }
+      const hurt = mk('MACHOP'), down = mk('PIDGEY'), fine = mk('ODDISH')
+      hurt.hp = 1; down.hp = 0; v.party.splice(0, 9, hurt, down, fine)
+      Object.assign(v.bag, { hyper: 1, maxrevive: 1 })
+      const said = [v.useItem('hyper', hurt), v.useItem('maxrevive', fine), v.useItem('maxrevive', down)]
+      return { said, hurt: [hurt.hp, hurt.stats.hp], down: [down.hp, down.stats.hp], left: [v.bag.hyper, v.bag.maxrevive] }
+    })
+    assert.equal(r.hurt[0], Math.min(r.hurt[1], 1 + Math.ceil(r.hurt[1] * 0.9)), `Hyper Potion: +90% (${r.hurt})`)
+    assert.match(r.said[1], /hasn't fainted/, 'a Max Revive is only for a fainted Pokémon')
+    assert.deepEqual([r.down[0], r.said[2].includes('revived')], [r.down[1], true], `Max Revive: back at full HP (${r.down})`)
+    assert.deepEqual(r.left, [0, 0], 'one of each used')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
