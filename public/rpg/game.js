@@ -1678,6 +1678,60 @@ SONGS.wild = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16,
   ] }
 
 /*
+ * The endgame challenge battle: veterans, rematch tickets and the daily
+ * challenge. Its own piece, in B-flat minor (no other theme's key) at 166 bpm,
+ * on the sixteenth grid:
+ *   - Intro, once: a two-bar brass call on F7, the dominant.
+ *   - The theme on brass with a synth over it: a syncopated hook (three short
+ *     hits, then a rising answer), driving bass, power guitar.
+ *   - The theme again a whole step up, in C minor: violins over brass,
+ *     octave-bouncing bass, sixteenth hats, a run into the bridge.
+ *   - A half-time bridge in that key, a new tune on the synth over a choir,
+ *     walking bass, landing on the dominant.
+ *   - A build: piano ostinato and toms, swinging round to F7 and the top.
+ * Written in B minor and moved down a semitone (endgame()), so the hook reads
+ * plainly here. A 3 s intro, then a 41 s loop.
+ */
+const ENDGAME_THEME = x2(bars('B4 B4 - B4 D5 . F#5 .', 'G5 . F#5 . D5 . B4 .', 'A4 A4 - A4 C#5 . E5 .', 'F#5 . E5 . C#5 . A#4 .',
+  'B4 B4 - B4 D5 . F#5 .', 'B5 . A5 . G5 . F#5 .', 'G5 . F#5 E5 . D5 C#5 .', 'F#5 . . . - - - -'))
+const ENDGAME_CHORDS = 'Bm G A F# Bm G Em F#'.split(' ')
+/** A song part written in B minor, moved down to B-flat minor. */
+const endgame = (part) => Object.fromEntries(Object.entries(part).map(([k, v]) => [k, k === 'chords' ? transposeChords(v, -1) : (k === 'lead' || k === 'bass') ? transpose(v, -1) : v]))
+SONGS.endgame = { file: null, loop: true, bpm: 166, div: 4, chordLen: 16, vol: 1.0,
+  leadInst: 'brass', leadDouble: 'synth', leadDoubleVel: 0.26, harmInst: 'strings', power: true,
+  comp: false, glock: false, hats16: false, crash: true, fill: '',
+  intro: endgame({ chords: ['F#7', 'F#7'], power: false, leadDouble: null,
+    lead: bars('F#4 . . F#4 . . F#4 . A#4 . . A#4 . . C#5 .', 'E5~ . . . . . . . - - - - - - - -'),
+    bass: bars('F#1 . . F#1 . . F#1 . F#1 . . F#1 . . F#1 .', 'F#1 . . . . . . . - - - - - - - -'),
+    drums: 'K..K..K.S..S..S.' + 'K...S...TTttSSSS' }),
+  sections: [
+    endgame({ // The theme, on brass: the hook, then its answer
+      chords: ENDGAME_CHORDS, lead: ENDGAME_THEME,
+      bass: bars(drive('B1'), drive('G1'), drive('A1'), drive('F#1'), drive('B1'), drive('G1'), drive('E1'), 'F#1 . . F#2 . . F#1 . A#1 . . C#2 . . E2 .'),
+      drums: 'K.h.S.hKK.h.S.h.'.repeat(7) + 'K.h.S.hKTTttSSSS' }),
+    endgame({ // A whole step up: violins over brass, octave bass, sixteenth hats, a run into the bridge
+      chords: transposeChords('Bm G A F# Bm G Em F#'.split(' '), 2).map((c, i) => (i === 7 ? c + '7' : c)), leadInst: 'violins', leadDouble: null, doubles: [['brass', -1, 0.5]], hats16: true, runs: '...f...f',
+      lead: [...transpose(ENDGAME_THEME, 2).slice(0, 112), ...bars('G#4 . C5 . D#5 . F#5 . G#5 . C6 . D#6 . F#6 .')],
+      bass: bars(pump('C#2'), pump('A1'), pump('B1'), pump('G#1'), pump('C#2'), pump('A1'), pump('F#1'), 'G#1 . G#2 . G#1 . G#2 . C2 . D#2 . F#2 . G#2 .'),
+      drums: 'K.hKS.hgK.hKS.hg'.repeat(7) + 'K.hKS.hgSSSSXXXX' }),
+    endgame({ // The bridge: half-time, a new tune over a choir, walking bass, landing on the dominant
+      chords: 'A B G#m C#m A B G#7 G#7'.split(' '), leadInst: 'synth', leadDouble: 'brass', leadDoubleOct: -1, leadDoubleVel: 0.4, padInst: 'choir', power: false,
+      lead: bars('C#6 . . . B5 . . . A5 . . . E5 . A5 .', 'D#6 . . . C#6 . . . B5 . . . F#5 . B5 .',
+        'B5^ . . . . . . . G#5 . B5 . D#6 . G#6 .', 'E6 . . . D#6 . C#6 . G#5 . . . C#6 . E6 .',
+        'C#6 . . . E6 . . . A6 . . . G#6 . F#6 .', 'F#6 . . . D#6 . B5 . F#5 . . . B5 . D#6 .',
+        'G#6~ . . . . . . . . . . . F#6 . E6 .', 'D#6 . . . C6 . . . G#5 . C6 . D#6 . F#6 .'),
+      bass: bars(walk('A1', 'C#2', 'E2', 'C#2'), walk('B1', 'D#2', 'F#2', 'D#2'), walk('G#1', 'B1', 'D#2', 'B1'), walk('C#2', 'E2', 'G#2', 'E2'),
+        walk('A1', 'C#2', 'E2', 'C#2'), walk('B1', 'D#2', 'F#2', 'D#2'), walk('G#1', 'C2', 'D#2', 'F#2'), 'G#1 . . . . . . . G#1 . . . C2 . D#2 .'),
+      drums: 'K.hgh.hgS.hgh.hg'.repeat(7) + 'K.hgS.hgTTttSSSS' }),
+    endgame({ // The build: piano ostinato and toms, swinging round to the top's dominant
+      chords: 'F#m F#m F#7 F#7'.split(' '), leadInst: 'synth', leadDouble: null, power: false, ostinato: '0 1 2 3 2 1 0 1'.split(' '),
+      lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - C#5 . F#5 .',
+        'A#5 . . . . . . . C#6 . . . . . . .', 'E6 . . . C#6 . . . A#5 . . . F#5 . . .'),
+      bass: bars('F#1 . . . . . . . F#1 . . F#1 . . F#1 .', 'F#1 . . . . . . . F#1 . . F#1 . . F#1 .', drive('F#1'), 'F#1 . F#2 . F#1 . F#2 . F#1 F#2 F#1 F#2 F#1 F#2 F#1 F#2'),
+      drums: 'K...h...S...h...' + 'K...h...S...h.K.' + 'K.hgS.hgK.hgS.hg' + 'TTttTTttSSSSXXXX' }),
+  ] }
+
+/*
  * The Elite Four battle, second version (the first is SONGS.eliteClassic).
  * Where the gym theme drives, this one looms. It's the only battle theme not
  * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.
@@ -7269,7 +7323,7 @@ async function run(id) {
     await W(1300)
     await talk(T, [`Today's challenge: ${c.type.toUpperCase()} types, and they're all fully evolved.`, `Beat my ${champion ? 'four' : 'three'} and the prize is yours.`])
     $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
-    Sound.music(trainerTheme())
+    Sound.music('endgame')   // the endgame challenges' own theme
     // A level above your best, their ace two, never past your next challenge's cap; every IV at least 20.
     const top = trainerLevel(), cap = trainerCap()
     const team = c.team.slice(0, champion ? 4 : 3).map((n, i, all) => {
@@ -7360,7 +7414,7 @@ async function run(id) {
     await W(1400)
     await talk(T, words.intro)
     vsHide()
-    Sound.music(T.gym != null ? 'gym' : T.rival ? RIVAL_LOOKS[T.phase].theme : T.elite ? (T.kanto ? 'champion' : 'elite') : trainerTheme())
+    Sound.music('endgame')   // the endgame challenges' own theme
     let won
     if (two) {
       const out = await duoBattle({ foes: team.slice(0, 2).map((mon) => ({ mon, owner: T })), bench: team.slice(2).map((mon) => ({ mon, owner: T })), trainers: [T] })
@@ -9596,7 +9650,7 @@ async function run(id) {
     if (vet) await talk(T, [pickOf(VETERAN_LINES)])
     await talk(T, demoPlan ? T.intro[0] : pickOf(T.intro))
     $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
-    Sound.music(trainerTheme())
+    Sound.music(vet ? 'endgame' : trainerTheme())   // a veteran gets the endgame challenges' theme
     // Their Pokémon for this battle, from their pool; the demo always meets Herb's GHOLDENGO.
     const deck = vet ? veteranDeck(T) : deckFor(T, leadLevel(), demoPlan ? [T.mon] : null)   // around your lead: see levelBand()
     demoNoBlunder = !!demoPlan?.noBlunder
