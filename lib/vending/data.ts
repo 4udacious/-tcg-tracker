@@ -21,6 +21,7 @@ const SET_NAMES: Record<string, string> = {
   neo1: 'Neo Genesis',
   neo2: 'Neo Discovery',
   neo3: 'Neo Revelation',
+  si1: 'Southern Islands',
 }
 
 /**

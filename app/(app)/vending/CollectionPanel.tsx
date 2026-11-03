@@ -310,6 +310,11 @@ const BINDERS: Record<string, Binder> = {
   neo2:  { cover: '/packs/neo-discovery-umbreon.webp',  spine: '#134e4a', body: '#0f766e', foil: '#99f6e4', fit: 'contain' },
   // Neo Revelation: burgundy, for the burned tower's brick, kept clear of Base Set 2's red.
   neo3:  { cover: '/packs/neo-revelation-suicune.webp', spine: '#4c0519', body: '#881337', foil: '#fecdd3', fit: 'contain' },
+  // The real Southern Islands collection box, which was its binder: the island
+  // in a deep-blue sea, framed in orange ferns. Ocean-teal body (kept clear of
+  // the Base Set and Neo Genesis blues) with the ferns' orange for the foil.
+  // Held left of centre so the logo and island stay in frame, not the sticker.
+  si1:   { cover: '/binders/southern-islands.webp',     spine: '#164e63', body: '#0e7490', foil: '#fb923c', fit: 'cover', pos: '35% 50%' },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
