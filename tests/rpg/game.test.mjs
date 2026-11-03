@@ -276,6 +276,37 @@ test('the Box: party to Box, Box to party, and a swap with a full party', async 
   } finally { await g.close() }
 })
 
+test('the Box: release a Pokémon from its page, after a confirm; a party Pokémon can\'t be released', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const names = () => page.evaluate(() => ({ party: window.__vvm.party.map((m) => m.name), box: window.__vvm.box.map((m) => m.name) }))
+    await page.evaluate(() => {
+      const mk = (n) => { const m = individual(speciesByName(n), 10, Math.random); m.hp = m.stats.hp; return m }
+      window.__vvm.party.splice(0, 9, mk('PIKACHU')); window.__vvm.box.splice(0, 99, mk('ABRA'), mk('ZUBAT'))
+      document.querySelectorAll('.tool').forEach((t) => { t.disabled = false })
+      document.getElementById('tBox').click()
+    })
+    const tap = async (sel) => { await page.dispatchEvent(`#sheetBody ${sel}`, 'click'); await page.waitForTimeout(150) }
+    const openMon = async (name) => { await page.waitForSelector('#sheetBody [data-mon]')
+      const i = await page.$$eval('#sheetBody [data-mon]', (bs, n) => bs.find((b) => b.textContent.includes(n))?.getAttribute('data-mon'), name)
+      assert.ok(i != null, `${name} has a page`); await tap(`[data-mon="${i}"]`) }
+    await openMon('PIKACHU')
+    assert.equal(await page.$('#sheetBody [data-release]'), null, 'no RELEASE for a party Pokémon')
+    await tap('[data-back]')
+    await openMon('ZUBAT')
+    await tap('[data-release="ask"]')
+    assert.match(await page.$eval('#sheetBody .release.ask', (e) => e.textContent), /Release ZUBAT.*can't be undone/, 'it asks first')
+    await tap('[data-release="no"]')
+    assert.deepEqual((await names()).box, ['ABRA', 'ZUBAT'], 'KEEP keeps it')
+    await tap('[data-release="ask"]'); await tap('[data-release="yes"]')
+    assert.deepEqual(await names(), { party: ['PIKACHU'], box: ['ABRA'] }, 'released: gone from the Box')
+    assert.match(await page.$eval('#sheet', (e) => e.textContent), /ZUBAT was released/)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('the Bag: medicine, balls, Move Discs and other in their own pockets', async () => {
   const g = await openGame()
   try {

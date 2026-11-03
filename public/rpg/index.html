@@ -534,6 +534,12 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .boxrow.picked { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.25); }
 .pbtn { flex: none; align-self: stretch; min-width: 74px; margin: 6px 6px 6px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 11px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
 .pbtn small { display: block; font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.sheet .pbtn.release { display: block; min-width: 0; margin: 10px 0 2px; padding: 9px 12px; color: #dc2626; border-color: color-mix(in srgb, #dc2626 35%, var(--line)); }
+.sheet .release.ask { margin: 10px 0 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, #dc2626 45%, var(--line)); background: color-mix(in srgb, #dc2626 7%, var(--card)); }
+.sheet .release.ask p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.4; }
+.sheet .release.ask div { display: flex; gap: 8px; }
+.sheet .release.ask .pbtn { flex: 1; margin: 0; padding: 9px 0; }
+.sheet .pbtn.danger { background: #dc2626; border-color: #b91c1c; color: #fff; }
 .pbtn:hover:not([disabled]), .pbtn.hot { background: color-mix(in srgb, var(--ink) 7%, var(--card)); }
 .pbtn[disabled] { opacity: .4; cursor: default; }
 .pbtn.on, .pbtn.swap { border-color: #2563eb; color: #1d4ed8; }
@@ -1217,6 +1223,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=f4e1ca4737"></script>
+<script src="/rpg/game.js?v=33c04ec6bd"></script>
 </body>
 </html>

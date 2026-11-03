@@ -5563,14 +5563,17 @@ async function run(id) {
     const m = moveInfo(n)
     return `<${tag} class="mvcard${extra}" ${attrs}><span class="ty" style="background:${TYPE_COL[m.type]}">${m.type}</span><b>${n}</b><span class="pp${m.cost ? '' : ' free'}">${m.cost} PP</span><small>${moveDetail(n)}</small></${tag}>`
   }
-  function movesPage(m, slot, backTo = 'Box') {
+  /** A Pokémon's page: its moves, and for one in the Box which box it's in and RELEASE (`releasing`: asking to confirm). */
+  function movesPage(m, slot, backTo = 'Box', releasing = false) {
     learn(m)
     const spare = m.learned.filter((n) => !m.moves.includes(n))
     return `<button class="back" data-back>◀ ${backTo}</button>
       <div class="svhead"><img src="${spr(m)}" alt=""><div><div class="nm"><b>${m.name}</b> <span>Lv ${m.level}</span></div>
         <div class="types">${m.types.map((t) => `<span style="background:${TYPE_COL[t]}">${t}</span>`).join('')}</div></div></div>
       ${box.includes(m) ? `<div class="lbl">In BOX ${boxOf(m) + 1} <span>move it to another box</span></div><div class="boxtabs">${Array.from({ length: boxCount() }, (_, b) => { const c = boxFill(b)
-        return `<button class="${b === boxOf(m) ? 'on' : ''}${c >= BOX_CAP ? ' full' : ''}" data-moveto="${b}" ${b === boxOf(m) || c >= BOX_CAP ? 'disabled' : ''} aria-label="Move to box ${b + 1}, ${c} of ${BOX_CAP}">${b + 1}<i>${c}</i></button>` }).join('')}</div>` : ''}
+        return `<button class="${b === boxOf(m) ? 'on' : ''}${c >= BOX_CAP ? ' full' : ''}" data-moveto="${b}" ${b === boxOf(m) || c >= BOX_CAP ? 'disabled' : ''} aria-label="Move to box ${b + 1}, ${c} of ${BOX_CAP}">${b + 1}<i>${c}</i></button>` }).join('')}</div>
+        ${releasing ? `<div class="release ask"><p>Release <b>${m.name}</b>${m.shiny ? ' (shiny!)' : ''}, Lv ${m.level}? It goes back to the wild for good. This can't be undone.</p><div><button class="pbtn danger" data-release="yes">RELEASE</button><button class="pbtn" data-release="no">KEEP</button></div></div>`
+          : `<button class="pbtn release" data-release="ask" aria-label="Release ${m.name}">RELEASE ${m.name}</button>`}` : ''}
       <div class="lbl">Equipped · ${m.moves.length}/${MAX_MOVES} <span>${slot == null ? 'tap one to swap it out' : 'now tap a learned move below'}</span></div>
       <div class="mvgrid">${m.moves.map((n, i) => moveCard(n, `data-slot="${i}"`, i === slot ? ' sel' : '')).join('')}</div>
       <div class="lbl">Learned <span>${spare.length} more</span></div>
@@ -5650,7 +5653,7 @@ async function run(id) {
     const draw = () => {
       $('sheetTitle').textContent = title()
       const body = kind === 'party' ? (view.page === 'stats' ? statPage(view.mon) : partyList())
-        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot) : boxBody(view.pick)
+        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Box', view.release) : boxBody(view.pick)
       $('sheetBody').innerHTML = (toast ? `<div class="toast${toastBad ? ' bad' : ''}">${toast}</div>` : '') + body
     }
     const do_ = (a) => {
@@ -5708,6 +5711,16 @@ async function run(id) {
         if (boxFill(a.moveto) >= BOX_CAP) { toast = `BOX ${a.moveto + 1} is full.`; toastBad = true; sfx('blocked') }
         else { view.mon.boxNo = a.moveto; sfx('select'); toast = `${view.mon.name} moved to BOX ${a.moveto + 1}.` }
       }
+      // Release a boxed Pokémon (from its page): ask first, then it's gone for good. Party Pokémon go to the Box first.
+      if (a.release != null && view.mon && box.includes(view.mon)) {
+        if (a.release === 'ask') { view.release = true; sfx('move') }
+        else if (a.release === 'no') { view.release = false; sfx('move') }
+        else if (a.release === 'yes') {
+          const m = view.mon; box.splice(box.indexOf(m), 1)
+          view = { page: 'list' }; sfx('dodge'); toast = `${m.name} was released. Bye, ${m.name}!`
+          saveGame()
+        }
+      }
       if (a.withdraw != null) {
         const j = a.withdraw, m = box[j]
         if (party.length < 6) { box.splice(j, 1); party.push(m); view.pick = null; sfx('select'); toast = `${m.name} joined your party.` }
@@ -5747,7 +5760,7 @@ async function run(id) {
     }
     toast = ''; draw(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
