@@ -78,7 +78,8 @@ test('a wild Ditto transforms on its first turn, into your Pokémon', { skip: qu
     })
     const from = log.length
     assert.ok(await bot.encounter('wild'), 'a wild battle started')
-    const lines = log.slice(from), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
+    // The log can catch a line mid-typewriter; keep each line once it's whole (the next one doesn't just continue it).
+    const seen = log.slice(from), lines = seen.filter((l, i) => !(seen[i + 1] ?? '').startsWith(l)), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
     assert.match(firstFoe ?? '', /TRANSFORM/, 'the first thing the wild Ditto does is Transform')
     assert.ok(lines.some((l) => /DITTO transformed/.test(l) && /CHARMANDER/.test(l)), 'it transformed into your Charmander')
     assert.ok(!lines.some((l) => /The wild DITTO used/.test(l) && /TACKLE/.test(l)), 'and then fought with fire moves, not Tackle')

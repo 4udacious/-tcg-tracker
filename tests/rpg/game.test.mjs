@@ -1087,6 +1087,29 @@ test('every leader\'s team: real species with sprites and cries, the mid-game on
   } finally { await g.close() }
 })
 
+test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const at = (n) => Object.fromEntries(levelMoves(speciesByName(n)).map(([lv, m]) => [m, lv]))
+      const h = at('HOUNDOUR'), b = at('BULBASAUR'), p = at('PIDGEY')
+      const old = { ...structuredClone(speciesByName('HOUNDOUR')), level: 30, learned: ['TACKLE', 'BITE'] }
+      catchUpMoves(old)
+      return {
+        houndour: [h.EMBER, h['FIRE FANG'], h.FLAMETHROWER, h.CRUNCH], bulbasaur: [b['POISON STING'], b['POISON JAB'], b['SLUDGE BOMB']], pidgey: [p.GUST, p['WING ATTACK'], p['AIR SLASH']],
+        caughtUp: ['EMBER', 'FIRE FANG', 'SNARL'].every((m) => old.learned.includes(m)), notYet: old.learned.includes('FLAMETHROWER'),
+        once: Object.values(DATA.wild.concat(DATA.starters)).every((s) => { const l = levelMoves(s).map(([, m]) => m); return l.length === new Set(l).size }),
+      }
+    })
+    assert.deepEqual(r.houndour, [8, 22, 38, 45])
+    assert.deepEqual(r.bulbasaur, [8, 22, 38])
+    assert.deepEqual(r.pidgey, [8, 22, 38])
+    assert.ok(r.caughtUp && !r.notYet, 'a Lv 30 Houndour from an old save gets Ember, Fire Fang and Snarl, not yet Flamethrower')
+    assert.ok(r.once, 'no move is listed twice')
+  } finally { await g.close() }
+})
+
 test('balance: every leader, Elite Four member, Red, Alex, Herb and Paul within 15 points of their aim (sim.mjs, average player)', async () => {
   const g = await openGame()
   try {
