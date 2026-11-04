@@ -207,6 +207,8 @@ export interface SetTotal {
   set_code: string
   set_name: string
   total: number
+  /** Ever stocked in the machine (vending_set_info.total_quantity > 0). A set that hasn't been gets no binder until you own one of its cards. */
+  stocked?: boolean
 }
 
 interface RevealCard {
@@ -635,9 +637,12 @@ export default function CollectionPanel({
   }, [collection, withPatch, now])
   const cleanReadyCount = atCleaners.filter((c) => c.ready).length
 
+  // A set gets a binder once it's been stocked in the machine, or once you own one of its cards:
+  // a set added ahead of its release (One Piece OP-02 to OP-04, waiting on art) stays off the shelf.
+  const shownSets = setTotals.filter((s) => s.stocked !== false || bySet.has(s.set_code))
   // The Collection shows one game at a time; the switch only appears once there's a second game's sets.
-  const games = GAMES.filter((g) => setTotals.some((s) => gameOf(s.set_code) === g.id))
-  const gameSets = setTotals.filter((s) => gameOf(s.set_code) === game)
+  const games = GAMES.filter((g) => shownSets.some((s) => gameOf(s.set_code) === g.id))
+  const gameSets = shownSets.filter((s) => gameOf(s.set_code) === game)
   const gameCards = collection.filter((c) => gameOf(c.set_code) === game)
   const gameSlabs = slabs.map((x, i) => ({ ...x, i })).filter((x) => gameOf(x.card.set_code) === game)
   const totalCards = gameCards.reduce((n, c) => n + c.copies.length, 0)

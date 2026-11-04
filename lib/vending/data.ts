@@ -136,11 +136,16 @@ export async function loadCards(supabase: SupabaseClient, userId: string): Promi
 
 /** Totals per set, for the "12/102" completion counters. */
 export async function loadSetTotals(supabase: SupabaseClient): Promise<SetTotal[]> {
-  const data = await allRows<{ set_code: string }>((from, to) => supabase.from('vending_cards').select('set_code').order('id').range(from, to))
+  const [data, { data: info }] = await Promise.all([
+    allRows<{ set_code: string }>((from, to) => supabase.from('vending_cards').select('set_code').order('id').range(from, to)),
+    supabase.from('vending_set_info').select('set_code, total_quantity'),
+  ])
   const counts = new Map<string, number>()
   for (const c of data) counts.set(c.set_code, (counts.get(c.set_code) ?? 0) + 1)
+  // Stocked: ever given a quantity in the machine. A set with no row reads as stocked, as before.
+  const stock = new Map(((info as { set_code: string; total_quantity: number | null }[] | null) ?? []).map((i) => [i.set_code, (i.total_quantity ?? 0) > 0]))
   return [...counts.entries()]
-    .map(([set_code, total]) => ({ set_code, set_name: SET_NAMES[set_code] ?? set_code, total }))
+    .map(([set_code, total]) => ({ set_code, set_name: SET_NAMES[set_code] ?? set_code, total, stocked: stock.get(set_code) ?? true }))
     .sort((a, b) => a.set_code.localeCompare(b.set_code))
 }
 
