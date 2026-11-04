@@ -348,7 +348,7 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 /* ── sheets: party, bag, box ── */
 .sheet { position: fixed; inset: 0; z-index: 100; display: none; align-items: flex-end; justify-content: center; background: rgba(2,6,23,.55); }
 .sheet.open { display: flex; }
-.sheet .card { width: min(100%, 400px); max-height: 82vh; overflow: auto; background: var(--card); color: var(--ink); border-radius: 18px 18px 0 0; padding: 14px 16px 20px; box-shadow: 0 -10px 30px rgba(0,0,0,.25); }
+.sheet .card { width: min(100%, 400px); max-height: min(82vh, 100%); overflow: auto; background: var(--card); color: var(--ink); border-radius: 18px 18px 0 0; padding: 14px 16px 20px; box-shadow: 0 -10px 30px rgba(0,0,0,.25); }
 .sheet .hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .sheet .hd h2 { margin: 0; font-size: 17px; }
 .sheet .x { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 5px 11px; font: 600 12px system-ui, sans-serif; cursor: pointer; }
@@ -1225,6 +1225,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=0327be5450"></script>
+<script src="/rpg/game.js?v=62b02e98f2"></script>
 </body>
 </html>
