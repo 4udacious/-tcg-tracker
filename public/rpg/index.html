@@ -174,6 +174,8 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .btn.sel { outline: 3px solid #fff; outline-offset: 1px; }
 .btn.off { filter: grayscale(1) brightness(.7); }
 .btn.armed { animation: armed .32s ease-in-out infinite alternate; }
+/* Asleep, frozen or paralyzed: the defend buttons can't do anything, and look it. */
+#pDefend.locked .btn { filter: grayscale(1) brightness(.6); opacity: .6; animation: none; box-shadow: none; }
 @keyframes armed { from { box-shadow: 0 0 0 0 rgba(255,255,255,.0), 0 3px 0 rgba(0,0,0,.35); } to { box-shadow: 0 0 0 4px rgba(255,255,255,.55), 0 3px 0 rgba(0,0,0,.35); } }
 .mv0 { left: 6px; top: 52px; width: 151px; height: 56px; } .mv1 { left: 163px; top: 52px; width: 151px; height: 56px; }
 .mv2 { left: 6px; top: 114px; width: 151px; height: 56px; } .mv3 { left: 163px; top: 114px; width: 151px; height: 56px; }
@@ -1223,6 +1225,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=c93ed8e086"></script>
+<script src="/rpg/game.js?v=62b02e98f2"></script>
 </body>
 </html>

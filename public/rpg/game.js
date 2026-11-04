@@ -4819,6 +4819,13 @@ async function run(id) {
   function cap(tag, text) { $('cap').innerHTML = `<b>${tag}</b><p>${text}</p>` }
   const pendingEvos = new Set()   // Pokémon that levelled into an evolution this battle
   function panel(name) { for (const p of ['pPick', 'pNext', 'pMain', 'pFight', 'pBag', 'pParty', 'pDefend', 'pStrike', 'pEvo', 'pPad']) $(p).style.display = p === name ? 'block' : 'none' }
+  /** The defend buttons greyed out while the Pokémon being hit can't defend (asleep, frozen or paralyzed): presses do nothing then. */
+  function lockDefend(mon) {
+    const on = !!mon && cantDefend(mon)
+    $('pDefend').classList.toggle('locked', on)
+    $('pDefend').querySelectorAll('.btn').forEach((b) => { b.setAttribute('aria-disabled', String(on)); if (on) b.classList.remove('armed') })
+    return on
+  }
   function msg0(a, b) { $('l1').textContent = a; $('l2').textContent = b }
   async function say(a, b = '', hold = demo ? 470 : 620) {
     CRUMBS.line(`${a} ${b}`.trim())
@@ -6852,7 +6859,7 @@ async function run(id) {
       // Armed through the wind-up, so tapping early still counts as your press (and misses), after a moment's grace once the text is gone.
       const armed = Math.max(performance.now(), defendShownAt + DEFEND_SETTLE_MS)
       const off = auto ? () => {} : listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
-      if (auto) panel(null); else { panel('pDefend'); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed')) }
+      if (auto) panel(null); else { panel('pDefend'); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed')); if (lockDefend(T.mon) && h === 0) pop(`${STATUS_NAME[T.mon.status]}: CAN'T DEFEND`, T.c.x, T.c.y - 90, 'small') }
       if (windup) await W(windup)
       const t0 = performance.now(), hitAt = t0 + approach
       if (demo && !auto) {
@@ -6872,7 +6879,7 @@ async function run(id) {
       await W(approach); rg.clear()
       if (!first) await W(240)
       off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed')); panel(null)
-      if (cantDefend(T.mon)) { first = null; if (h === 0 && !auto) pop(`${STATUS_NAME[T.mon.status]}: CAN'T DEFEND`, T.c.x, T.c.y - 90, 'small') }   // asleep, frozen or paralyzed: no parry, dodge or jump
+      if (cantDefend(T.mon)) first = null   // asleep, frozen or paralyzed: no parry, dodge or jump (the buttons were greyed out)
       const dt = first ? first.t - hitAt : Infinity
       // A partner defends their own: usually good, now and then PERFECT.
       const res = auto && cantDefend(T.mon) ? { r: 'miss' } : auto ? (flavor() < (mv.kind === 'low' ? 0.8 : 0.65) * (S(T.mon).conf ? CONF_DEFEND : 1) ? { r: mv.kind === 'low' ? 'jump' : 'parry', perfect: flavor() < 0.3 } : { r: 'miss' })
@@ -9243,6 +9250,7 @@ async function run(id) {
         let first = null
         const off = listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
         document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed'))
+        if (lockDefend(me) && h === 0) pop(`${STATUS_NAME[me.status]}: CAN'T DEFEND`, C.p.x, C.p.y - 110, 'small')   // greyed out, and said so before the ring
         if (windup) await W(windup)
         const t0 = performance.now(), hitAt = t0 + approach + feint
         if (demo) {
@@ -9268,7 +9276,7 @@ async function run(id) {
         if (!first) await W(kind_ === 'low' ? 260 : 230)
         off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed'))
         if (window.__autoParry && !demo) first = { btn: 'a', t: hitAt }   // testing only: a PERFECT parry on every ring
-        if (cantDefend(me)) { first = null; if (h === 0) pop(`${STATUS_NAME[me.status]}: CAN'T DEFEND`, C.p.x, C.p.y - 110, 'small') }   // asleep, frozen or paralyzed: no parry, dodge or jump
+        if (cantDefend(me)) first = null   // asleep, frozen or paralyzed: no parry, dodge or jump (the buttons were greyed out)
         const dt = first ? first.t - hitAt : Infinity
         const res = defendResult(first, dt, kind_ === 'low', dr.wide), { r, perfect } = res, taken = takenOf(res)
         if (mv.fx === 'quake') { sfx('quake'); shake(10, 520) }
