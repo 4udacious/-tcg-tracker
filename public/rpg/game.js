@@ -2968,7 +2968,9 @@ for (const [n, rules] of Object.entries({"NIDORINA":[{"to":"NIDOQUEEN","item":"m
 const cap1 = (s) => s[0] + s.slice(1).toLowerCase()
 const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', moonstone: 'MOON STONE', sunstone: 'SUN STONE', duskstone: 'DUSK STONE', shinystone: 'SHINY STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
 /** "with a THUNDER STONE", "at full Bond, by day", "levelling up knowing ROLLOUT". */
-const howText = (r) => (r.item ? `with a ${EVO_ITEM_NAME[r.item]}${r.needs ? ` (and a ${EVO_ITEM_NAME[r.needs]})` : ''}`
+/** "a THUNDER STONE", "an ICE STONE". */
+const aOrAn = (w) => `${/^[AEIOU]/i.test(w) ? 'an' : 'a'} ${w}`
+const howText = (r) => (r.item ? `with ${aOrAn(EVO_ITEM_NAME[r.item])}${r.needs ? ` (and ${aOrAn(EVO_ITEM_NAME[r.needs])})` : ''}`
   : r.bond ? `at full Bond${r.fairy ? ', knowing a Fairy move' : r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
   : `levelling up knowing ${r.move}`)
 
@@ -5042,7 +5044,7 @@ async function run(id) {
       if (BAG_OF[key]) { bag[BAG_OF[key]] = (bag[BAG_OF[key]] ?? 0) + qty; said.push(`${qty} ${ITEMS[BAG_OF[key]].name}`) }
       else if (key.startsWith('rematch_') && rematchItem(key.slice(8))) { const k = rematchKey(key.slice(8)); bag[k] = (bag[k] ?? 0) + qty; said.push(`${qty} ${ITEMS[k].name}`) }
       else if (key === 'gym_summon') { const g = nextGym(); summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + qty; said.push(`${qty} ${ITEMS[summonKey(g)].name}`) }
-      else if (key === 'elite_ticket') { const k = leagueKey(); bag[k] = 1; said.push(`a ${ITEMS[k].name}`) }   // the catalog's one League ticket: for the League that's open
+      else if (key === 'elite_ticket') { const k = leagueKey(); bag[k] = 1; said.push(`${aOrAn(ITEMS[k].name)}`) }   // the catalog's one League ticket: for the League that's open
       else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
     }
     if (said.length) { renderTools(); saveGame(); feed(`<b>You</b> collected ${said.join(', ')} into the Bag.`) }
@@ -5136,7 +5138,7 @@ async function run(id) {
     const b = k.startsWith('bundle:') ? bundleById(k.slice(7)) : null
     if (k.startsWith('bundle:') && !b) return false
     const price = b ? b.price : shopOf(k).price, el = $('supplies').querySelector(`[data-buy="${k}"]`)
-    if (wallet + 1e-9 < price) { sfx('blocked'); $('homeSub').textContent = `not enough tokens for ${b ? `the ${b.name}` : `a ${ITEMS[k].name}`}`; return false }
+    if (wallet + 1e-9 < price) { sfx('blocked'); $('homeSub').textContent = `not enough tokens for ${b ? `the ${b.name}` : `${aOrAn(ITEMS[k].name)}`}`; return false }
     wallet = Math.round((wallet - price) * 100) / 100
     if (b) {
       for (const i of BUNDLE_ITEMS) if (b.items[i] > 0) bag[i] = (bag[i] ?? 0) + b.items[i]
@@ -6228,9 +6230,9 @@ async function run(id) {
    */
   async function loot(T) {
     const got = []
-    if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`a ${ITEMS[k].name}`) }
+    if (flavor() < 0.35) { const k = flavor() < 0.25 ? 'super' : 'potion'; bag[k]++; got.push(`${aOrAn(ITEMS[k].name)}`) }
     if (flavor() < 0.15) { const p = await givePack('trainer'); if (p) got.push(p) }
-    if (flavor() < 0.08) { const k = pickOf(EVO_DROPS); bag[k] = (bag[k] ?? 0) + 1; got.push(`a ${ITEMS[k].name}`) }
+    if (flavor() < 0.08) { const k = pickOf(EVO_DROPS); bag[k] = (bag[k] ?? 0) + 1; got.push(`${aOrAn(ITEMS[k].name)}`) }
     if ((T === HERB || T === PAUL) && flavor() < 0.1) { bag.rarecandy = (bag.rarecandy ?? 0) + 1; got.push('a RARE CANDY') }   // Team Unemployed's everyday battles, 1 in 10
     renderTools()
     if (got.length) { sfx('click'); await say(`${T.short} dropped`, `${got.join(' and ')}!`, 700) }
@@ -7144,7 +7146,7 @@ async function run(id) {
       }
       if (ITEMS[act.move.item]?.revive) {
         const m = act.target.mon, it = ITEMS[act.move.item]
-        await say('You used', `a ${it.name} on ${m.name}!`, 200)
+        await say('You used', `${aOrAn(it.name)} on ${m.name}!`, 200)
         if (m.hp > 0) { await say("It didn't have any effect."); return }
         m.hp = Math.ceil(m.stats.hp * it.revive); m.status = null; sfx('heal')
         await say(`${m.name} was revived!`, 'It can come in when a spot opens.')
@@ -7155,7 +7157,7 @@ async function run(id) {
       if (act.target?.bench) {
         const m = act.target.mon, out = alive('p').find((x) => x.mon === m)
         if (!out) {
-          await say('You used', `a ${ITEMS[it].name} on ${m.name}!`, 200)
+          await say('You used', `${aOrAn(ITEMS[it].name)} on ${m.name}!`, 200)
           if (ITEMS[it].cure) {
             if (!m.status || !ITEMS[it].cure.includes(m.status)) { await say("It didn't have any effect."); return }
             m.status = null; sfx('heal'); await say(`${m.name} is cured.`); return
@@ -7167,7 +7169,7 @@ async function run(id) {
         act.target = out
       }
       const T = act.target?.gone ? sides.p.slots[act.target.i] : act.target
-      await say('You used', `a ${ITEMS[it].name} on ${T.mon.name}!`, 200)
+      await say('You used', `${aOrAn(ITEMS[it].name)} on ${T.mon.name}!`, 200)
       if (ITEMS[it].cure) {
         if (!T.mon.status || !ITEMS[it].cure.includes(T.mon.status)) { await say("It didn't have any effect."); return }
         T.mon.status = null; tags(T); sfx('heal'); healFx(T); await say(`${T.mon.name} is cured.`); return
@@ -9357,7 +9359,7 @@ async function run(id) {
           bag[it]--; renderTools(); sfx('heal')
           if (ITEMS[it].cure) {
             m.status = null; if (m === me) showTags()
-            await say(`You used a ${ITEMS[it].name}!`, `${m.name} is cured.`)
+            await say(`You used ${aOrAn(ITEMS[it].name)}!`, `${m.name} is cured.`)
           } else {
             const from = m.hp; m.hp = Math.min(m.stats.hp, m.hp + Math.ceil(m.stats.hp * ITEMS[it].heal))
             if (m === me) await drain('p', from, m.hp, m.stats.hp)
