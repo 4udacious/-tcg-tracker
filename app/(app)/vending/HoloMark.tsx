@@ -1,3 +1,5 @@
+import { isHit, rarityName } from '@/lib/vending/games'
+
 /**
  * Marks a holo or secret rare on a card thumbnail.
  *
@@ -9,22 +11,22 @@
  * Positioned top-left by convention, leaving the opposite corner for a count
  * or a grade.
  */
-export default function HoloMark({ rarity }: { rarity: string }) {
-  if (rarity !== 'H' && rarity !== 'S') return null
-  const secret = rarity === 'S'
+export default function HoloMark({ rarity, setCode }: { rarity: string; setCode?: string | null }) {
+  if (!isHit(rarity)) return null
+  const secret = rarity === 'S', parallel = rarity === 'P'
   return (
     <span
       className={`pointer-events-none absolute -top-1 -left-1 rounded-full text-[9px] font-bold px-1 py-0.5 shadow leading-none ${
-        secret ? 'bg-fuchsia-500 text-white' : 'bg-amber-400 text-ink'
+        secret ? 'bg-fuchsia-500 text-white' : parallel ? 'bg-sky-400 text-ink' : 'bg-amber-400 text-ink'
       }`}
-      title={secret ? 'Secret rare' : 'Holo rare'}
+      title={rarityName(rarity, setCode)}
     >
-      {secret ? '★' : '✦'}
+      {secret ? '★' : parallel ? '◆' : '✦'}
     </span>
   )
 }
 
-/** The same distinction for a screen reader, which cannot see the badge. */
-export function rarityLabel(rarity: string): string {
-  return rarity === 'S' ? ', secret rare' : rarity === 'H' ? ', holo' : ''
+/** The same distinction for a screen reader, which cannot see the badge (One Piece's H is a Super Rare). */
+export function rarityLabel(rarity: string, setCode?: string | null): string {
+  return isHit(rarity) ? `, ${rarityName(rarity, setCode).toLowerCase()}` : ''
 }

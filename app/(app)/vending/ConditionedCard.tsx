@@ -635,7 +635,7 @@ export default function ConditionedCard({
     return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
   }, [damage])
 
-  const holo = detail === 'full' && (rarity === 'H' || rarity === 'S')
+  const holo = detail === 'full' && (rarity === 'H' || rarity === 'S' || rarity === 'P')   // P: a One Piece parallel
 
   const dx = (center_x / 100) * MARGIN
   const dy = (center_y / 100) * MARGIN
