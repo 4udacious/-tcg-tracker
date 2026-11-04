@@ -1205,6 +1205,29 @@ test('every leader\'s team: real species with sprites and cries, the mid-game on
   } finally { await g.close() }
 })
 
+test('a wild Pokémon is easier to catch at low HP and with a status: asleep or frozen ×2.5, paralyzed, burned or poisoned ×1.5', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const mon = (hp, status) => ({ max: 100, hp, capture: 45, status })
+      const catchP = (m, ball = 'ball', t = 1) => shakeOdds(m, ball, t) ** 4
+      const full = catchP(mon(100)), low = catchP(mon(10))
+      return {
+        full, low,
+        status: ['slp', 'frz', 'par', 'brn', 'psn', 'tox'].map((s) => catchP(mon(100, s)) / full),
+        lowSlp: catchP(mon(10, 'slp')), capped: shakeOdds({ max: 100, hp: 1, capture: 255, status: 'slp' }, 'great', 1.8),
+      }
+    })
+    assert.ok(r.low > r.full * 2, `low HP helps (${r.full.toFixed(3)} → ${r.low.toFixed(3)})`)
+    const [slp, frz, par, brn, psn, tox] = r.status
+    assert.ok(slp > par && Math.abs(slp - frz) < 1e-9, 'sleep and freeze help most, and equally')
+    assert.ok([brn, psn, tox].every((x) => Math.abs(x - par) < 1e-9) && par > 1, 'paralysis, burn and poison help, and equally')
+    assert.ok(r.lowSlp > r.low && r.lowSlp > r.status[0] * r.full, 'low HP and sleep stack')
+    assert.equal(r.capped, 1, 'never above certain')
+  } finally { await g.close() }
+})
+
 test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
   const g = await openGame()
   try {
