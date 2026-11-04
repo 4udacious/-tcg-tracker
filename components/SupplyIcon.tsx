@@ -7,8 +7,8 @@
 export default function SupplyIcon({ supplyKey, className }: { supplyKey: string; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden>
-      {supplyKey === 'poke_ball' || supplyKey === 'great_ball' ? (
-        <Ball great={supplyKey === 'great_ball'} />
+      {supplyKey === 'poke_ball' || supplyKey === 'great_ball' || supplyKey === 'ultra_ball' ? (
+        <Ball kind={supplyKey === 'great_ball' ? 'great' : supplyKey === 'ultra_ball' ? 'ultra' : 'poke'} />
       ) : supplyKey === 'potion' ? (
         <Bottle body="#a855f7" edge="#6b21a8" />
       ) : supplyKey === 'super_potion' ? (
@@ -67,13 +67,16 @@ export default function SupplyIcon({ supplyKey, className }: { supplyKey: string
   )
 }
 
-function Ball({ great }: { great: boolean }) {
+function Ball({ kind }: { kind: 'poke' | 'great' | 'ultra' }) {
   return (
     <>
       <circle cx="12" cy="12" r="10" fill="#fff" stroke="#111" strokeWidth="1.5" />
-      <path d="M2 12a10 10 0 0 1 20 0Z" fill={great ? '#2563eb' : '#e3263a'} stroke="#111" strokeWidth="1.5" />
-      {great && (
+      <path d="M2 12a10 10 0 0 1 20 0Z" fill={kind === 'great' ? '#2563eb' : kind === 'ultra' ? '#27272a' : '#e3263a'} stroke="#111" strokeWidth="1.5" />
+      {kind === 'great' && (
         <path d="M6.2 6.6 8.8 9.2M17.8 6.6 15.2 9.2" stroke="#e3263a" strokeWidth="2.2" strokeLinecap="round" />
+      )}
+      {kind === 'ultra' && (
+        <path d="M7 3.6V9.6M17 3.6V9.6" stroke="#facc15" strokeWidth="2.4" strokeLinecap="round" />
       )}
       <circle cx="12" cy="12" r="3" fill="#fff" stroke="#111" strokeWidth="1.5" />
     </>

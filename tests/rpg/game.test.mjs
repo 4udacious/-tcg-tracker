@@ -465,7 +465,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
@@ -504,6 +504,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(start.wallet, '10.00 tk', 'the wallet is the real balance'); assert.equal(start.discs, 1, 'a bought Move Disc became a disc in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag.fullheal), 1, 'a bought Full Heal is a FULL HEAL in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.hyper, window.__vvm.bag.maxrevive]), [2, 1], 'bought Hyper Potions and a Max Revive are in the Bag')
+    assert.equal(await frame.evaluate(() => window.__vvm.bag.ultra), 3, 'bought Ultra Balls are in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale]), [1, 2, 1], 'bought evolution items are the game\'s own in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag['rematch:gym_1']), 1, 'a bought rematch ticket is in the Bag, for that leader')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
@@ -631,6 +632,21 @@ test('the Bag: a Hyper Potion heals 90%, a Max Revive brings a fainted Pokémon 
     assert.match(r.said[1], /hasn't fainted/, 'a Max Revive is only for a fainted Pokémon')
     assert.deepEqual([r.down[0], r.said[2].includes('revived')], [r.down[1], true], `Max Revive: back at full HP (${r.down})`)
     assert.deepEqual(r.left, [0, 0], 'one of each used')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('an Ultra Ball catches at ×2: better than a Great Ball (×1.5) and a Poké Ball, and sits in the Bag\'s balls pocket', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const mon = { max: 100, hp: 60, capture: 45, status: null }
+      const p = (k) => shakeOdds(mon, k, 1) ** 4
+      return { ball: p('ball'), great: p('great'), ultra: p('ultra'), item: ITEMS.ultra?.name, art: ART['item:ultra'], isBall: isBall('ultra'), battle: BATTLE_ITEMS.includes('ultra') }
+    })
+    assert.ok(r.ultra > r.great && r.great > r.ball, `Ultra > Great > Poké (${r.ball.toFixed(3)}, ${r.great.toFixed(3)}, ${r.ultra.toFixed(3)})`)
+    assert.equal(r.item, 'ULTRA BALL'); assert.equal(r.art, '/rpg/a/items/ultra.png'); assert.ok(r.isBall && r.battle, 'a ball, usable in battle')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
