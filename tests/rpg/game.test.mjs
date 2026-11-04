@@ -175,14 +175,22 @@ test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', a
     const { page } = g
     await page.click('#mPlay'); await page.waitForTimeout(1200)
     // A Lv 16 Charmander evolves; a tap of B doesn't stop it, a 3 s hold does.
+    let revealed = null
     const evolve = async (holdMs) => {
+      revealed = null
       await page.evaluate(() => { const m = individual(speciesByName('CHARMANDER'), 16, Math.random); m.hp = m.stats.hp; window.__vvm.party.splice(0, 9, m); window.__vvm.evolveNow(m) })
       await page.waitForTimeout(1600)
       await page.keyboard.down('z'); await page.waitForTimeout(holdMs); await page.keyboard.up('z')
-      for (let i = 0; i < 80 && await page.evaluate(() => !!document.querySelector('.evostage')); i++) { await page.keyboard.press('x'); await page.waitForTimeout(200) }
+      for (let i = 0; i < 80 && await page.evaluate(() => !!document.querySelector('.evostage')); i++) {
+        // The reveal: a fresh, loaded image of the new form, in colour, and nothing else.
+        const shown = await page.evaluate(() => { const c = document.querySelector('.evostage img.c'); return c && { n: document.querySelectorAll('.evostage img').length, loaded: c.complete && c.naturalWidth > 0, filter: getComputedStyle(c).filter } })
+        if (shown) revealed = shown
+        await page.keyboard.press('x'); await page.waitForTimeout(200)
+      }
       return page.evaluate(() => window.__vvm.party[0].name)
     }
     assert.equal(await evolve(300), 'CHARMELEON', 'a short tap of B lets it evolve')
+    assert.ok(revealed && revealed.n === 1 && revealed.loaded && !/brightness|invert/.test(revealed.filter), `the new form is shown loaded and in colour, not a silhouette: ${JSON.stringify(revealed)}`)
     assert.equal(await evolve(3300), 'CHARMANDER', 'holding B for 3 s stops it')
     const r = await page.evaluate(async () => {
       const v = window.__vvm
