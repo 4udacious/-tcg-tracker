@@ -1252,6 +1252,24 @@ test('a wild Pokémon is easier to catch at low HP and with a status: asleep or 
   } finally { await g.close() }
 })
 
+test('evasion and accuracy moves: one step at most; PERFECT always lands, weaker timing may fail', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const order = ['PERFECT', 'GREAT', 'GOOD', 'OK', 'MISS'], odds = order.map((l) => STAGE_LANDS[l])
+      const rate = (l) => { let n = 0; for (let i = 0; i < 4000; i++) if (stageLands(l)) n++; return n / 4000 }
+      return { odds, perfect: rate('PERFECT'), good: rate('GOOD'), miss: rate('MISS'), src: [...document.scripts].length }
+    })
+    assert.equal(r.odds[0], 1, 'a PERFECT cast always lands')
+    assert.ok(r.odds.every((p, i) => i === 0 || (p < r.odds[i - 1] && p > 0)), `worse timing, likelier to fail, never certain to: ${r.odds}`)
+    assert.equal(r.perfect, 1); assert.ok(r.good > 0.55 && r.good < 0.75 && r.miss < 0.3, `rolled rates: GOOD ${r.good}, MISS ${r.miss}`)
+    const src = await (await import('node:fs/promises')).readFile(new URL('../../public/rpg/game.js', import.meta.url), 'utf8')
+    assert.ok(!/stage\((me|foe), '(eva|acc)', acc\.crit \? -?2/.test(src), 'a PERFECT Double Team or Smokescreen no longer moves two steps')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
   const g = await openGame()
   try {

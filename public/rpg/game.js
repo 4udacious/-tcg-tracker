@@ -2472,6 +2472,13 @@ const STATUS_BY_TYPE = { ground: 'SAND ATTACK', rock: 'SAND ATTACK', fire: 'SMOK
   poison: 'MINIMIZE', ghost: 'MINIMIZE', water: 'MINIMIZE' }
 const statusOf = (m) => STATUS_BY_TYPE[m.types[0]] ?? 'DOUBLE TEAM'
 const STAGE_MAX = 3
+/*
+ * Your evasion and accuracy moves (Double Team, Minimize; Smokescreen, Sand
+ * Attack, Flash, Kinesis) move one step, never two. A PERFECT cast always
+ * lands; anything less may fail, likelier the worse the timing.
+ */
+const STAGE_LANDS = { PERFECT: 1, GREAT: 0.85, GOOD: 0.65, OK: 0.45, MISS: 0.2 }
+const stageLands = (label, r = Math.random) => r() < (STAGE_LANDS[label] ?? 0)
 /** Attacker's accuracy minus target's evasion, only counting when it's below 0: −3..0. */
 const ringNet = (acc, eva) => Math.max(-STAGE_MAX, Math.min(0, (acc ?? 0) - (eva ?? 0)))
 const strikeRing = (net) => ({ speed: 1 - 0.15 * -net, tight: 1 - 0.2 * -net })   // your ring: faster, tighter
@@ -7116,8 +7123,11 @@ async function run(id) {
       } else if (['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(mv.effect)) {
         if (S(T.mon).protect) await say(T.mon.name, 'protected itself!', 250)
         else if (!(await applyStatusMove(mv, actor, T, acc))) await say('But it failed!', '', 250)
+      } else if ((mv.effect === 'accDown' || mv.effect === 'evaUp') && mine && !stageLands(acc.label)) {
+        await say('But it failed!', '', 250)
       } else if (mv.effect === 'accDown' || mv.effect === 'evaUp') {
-        const key = mv.effect === 'accDown' ? 'acc' : 'eva', by = (mv.effect === 'accDown' ? -1 : 1) * (strong ? 2 : 1)
+        // One step at most (STAGE_LANDS); the CPU's side keeps its old two on a strong cast.
+        const key = mv.effect === 'accDown' ? 'acc' : 'eva', by = (mv.effect === 'accDown' ? -1 : 1) * (strong && !mine ? 2 : 1)
         for (const s of who) {
           const t = S(s.mon), from = t[key]; t[key] = Math.max(-STAGE_MAX, Math.min(STAGE_MAX, t[key] + by)); tags(s)
           await say(`${s.mon.name}'s ${key === 'acc' ? 'accuracy' : 'evasiveness'}`, t[key] === from ? `won't go any ${by > 0 ? 'higher' : 'lower'}!` : `${by > 0 ? 'rose' : 'fell'}${Math.abs(by) > 1 ? ' sharply' : ''}!`, 250)
@@ -8929,8 +8939,9 @@ async function run(id) {
       } else if (['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(mv.effect)) { if (!(await applyStatusMove(mv, foe, acc))) await say('But it failed!', '', 300) }
       else if (FIELD_EFFECTS.includes(mv.effect)) { if (!(await fieldMove(mv, me, acc))) await say('But it failed!', '', 300) }
       else if (SPECIAL_EFFECTS.includes(mv.effect)) { if (!(await specialMove(mv, me, acc))) await say('But it failed!', '', 300) }
-      else if (mv.effect === 'accDown') await stage(foe, 'acc', acc.crit ? -2 : -1, true)
-      else if (mv.effect === 'evaUp') await stage(me, 'eva', acc.crit ? 2 : 1, false)
+      else if ((mv.effect === 'accDown' || mv.effect === 'evaUp') && !stageLands(acc.label)) await say('But it failed!', '', 300)
+      else if (mv.effect === 'accDown') await stage(foe, 'acc', -1, true)
+      else if (mv.effect === 'evaUp') await stage(me, 'eva', 1, false)
       else {
         const n = acc.crit ? 2 : 1, t = ST(me)
         t.atk = Math.min(6, t.atk + n); if (mv.effect === 'growth') t.spa = Math.min(6, t.spa + n)
