@@ -1087,7 +1087,7 @@ export const CARD_BORDER: Record<string, string> = {
   '/cards/op01-003_p1.webp': '#288878',
   '/cards/op01-003.webp': '#988868',
   '/cards/op01-005.webp': '#f8f0f8',
-  '/cards/op01-008_p1.webp': '#907880',
+  '/cards/op01-008_p1.webp': '#605058',
   '/cards/op01-011.webp': '#f0f0f0',
   '/cards/op01-013_p1.webp': '#402850',
   '/cards/op01-015.webp': '#f8f0f8',
