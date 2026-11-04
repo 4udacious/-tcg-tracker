@@ -286,7 +286,13 @@ const RANK = 'CURLHPS'
  * the middle is not the part that matters.
  */
 /** `label`: for a binder with no cover art, set in large type in its window instead (One Piece's set numbers). */
-type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain'; pos?: string; label?: string }
+/**
+ * `pockets`: a binder laid out in fixed pockets instead of only the cards you
+ * own, `cols` across, every card in its own pocket by number (an empty one
+ * where you don't have it yet), in pages of `page` pockets.
+ */
+type Binder = { cover: string; spine: string; body: string; foil: string; fit: 'cover' | 'contain'; pos?: string; label?: string
+  pockets?: { count: number; cols: number; page: number } }
 
 const BINDERS: Record<string, Binder> = {
   base1: { cover: '/binders/base-set.webp',           spine: '#1e3a8a', body: '#1d4ed8', foil: '#93c5fd', fit: 'cover' },
@@ -326,7 +332,9 @@ const BINDERS: Record<string, Binder> = {
   op02:  { cover: '', label: 'OP-02', spine: '#451a03', body: '#7c2d12', foil: '#fdba74', fit: 'contain' },   // Paramount War: burnt brown
   op03:  { cover: '', label: 'OP-03', spine: '#083344', body: '#155e75', foil: '#fde68a', fit: 'contain' },   // Pillars of Strength: teal blue
   op04:  { cover: '', label: 'OP-04', spine: '#a16207', body: '#ca8a04', foil: '#fef3c7', fit: 'contain' },   // Kingdoms of Intrigue: yellow
-  si1:   { cover: '/binders/southern-islands.webp',     spine: '#164e63', body: '#0e7490', foil: '#fb923c', fit: 'cover', pos: '35% 50%' },
+  si1:   { cover: '/binders/southern-islands.webp',     spine: '#164e63', body: '#0e7490', foil: '#fb923c', fit: 'cover', pos: '35% 50%',
+           // A 3×6 binder: the 18 cards as two 9-pocket pages (1-9, 10-18), every card in its own pocket.
+           pockets: { count: 18, cols: 3, page: 9 } },
 }
 
 const DEFAULT_BINDER: Binder = { cover: '', spine: '#334155', body: '#475569', foil: '#cbd5e1', fit: 'contain' }
@@ -1325,13 +1333,27 @@ export default function CollectionPanel({
                   </p>
                 </div>
 
-                {cards.length === 0 ? (
+                {cards.length === 0 && !theme.pockets ? (
                   <p className="text-sm text-muted py-4 text-center">
                     This binder is empty. Open a {s?.set_name} pack to fill it.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {cards.map((c, i) => (
+                  <div className={`grid gap-1.5 ${theme.pockets ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {(theme.pockets
+                      ? Array.from({ length: theme.pockets.count }, (_, n) => cards.find((x) => x.number === String(n + 1)) ?? n + 1)
+                      : cards
+                    ).map((c, slot) => {
+                      // A pocket binder starts a new page every `page` pockets.
+                      const pageBreak = theme.pockets && slot > 0 && slot % theme.pockets.page === 0
+                        ? <div key={`page-${slot}`} className="col-span-3 h-px my-1.5" style={{ background: `${theme.foil}66` }} aria-hidden /> : null
+                      if (typeof c === 'number') return [pageBreak, (
+                        <div key={`empty-${c}`} className="w-full aspect-[245/342] rounded border border-dashed border-card-border bg-paper/60 flex items-center justify-center"
+                             aria-label={`Pocket ${c}: not collected yet`}>
+                          <span className="font-mono text-[10px] text-muted">#{c}</span>
+                        </div>
+                      )]
+                      const i = cards.indexOf(c)
+                      return [pageBreak, (
                       <div key={c.card_id} className="relative">
                         <button
                           onClick={() => { setZoomIndex(i); setCopyIndex(0) }}
@@ -1383,7 +1405,8 @@ export default function CollectionPanel({
                           </span>
                         )}
                       </div>
-                    ))}
+                      )]
+                    })}
                   </div>
                 )}
               </div>

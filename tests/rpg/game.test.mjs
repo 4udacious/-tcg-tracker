@@ -89,6 +89,7 @@ test('battle rules', async () => {
         // Every status move, by timing: never certain, better timing always at least as likely, MISS never.
         statusOdds: Object.entries(SUPPORT).filter(([, m]) => ['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(m.effect)).map(([n, m]) => [n, ...['PERFECT', 'GREAT', 'GOOD', 'OK', 'MISS'].map((l) => statusOdds(m, l))]),
         sorted: sched.every((lv, i) => i === 0 || sched[i - 1] <= lv),
+        eeveeEvo: evoText(speciesByName('EEVEE')),
         cantDefend: ['slp', 'frz', 'par', 'brn', 'psn', 'tox', null].map((s) => cantDefend({ status: s })),
         // Who parries your strikes, and how often: a sure roll (0) and a never roll (1).
         parries: (() => { const yes = () => 0, no = () => 1, mon = { status: null }, L = GYMS[0]
@@ -133,6 +134,7 @@ test('battle rules', async () => {
     assert.deepEqual(r.defend, ['parry*', 'parry', 'miss', 'dodge', 'miss', 'jump*', 'jump', 'miss'])
     assert.deepEqual(r.tox, [10, 20, 30])
     assert.deepEqual(r.sleep, ['asleep', 'asleep', 'wake'])
+    assert.match(r.eeveeEvo, /Glaceon with an ICE STONE/, 'an ICE STONE, not a ICE STONE'); assert.match(r.eeveeEvo, /Vaporeon with a WATER STONE/)
     assert.deepEqual(r.cantDefend, [true, true, true, false, false, false, false], 'asleep, frozen and paralyzed can\'t defend; burned or poisoned can')
     const p = r.parries
     assert.ok(p.gym && !p.unlucky, 'a Gym Leader parries a GOOD strike on its roll')
