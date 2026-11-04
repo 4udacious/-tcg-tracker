@@ -2472,6 +2472,22 @@ const STATUS_BY_TYPE = { ground: 'SAND ATTACK', rock: 'SAND ATTACK', fire: 'SMOK
   poison: 'MINIMIZE', ghost: 'MINIMIZE', water: 'MINIMIZE' }
 const statusOf = (m) => STATUS_BY_TYPE[m.types[0]] ?? 'DOUBLE TEAM'
 const STAGE_MAX = 3
+/*
+ * Your evasion and accuracy moves (Double Team, Minimize; Smokescreen, Sand
+ * Attack, Flash, Kinesis) move one step, never two. A PERFECT cast always
+ * lands; anything less may fail, likelier the worse the timing.
+ */
+const STAGE_LANDS = { PERFECT: 1, GREAT: 0.85, GOOD: 0.65, OK: 0.45, MISS: 0.2 }
+const stageLands = (label, r = Math.random) => r() < (STAGE_LANDS[label] ?? 0)
+/*
+ * Your stat moves (Bulk Up, Swords Dance, Howl, Growth, Screech...) follow
+ * the same rule: their own stages at any timing, never doubled, and anything
+ * short of PERFECT may fail. Your Pokémon's boosts top out at +4 (×3; a foe's
+ * still go to +6), and every foe you knock out wears each of your boosts down
+ * a stage, so one set-up can win a fight or two but not sweep a League team.
+ */
+const BOOST_CAP = 4
+const BOOST_KEYS = ['atk', 'def', 'spa', 'spd', 'spe']
 /** Attacker's accuracy minus target's evasion, only counting when it's below 0: −3..0. */
 const ringNet = (acc, eva) => Math.max(-STAGE_MAX, Math.min(0, (acc ?? 0) - (eva ?? 0)))
 const strikeRing = (net) => ({ speed: 1 - 0.15 * -net, tight: 1 - 0.2 * -net })   // your ring: faster, tighter
@@ -6555,7 +6571,7 @@ async function run(id) {
       const t = S(T.mon)
       if (mv.effect === 'status') return statusLands(mv, acc, rand) && afflict(T, mv.status)
       if (mv.effect === 'confuse' || mv.effect === 'swagger') {
-        if (mv.effect === 'swagger' && acc.label !== 'MISS') { t.atk = Math.min(6, t.atk + 2); tags(T); buffFx(T); await say(`${T.mon.name}'s ATTACK`, 'rose sharply!', 250) }
+        if (mv.effect === 'swagger' && acc.label !== 'MISS') { t.atk = Math.min(T.side === 'p' ? BOOST_CAP : 6, t.atk + 2); tags(T); buffFx(T); await say(`${T.mon.name}'s ATTACK`, 'rose sharply!', 250) }
         if (t.conf || !statusLands(mv, acc, rand)) return false
         t.conf = 2 + Math.floor(rand() * 3); sfx('shadow'); tags(T); await say(T.mon.name, 'became confused!', 300); return true
       }
@@ -7091,10 +7107,12 @@ async function run(id) {
           await hpTo(s, from + amt); pop(`+${s.mon.hp - from}`, s.c.x + 30, s.c.y - 40, 'green')
         }
         await say(who.length > 1 ? `${who.map((s) => s.mon.name).join(' and ')}` : `${who[0].mon.name}'s HP`, who.length > 1 ? 'recovered HP!' : 'was restored!', 200)
+      } else if ((mv.effect === 'atkUp' || mv.effect === 'growth') && mine && !stageLands(acc.label)) {
+        await say('But it failed!', '', 250)
       } else if (mv.effect === 'atkUp' || mv.effect === 'growth') {
-        const n = strong ? 2 : 1
+        const n = strong && !mine ? 2 : 1
         for (const s of who) {
-          const t = S(s.mon); t.atk = Math.min(6, t.atk + n); if (mv.effect === 'growth') t.spa = Math.min(6, t.spa + n)
+          const cap = s.side === 'p' ? BOOST_CAP : 6, t = S(s.mon); t.atk = Math.min(cap, t.atk + n); if (mv.effect === 'growth') t.spa = Math.min(cap, t.spa + n)
           buffFx(s); tags(s)
         }
         sfx('levelup')
@@ -7116,8 +7134,11 @@ async function run(id) {
       } else if (['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(mv.effect)) {
         if (S(T.mon).protect) await say(T.mon.name, 'protected itself!', 250)
         else if (!(await applyStatusMove(mv, actor, T, acc))) await say('But it failed!', '', 250)
+      } else if ((mv.effect === 'accDown' || mv.effect === 'evaUp') && mine && !stageLands(acc.label)) {
+        await say('But it failed!', '', 250)
       } else if (mv.effect === 'accDown' || mv.effect === 'evaUp') {
-        const key = mv.effect === 'accDown' ? 'acc' : 'eva', by = (mv.effect === 'accDown' ? -1 : 1) * (strong ? 2 : 1)
+        // One step at most (STAGE_LANDS); the CPU's side keeps its old two on a strong cast.
+        const key = mv.effect === 'accDown' ? 'acc' : 'eva', by = (mv.effect === 'accDown' ? -1 : 1) * (strong && !mine ? 2 : 1)
         for (const s of who) {
           const t = S(s.mon), from = t[key]; t[key] = Math.max(-STAGE_MAX, Math.min(STAGE_MAX, t[key] + by)); tags(s)
           await say(`${s.mon.name}'s ${key === 'acc' ? 'accuracy' : 'evasiveness'}`, t[key] === from ? `won't go any ${by > 0 ? 'higher' : 'lower'}!` : `${by > 0 ? 'rose' : 'fell'}${Math.abs(by) > 1 ? ' sharply' : ''}!`, 250)
@@ -7126,8 +7147,9 @@ async function run(id) {
         const tgt = mv.target === 'foe' ? T : actor
         if (tgt !== actor && weak) { await say('But it failed!', '', 250); return }
         if (tgt !== actor && S(tgt.mon).protect) { await say(tgt.mon.name, 'protected itself!', 250); return }
+        if (mine && !stageLands(acc.label)) { await say('But it failed!', '', 250); return }
         for (const [k, by] of Object.entries(mv.stages)) {
-          const t = S(tgt.mon), from = t[k] ?? 0; t[k] = Math.max(-6, Math.min(6, from + by * (strong ? 2 : 1))); tags(tgt)
+          const t = S(tgt.mon), from = t[k] ?? 0; t[k] = Math.max(-6, Math.min(tgt.side === 'p' ? BOOST_CAP : 6, from + by * (strong && !mine ? 2 : 1))); tags(tgt)
           if (t[k] > from) buffFx(tgt); sfx(t[k] > from ? 'levelup' : 'flinch')
           await say(`${tgt.mon.name}'s ${STAGE_WORD[k]}`, t[k] === from ? `won't go any ${by > 0 ? 'higher' : 'lower'}!` : `${t[k] > from ? 'rose' : 'fell'}${Math.abs(t[k] - from) > 1 ? ' sharply' : ''}!`, 250)
         }
@@ -7250,6 +7272,11 @@ async function run(id) {
         await say(`${side === 'e' ? `${s.owner?.short ?? 'The foe'}'s ` : ''}${s.mon.name}`, 'fainted!')
         // EXP now while the battle goes on; for the faint that ends it, after the scalpers' parting words.
         if (side === 'e') { if (!alive('e').length && !foeBench.length) pendingExp.push(s.mon); else await expFor(s.mon) }
+        if (side === 'e') {   // each foe knocked out wears your boosts down a stage (BOOST_CAP)
+          const yours = alive('p').filter((x) => !x.ally && BOOST_KEYS.some((k) => (S(x.mon)[k] ?? 0) > 0))
+          for (const x of yours) { const t = S(x.mon); for (const k of BOOST_KEYS) if ((t[k] ?? 0) > 0) t[k]--; tags(x) }
+          if (yours.length) await say(`${yours.map((x) => x.mon.name).join(' and ')}'s boosts`, 'wore down a little.', 200)
+        }
         if (side === 'e') {
           // Next one up from the same scalper (in a solo double, whichever is next).
           const j = foeBench.findIndex((b) => trainers.length === 1 || b.owner === s.owner)
@@ -8138,7 +8165,7 @@ async function run(id) {
         defend: ['parry'],
         capAt: { 'SLACK OFF': ['THEIRS TOO', 'Scalpers\' Pokémon have support moves as well: HIPPOWDON patches itself up with SLACK OFF.'],
           SURF: ['FRIENDLY FIRE', 'SURF rolls on into your own partner. Its ring is the amber JUMP oval: jump it and FUECOCO takes nothing.'] } },
-      { cap: ['STACKED', 'ATTACK is up two stages from HOWL: DOUBLE HIT lands twice as hard.'],
+      { cap: ['STACKED', 'ATTACK is up a stage from HOWL: DOUBLE HIT lands half again as hard.'],
         cmds: [{ move: 'DOUBLE HIT', target: 1, planned: ['perfect', 'perfect'] }, { move: 'SURF', planned: ['perfect', 'perfect'] }] },
       { cmds: [{ move: 'HEAT WAVE', planned: ['perfect', 'perfect'] }, { move: 'SURF', planned: ['perfect', 'perfect'] }] },
       { cmds: [{ move: 'HEAT WAVE', planned: ['perfect', 'perfect'] }, { move: 'POUND', target: 0, planned: 'perfect' }] },
@@ -8551,8 +8578,9 @@ async function run(id) {
      * False if it failed.
      */
     async function fieldMove(mv, user, acc) {
-      const other = user === me ? foe : me, t = ST(user), side = user === me ? 'p' : 'e', miss = acc.label === 'MISS', n = acc.label === 'PERFECT' ? 2 : 1
+      const other = user === me ? foe : me, t = ST(user), side = user === me ? 'p' : 'e', miss = acc.label === 'MISS', n = acc.label === 'PERFECT' && user !== me ? 2 : 1
       if (mv.effect === 'stat') {
+        if (user === me && !stageLands(acc.label)) return false   // yours: never doubled, and may fail short of PERFECT
         const target = mv.target === 'foe' ? other : user
         if (miss && target !== user) return false
         if (target !== user && ST(target).protect) { await say(who(target), 'protected itself!', 300); return true }
@@ -8693,7 +8721,8 @@ async function run(id) {
     }
     /** A stage change from a status move (or Mud-Slap), with its line. */
     async function stage(m, key, by, isFoe) {
-      const t = ST(m), from = t[key] ?? 0, lim = key === 'acc' || key === 'eva' ? STAGE_MAX : 6; t[key] = Math.max(-lim, Math.min(lim, from + by))
+      const t = ST(m), from = t[key] ?? 0, lim = key === 'acc' || key === 'eva' ? STAGE_MAX : 6, hi = lim === 6 && !isFoe ? BOOST_CAP : lim
+      t[key] = Math.max(-lim, Math.min(hi, from + by))
       const name = `${isFoe && kind === 'wild' ? 'The wild ' : ''}${m.name}'s ${STAGE_WORD[key]}`
       if (t[key] === from) return say(name, `won't go any ${by > 0 ? 'higher' : 'lower'}!`)
       sfx(by > 0 ? 'levelup' : 'flinch'); rise(isFoe ? C.e : C.p, by > 0 ? '#93c5fd' : '#94a3b8', by > 0 ? 'arrow' : 'dot'); showTags()
@@ -8929,11 +8958,13 @@ async function run(id) {
       } else if (['status', 'confuse', 'swagger', 'seed', 'yawn'].includes(mv.effect)) { if (!(await applyStatusMove(mv, foe, acc))) await say('But it failed!', '', 300) }
       else if (FIELD_EFFECTS.includes(mv.effect)) { if (!(await fieldMove(mv, me, acc))) await say('But it failed!', '', 300) }
       else if (SPECIAL_EFFECTS.includes(mv.effect)) { if (!(await specialMove(mv, me, acc))) await say('But it failed!', '', 300) }
-      else if (mv.effect === 'accDown') await stage(foe, 'acc', acc.crit ? -2 : -1, true)
-      else if (mv.effect === 'evaUp') await stage(me, 'eva', acc.crit ? 2 : 1, false)
+      else if ((mv.effect === 'accDown' || mv.effect === 'evaUp') && !stageLands(acc.label)) await say('But it failed!', '', 300)
+      else if (mv.effect === 'accDown') await stage(foe, 'acc', -1, true)
+      else if (mv.effect === 'evaUp') await stage(me, 'eva', 1, false)
+      else if (!stageLands(acc.label)) await say('But it failed!', '', 300)
       else {
-        const n = acc.crit ? 2 : 1, t = ST(me)
-        t.atk = Math.min(6, t.atk + n); if (mv.effect === 'growth') t.spa = Math.min(6, t.spa + n)
+        const n = 1, t = ST(me)
+        t.atk = Math.min(BOOST_CAP, t.atk + n); if (mv.effect === 'growth') t.spa = Math.min(BOOST_CAP, t.spa + n)
         sfx('levelup'); rise(C.p, '#f87171', 'arrow'); showTags()
         await say(`${me.name}'s ${mv.effect === 'growth' ? 'ATK and SP.A' : 'ATTACK'}`, n > 1 ? 'rose sharply!' : 'rose!')
       }
@@ -9015,12 +9046,20 @@ async function run(id) {
       await gainExp(me, n, $('pexp'), onLevel); await facedExp(n, others); await shareExp(n, [me, ...others])
     }
 
+    /** Each foe you knock out wears every one of your boosts down a stage (BOOST_CAP). */
+    async function fadeBoosts() {
+      const t = ST(me), up = BOOST_KEYS.filter((k) => (t[k] ?? 0) > 0)
+      if (!up.length || me.hp <= 0) return
+      for (const k of up) t[k]--
+      showTags(); await say(`${me.name}'s boosts`, 'wore down a little.', 250)
+    }
     /** The foe fainted: EXP, then the scalper's next Pokémon if they have one. Returns the result, or null to fight on. */
     async function foeDown() {
       sfx('faint')
       await anim($('enemy'), [{ transform: 'translateY(0)', clipPath: 'inset(0 0 0 0)' }, { transform: 'translateY(100px)', clipPath: 'inset(0 0 100px 0)' }], { duration: 520, easing: 'ease-in' }).finished
       $('enemy').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'
       await say(`${kind === 'wild' ? 'The wild ' : `${trainer.short}'s `}${foe.name}`, 'fainted!')
+      await fadeBoosts()
       // A scalper's last one: they say their piece first, so EXP is handed back to run after it.
       if (kind === 'trainer' && !roster.length) return { result: 'won', exp: winExp }
       await winExp()
