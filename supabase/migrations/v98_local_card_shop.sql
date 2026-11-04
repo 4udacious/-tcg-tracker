@@ -31,7 +31,7 @@ alter table public.lcs_prices enable row level security;
 drop policy if exists lcs_prices_read on public.lcs_prices;
 create policy lcs_prices_read on public.lcs_prices for select to authenticated using (true);
 insert into public.lcs_prices (rarity, price) values
-  ('C', 0.0075), ('U', 0.0150), ('R', 0.0600), ('L', 0.0600), ('H', 0.2500), ('P', 0.3500), ('S', 0.4500)
+  ('C', 0.0150), ('U', 0.0300), ('R', 0.1200), ('L', 0.1200), ('H', 0.5000), ('P', 0.7000), ('S', 0.9000)
 on conflict (rarity) do nothing;
 
 create table if not exists public.lcs_sales (
