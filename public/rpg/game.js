@@ -9456,6 +9456,9 @@ async function run(id) {
       stage.innerHTML = `<img class="a" src="${spr(m)}" alt=""><img class="b" src="${spr({ id: to.id, shiny: m.shiny })}" alt="">`
       $('ts').appendChild(stage)
       const [a, b] = stage.querySelectorAll('img')
+      // Both forms decoded before the flicker, so neither is a blank while it plays.
+      const ready = (img) => Promise.race([img.decode?.().catch(() => {}), W(1500)])
+      await Promise.all([ready(a), ready(b)])
       Sound.music('evolution')
       await say('What?', `${m.name} is evolving!`, 500)
       $('pEvo').querySelector('small').textContent = e.item ? `keeps the ${EVO_ITEM_NAME[e.item]}` : 'tries again in 5 levels'
@@ -9488,7 +9491,11 @@ async function run(id) {
         else { m.evoWait = m.level + 5; await say(`It will try again at Lv ${m.evoWait}.`, '', 700) }
       } else {
         if (e.item) { bag[e.item]--; if (e.needs) bag[e.needs]-- }   // the item (and Seadra's Dragon Scale) is used up
-        a.style.opacity = 0; b.style.opacity = 1
+        // The reveal is a fresh image of the new form, never the flickered one: iOS Safari can
+        // leave the flickered one painted as a white silhouette after its glow filter is removed.
+        const shown = new Image(); shown.className = 'c'; shown.alt = ''; shown.src = spr({ id: to.id, shiny: m.shiny })
+        await ready(shown)
+        stage.appendChild(shown); a.remove(); b.remove()
         flash('#fff', 0.95, 600); Sound.music('evolved'); cry(to)
         stage.classList.add('done'); for (let i = 0; i < 10; i++) setTimeout(spark, i * 60)
         const was = m.name
