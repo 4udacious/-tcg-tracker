@@ -1270,6 +1270,22 @@ test('evasion and accuracy moves: one step at most; PERFECT always lands, weaker
   } finally { await g.close() }
 })
 
+test('stat boosts: your stat moves never double, may fail short of PERFECT, top out at +4, and fade a stage per foe knocked out', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => ({ cap: BOOST_CAP, keys: BOOST_KEYS }))
+    assert.equal(r.cap, 4); assert.deepEqual(r.keys, ['atk', 'def', 'spa', 'spd', 'spe'])
+    const src = await (await import('node:fs/promises')).readFile(new URL('../../public/rpg/game.js', import.meta.url), 'utf8')
+    assert.match(src, /n = acc\.label === 'PERFECT' && user !== me \? 2 : 1/, '1v1: only the foe\'s PERFECT doubles a stat move')
+    assert.match(src, /if \(user === me && !stageLands\(acc\.label\)\) return false/, '1v1: yours may fail short of PERFECT')
+    assert.match(src, /strong && !mine \? 2 : 1/, '2v2: yours never double')
+    assert.match(src, /async function fadeBoosts\(\)/, '1v1: boosts fade on a knockout')
+    assert.match(src, /wore down a little/, 'and the battle says so')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
   const g = await openGame()
   try {
