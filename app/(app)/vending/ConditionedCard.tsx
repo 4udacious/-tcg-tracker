@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { borderColor } from './cardBorders'
+import { gameOf } from '@/lib/vending/games'
 
 export interface Condition {
   center_x: number
@@ -46,6 +47,12 @@ export const RIP_CORNERS = ['top left', 'top right', 'bottom right', 'bottom lef
 const MARGIN = 2.2
 /** Card aspect, for expressing a width-relative inset as a height percentage. */
 const VK = 245 / 342
+/**
+ * One Piece cards are cut with rounder corners than the Pokémon sets here.
+ * Width and height radii in proportion so the corner is a true quarter
+ * circle; inline, so it wins over whatever rounded-* the caller passes.
+ */
+const OP_CORNER = { borderRadius: `7% / ${(7 * VK).toFixed(2)}%` }
 
 /**
  * Card units for the wear overlay's SVG. Marks are authored against the
@@ -641,7 +648,8 @@ export default function ConditionedCard({
   const dy = (center_y / 100) * MARGIN
 
   return (
-    <div className={`relative overflow-hidden isolate ${className}`}>
+    <div className={`relative overflow-hidden isolate ${className}`}
+         style={gameOf(src) === 'op' ? OP_CORNER : undefined}>
       {/* The frame is the card's border. Painting it the card's own yellow is
           what lets the margin and the border in the scan read as one edge.
           It, and the mask that cuts holes and tears out of the card, sit on
