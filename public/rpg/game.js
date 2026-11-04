@@ -4105,6 +4105,22 @@ const APP = (() => {
  * the machine is the game's own simulation.
  */
 const vvm = () => { if (!APP.on) return null; try { return window.parent !== window ? window.parent.__vvmApi ?? null : null } catch { return null } }
+/*
+ * In the app, the game is a frame on a page that scrolls, under a sticky
+ * header and above a fixed tab bar, so part of the frame can be hidden behind
+ * either. A sheet (Party, Bag, Box, stats) keeps to the part you can see,
+ * or its last rows sit out of reach under the tab bar.
+ */
+function fitSheet() {
+  const f = window.frameElement, sh = $('sheet'); if (!f || !sh) return
+  try {
+    const P = window.parent, d = P.document, r = f.getBoundingClientRect()
+    const hd = d.querySelector('header')?.getBoundingClientRect(), nav = d.querySelector('nav[aria-label="Sections"]')?.getBoundingClientRect()
+    const top = Math.max(0, (hd ? hd.bottom : 0) - r.top), bottom = Math.max(0, r.bottom - Math.min(nav ? nav.top : P.innerHeight, P.innerHeight))
+    sh.style.top = `${Math.round(top)}px`; sh.style.bottom = `${Math.round(bottom)}px`
+  } catch { /* not the app's page: the whole frame is the sheet's */ }
+}
+try { if (window.frameElement) for (const ev of ['scroll', 'resize']) window.parent.addEventListener(ev, () => { if ($('sheet')?.classList.contains('open')) fitSheet() }, { passive: true }) } catch { /* cross-origin parent */ }
 
 /*
  * Crash notes. Some members' phones reload the game in the middle of a
@@ -5652,7 +5668,7 @@ async function run(id) {
       if (e.target.closest('[data-addbundle]')) { BUNDLES.push({ id: 'b' + Date.now().toString(36), name: 'NEW BUNDLE', items: { potion: 2 }, price: 0.45, rate: 20, on: true }); saveBundles(); draw() }
       const del = e.target.closest('[data-delbundle]'); if (del) { BUNDLES.splice(+del.dataset.delbundle, 1); saveBundles(); draw() }
     }
-    $('sheet').classList.add('open')
+    fitSheet(); $('sheet').classList.add('open')
     return new Promise((res) => { sheetCloser = () => { closeSheetNow(); $('sheetBody').oninput = null; $('sheetBody').onclick = null; res() } })
   }
 
@@ -5771,7 +5787,7 @@ async function run(id) {
       }
       draw(); renderTools()
     }
-    toast = ''; draw(); $('sheet').classList.add('open')
+    toast = ''; draw(); fitSheet(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
     const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
