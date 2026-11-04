@@ -2546,6 +2546,17 @@ const cantDefend = (m) => m.status === 'slp' || m.status === 'frz' || m.status =
 /** How much of the usual parry, dodge and jump windows a confused Pokémon gets. */
 const CONF_DEFEND = 0.6
 /*
+ * Catching: a wild Pokémon is easier to catch the lower its HP and the worse
+ * its status. Asleep or frozen ×2.5; paralyzed, burned or poisoned ×1.5, as
+ * in the main games. Confusion and the other passing effects don't count.
+ */
+const STATUS_CATCH = { slp: 2.5, frz: 2.5, par: 1.5, brn: 1.5, psn: 1.5, tox: 1.5 }
+/** The chance each of a ball's four shakes holds (all four is a catch): HP, status, ball and throw. */
+function shakeOdds(foe, ball, throwMult) {
+  const a = ((3 * foe.max - 2 * foe.hp) * foe.capture * (ball === 'great' ? 1.5 : 1) * throwMult * (STATUS_CATCH[foe.status] ?? 1)) / (3 * foe.max)
+  return a >= 255 ? 1 : 1 / Math.pow(255 / a, 0.1875)
+}
+/*
  * The leaders parry back: a Gym Leader, an Elite Four member, Red or Alex
  * (`parry`, the chance a hit of yours is parried) can parry your strikes. A
  * parried hit does a fifth of its damage (DEFEND_TAKEN.parry) and nothing
@@ -8959,9 +8970,8 @@ async function run(id) {
       await anim(ball, [{ transform: `translate(${dx}px,${dy}px)` }, { transform: `translate(${dx}px,${dy + 38}px)`, offset: .6 }, { transform: `translate(${dx}px,${dy + 30}px)`, offset: .8 }, { transform: `translate(${dx}px,${dy + 38}px)` }], { duration: 420, easing: 'ease-in' }).finished
       let shakes = forcedShakes
       if (shakes == null) {
-        const a = ((3 * foe.max - 2 * foe.hp) * foe.capture * (k === 'great' ? 1.5 : 1) * throwMult) / (3 * foe.max)
-        const b = a >= 255 ? 65536 : 65536 / Math.pow(255 / a, 0.1875)
-        shakes = 0; while (shakes < 4 && Math.random() * 65536 < b) shakes++
+        const b = shakeOdds(foe, k, throwMult)
+        shakes = 0; while (shakes < 4 && Math.random() < b) shakes++
       }
       for (let i = 0; i < Math.min(3, shakes); i++) {
         await W(450); sfx('wobble')
@@ -9866,7 +9876,7 @@ async function run(id) {
       turns: [
         { menu: 'fight', move: 'EMBER', planned: 'good', cap: ['MENUS', 'FIGHT, BAG, POKéMON and RUN are separate now. FIGHT opens its own page with every move.'] },
         { menu: 'bag', item: 'ball', planned: 'good', shakes: 2, cap: ['BAG', 'BAG is its own page too: balls and potions. At high HP a catch is a long shot.'] },
-        { menu: 'fight', move: 'TACKLE', planned: 'perfect', cap: ['CATCHING', 'Weaken it with a gentler move so it stays awake to be caught.'] },
+        { menu: 'fight', move: 'TACKLE', planned: 'perfect', cap: ['CATCHING', 'Weaken it with a gentler move so it doesn\'t faint. Low HP, and a status like sleep or paralysis, make a catch easier.'] },
         { menu: 'bag', item: 'ball', planned: 'perfect', shakes: 4, cap: ['THROW', 'An Excellent throw nearly doubles the catch chance.'] },
       ],
       defend: ['dodge', 'jump', 'late'],
