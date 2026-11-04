@@ -61,6 +61,7 @@ const REASON_LABEL: Record<string, string> = {
   timer_reward: 'Timer report',
   timer_revoked: 'Timer report deleted',
   rebucket: 'Bucket correction',
+  card_sale: 'Sold cards to the LCS',
 }
 
 function one<T>(v: T | T[] | null): T | null {

@@ -18,6 +18,7 @@ import HoloMark, { rarityLabel } from './HoloMark'
 import { compareCardNumbers, GAMES, gameOf, isHit, rarityName, type Game } from '@/lib/vending/games'
 import SupplyIcon from '@/components/SupplyIcon'
 import EmblemInventory from './EmblemInventory'
+import LcsSheet from './LcsSheet'
 import type { BattleEmblemData } from './BattleEmblem'
 
 export interface UnopenedPack {
@@ -535,6 +536,7 @@ export default function CollectionPanel({
   const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
   // The vault is a peer of the shelf, not a binder inside it.
   const [shelf, setShelf] = useState<'binders' | 'vault'>('binders')
+  const [lcsOpen, setLcsOpen] = useState(false)
   // Which game's binders and vault are showing: Pokémon or One Piece (v96).
   const [game, setGame] = useState<Game>('pkm')
   const [slabIndex, setSlabIndex] = useState<number | null>(null)
@@ -1252,6 +1254,15 @@ export default function CollectionPanel({
                 )}
               </button>
             ))}
+            {/* The LCS buys your unwanted raw cards for a little token each. */}
+            {totalCards > 0 && (
+              <button
+                onClick={() => setLcsOpen(true)}
+                className="ml-auto text-xs font-medium rounded-lg px-3 py-1.5 border border-card-border text-muted hover:text-ink transition-colors"
+              >
+                🏪 Sell to LCS
+              </button>
+            )}
           </div>
         )}
 
@@ -1703,6 +1714,9 @@ export default function CollectionPanel({
       {/* Stands down while a pack is being revealed - it sits above the
           reveal, and coming back to the stack afterwards is what you want
           when you are opening several. */}
+      <LcsSheet open={lcsOpen} onClose={() => setLcsOpen(false)} cards={gameCards}
+        setNames={Object.fromEntries(setTotals.map((s) => [s.set_code, s.set_name]))} />
+
       <Sheet open={!!pickingFrom && !reveal} onClose={() => setOpenStack(null)} title={pickingFrom?.set_name ?? ''}
         header={pickingFrom && (
           <div className="min-w-0">
