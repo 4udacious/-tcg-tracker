@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 /**
- * The web app manifest: what a phone uses when a member adds TCG Tracker to
+ * The web app manifest: what a phone uses when a member adds WAPC Tracker to
  * their home screen. With it, Android's "Install app" opens the app on its own
  * (no address bar or tabs) instead of a plain Chrome shortcut, with our icon
  * and name. iPhones read the apple-icon and appleWebApp settings in the root
@@ -10,8 +10,8 @@ import type { MetadataRoute } from 'next'
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'TCG Tracker',
-    short_name: 'TCG Tracker',
+    name: 'WAPC Tracker',
+    short_name: 'WAPC Tracker',
     description: 'Community restock tracker for Pokémon TCG hunters',
     start_url: '/',
     scope: '/',
