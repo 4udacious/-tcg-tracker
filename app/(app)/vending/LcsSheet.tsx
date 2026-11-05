@@ -41,11 +41,13 @@ export default function LcsSheet({ open, onClose, cards, setNames }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<{ sold: number; paid: number; carry: number } | null>(null)
+  /** The set tab you're on (null: the first set). */
+  const [tab, setTab] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     let gone = false
-    setOffer(null); setPick({}); setConfirming(false); setError(null); setDone(null)
+    setOffer(null); setPick({}); setConfirming(false); setError(null); setDone(null); setTab(null)
     createClient().rpc('lcs_offer').then(({ data, error: e }) => {
       if (gone) return
       if (e) { setError("The shop couldn't price your cards. Try again in a moment."); return }
@@ -76,10 +78,19 @@ export default function LcsSheet({ open, onClose, cards, setNames }: {
   const carry = offer?.carry ?? 0
   const payout = Math.floor((value + carry) * 100 + 1e-6) / 100
 
+  // One tab per set, in binder order; the list shows only the set you're on.
+  const sets = [...new Set(rows.map((r) => r.card.set_code))]
+  const activeSet = tab && sets.includes(tab) ? tab : sets[0]
+  const setRows = rows.filter((r) => r.card.set_code === activeSet)
+  const pickedIn = (code: string) => rows.filter((r) => r.card.set_code === code).reduce((n, r) => n + (pick[r.card.card_id] ?? 0), 0)
+  const setsPicked = sets.filter((code) => pickedIn(code) > 0).length
+
   const set = (id: number, n: number) => setPick((p) => ({ ...p, [id]: n }))
+  // The quick picks work on the set you're on; picks in other sets stay as they are.
+  const pickIn = (f: (r: Row) => number) => setPick((p) => ({ ...p, ...Object.fromEntries(setRows.map((r) => [r.card.card_id, f(r)])) }))
   // Extras: everything but one copy of each card (graded or listed copies count as the one you keep).
-  const pickExtras = () => setPick(Object.fromEntries(rows.map((r) => [r.card.card_id, Math.min(r.sellable.length, r.card.copies.length - 1)])))
-  const pickBulk = () => setPick(Object.fromEntries(rows.map((r) => [r.card.card_id, BULK.has(r.card.rarity) ? r.sellable.length : 0])))
+  const pickExtras = () => pickIn((r) => Math.min(r.sellable.length, r.card.copies.length - 1))
+  const pickBulk = () => pickIn((r) => (BULK.has(r.card.rarity) ? r.sellable.length : 0))
 
   async function sell() {
     if (!count || busy) return
@@ -99,7 +110,6 @@ export default function LcsSheet({ open, onClose, cards, setNames }: {
     router.refresh()
   }
 
-  let lastSet = ''
   return (
     <Sheet open={open} onClose={() => { if (!busy) onClose() }} title="Local Card Shop" wide
       footer={done ? (
@@ -150,21 +160,34 @@ export default function LcsSheet({ open, onClose, cards, setNames }: {
             <p className="text-sm text-muted py-6 text-center">Nothing here the shop can buy right now.</p>
           ) : (
             <>
+              {/* One tab per set; the dot counts what's picked there. */}
+              <div className="-mx-1 px-1 flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Sets">
+                {sets.map((code) => {
+                  const on = code === activeSet, n = pickedIn(code)
+                  return (
+                    <button key={code} role="tab" aria-selected={on} onClick={() => setTab(code)}
+                      className={`shrink-0 text-xs font-medium rounded-lg px-3 py-1.5 whitespace-nowrap transition-colors ${
+                        on ? 'bg-ink text-white' : 'border border-card-border text-muted hover:text-ink'}`}>
+                      {setNames[code] ?? code}
+                      {n > 0 && <span className={`ml-1.5 rounded-full px-1.5 py-px text-[10px] font-semibold ${on ? 'bg-white/20' : 'bg-signal/15 text-signal'}`}>{n}</span>}
+                    </button>
+                  )
+                })}
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 <button onClick={pickExtras} className="text-xs font-medium rounded-lg border border-card-border px-3 py-1.5 hover:text-ink text-muted">Extras (keep 1 of each)</button>
-                <button onClick={pickBulk} className="text-xs font-medium rounded-lg border border-card-border px-3 py-1.5 hover:text-ink text-muted">All commons &amp; uncommons</button>
-                <button onClick={() => setPick({})} className="text-xs font-medium rounded-lg border border-card-border px-3 py-1.5 hover:text-ink text-muted">Clear</button>
+                <button onClick={pickBulk} className="text-xs font-medium rounded-lg border border-card-border px-3 py-1.5 hover:text-ink text-muted">Commons &amp; uncommons</button>
+                <button onClick={() => pickIn(() => 0)} className="text-xs font-medium rounded-lg border border-card-border px-3 py-1.5 hover:text-ink text-muted">Clear this set</button>
               </div>
+              {setsPicked > 1 && <p className="text-[11px] text-muted">{count} cards picked across {setsPicked} sets. The total below covers them all.</p>}
               <ul className="space-y-1">
-                {rows.map((r) => {
+                {setRows.map((r) => {
                   const n = pick[r.card.card_id] ?? 0
                   const worth = r.sellable.slice(0, n).reduce((s, c) => s + c.value, 0)
                   const each = r.sellable[0].value === r.sellable[r.sellable.length - 1].value
                     ? fmtSmall(r.sellable[0].value) : `${fmtSmall(r.sellable[0].value)}–${fmtSmall(r.sellable[r.sellable.length - 1].value)}`
-                  const head = r.card.set_code !== lastSet ? (lastSet = r.card.set_code, setNames[r.card.set_code] ?? r.card.set_code) : null
                   return (
                     <li key={r.card.card_id}>
-                      {head && <p className="text-[11px] font-semibold uppercase tracking-wide text-muted pt-2 pb-1">{head}</p>}
                       <div className={`flex items-center gap-2 rounded-xl border p-1.5 ${n ? 'border-signal/50 bg-signal/5' : 'border-card-border bg-card'}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={r.card.image_url} alt="" loading="lazy" className="w-9 aspect-[245/342] rounded object-cover shrink-0" />
