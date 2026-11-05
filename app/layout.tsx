@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -24,6 +24,13 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: 'TCG Tracker',
   description: 'Community restock tracker for Pokémon TCG hunters',
+  // Added to an iPhone's home screen, it opens on its own (no Safari bars), named and iconned (app/apple-icon.png).
+  appleWebApp: { capable: true, title: 'TCG Tracker', statusBarStyle: 'black' },
+}
+
+// The browser and home-screen app's bar colour: the header's.
+export const viewport: Viewport = {
+  themeColor: '#0E1726',
 }
 
 // Runs before first paint so a dark-mode user never sees a light flash.
