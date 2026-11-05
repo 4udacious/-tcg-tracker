@@ -6,6 +6,8 @@ export interface CrashRow {
   note: {
     kind?: string; who?: string; foeLv?: number; party?: string; music?: string; lines?: string[]; errors?: string[]
     started?: number; at?: number; hidden?: boolean; heapMB?: number; ver?: string; musicTier?: number; musicVol?: number
+    /** Newer games: the battle's start, step by step ("0.4s decoding song wild (45 s)"), and the last step reached. */
+    trail?: string[]; phase?: string
     /** The session so far (newer games): minutes open, battles, songs decoded, the playing song's length, and the page's size. */
     session?: { mins?: number; battles?: number; decodes?: number; songSecs?: number; nodes?: number; imgs?: number; anims?: number }
   }
@@ -18,7 +20,7 @@ function deviceName(ua = '') {
   const os = /iPhone OS ([\d_]+)/.exec(ua) ? `iPhone, iOS ${/iPhone OS ([\d_]+)/.exec(ua)![1].replace(/_/g, '.')}`
     : /iPad/.test(ua) ? 'iPad' : /Android ([\d.]+)/.exec(ua) ? `Android ${/Android ([\d.]+)/.exec(ua)![1]}`
     : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Other'
-  const browser = /CriOS|Chrome\//.test(ua) && !/Edg/.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Edg/.test(ua) ? 'Edge' : /Safari/.test(ua) ? 'Safari' : 'a browser'
+  const browser = /GSA\//.test(ua) ? 'Google app' : /CriOS|Chrome\//.test(ua) && !/Edg/.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Edg/.test(ua) ? 'Edge' : /Safari/.test(ua) ? 'Safari' : 'a browser'
   return `${os} · ${browser}`
 }
 
@@ -31,31 +33,65 @@ function ago(iso: string) {
 
 /**
  * Crash reports from the battle game (v83): a member's game reloaded in the
- * middle of a battle, and on the next start it sent where it was. "In the
- * background" means the page was hidden at its last heartbeat, so the phone
- * most likely dropped a backgrounded tab rather than crashing.
+ * middle of a battle, and on the next start it sent where it was. Split in
+ * two: crashed on screen, and closed in the background (the page was hidden
+ * at its last heartbeat, so the phone most likely dropped a backgrounded tab).
+ * Repeat reports of one battle are folded into one.
  */
 export default function CrashReportsClient({ reports }: { reports: CrashRow[] }) {
+  // One battle can be reported more than once (older games, or the app open twice): keep the latest, count the rest.
+  const seen = new Map<string, { row: CrashRow; copies: number }>()
+  for (const r of reports) {
+    const k = `${r.member?.username ?? '?'}:${r.note.started ?? r.id}`
+    const had = seen.get(k)
+    if (!had) seen.set(k, { row: r, copies: 1 }); else had.copies++
+  }
+  const all = [...seen.values()]
+  const onScreen = all.filter((x) => !x.row.note.hidden), background = all.filter((x) => x.row.note.hidden)
   return (
-    <section className="space-y-2">
+    <section className="space-y-3">
       <div className="space-y-1">
         <h2 className="font-display font-semibold text-base">Crash reports</h2>
         <p className="text-xs text-muted leading-snug">
           When a member&apos;s game reloads in the middle of a battle, it reports where it was the next time it starts:
-          the battle, the last lines on screen, the music, any script error, and the device.
+          the battle, its first steps, the last lines on screen, the music, any script error, and the device.
         </p>
       </div>
-      {reports.length === 0 ? (
+      {all.length === 0 ? (
         <p className="text-xs text-muted">None yet.</p>
       ) : (
+        <>
+          <Group title="Crashed on screen" hint="The game was in front of them when it died: these are the ones to look into." rows={onScreen} />
+          <details className="space-y-1.5">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Closed in the background <span className="font-normal text-muted">· {background.length}</span>
+            </summary>
+            <p className="text-xs text-muted leading-snug pt-1">
+              The member had switched away (another app, the home screen, a locked phone) and the phone reclaimed the page.
+              That&apos;s normal phone behaviour rather than a crash.
+            </p>
+            <Group rows={background} />
+          </details>
+        </>
+      )}
+    </section>
+  )
+}
+
+function Group({ title, hint, rows }: { title?: string; hint?: string; rows: { row: CrashRow; copies: number }[] }) {
+  return (
+    <div className="space-y-1.5">
+      {title && <h3 className="text-sm font-semibold">{title} <span className="font-normal text-muted">· {rows.length}</span></h3>}
+      {hint && <p className="text-xs text-muted leading-snug">{hint}</p>}
+      {rows.length === 0 ? <p className="text-xs text-muted">None.</p> : (
         <ul className="space-y-1.5">
-          {reports.map((r) => (
+          {rows.map(({ row: r, copies }) => (
             <li key={r.id} className="bg-card border border-card-border rounded-xl px-3 py-2">
               <details>
                 <summary className="cursor-pointer list-none text-xs flex items-baseline gap-2">
                   <span className="font-medium shrink-0">{r.member ? (r.member.display_name || `@${r.member.username}`) : 'A member'}</span>
                   <span className="min-w-0 flex-1 truncate text-muted">
-                    {r.note.who || r.note.kind || 'a battle'} · {deviceName(r.device.ua)}{r.note.hidden ? ' · in the background' : ''}{r.note.errors?.length ? ' · script error' : ''}
+                    {r.note.who || r.note.kind || 'a battle'} · {deviceName(r.device.ua)}{r.note.phase ? ` · at: ${r.note.phase}` : ''}{r.note.errors?.length ? ' · script error' : ''}{copies > 1 ? ` · reported ${copies}×` : ''}
                   </span>
                   <span className="font-mono text-[11px] text-muted shrink-0">{ago(r.created_at)}</span>
                 </summary>
@@ -67,6 +103,8 @@ export default function CrashReportsClient({ reports }: { reports: CrashRow[] })
                     {r.note.session.mins ?? '?'} min open · battle {r.note.session.battles ?? '?'} · {r.note.session.decodes ?? '?'} songs loaded{r.note.session.songSecs ? ` (this one ${r.note.session.songSecs} s)` : ''} · {r.note.session.nodes ?? '?'} elements, {r.note.session.imgs ?? '?'} images, {r.note.session.anims ?? '?'} animations
                   </dd></>)}
                   <dt className="text-muted">In battle for</dt><dd>{r.note.started && r.note.at ? `${Math.round((r.note.at - r.note.started) / 1000)} s` : '—'}</dd>
+                  {!!r.note.trail?.length && (<><dt className="text-muted">Battle start</dt>
+                    <dd className="space-y-0.5">{r.note.trail.map((l, i) => <p key={i} className={`font-mono ${/FAILED/.test(l) ? 'text-signal' : ''}`}>{l}</p>)}</dd></>)}
                   <dt className="text-muted">Last on screen</dt>
                   <dd className="space-y-0.5">{(r.note.lines ?? []).slice(-6).map((l, i) => <p key={i} className="font-mono">{l}</p>)}</dd>
                   {!!r.note.errors?.length && (<><dt className="text-muted">Script errors</dt><dd className="space-y-0.5 text-signal">{r.note.errors.map((e, i) => <p key={i} className="font-mono break-all">{e}</p>)}</dd></>)}
@@ -80,6 +118,6 @@ export default function CrashReportsClient({ reports }: { reports: CrashRow[] })
           ))}
         </ul>
       )}
-    </section>
+    </div>
   )
 }

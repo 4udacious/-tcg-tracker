@@ -833,7 +833,7 @@ test('in the app: Pokémon an admin gifts arrive rolled like wild ones, once eac
   } finally { await g.close() }
 })
 
-test('in the app: a game that dies mid-battle reports where it was on the next start; leaving normally reports nothing', async () => {
+test('in the app: a game that dies mid-battle reports where it was on the next start; leaving normally, or a second copy opening while it runs, reports nothing', async () => {
   const g = await openGame()
   try {
     const { page } = g
@@ -864,6 +864,16 @@ test('in the app: a game that dies mid-battle reports where it was on the next s
     assert.equal(note.kind, 'wild'); assert.match(note.who, /^wild [A-Z]/); assert.match(note.party, /CHARMANDER 15/)
     assert.ok(note.lines.length > 0 && note.music, `the lines shown and the music: ${JSON.stringify(note.lines)} ${note.music}`)
     assert.ok(note.session?.battles >= 1, 'the session so far: battles'); assert.ok(note.session.mins >= 0 && note.session.nodes > 100 && note.session.imgs > 0, JSON.stringify(note.session))
+    // The battle's start, step by step, with the last step reached.
+    assert.ok(note.trail?.some((l) => /battle screen/.test(l)) && note.trail.some((l) => /battle set up/.test(l)), `the start's steps: ${JSON.stringify(note.trail)}`)
+    assert.ok(note.trail.some((l) => /image /.test(l)) && note.phase, `images as they arrive, and the last step: ${JSON.stringify(note.trail)}`)
+    // A second copy of the game opening while this one is mid-battle (another tab, the app open twice) finds the open
+    // note, but the first copy answers that it's still running: no crash report.
+    await page.evaluate(() => { const f = document.createElement('iframe'); f.id = 'game2'; f.src = '/rpg/index.html?app=1&u=u1'; document.body.appendChild(f) })
+    const frame2 = await (await page.waitForSelector('#game2')).contentFrame()
+    await frame2.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(8500)
+    assert.equal((await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'crash').length, 0, 'a copy still running is no crash')
     // Leaving the page normally (pagehide) closes it: nothing to report.
     await page.evaluate(() => document.body.replaceChildren()); await page.waitForTimeout(300)
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('vvm-crumbs:u1'))))?.open, false, 'leaving normally closes the note')
@@ -871,6 +881,8 @@ test('in the app: a game that dies mid-battle reports where it was on the next s
     await page.evaluate((n) => { localStorage.setItem('vvm-crumbs:u1', JSON.stringify({ ...n, at: Date.now() - 20000 })); window.__open() }, note)
     frame = await (await page.waitForSelector('#game')).contentFrame()
     await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    // It first checks nothing still running wrote the note (up to 7 s), then reports.
+    await page.waitForFunction(() => window.__calls.some((c) => c[0] === 'crash'), null, { timeout: 12000 })
     await page.waitForTimeout(500)
     const calls = (await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'crash')
     assert.equal(calls.length, 1, 'reported once')
