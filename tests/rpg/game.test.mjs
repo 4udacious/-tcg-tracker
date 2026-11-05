@@ -1298,6 +1298,28 @@ test('stat boosts: your stat moves never double, may fail short of PERFECT, top 
   } finally { await g.close() }
 })
 
+test('Eevee learns Fairy Wind at Lv 25; with it equipped and a full Bond it becomes Sylveon, without it Espeon or Umbreon', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const lv = Object.fromEntries(levelMoves(speciesByName('EEVEE')).map(([l, n]) => [n, l]))
+      const mk = (equip) => {
+        const m = { ...structuredClone(speciesByName('EEVEE')), level: 30, bond: BOND_FULL, hp: 100 }
+        learn(m); if (!m.learned.includes('FAIRY WIND')) m.learned.push('FAIRY WIND')
+        m.moves = equip ? [m.moves[0], 'FAIRY WIND', ...m.moves.slice(1, 3)] : m.moves.filter((n) => n !== 'FAIRY WIND')
+        return evoDue(m)?.to ?? null
+      }
+      return { at: lv['FAIRY WIND'], equipped: mk(true), learnedOnly: mk(false), text: evoText({ ...speciesByName('EEVEE'), level: 5 }) }
+    })
+    assert.equal(r.at, 25, 'Eevee learns Fairy Wind at Lv 25')
+    assert.equal(r.equipped, 'SYLVEON', 'equipped and a full Bond: Sylveon')
+    assert.ok(['ESPEON', 'UMBREON'].includes(r.learnedOnly), `learned but not equipped: Espeon or Umbreon by the time of day (${r.learnedOnly})`)
+    assert.match(r.text, /Sylveon at full Bond, with a Fairy move equipped/i)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
   const g = await openGame()
   try {

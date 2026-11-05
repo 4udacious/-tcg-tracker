@@ -2819,7 +2819,7 @@ const SPECIES_MOVES = {
   PSYDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']], GOLDUCK: [[18, 'DISABLE'], [28, 'AMNESIA']],
   SABLEYE: [[15, 'MEAN LOOK'], [30, 'KNOCK OFF']], MISDREAVUS: [[14, 'CONFUSE RAY'], [40, 'PERISH SONG']],
   MURKROW: [[11, 'TAUNT'], [25, 'FEATHER DANCE']], SCYTHER: [[12, 'FURY CUTTER'], [24, 'SWORDS DANCE']],
-  EEVEE: [[20, 'BATON PASS']], TANGELA: [[33, 'ANCIENT POWER']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
+  EEVEE: [[20, 'BATON PASS'], [25, 'FAIRY WIND']], TANGELA: [[33, 'ANCIENT POWER']], PORYGON: [[1, 'CONVERSION']], ABRA: [[1, 'TELEPORT']], KADABRA: [[1, 'TELEPORT']], ALAKAZAM: [[1, 'TELEPORT']], GHOLDENGO: [[30, 'NASTY PLOT']],
 }
 Object.assign(DISC_RULES, { 'KNOCK OFF': { types: ['dark', 'fighting', 'ghost'] }, CURSE: { types: ['ghost'] }, REST: { all: true }, 'MEAN LOOK': { types: ['ghost', 'dark'] } })
 DISC_POOL.push('REST', 'KNOCK OFF')
@@ -2972,8 +2972,8 @@ SONGS.evolved = { file: null, loop: false, bpm: 140, div: 2, chordLen: 8, vol: 0
  *   item  — use an evolution stone (or the LINKING CORD, for trade evolutions)
  *           on it from the Bag. Seadra also needs a DRAGON SCALE in the Bag.
  *   bond  — its Bond is full at a level-up. Eevee's form then follows the time
- *           of day (Espeon by day, Umbreon at night), or Sylveon if it knows a
- *           Fairy move.
+ *           of day (Espeon by day, Umbreon at night), or Sylveon if it has a
+ *           Fairy move equipped (Eevee learns Fairy Wind at Lv 25).
  *   move  — it levels up knowing that move (learned by level, or a Move Disc).
  * Stopped (B) on a level-up, it tries again 5 levels later; stopped with an
  * item, the item isn't used.
@@ -3005,7 +3005,7 @@ const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE'
 /** "a THUNDER STONE", "an ICE STONE". */
 const aOrAn = (w) => `${/^[AEIOU]/i.test(w) ? 'an' : 'a'} ${w}`
 const howText = (r) => (r.item ? `with ${aOrAn(EVO_ITEM_NAME[r.item])}${r.needs ? ` (and ${aOrAn(EVO_ITEM_NAME[r.needs])})` : ''}`
-  : r.bond ? `at full Bond${r.fairy ? ', knowing a Fairy move' : r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
+  : r.bond ? `at full Bond${r.fairy ? ', with a Fairy move equipped' : r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
   : `levelling up knowing ${r.move}`)
 
 /* Bond: 0-100, per Pokémon. It grows from battles it fights in (+10), sitting
@@ -3013,7 +3013,9 @@ const howText = (r) => (r.item ? `with ${aOrAn(EVO_ITEM_NAME[r.item])}${r.needs 
    faint costs 10. */
 const BOND_FULL = 100
 const addBond = (m, n) => { if (m) m.bond = Math.max(0, Math.min(BOND_FULL, (m.bond ?? 0) + n)) }
-const knowsFairy = (m) => learn(m).learned.some((n) => (SUPPORT[n] ?? MOVEDEX[n])?.type === 'fairy')
+// Sylveon wants a Fairy move equipped (one of its four), as in the games: every Eevee learns Fairy Wind at Lv 25, so
+// learning it alone would turn every full-Bond Eevee into Sylveon. Leave it unequipped for Espeon or Umbreon.
+const knowsFairy = (m) => movesOf(m).some((n) => (SUPPORT[n] ?? MOVEDEX[n])?.type === 'fairy')
 function bondReady(m, r) {
   if ((m.bond ?? 0) < BOND_FULL) return false
   if (r.fairy) return knowsFairy(m)
