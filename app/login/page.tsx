@@ -39,14 +39,14 @@ export default async function LoginPage({
         <div className="space-y-2">
           <Image
             src="/logo.png"
-            alt="TCG Tracker logo"
+            alt="WAPC Tracker logo"
             width={112}
             height={112}
             priority
             className="mx-auto mb-2 w-24 h-24 rounded-full"
           />
           <h1 className="font-display text-3xl font-bold text-white tracking-tight">
-            TCG Tracker
+            WAPC Tracker
           </h1>
           <p className="text-sm text-white/50 font-mono">
             community restock intel

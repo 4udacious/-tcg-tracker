@@ -35,7 +35,7 @@ const loadList = cache(async (token: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const list = await loadList((await params).token)
   return {
-    title: list ? `${list.name}'s interest check · TCG Tracker` : 'Interest check · TCG Tracker',
+    title: list ? `${list.name}'s interest check · WAPC Tracker` : 'Interest check · WAPC Tracker',
     description: list
       ? `${list.items.length} sealed product${list.items.length === 1 ? '' : 's'} ${list.name} is looking for.`
       : undefined,
@@ -73,7 +73,7 @@ export default async function SharedInterestPage({ params }: Props) {
   return (
     <main className="max-w-xl mx-auto px-4 py-8 space-y-6">
       <header className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-muted">TCG Tracker · Interest check</p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted">WAPC Tracker · Interest check</p>
         <h1 className="font-display text-2xl font-bold">{list.name} is looking for</h1>
         <p className="text-sm text-muted">
           {list.items.length === 0
@@ -111,7 +111,7 @@ export default async function SharedInterestPage({ params }: Props) {
 
       <footer className="pt-4 border-t border-card-border">
         <p className="text-xs text-muted">
-          Shared from TCG Tracker. This list updates as {list.name} changes it.
+          Shared from WAPC Tracker. This list updates as {list.name} changes it.
         </p>
       </footer>
     </main>

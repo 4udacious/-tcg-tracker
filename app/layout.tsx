@@ -22,10 +22,10 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'TCG Tracker',
+  title: 'WAPC Tracker',
   description: 'Community restock tracker for Pokémon TCG hunters',
   // Added to an iPhone's home screen, it opens on its own (no Safari bars), named and iconned (app/apple-icon.png).
-  appleWebApp: { capable: true, title: 'TCG Tracker', statusBarStyle: 'black' },
+  appleWebApp: { capable: true, title: 'WAPC Tracker', statusBarStyle: 'black' },
 }
 
 // The browser and home-screen app's bar colour: the header's.
