@@ -163,9 +163,12 @@ const Sound = (() => {
   async function playFile(name, song, g, f) {
     const tok = ++fileTok
     try {
+      window.__crumb?.(`fetching song ${name}`)
       const bytes = await (await fetch(`/rpg/a/music/${f.file}`)).arrayBuffer()
+      window.__crumb?.(`decoding song ${name} (${Math.round(f.samples / f.rate)} s)`)
       const buf = await ac.decodeAudioData(bytes)
       decodes++
+      window.__crumb?.(`playing song ${name}`)
       if (tok !== fileTok || g.__stopped) return
       playingSecs = Math.round(buf.duration)
       // A decoder that keeps AAC's priming (1024 samples, then up to a frame of padding at the end) puts everything that much
@@ -4217,10 +4220,30 @@ const CRUMBS = (() => {
     /** A line shown on screen. */
     line(t) { if (!c?.open) return; c.lines.push(String(t).slice(0, 70)); if (c.lines.length > 12) c.lines.shift(); write() },
     error(t) { if (!on) return; if (!c) api.begin(); c.errors.push(String(t).slice(0, 200)); if (c.errors.length > 3) c.errors.shift(); write(true) },
+    /** A step of the battle's start (screen up, VS splash, a song fetched and decoded, Pokémon out), with seconds since it began. Written at once, so a page that dies mid-step leaves it as the last one. */
+    phase(t) { if (!c?.open) return; (c.trail ??= []).push(`${((Date.now() - c.started) / 1000).toFixed(1)}s ${t}`); if (c.trail.length > 12) c.trail.shift(); c.phase = t; write(true) },
     /** Back at the machine, or the page left normally: no crash. */
     end() { if (!on || !c?.open) return; c.open = false; write(true); c = null },
     /** Once the app's bridge is up: send the last session's note if it died mid-battle (read at start, before anything new is written). */
-    sendCrash() { const n = crashed; crashed = null; if (n) Promise.resolve(vvm()?.reportCrash?.(n, deviceOf())).catch(() => {}) },
+    sendCrash() {
+      const n = crashed; crashed = null; if (!n) return
+      // Not a crash if the game that wrote the note is still running (another tab, or a copy of the app left in the
+      // background): it answers on the channel, or its heartbeat writes the note again. Otherwise it died: report it.
+      stillRunning(n).then((alive) => { if (!alive) return vvm()?.reportCrash?.(n, deviceOf()) }).catch(() => {})
+    },
+  }
+  // Every copy of the game open on this device and account hears the others on this channel.
+  let bc = null; try { if (on) bc = new BroadcastChannel(key) } catch {}
+  bc?.addEventListener('message', (e) => { if (e.data?.q === 'alive?' && c?.open && c.started === e.data.started) bc.postMessage({ a: e.data.started }) })
+  function stillRunning(n) {
+    return new Promise((res) => {
+      let done = false, iv = 0, to = 0
+      const finish = (v) => { if (done) return; done = true; clearInterval(iv); clearTimeout(to); bc?.removeEventListener('message', onMsg); res(v) }
+      const onMsg = (e) => { if (e.data?.a === n.started) finish(true) }
+      bc?.addEventListener('message', onMsg); bc?.postMessage({ q: 'alive?', started: n.started })
+      iv = setInterval(() => { try { const x = JSON.parse(localStorage.getItem(key) || 'null'); if (x?.started === n.started && x.at > n.at) finish(true) } catch {} }, 1000)
+      to = setTimeout(() => finish(false), 7000)
+    })
   }
   const deviceOf = () => ({ ua: navigator.userAgent, screen: `${screen.width}x${screen.height}@${devicePixelRatio}`, mem: navigator.deviceMemory ?? null, cores: navigator.hardwareConcurrency ?? null })
   let crashed = null
@@ -4237,6 +4260,12 @@ const CRUMBS = (() => {
   }
   return api
 })()
+window.__crumb = (t) => CRUMBS.phase(t)   // for code defined before CRUMBS (the sound engine)
+// Each battle image (VS art, sprites) as it arrives or fails, for the crash note's trail. Load events don't bubble: caught on the way down.
+for (const ev of ['load', 'error']) document.addEventListener(ev, (e) => {
+  const el = e.target
+  if (el?.tagName === 'IMG' && el.closest?.('#battleL, #vs')) CRUMBS.phase(`${ev === 'load' ? 'image' : 'image FAILED'} ${el.id || el.parentElement?.id || el.className || 'img'}`)
+}, true)
 /** A short vibration, in the app, if the player hasn't turned it off. */
 const buzz = (p) => { if (APP.haptics) try { navigator.vibrate?.(p) } catch {} }
 /** The sound engine calls this when it builds its mixer: the app's volume settings go on the two buses. */
@@ -4874,7 +4903,7 @@ async function run(id) {
   /* ── layers and wipes ── */
   function showLayer(which) {
     $('home').style.display = which === 'home' ? 'block' : 'none'; $('battleL').style.display = which === 'battle' ? 'block' : 'none'
-    if (MODE === 'play') { if (which === 'battle') CRUMBS.begin(); else if (which === 'home') CRUMBS.end() }   // crash notes: a battle on screen, or back
+    if (MODE === 'play') { if (which === 'battle') { CRUMBS.begin(); CRUMBS.phase('battle screen') } else if (which === 'home') CRUMBS.end() }   // crash notes: a battle on screen, or back
     // Back at the machine: let go of the battle's images, so the browser can drop their decoded frames (an animated
     // sprite is kept decoded, every frame, while it's loaded, up to ~9 MB; hidden isn't enough). The next battle sets them again.
     if (which === 'home') for (const img of document.querySelectorAll('#enemy img, #player img, #trainer img, #vsImg')) img.removeAttribute('src')
@@ -6427,7 +6456,7 @@ async function run(id) {
    * next (in a solo double, any of theirs).
    */
   async function duoBattle(o) {
-    CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
+    CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     try { return await duoBattleCore(o) } finally { restoreForms() }
   }
   async function duoBattleCore({ foes, bench: foeBench = [], trainers, allies = [], tips = null, plan }) {
@@ -8490,6 +8519,7 @@ async function run(id) {
   }
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
+    CRUMBS.phase('battle set up')
     try { return await battleCore(o) } finally { restoreForms() }
   }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
