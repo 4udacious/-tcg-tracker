@@ -199,6 +199,20 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 /* Tracking moves (Psychic, Ice Beam…): hold A while the dot is inside the bright arc. */
 .track { position: absolute; width: 112px; height: 112px; border-radius: 50%; z-index: 4; pointer-events: none; }
 .track .arc { position: absolute; inset: 0; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 46px, #000 47px); mask: radial-gradient(circle, transparent 46px, #000 47px); }
+/* Phantom Force: a shadow that flickers in at the target (a faint false one, sometimes, first). */
+.vanish { position: absolute; width: 68px; height: 84px; border-radius: 50%; z-index: 6; pointer-events: none; opacity: 0; transition: opacity .05s;
+  background: radial-gradient(ellipse at 50% 58%, rgb(46 16 101 / .95) 0 34%, rgb(76 29 149 / .55) 52%, transparent 72%); }
+.vanish::before, .vanish::after { content: ''; position: absolute; top: 34px; width: 9px; height: 5px; border-radius: 50%; background: #f0abfc; box-shadow: 0 0 6px #e879f9; }
+.vanish::before { left: 22px; } .vanish::after { right: 22px; }
+.vanish.fake { opacity: .3; transform: scale(.75); } .vanish.show { opacity: 1; animation: vanishIn .14s steps(2) 2; }
+@keyframes vanishIn { 50% { opacity: .2; transform: translateX(-3px); } }
+/* Stone Edge: three stones rise and fall; press the glowing one's arrow. */
+#pPad.pick .pd { visibility: hidden; }   /* Stone Edge only uses ◀ ▲ ▶ */
+.stone { position: absolute; width: 30px; height: 36px; z-index: 6; pointer-events: none; display: grid; place-items: end center; padding-bottom: 3px;
+  clip-path: polygon(50% 0, 100% 34%, 86% 100%, 14% 100%, 0 34%); background: linear-gradient(#a8a29e, #57534e); }
+.stone b { font-size: 11px; color: rgb(255 255 255 / .7); }
+.stone.glow { background: linear-gradient(#fef08a, #f59e0b); filter: drop-shadow(0 0 7px #fde047); }
+.stone.glow b { color: #78350f; } .stone.hit { background: linear-gradient(#bbf7d0, #16a34a); } .stone.wrong { background: linear-gradient(#fecaca, #dc2626); }
 .track .dot { position: absolute; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
 .track.on .dot { background: #fde047; box-shadow: 0 0 12px #fde047; }
 /* Rhythm moves (Sing): the beats, lit as you hit them. */
@@ -1227,6 +1241,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=6d25a3e864"></script>
+<script src="/rpg/game.js?v=dddf2bbf3f"></script>
 </body>
 </html>
