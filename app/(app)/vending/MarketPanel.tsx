@@ -94,7 +94,7 @@ function noMinimum(l: MarketListing): boolean {
 }
 
 export default function MarketPanel({
-  listings, myListings, collection, packs, boxes, balance, feePercent, userId, onNoticesRead,
+  listings, myListings, collection, packs, boxes, balance, feePercent, userId, onNoticesRead, unread = 0,
 }: {
   listings: MarketListing[]
   myListings: MarketListing[]
@@ -105,10 +105,13 @@ export default function MarketPanel({
   feePercent: number
   userId: string
   onNoticesRead?: () => void
+  /** Your unread market mail, for the Activity tab's badge (cleared when you open it). */
+  unread?: number
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [tab, setTab] = useState<'browse' | 'stand'>('browse')
+  const [tab, setTab] = useState<'browse' | 'stand' | 'activity'>('browse')
+  const [unreadLeft, setUnreadLeft] = useState(unread)
   const [open, setOpen] = useState<MarketListing | null>(null)
   const [composing, setComposing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -185,7 +188,7 @@ export default function MarketPanel({
       </div>
 
       <div className="flex gap-1.5">
-        {([['browse', 'Browse'], ['stand', 'My stand']] as const).map(([k, label]) => (
+        {([['browse', 'Browse'], ['stand', 'My stand'], ['activity', 'Activity']] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -200,15 +203,24 @@ export default function MarketPanel({
                 {' '}· {myListings.filter((l) => l.status === 'active').length}
               </span>
             )}
+            {k === 'activity' && unreadLeft > 0 && (
+              <span className="ml-1.5 rounded-full bg-signal text-white text-[10px] font-bold px-1.5 py-px">{unreadLeft}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Your own market mail sits above both tabs: a sale is worth seeing
-          whether you came here to browse or to manage your stand. */}
-      <MarketNotices onRead={onNoticesRead} />
-
-      {tab === 'browse' ? (
+      {tab === 'activity' ? (
+        /* Activity: your own market mail (sales, purchases, outbids), read when you open it, then what the
+           whole market has been up to. Kept off Browse so the listings come first. */
+        <div className="space-y-4">
+          <section className="space-y-1.5">
+            <h3 className="font-display font-semibold text-sm">Your activity</h3>
+            <MarketNotices onRead={() => { setUnreadLeft(0); onNoticesRead?.(); router.refresh() }} empty="Nothing yet. Your sales, purchases and outbids show up here." />
+          </section>
+          <MarketFeed title="Around the market" />
+        </div>
+      ) : tab === 'browse' ? (
         board.length === 0 ? (
           <p className="text-sm text-muted">
             Nothing for sale right now. Open a stand and be the first.
@@ -248,8 +260,6 @@ export default function MarketPanel({
           )}
         </div>
       )}
-
-      <MarketFeed />
 
       {open && (
         <ListingDetail
