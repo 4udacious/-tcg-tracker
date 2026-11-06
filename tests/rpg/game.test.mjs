@@ -1320,22 +1320,25 @@ test('Eevee learns Fairy Wind at Lv 25; with it equipped and a full Bond it beco
   } finally { await g.close() }
 })
 
-test('coverage moves: water types learn Ice Beam, special attackers like Alakazam learn Thunderbolt, never a move of their own type', async () => {
+test('coverage moves from the main games: Mewtwo learns Thunderbolt and Ice Beam, Starmie Ice Beam, never a move of its own type', async () => {
   const g = await openGame()
   try {
     await g.page.waitForTimeout(800)
     const r = await g.page.evaluate(() => {
       const at = (n) => Object.fromEntries(levelMoves(speciesByName(n)).map(([lv, m]) => [m, lv]))
-      const own = [...DATA.starters, ...DATA.wild, ...DATA.trainer].every((s) => coverageMoves(s).every(([, n]) => !s.types.includes(moveInfo(n).type)))
-      const once = [...DATA.starters, ...DATA.wild, ...DATA.trainer].every((s) => { const l = levelMoves(s).map(([, n]) => n); return l.length === new Set(l).size })
+      const all = [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms]
+      const own = all.every((s) => coverageMoves(s).every(([, n]) => !s.types.includes(moveInfo(n).type)))
+      const atMost3 = all.every((s) => coverageMoves(s).length <= 3 && coverageMoves(s).filter(([, n]) => MOVEDEX[n].cost >= 3).length <= 1)
+      const once = all.every((s) => { const l = levelMoves(s).map(([, n]) => n); return l.length === new Set(l).size })
       const old = { ...structuredClone(speciesByName('STARMIE')), level: 50, learned: ['TACKLE', 'WATER GUN'] }; catchUpMoves(old)
-      return { gyarados: at('GYARADOS')['ICE BEAM'], alakazam: at('ALAKAZAM').THUNDERBOLT, machamp: at('MACHAMP')['ROCK SLIDE'], dragonite: at('DRAGONITE').FLAMETHROWER,
-        lapras: at('LAPRAS')['ICE BEAM'], own, once, caughtUp: ['ICE BEAM', 'SHADOW BALL', 'THUNDERBOLT'].every((n) => old.learned.includes(n)), disc: canLearnDisc(speciesByName('GYARADOS'), 'ICE BEAM') }
+      return { mewtwo: at('MEWTWO'), starmie: at('STARMIE'), gengar: at('GENGAR'), alakazam: at('ALAKAZAM'), own, atMost3, once,
+        caughtUp: coverageMoves(speciesByName('STARMIE')).every(([lv, n]) => lv > 50 || old.learned.includes(n)), disc: canLearnDisc(speciesByName('STARMIE'), 'ICE BEAM') }
     })
-    assert.equal(r.gyarados, 42, 'water: Ice Beam at 42'); assert.equal(r.alakazam, 45, 'a special attacker: Thunderbolt at 45')
-    assert.equal(r.machamp, 30); assert.equal(r.dragonite, 42); assert.equal(r.lapras, 38, 'Lapras (water/ice) learns Ice Beam as its own second-type move (38), not as coverage')
-    assert.ok(r.own, 'never a move of its own type'); assert.ok(r.once, 'no move listed twice')
-    assert.ok(r.caughtUp, 'an older save picks up the coverage moves it has passed'); assert.ok(r.disc, 'and the disc works for that type')
+    assert.equal(r.mewtwo.THUNDERBOLT, 35); assert.equal(r.mewtwo['ICE BEAM'], 42, 'Mewtwo, as in the games: Thunderbolt and Ice Beam')
+    assert.ok(r.starmie['ICE BEAM'] && r.starmie.THUNDERBOLT, 'Starmie: Ice Beam and Thunderbolt'); assert.ok(r.gengar.THUNDERBOLT, 'Gengar: Thunderbolt')
+    assert.ok(!r.alakazam.THUNDERBOLT && r.alakazam['SHADOW BALL'], 'Alakazam can\'t learn Thunderbolt in the games: Shadow Ball instead')
+    assert.ok(r.own, 'never a move of its own type'); assert.ok(r.atMost3, 'at most three, at most one 3-PP'); assert.ok(r.once, 'no move listed twice')
+    assert.ok(r.caughtUp, 'an older save picks up the coverage moves it has passed'); assert.ok(r.disc, 'and the disc works for that species')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
