@@ -117,3 +117,26 @@ test('a veteran: an everyday trainer, tougher, for three times the tokens and a 
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('Stone Edge and Phantom Force played: the glowing stone picked, the shadow tapped as it flickers in', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    for (const [move, sp] of [['STONE EDGE', 'TYRANITAR'], ['PHANTOM FORCE', 'GENGAR']]) {
+      await page.evaluate(([mv, s]) => {
+        MOVEDEX[mv].cost = 0
+        const m = individual(speciesByName(s), 60, Math.random); learnAtLevel(m)
+        m.moves = ['TACKLE', mv]; if (!m.learned.includes(mv)) m.learned.push(mv); Object.assign(m.stats, { hp: 3000 }); m.hp = 3000
+        window.__vvm.party.splice(0, 9, m); window.__forceWild = 'SNORLAX'
+      }, [move, sp])
+      bot.want = [move]
+      const from = g.log.length
+      assert.ok(await bot.encounter('wild'), 'a wild battle started')
+      const lines = g.log.slice(from)
+      assert.ok(lines.some((l) => l.includes(`used${move}`) || l.includes(`used ${move}`)), `${move} was used`)
+      assert.ok(lines.some((l) => new RegExp(`${move}!.*(PERFECT|GREAT|GOOD)`).test(l)), `${move} landed: ${lines.filter((l) => l.includes(move)).slice(0, 4).join(' | ')}`)
+    }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
