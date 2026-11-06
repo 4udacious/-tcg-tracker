@@ -8,6 +8,7 @@ import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
 import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
 import CrashReportsClient, { type CrashRow } from './CrashReportsClient'
+import MoveUsage, { type MoveRow } from './MoveUsage'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'game', label: 'Game settings' },
   { id: 'gifts', label: 'Gifts' },
   { id: 'crashes', label: 'Crash reports' },
+  { id: 'moves', label: 'Moves' },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
@@ -31,7 +33,7 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes, moves] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
@@ -62,6 +64,8 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
       .select('id, created_at, note, device, member:profiles!battle_crash_reports_user_id_fkey(username, display_name)')
       .order('created_at', { ascending: false })
       .limit(20),
+    // Move usage over the last 30 days (v99), only on the Moves tab; an error (before v99) hides it.
+    tab === 'moves' ? supabase.rpc('move_usage_summary', { p_days: 30 }) : Promise.resolve({ data: null, error: null }),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -148,6 +152,9 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
         />
       )}
       {tab === 'crashes' && !crashes.error && <CrashReportsClient reports={crashRows} />}
+      {tab === 'moves' && (moves.error
+        ? <p className="text-xs text-muted">Move usage isn&apos;t set up yet (v99).</p>
+        : <MoveUsage rows={(moves.data as MoveRow[] | null) ?? []} />)}
     </div>
   )
 }
