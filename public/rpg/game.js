@@ -6544,7 +6544,7 @@ async function run(id) {
       const at = DUO_AT[side][i]
       const el = mk(`mon duo ${side}${i}`, '<img alt="">')
       el.style.opacity = '0'   // hidden while its image loads; it used to show, then pop in again
-      const r = await place(el, spr(mon, side === 'p'), at.x, at.y, at.scale, at.maxH, at.maxW)
+      const r = await place(el, spr(mon, side === 'p'), at.x, at.y, at.scale, at.maxH, at.maxW, true)
       st.delete(mon); mon.toxN = 0   // a fresh start: no stages, confusion or seed, and bad poison counts from 1 again
       if (side === 'e') faced.set(mon, new Set(alive('p').filter((x) => !x.ally).map((x) => x.mon)))
       else if (!owner?.ally) for (const f of alive('e')) faced.get(f.mon)?.add(mon)
@@ -8435,13 +8435,15 @@ async function run(id) {
   }
 
   /* ── sprites, HUD ── */
-  function place(el, src, cx, by, scale, maxH = Infinity, maxW = Infinity) {
+  function place(el, src, cx, by, scale, maxH = Infinity, maxW = Infinity, flat = false) {
     return new Promise((res) => {
       const img = el.querySelector('img'); let done = false
       const fin = () => {
         if (done) return; done = true
-        // Tall or wide species shrink to fit, so none of them clip.
-        const k = Math.min(scale, maxH / img.naturalHeight, maxW / img.naturalWidth)
+        // Tall or wide species shrink to fit, so none of them clip. With `flat` (2v2), a very flat sprite (Tropius,
+        // twice as wide as tall) gets up to 30% more width, or it would come out a thin strip next to the others.
+        const aspect = img.naturalWidth / img.naturalHeight, wCap = maxW * (flat ? Math.min(1.3, Math.max(1, aspect / 1.7)) : 1)
+        const k = Math.min(scale, maxH / img.naturalHeight, wCap / img.naturalWidth)
         const w = img.naturalWidth * k, h = img.naturalHeight * k
         const left = Math.max(2, Math.min(320 - 2 - w, cx - w / 2))   // never off either side of the 320-px screen
         el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.left = left + 'px'; el.style.top = (by - h) + 'px'
