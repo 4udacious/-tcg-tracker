@@ -7361,8 +7361,10 @@ async function run(id) {
           if (yours.length) await say(`${yours.map((x) => x.mon.name).join(' and ')}'s boosts`, 'wore down a little.', 200)
         }
         if (side === 'e') {
-          // Next one up from the same scalper (in a solo double, whichever is next).
-          const j = foeBench.findIndex((b) => trainers.length === 1 || b.owner === s.owner)
+          // Next one up from the same scalper (in a solo double, whichever is next). A tag-team trainer who's out
+          // leaves the slot to their partner, who sends in another of theirs: it stays 2-on-2 while they have any.
+          let j = foeBench.findIndex((b) => trainers.length === 1 || b.owner === s.owner)
+          if (j < 0 && foeBench.length) { j = 0; await say(`${s.owner?.short ?? 'The foe'} is out of Pokémon!`, `${foeBench[0].owner.short} sends in another!`, 200) }
           if (j >= 0) { const nx = foeBench.splice(j, 1)[0]; await say(...sentOut(nx.owner, nx.mon), 120); s.el.remove(); s.hud.remove(); await enter('e', s.i, nx.mon, nx.owner) }
         }
         if (side === 'p' && !s.ally) {
