@@ -1320,6 +1320,21 @@ test('Eevee learns Fairy Wind at Lv 25; with it equipped and a full Bond it beco
   } finally { await g.close() }
 })
 
+test('mini-game inputs: streams are tracked, blasts charged, combos swiped, Dig and Waterfall mashed; Phantom Force vanishes, Stone Edge picks', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => Object.fromEntries(['FLAMETHROWER', 'THUNDERBOLT', 'BUG BUZZ', 'DRAGON PULSE', 'DARK PULSE', 'SHADOW BALL', 'ENERGY BALL', 'MOONBLAST', 'EARTH POWER',
+      'PLAY ROUGH', 'DYNAMIC PUNCH', 'POISON JAB', 'AIR SLASH', 'MEGAHORN', 'DIG', 'WATERFALL', 'PHANTOM FORCE', 'STONE EDGE', 'BODY SLAM', 'CRUNCH'].map((n) => [n, MOVEDEX[n].input ?? 'ring'])))
+    for (const n of ['FLAMETHROWER', 'THUNDERBOLT', 'BUG BUZZ', 'DRAGON PULSE', 'DARK PULSE']) assert.equal(r[n], 'track', n)
+    for (const n of ['SHADOW BALL', 'ENERGY BALL', 'MOONBLAST', 'EARTH POWER']) assert.equal(r[n], 'charge', n)
+    for (const n of ['PLAY ROUGH', 'DYNAMIC PUNCH', 'POISON JAB', 'AIR SLASH', 'MEGAHORN']) assert.equal(r[n], 'swipe', n)
+    assert.equal(r.DIG, 'mash'); assert.equal(r.WATERFALL, 'mash'); assert.equal(r['PHANTOM FORCE'], 'vanish'); assert.equal(r['STONE EDGE'], 'pick')
+    assert.equal(r['BODY SLAM'], 'ring'); assert.equal(r.CRUNCH, 'ring', 'simpler 2-PP moves keep the plain ring')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
   const g = await openGame()
   try {
