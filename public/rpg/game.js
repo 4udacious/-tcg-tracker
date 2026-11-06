@@ -6472,8 +6472,10 @@ async function run(id) {
    * Pokémon each - the shapes below (slots, bench, side state) leave room.
    */
   const DUO_AT = {
-    e: [{ x: 194, y: 118, maxH: 92, maxW: 104, scale: 1.3 }, { x: 266, y: 108, maxH: 84, maxW: 94, scale: 1.2 }],
-    p: [{ x: 58, y: 206, maxH: 118, maxW: 118, scale: 1.7 }, { x: 146, y: 200, maxH: 110, maxW: 108, scale: 1.6 }],
+    // Widths are generous: a wide sprite (Exeggutor's leaves, Charizard's wings) is sized by its height like the
+    // rest and may overlap its partner a little, rather than shrinking to fit a narrow slot. place() keeps it on screen.
+    e: [{ x: 194, y: 118, maxH: 92, maxW: 150, scale: 1.3 }, { x: 266, y: 108, maxH: 84, maxW: 140, scale: 1.2 }],
+    p: [{ x: 58, y: 206, maxH: 118, maxW: 170, scale: 1.7 }, { x: 146, y: 200, maxH: 110, maxW: 160, scale: 1.6 }],
   }
   const stageMult = (s) => (s >= 0 ? (2 + s) / 2 : 2 / (2 - s))
 
@@ -8441,8 +8443,9 @@ async function run(id) {
         // Tall or wide species shrink to fit, so none of them clip.
         const k = Math.min(scale, maxH / img.naturalHeight, maxW / img.naturalWidth)
         const w = img.naturalWidth * k, h = img.naturalHeight * k
-        el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.left = (cx - w / 2) + 'px'; el.style.top = (by - h) + 'px'
-        res({ x: cx, y: by - h / 2 })
+        const left = Math.max(2, Math.min(320 - 2 - w, cx - w / 2))   // never off either side of the 320-px screen
+        el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.left = left + 'px'; el.style.top = (by - h) + 'px'
+        res({ x: left + w / 2, y: by - h / 2 })
       }
       img.onload = fin; img.src = src
       if (img.complete && img.naturalWidth) fin()
