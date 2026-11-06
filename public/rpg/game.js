@@ -3161,6 +3161,45 @@ Object.assign(DISC_RULES, {
   'FAIRY WIND':    { types: ['fairy', 'flying'], species: ['EEVEE'] },
 })
 DISC_POOL.push('DOUBLE HIT', 'ROLLOUT', 'ANCIENT POWER', 'FAIRY WIND')
+/*
+ * Coverage: moves of a neighbouring type, learned by level, as in the games (water types learn Ice Beam,
+ * Alakazam Thunderbolt). Two kinds:
+ *  · by type (either of its types): water → Ice Beam at 42, fighting → Rock Slide at 30, psychic → Shadow Ball
+ *    at 40 and so on (COVERAGE_BY_TYPE);
+ *  · special attackers (base SP.A 95 or more, and at least its ATTACK; about 60 species) learn a special
+ *    move at 45 by their first type: Thunderbolt for psychic, ghost, normal, water, fairy, ice and dragon
+ *    types, and others elsewhere (SPECIAL_COVERAGE).
+ * Never a move of its own type (those it learns anyway), and never twice. They go into Learned like any
+ * level-up move (an older save picks up the ones it has passed), and their discs work for those types too.
+ * Players' Pokémon only: foes fight with their own move sets.
+ */
+const COVERAGE_BY_TYPE = {
+  water: [42, 'ICE BEAM'], ice: [32, 'WATER PULSE'], ground: [30, 'ROCK SLIDE'], rock: [34, 'DIG'], fighting: [30, 'ROCK SLIDE'],
+  steel: [30, 'ROCK SLIDE'], dragon: [42, 'FLAMETHROWER'], psychic: [40, 'SHADOW BALL'], ghost: [42, 'DARK PULSE'], dark: [40, 'SHADOW BALL'],
+  poison: [38, 'CRUNCH'], fairy: [40, 'PSYCHIC'], grass: [40, 'SLUDGE BOMB'], bug: [30, 'POISON JAB'], fire: [46, 'SOLAR BEAM'],
+}
+const SPECIAL_COVERAGE = {
+  psychic: 'THUNDERBOLT', ghost: 'THUNDERBOLT', normal: 'THUNDERBOLT', water: 'THUNDERBOLT', fairy: 'THUNDERBOLT', ice: 'THUNDERBOLT',
+  dragon: 'THUNDERBOLT', fire: 'EARTH POWER', grass: 'EARTH POWER', rock: 'EARTH POWER', electric: 'ENERGY BALL', bug: 'ENERGY BALL',
+  dark: 'FLAMETHROWER', ground: 'FLAMETHROWER', poison: 'SHADOW BALL', fighting: 'DARK PULSE', steel: 'THUNDERBOLT', flying: 'THUNDERBOLT',
+}
+const SPECIAL_COVERAGE_AT = 45
+const isSpecialAttacker = (m) => (m.base?.['special-attack'] ?? 0) >= 95 && (m.base['special-attack'] ?? 0) >= (m.base.attack ?? 0)
+function coverageMoves(m) {
+  const own = new Set(m.types), out = [], got = new Set()
+  const add = (lv, n) => { if (n && !own.has(moveInfo(n).type) && !got.has(n)) { got.add(n); out.push([lv, n]) } }
+  for (const t of m.types) { const c = COVERAGE_BY_TYPE[t]; if (c) add(c[0], c[1]) }
+  if (isSpecialAttacker(m)) add(SPECIAL_COVERAGE_AT, SPECIAL_COVERAGE[m.types[0]])
+  return out
+}
+for (const [t, [, n]] of Object.entries(COVERAGE_BY_TYPE)) { const r = (DISC_RULES[n] ??= { types: [] }); r.types = [...new Set([...(r.types ?? []), t])] }
+{
+  const base = levelMoves
+  levelMoves = (m) => {
+    const l = base(m), have = new Set(l.map(([, n]) => n)), add = coverageMoves(m).filter(([, n]) => MOVEDEX[n] && !have.has(n) && (have.add(n), true))
+    return add.length ? [...l, ...add].sort((a, b) => a[0] - b[0]) : l
+  }
+}
 
 const TRAINER_MOVES = {
   GHOLDENGO: [

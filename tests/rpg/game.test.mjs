@@ -1320,6 +1320,26 @@ test('Eevee learns Fairy Wind at Lv 25; with it equipped and a full Bond it beco
   } finally { await g.close() }
 })
 
+test('coverage moves: water types learn Ice Beam, special attackers like Alakazam learn Thunderbolt, never a move of their own type', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const at = (n) => Object.fromEntries(levelMoves(speciesByName(n)).map(([lv, m]) => [m, lv]))
+      const own = [...DATA.starters, ...DATA.wild, ...DATA.trainer].every((s) => coverageMoves(s).every(([, n]) => !s.types.includes(moveInfo(n).type)))
+      const once = [...DATA.starters, ...DATA.wild, ...DATA.trainer].every((s) => { const l = levelMoves(s).map(([, n]) => n); return l.length === new Set(l).size })
+      const old = { ...structuredClone(speciesByName('STARMIE')), level: 50, learned: ['TACKLE', 'WATER GUN'] }; catchUpMoves(old)
+      return { gyarados: at('GYARADOS')['ICE BEAM'], alakazam: at('ALAKAZAM').THUNDERBOLT, machamp: at('MACHAMP')['ROCK SLIDE'], dragonite: at('DRAGONITE').FLAMETHROWER,
+        lapras: at('LAPRAS')['ICE BEAM'], own, once, caughtUp: ['ICE BEAM', 'SHADOW BALL', 'THUNDERBOLT'].every((n) => old.learned.includes(n)), disc: canLearnDisc(speciesByName('GYARADOS'), 'ICE BEAM') }
+    })
+    assert.equal(r.gyarados, 42, 'water: Ice Beam at 42'); assert.equal(r.alakazam, 45, 'a special attacker: Thunderbolt at 45')
+    assert.equal(r.machamp, 30); assert.equal(r.dragonite, 42); assert.equal(r.lapras, 38, 'Lapras (water/ice) learns Ice Beam as its own second-type move (38), not as coverage')
+    assert.ok(r.own, 'never a move of its own type'); assert.ok(r.once, 'no move listed twice')
+    assert.ok(r.caughtUp, 'an older save picks up the coverage moves it has passed'); assert.ok(r.disc, 'and the disc works for that type')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38), and a loaded save catches up on ones it has passed', async () => {
   const g = await openGame()
   try {
