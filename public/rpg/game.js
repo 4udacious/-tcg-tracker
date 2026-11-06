@@ -6475,7 +6475,7 @@ async function run(id) {
     // Widths are generous: a wide sprite (Exeggutor's leaves, Charizard's wings) is sized by its height like the
     // rest and may overlap its partner a little, rather than shrinking to fit a narrow slot. place() keeps it on screen.
     e: [{ x: 194, y: 118, maxH: 92, maxW: 150, scale: 1.3 }, { x: 266, y: 108, maxH: 84, maxW: 140, scale: 1.2 }],
-    p: [{ x: 58, y: 206, maxH: 118, maxW: 170, scale: 1.7 }, { x: 146, y: 200, maxH: 110, maxW: 160, scale: 1.6 }],
+    p: [{ x: 58, y: 206, maxH: 118, maxW: 140, scale: 1.7 }, { x: 146, y: 200, maxH: 110, maxW: 132, scale: 1.6 }],
   }
   const stageMult = (s) => (s >= 0 ? (2 + s) / 2 : 2 / (2 - s))
 
