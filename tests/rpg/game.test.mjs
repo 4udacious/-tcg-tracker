@@ -147,7 +147,7 @@ test('battle rules', async () => {
     assert.deepEqual(r.confParry, ['parry', 'miss', 'miss'], 'confused: the parry and dodge windows are narrower')
     assert.ok(r.sing.perfect > 0.75 && r.sing.perfect < 0.87, `Sing on PERFECT: ${r.sing.perfect}`); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)
     for (const [n, perfect, great, good, ok, miss] of r.statusOdds) {
-      assert.ok(perfect < 1 && perfect > 0.8, `${n} on PERFECT: ${perfect}`)
+      assert.ok(perfect < 1 && perfect > 0.7, `${n} on PERFECT: ${perfect}`)   // Hypnosis (55%) is the lowest, at about 74%
       assert.ok(perfect >= great && great >= good && good >= ok && ok > miss && miss === 0, `${n}: ${[perfect, great, good, ok, miss].join(' ')}`)
     }
     assert.ok(r.sorted, 'level schedule in level order')
@@ -1316,6 +1316,29 @@ test('Eevee learns Fairy Wind at Lv 25; with it equipped and a full Bond it beco
     assert.equal(r.equipped, 'SYLVEON', 'equipped and a full Bond: Sylveon')
     assert.ok(['ESPEON', 'UMBREON'].includes(r.learnedOnly), `learned but not equipped: Espeon or Umbreon by the time of day (${r.learnedOnly})`)
     assert.match(r.text, /Sylveon at full Bond, with a Fairy move equipped/i)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('move balance: drawback moves hit harder, Slack Off costs PP, Rest sleep can\'t be mashed off, Draining Kiss drains half, Poison Sting and Astonish 40, Hypnosis 55%; and usage is counted per move', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const p = (n) => MOVEDEX[n].power
+      const mon = { status: null, restful: true }; setStatus(mon, 'slp', () => 0)
+      MOVE_LOG.reset(); MOVE_LOG.use('KARATE CHOP'); MOVE_LOG.hit('KARATE CHOP', 'PERFECT'); MOVE_LOG.hit('KARATE CHOP', 'MISS'); MOVE_LOG.use('BULK UP'); MOVE_LOG.hit('BULK UP', 'GOOD')
+      const log = MOVE_LOG.peek(); MOVE_LOG.reset()
+      return { hb: p('HYPER BEAM'), ram: ['OUTRAGE', 'THRASH', 'PETAL DANCE', 'VOLT TACKLE'].map(p), plain: p('STONE EDGE'), slack: SUPPORT['SLACK OFF'].cost,
+        dk: MOVEDEX['DRAINING KISS'].drain, sting: p('POISON STING'), aston: p('ASTONISH'), hyp: SUPPORT.HYPNOSIS.chance, otherSleepClears: mon.restful === undefined, log }
+    })
+    assert.equal(r.hb, 120); assert.deepEqual(r.ram, [105, 105, 105, 105]); assert.equal(r.plain, 90, 'a plain 3-PP move stays 90')
+    assert.equal(r.slack, 1); assert.equal(r.dk, 0.5); assert.equal(r.sting, 40); assert.equal(r.aston, 40); assert.equal(r.hyp, 0.55)
+    assert.ok(r.otherSleepClears, 'sleep from anything but Rest can be mashed off again')
+    assert.deepEqual(r.log, { 'KARATE CHOP': { n: 1, h: 2, p: 1, x: 1 }, 'BULK UP': { n: 1, h: 1, p: 0, x: 0 } })
+    const src = await (await import('node:fs/promises')).readFile(new URL('../../public/rpg/game.js', import.meta.url), 'utf8')
+    assert.equal((src.match(/status === 'slp' && !(s\.mon|m)\.restful && !demo && \(await mashWake/g) ?? []).length, 2, 'Rest sleep skips the mash in 1v1 and 2v2')
+    assert.equal((src.match(/\.restful = true/g) ?? []).length, 2, 'Rest marks its sleep in 1v1 and 2v2')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

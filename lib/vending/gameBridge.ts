@@ -208,6 +208,10 @@ export function makeVvmApi(userId: string) {
     async reportCrash(note: Record<string, unknown>, device: Record<string, unknown>) {
       await db.rpc('battle_report_crash', { p_note: note, p_device: device })
     },
+    /** A battle's moves, for balancing (v99): per move, uses, hits, PERFECT hits and misses, and whether the battle was won. */
+    async recordMoves(kind: string, won: boolean, moves: { move: string; uses: number; hits: number; perfect: number; misses: number }[]) {
+      await db.rpc('battle_record_moves', { p_kind: kind, p_won: won, p_moves: moves })
+    },
     /**
      * A won rematch's tokens (v93): the server's amount for one of the rematch
      * tickets you've taken into the game, outside the daily cap. 'no_ticket'

@@ -2250,7 +2250,7 @@ const SUPPORT = {
   'HEAL PULSE':   { type: 'psychic', target: 'ally', effect: 'heal', amount: 0.5, prio: 0, cost: 1, sub: 'heal ally 50%' },
   TAILWIND:       { type: 'flying', target: 'side', effect: 'tailwind', prio: 0, cost: 1, sub: 'SPE ×2 · 4 turns' },
   RECOVER:        { type: 'normal', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 0, sub: 'heals self 50%' },
-  'SLACK OFF':    { type: 'normal', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 0, sub: 'heals self 50%' },
+  'SLACK OFF':    { type: 'normal', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 1, sub: 'heals self 50%' },   // 1 PP: free, it healed every turn
 }
 const SUPPORT_BY_TYPE = { water: 'LIFE DEW', psychic: 'HEAL PULSE', fairy: 'HEAL PULSE', fire: 'HOWL', fighting: 'HOWL', dark: 'HOWL', grass: 'GROWTH', flying: 'TAILWIND', dragon: 'TAILWIND' }
 /* What scalpers' Pokémon add in a 2v2: a way to patch themselves up. */
@@ -2323,11 +2323,11 @@ Object.assign(MOVEDEX, {
   'ROCK THROW':    { type: 'rock', power: 50, cat: 'phys', cost: 1, fx: 'rock', snd: 'thud' },
   'MUD-SLAP':      { type: 'ground', power: 30, cat: 'spec', cost: 1, fx: 'spray', snd: 'thud' },
   'DRAGON BREATH': { type: 'dragon', power: 45, cat: 'spec', cost: 1, fx: 'spray', snd: 'shadow' },
-  ASTONISH:        { type: 'ghost', power: 35, cat: 'phys', cost: 1, fx: 'dash', snd: 'shadow' },
+  ASTONISH:        { type: 'ghost', power: 40, cat: 'phys', cost: 1, fx: 'dash', snd: 'shadow' },
   BITE:            { type: 'dark', power: 45, cat: 'phys', cost: 1, fx: 'dash', snd: 'crunch' },
   'METAL CLAW':    { type: 'steel', power: 50, cat: 'phys', cost: 1, fx: 'slash', snd: 'crunch' },
   CONFUSION:       { type: 'psychic', power: 45, cat: 'spec', cost: 1, fx: 'spray', snd: 'shadow' },
-  'POISON STING':  { type: 'poison', power: 35, cat: 'phys', cost: 1, fx: 'needle', snd: 'whoosh' },
+  'POISON STING':  { type: 'poison', power: 40, cat: 'phys', cost: 1, fx: 'needle', snd: 'whoosh' },
   'BUG BITE':      { type: 'bug', power: 50, cat: 'phys', cost: 1, fx: 'dash', snd: 'crunch' },
   GUST:            { type: 'flying', power: 40, cat: 'spec', cost: 1, fx: 'spray', snd: 'whoosh' },
   'FAIRY WIND':    { type: 'fairy', power: 40, cat: 'spec', cost: 1, fx: 'spray', snd: 'whoosh' },
@@ -2619,7 +2619,7 @@ DISC_POOL.push('THUNDER WAVE', 'WILL-O-WISP', 'POISON POWDER')
 /* Sleep, bad poison, confusion, Leech Seed and Yawn. `chance`: how often it lands on a GOOD (see statusLands; never certain, MISS never). */
 Object.assign(SUPPORT, {
   SING:            { type: 'normal', target: 'foe', effect: 'status', status: 'slp', chance: 0.6, prio: 0, cost: 1, sub: 'puts the foe to sleep', solo: 'sleep' },
-  HYPNOSIS:        { type: 'psychic', target: 'foe', effect: 'status', status: 'slp', chance: 0.65, prio: 0, cost: 1, sub: 'puts the foe to sleep', solo: 'sleep' },
+  HYPNOSIS:        { type: 'psychic', target: 'foe', effect: 'status', status: 'slp', chance: 0.55, prio: 0, cost: 1, sub: 'puts the foe to sleep', solo: 'sleep' },
   'SLEEP POWDER':  { type: 'grass', target: 'foe', effect: 'status', status: 'slp', chance: 0.75, prio: 0, cost: 2, sub: 'puts the foe to sleep', solo: 'sleep' },
   YAWN:            { type: 'normal', target: 'foe', effect: 'yawn', chance: 0.8, prio: 0, cost: 1, sub: 'foe sleeps next turn', solo: 'sleep next turn' },
   TOXIC:           { type: 'poison', target: 'foe', effect: 'status', status: 'tox', chance: 0.75, prio: 0, cost: 1, sub: 'badly poisons the foe', solo: 'bad poison' },
@@ -2852,7 +2852,7 @@ function statusAtAction(m, r) {
 const STATUS_TEXT = { thaw: 'thawed out!', frozen: 'is frozen solid!', para: "is paralyzed! It can't move!", asleep: 'is fast asleep.', wake: 'woke up!' }
 const STATUS_GOT = { par: 'is paralyzed! It may be unable to move!', frz: 'was frozen solid!', brn: 'was burned!', psn: 'was poisoned!', tox: 'was badly poisoned!', slp: 'fell asleep!' }
 /** Put on a status: sleep also rolls how long (1-3 turns). */
-function setStatus(m, st, r) { m.status = st; if (st === 'slp') m.sleep = 1 + Math.floor(r() * 3); if (st === 'tox') m.toxN = 0 }
+function setStatus(m, st, r) { delete m.restful; m.status = st; if (st === 'slp') m.sleep = 1 + Math.floor(r() * 3); if (st === 'tox') m.toxN = 0 }
 /** End of turn: the HP a burn or poison takes (bad poison counts up each turn). */
 function statusTick(m) {
   if (m.hp <= 0) return 0
@@ -3100,7 +3100,7 @@ Object.assign(MOVEDEX, {
   'IRON HEAD':    { type: 'steel', power: 65, cat: 'phys', cost: 2, fx: 'dash', snd: 'crunch' },
   'FLASH CANNON': { type: 'steel', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'zap' },
   'IRON TAIL':    { type: 'steel', power: 90, cat: 'phys', cost: 3, fx: 'slash', snd: 'thud' },
-  'DRAINING KISS':{ type: 'fairy', power: 50, cat: 'spec', cost: 1, fx: 'spray', snd: 'whoosh', drain: 0.75 },
+  'DRAINING KISS':{ type: 'fairy', power: 50, cat: 'spec', cost: 1, fx: 'spray', snd: 'whoosh', drain: 0.5 },
   'PLAY ROUGH':   { type: 'fairy', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'whoosh' },
   MOONBLAST:      { type: 'fairy', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'whoosh' },
   HEADBUTT:       { type: 'normal', power: 60, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
@@ -3150,6 +3150,10 @@ Object.assign(MOVEDEX, {
   'SOLAR BEAM':  { type: 'grass', power: 90, cat: 'spec', cost: 3, fx: 'seed', snd: 'zap', input: 'charge' },
 })
 MOVEDEX.OUTRAGE.rampage = true; MOVEDEX['HYPER BEAM'].recharge = true
+// A big move's drawback buys power: Hyper Beam (charge, then a lost turn) 120; the rampages (locked in, then confused)
+// and Volt Tackle (⅓ recoil) 105; a plain 3-PP move stays 90. Yours only: leaders' moves carry their own power.
+MOVEDEX['HYPER BEAM'].power = 120
+for (const n of ['OUTRAGE', 'THRASH', 'PETAL DANCE', 'VOLT TACKLE']) MOVEDEX[n].power = 105
 Object.assign(MOVEDEX.ROLLOUT, { power: 90, hits: 1 })   // one mashed roll now, not three rings
 Object.assign(DISC_RULES, { THRASH: { types: ['normal', 'fighting', 'dragon'] }, 'PETAL DANCE': { types: ['grass', 'fairy'] }, 'SOLAR BEAM': { types: ['grass'] } })
 const EVO_MOVES = { AIPOM: [32, 'DOUBLE HIT'], LICKITUNG: [33, 'ROLLOUT'], PILOSWINE: [40, 'ANCIENT POWER'] }
@@ -4264,6 +4268,27 @@ const CRUMBS = (() => {
     addEventListener('unhandledrejection', (e) => api.error(`unhandled: ${e.reason?.message ?? e.reason}`))
   }
   return api
+})()
+/*
+ * Move usage, for balancing: during a battle, how often you use each of your moves, how many of its hits land PERFECT
+ * or MISS; at the end, one summary goes to the server with the battle's kind and whether you won (battle_record_moves,
+ * v99). Yours only, never a partner's or a foe's. App only.
+ */
+const MOVE_LOG = (() => {
+  let m = new Map()
+  const e = (n) => { let x = m.get(n); if (!x) m.set(n, (x = { n: 0, h: 0, p: 0, x: 0 })); return x }
+  return {
+    reset() { m = new Map() },
+    peek: () => Object.fromEntries(m),
+    use(n) { if (n) e(n).n++ },
+    hit(n, label) { if (!n) return; const x = e(n); x.h++; if (label === 'PERFECT') x.p++; else if (label === 'MISS') x.x++ },
+    send(kind, result) {
+      const moves = [...m].slice(0, 40).map(([move, v]) => ({ move, uses: v.n, hits: v.h, perfect: v.p, misses: v.x })); m = new Map()
+      if (!APP.on || !moves.length || MODE !== 'play') return
+      const won = ['won', 'fainted', 'caught'].includes(result)
+      Promise.resolve(vvm()?.recordMoves?.(kind, won, moves)).catch(() => {})
+    },
+  }
 })()
 window.__crumb = (t) => CRUMBS.phase(t)   // for code defined before CRUMBS (the sound engine)
 // Each battle image (VS art, sprites) as it arrives or fails, for the crash note's trail. Load events don't bubble: caught on the way down.
@@ -6462,7 +6487,8 @@ async function run(id) {
    */
   async function duoBattle(o) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
-    try { return await duoBattleCore(o) } finally { restoreForms() }
+    MOVE_LOG.reset(); let res = null
+    try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result) }
   }
   async function duoBattleCore({ foes, bench: foeBench = [], trainers, allies = [], tips = null, plan }) {
     // Tips: what a partner says the first time each thing happens (TUTORIAL_TIPS).
@@ -6588,7 +6614,7 @@ async function run(id) {
       const t = S(s.mon)
       if (t.recharge) { t.recharge = false; await say(`${s.mon.name} must`, 'recharge!', 400); return true }
       if (t.flinch) { t.flinch = false; await say(s.mon.name, "flinched and couldn't move!", 400); return true }
-      if (s.side === 'p' && !s.ally && s.mon.status === 'slp' && !demo && (await mashWake(s.c))) { s.mon.status = null; tags(s); await say(s.mon.name, 'woke up!', 300) }
+      if (s.side === 'p' && !s.ally && s.mon.status === 'slp' && !s.mon.restful && !demo && (await mashWake(s.c))) { s.mon.status = null; tags(s); await say(s.mon.name, 'woke up!', 300) }
       else {
         const r = statusAtAction(s.mon, rand)
         if (r) { tags(s); await say(s.mon.name, STATUS_TEXT[r], r === 'thaw' || r === 'wake' ? 250 : 450); if (r !== 'thaw' && r !== 'wake') return true }
@@ -6890,6 +6916,7 @@ async function run(id) {
       if (mv.recharge) S(actor.mon).recharge = true
       if (mv.rampage && actor.mon.hp > 0 && !results.some((r) => r?.crit) && !S(actor.mon).conf) { S(actor.mon).conf = 2 + Math.floor(rand() * 2); tags(actor); await say(actor.mon.name, 'became confused from fatigue!', 300) }
       const landed = results.filter(Boolean)
+      if (actor.side === 'p' && !actor.ally) { MOVE_LOG.use(mv.name); for (const r of results) MOVE_LOG.hit(mv.name, r?.label ?? 'MISS') }   // usage, for balancing
       // A 0-PP move that lands (any timing but MISS) builds PP: +1 per attack (yours, not a partner's).
       if (!actor.ally && !(mv.cost ?? 0) && landed.some((r) => r.label !== 'MISS')) { setDPP(dpp + 1, true); pop('+1 PP', 236, 136, 'blue small') }
       if (landed.some((r) => r.crit)) await say('A critical hit!')
@@ -7069,7 +7096,7 @@ async function run(id) {
         }
         case 'rest': {
           if (actor.mon.hp >= actor.mon.stats.hp) return false
-          sfx('heal'); healFx(actor); await hpTo(actor, actor.mon.stats.hp); actor.mon.status = 'slp'; actor.mon.sleep = 2; tags(actor)
+          sfx('heal'); healFx(actor); await hpTo(actor, actor.mon.stats.hp); actor.mon.status = 'slp'; actor.mon.sleep = 2; actor.mon.restful = true; tags(actor)
           await say(`${actor.mon.name} slept`, 'and became healthy!', 300); return true
         }
         case 'wish': {
@@ -7128,7 +7155,7 @@ async function run(id) {
       else if (mine) {
         panel('pStrike'); $('bStrike').innerHTML = 'ASSIST!<small style="font-size:12px;margin-top:6px">time it for a stronger effect</small><span class="key">A</span>'
         acc = mv.input === 'rhythm' && !demo ? byShare((await rhythmTap(T.c.x, T.c.y)) / 4) : await timedTap(act.planned ?? 'great', T.c.x, T.c.y, 'ASSIST')
-        panel(null); pop(acc.label, T.c.x - 20, T.c.y - 72, ACC_CLS[acc.label])
+        panel(null); pop(acc.label, T.c.x - 20, T.c.y - 72, ACC_CLS[acc.label]); MOVE_LOG.use(mv.name); MOVE_LOG.hit(mv.name, acc.label)
       }
       const strong = acc.crit, weak = acc.label === 'MISS'
       const who = mv.target === 'side' ? alive(actor.side) : [T]
@@ -8572,7 +8599,8 @@ async function run(id) {
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     CRUMBS.phase('battle set up')
-    try { return await battleCore(o) } finally { restoreForms() }
+    MOVE_LOG.reset(); let res = null
+    try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result) }
   }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
     let me = party.find((m) => m.hp > 0)
@@ -8610,7 +8638,7 @@ async function run(id) {
       const t = ST(m)
       if (t.recharge) { t.recharge = false; await say(`${who(m)} must`, 'recharge!', 400); return true }
       if (t.flinch) { t.flinch = false; await say(who(m), "flinched and couldn't move!", 400); return true }
-      if (m === me && m.status === 'slp' && !demo && (await mashWake(C.p))) { m.status = null; showTags(); await say(who(m), 'woke up!', 300) }
+      if (m === me && m.status === 'slp' && !m.restful && !demo && (await mashWake(C.p))) { m.status = null; showTags(); await say(who(m), 'woke up!', 300) }
       else {
         const r = statusAtAction(m, rand)
         if (r === 'thaw' || r === 'wake') { showTags(); await say(who(m), STATUS_TEXT[r], 300) }
@@ -8753,7 +8781,7 @@ async function run(id) {
         }
         case 'rest': {
           if (user.hp >= user.stats.hp) return false
-          sfx('heal'); await setHPOf(user, user.stats.hp); user.status = 'slp'; user.sleep = 2; showTags()
+          sfx('heal'); await setHPOf(user, user.stats.hp); user.status = 'slp'; user.sleep = 2; user.restful = true; showTags()
           await say(`${who(user)} slept`, 'and became healthy!', 400); return true
         }
         case 'wish': if (wish) return false; wish = { turns: 2, amt: Math.floor(user.stats.hp / 2), mine: user === me }; sfx('perfect'); await say(`${who(user)} made a wish!`, '', 300); return true
@@ -8962,6 +8990,7 @@ async function run(id) {
       const hits = mv.hits ?? 1, plan_ = [].concat(planned ?? []), t = ST(me)
       await announce(`${me.name} used`, `${name}!`, 160)
       if (!opts.free) setPP(pp - mv.cost)
+      MOVE_LOG.use(name)
       if (mv.firstTurn && t.turns) { await say('But it failed!', `It only works on ${me.name}'s first turn out.`, 300); return }
       if (mv.sleepOk && !opts.snoring) { await say('But it failed!', `${me.name} isn't asleep.`, 300); return }
       // Moves whose power is worked out now: Flail by HP, Fury Cutter by its run, Knock Off on a trainer's Pokémon.
@@ -8979,6 +9008,7 @@ async function run(id) {
         for (let h = 0; h < hits && foe.hp > 0; h++) {
           panel('pStrike'); $('bStrike').innerHTML = `${hits > 1 ? `HIT ${h + 1} / ${hits}` : 'STRIKE!'}<small style="font-size:12px;margin-top:6px">tap as the ring closes</small><span class="key">A</span>`
           const acc = await strikeInput(mv, h, C.e.x, C.e.y, hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', Math.round((h ? 560 : 820) * sr.speed), sr.tight, plan_[h] ?? plan_.at(-1) ?? null)
+          MOVE_LOG.hit(name, acc.label)
           panel(null)
           // One ring per hit. Miss a ring and that hit misses, so only landing
           // every ring deals the move's full damage.
@@ -9027,7 +9057,7 @@ async function run(id) {
       if (!opts.free) setPP(pp - mv.cost)
       panel('pStrike'); $('bStrike').innerHTML = 'ASSIST!<small style="font-size:12px;margin-top:6px">time it for a stronger effect</small><span class="key">A</span>'
       const acc = mv.input === 'rhythm' && !demo ? byShare((await rhythmTap(C.e.x, C.e.y)) / 4) : await timedTap(planned, C.p.x, C.p.y, 'ASSIST')
-      panel(null); pop(acc.label, C.p.x, C.p.y - 72, ACC_CLS[acc.label])
+      panel(null); pop(acc.label, C.p.x, C.p.y - 72, ACC_CLS[acc.label]); MOVE_LOG.use(name); MOVE_LOG.hit(name, acc.label)
       if (mv.effect === 'heal') {
         if (me.hp >= me.stats.hp) { await say(`${me.name}'s HP is full.`); return }
         const from = me.hp; me.hp = Math.min(me.stats.hp, me.hp + Math.ceil(me.stats.hp * Math.min(0.6, mv.amount * acc.mult)))
