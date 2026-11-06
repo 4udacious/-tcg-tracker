@@ -132,3 +132,30 @@ test('rematch tickets: a leader you beat, 1v1 or 2v2, for tokens and a Move Disc
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('2v2: when one trainer of a tag team runs out, their partner sends in another to keep it 2-on-2', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    // Half the trainers bring one Pokémon, half bring three: a tag team of one of each runs one trainer dry first.
+    await page.evaluate(() => {
+      SCALPERS.forEach((T, i) => { POOLS[T.short] = i % 2 ? [{ name: 'RATTATA', min: 0 }, { name: 'PIDGEY', min: 0 }, { name: 'ZUBAT', min: 0 }] : [{ name: 'MAGIKARP', min: 0 }] })
+    })
+    let seen = null
+    for (let tries = 0; tries < 8 && !seen; tries++) {
+      await page.evaluate(() => {
+        const mk = (n) => { const m = individual(speciesByName(n), 60, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 3000 }); m.hp = 3000; return m }
+        window.__vvm.party.splice(0, 9, mk('MACHAMP'), mk('ARCANINE'))
+      })
+      const from = g.log.length
+      await bot.encounter('duo')
+      const lines = g.log.slice(from), i = lines.findIndex((l) => /is out of Pokémon!/.test(l))
+      if (i >= 0) seen = lines.slice(i, i + 6)
+    }
+    assert.ok(seen, 'a tag battle where one trainer ran out while the other still had Pokémon')
+    assert.ok(seen.some((l) => /sends in another!/.test(l)), `the partner fills the slot: ${seen.join(' | ')}`)
+    assert.ok(seen.some((l) => /sent out|Go!/.test(l)), `and a Pokémon comes out: ${seen.join(' | ')}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
