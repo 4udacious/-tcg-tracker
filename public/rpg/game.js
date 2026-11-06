@@ -3133,11 +3133,14 @@ DISC_RULES.ABSORB = { types: ['grass'] }
 DISC_POOL.push('ABSORB', ...Object.values(LATE_MOVES).map((l) => l[0]))
 /* How each move is landed, when it isn't one STRIKE ring (see strikeInput). */
 for (const [input, names] of Object.entries({
-  charge: ['HYPER BEAM', 'SOLAR BEAM', 'FIRE BLAST', 'HYDRO PUMP', 'BLIZZARD', 'THUNDER'],
-  mash: ['OUTRAGE', 'THRASH', 'PETAL DANCE', 'ROLLOUT'],
-  swipe: ['CROSS CHOP', 'X-SCISSOR', 'DRAGON CLAW', 'IRON TAIL', 'BRICK BREAK'],
+  // Streams are held on the arc, gathered blasts charged, combos swiped, brute effort mashed (and two moves of their own).
+  charge: ['HYPER BEAM', 'SOLAR BEAM', 'FIRE BLAST', 'HYDRO PUMP', 'BLIZZARD', 'THUNDER', 'SHADOW BALL', 'ENERGY BALL', 'MOONBLAST', 'EARTH POWER'],
+  mash: ['OUTRAGE', 'THRASH', 'PETAL DANCE', 'ROLLOUT', 'DIG', 'WATERFALL'],
+  swipe: ['CROSS CHOP', 'X-SCISSOR', 'DRAGON CLAW', 'IRON TAIL', 'BRICK BREAK', 'PLAY ROUGH', 'DYNAMIC PUNCH', 'POISON JAB', 'AIR SLASH', 'MEGAHORN'],
   twin: ['DOUBLE KICK', 'DUAL CHOP', 'DUAL WINGBEAT', 'DOUBLE HIT', 'TWINEEDLE'],
-  track: ['PSYCHIC', 'ICE BEAM', 'AURORA BEAM', 'FLASH CANNON'],
+  track: ['PSYCHIC', 'ICE BEAM', 'AURORA BEAM', 'FLASH CANNON', 'FLAMETHROWER', 'THUNDERBOLT', 'BUG BUZZ', 'DRAGON PULSE', 'DARK PULSE'],
+  vanish: ['PHANTOM FORCE'],
+  pick: ['STONE EDGE'],
 })) for (const n of names) if (MOVEDEX[n]) MOVEDEX[n].input = input
 SUPPORT.SING.input = 'rhythm'
 /* Rampage moves: mashed, and unless it was PERFECT the user is confused afterwards from the effort. Hyper Beam: the user has to recharge next turn. */
@@ -8438,7 +8441,54 @@ async function run(id) {
     if (mv.input === 'mash') return mashStrike()
     if (mv.input === 'swipe') return swipeSeq()
     if (mv.input === 'track') return trackHold(cx, cy)
+    if (mv.input === 'vanish') return vanishTap(cx, cy)
+    if (mv.input === 'pick') return pickStone(cx, cy)
     return timedTap(planned, cx, cy, label, approach, tight)
+  }
+  /*
+   * Phantom Force: your Pokémon vanishes, and its shadow flickers in at the target after a wait you can't count.
+   * Tap A the moment it does: the quicker, the better (PERFECT within 0.3 s). Half the time a faint false flicker
+   * comes first; a tap before the real one is a MISS.
+   */
+  async function vanishTap(cx, cy) {
+    strikeBtn('VANISHED…', 'tap A the moment its shadow flickers in')
+    const sh = document.createElement('div'); sh.className = 'vanish'; sh.style.left = (cx - 34) + 'px'; sh.style.top = (cy - 44) + 'px'; fx.appendChild(sh)
+    const me = $('player'); me.style.opacity = '0.15'
+    const appearAt = performance.now() + 700 + Math.random() * 1100, fakeAt = Math.random() < 0.5 ? appearAt - 300 - Math.random() * 250 : 0
+    let first = null
+    const off = listen((b, t) => { if (b === 'a' && first == null) first = t })
+    while (first == null && performance.now() < appearAt + 900) {
+      const now = performance.now()
+      sh.classList.toggle('fake', !!fakeAt && now >= fakeAt && now < fakeAt + 140)
+      if (now >= appearAt && !sh.classList.contains('show')) { sh.classList.add('show'); sfx('whoosh') }
+      await W(12)
+    }
+    off(); panel(null); me.style.opacity = ''
+    const dt = first == null ? Infinity : first - appearAt
+    if (first != null && dt < 0) pop('TOO SOON', cx, cy - 70, 'red small')
+    await W(140); sh.remove()
+    return grade(dt < 0 ? 'MISS' : dt <= 300 ? 'PERFECT' : dt <= 420 ? 'GREAT' : dt <= 560 ? 'GOOD' : dt <= 750 ? 'OK' : 'MISS')
+  }
+  /*
+   * Stone Edge: three stones rise round the target and one glows. Press its arrow (◀ ▲ ▶) before they fall: the
+   * quicker, the better (PERFECT within 0.45 s of the glow). The wrong stone is a MISS.
+   */
+  async function pickStone(cx, cy) {
+    const keys = ['left', 'up', 'right'], glyph = ['◀', '▲', '▶']
+    const cue = $('padCue'); cue.innerHTML = '<span style="font-size:13px">PICK THE GLOWING STONE</span>'; panel('pPad'); $('pPad').classList.add('pick')
+    const stones = keys.map((_, i) => { const st = document.createElement('div'); st.className = 'stone'; st.style.left = (cx - 15 + (i - 1) * 58) + 'px'; st.style.top = (cy + 30) + 'px'; st.innerHTML = `<b>${glyph[i]}</b>`; fx.appendChild(st); return st })
+    const RISE = 1500, t0 = performance.now(), want = Math.floor(Math.random() * 3), glowAt = t0 + 250
+    let pick = null, pickT = 0
+    const off = listen((b, t) => { const i = keys.indexOf(b); if (i >= 0 && pick == null && t >= glowAt) { pick = i; pickT = t; stones[i].classList.add(i === want ? 'hit' : 'wrong'); sfx(i === want ? 'select' : 'flinch') } })
+    while (pick == null && performance.now() - t0 < RISE) {
+      const k = (performance.now() - t0) / RISE, y = Math.sin(k * Math.PI) * 34   // up round the target, then back down
+      for (const st of stones) st.style.transform = `translateY(${-y}px)`
+      if (performance.now() >= glowAt) stones[want].classList.add('glow')
+      await W(16)
+    }
+    off(); await W(220); panel(null); $('pPad').classList.remove('pick'); for (const st of stones) st.remove()
+    const dt = pickT - glowAt
+    return grade(pick !== want ? 'MISS' : dt <= 450 ? 'PERFECT' : dt <= 700 ? 'GREAT' : dt <= 950 ? 'GOOD' : 'OK')
   }
   /** A one-off chance roll that never fires in the scripted demo, so the demo plays out the same each time. */
   const chance = demo ? () => 1 : Math.random

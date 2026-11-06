@@ -50,6 +50,8 @@ export async function openGame({ mode, touch = false, userAgent } = {}) {
         const shown = (el) => el && el.closest('.panel')?.style.display !== 'none' && el.offsetParent
         if (shown(b) && /WAKE UP|MASH/i.test(b.textContent)) return { mash: true }
         const pad = document.getElementById('pPad')
+        if (pad && pad.style.display !== 'none' && document.querySelector('.stone')) { const i = [...document.querySelectorAll('.stone')].findIndex((x) => x.classList.contains('glow')); return { pick: i } }
+        if (shown(b) && /VANISHED/.test(b.textContent)) return { vanish: true }
         if (pad && pad.style.display !== 'none') return { swipe: [...document.querySelectorAll('#padCue i')].filter((i) => !i.className).map((i) => i.textContent) }
         const ring = () => [...document.querySelectorAll('.ring')].map((x) => x.getAnimations()[0]).find((a) => a && a.playState === 'running')
         if (shown(b) && /HOLD B/.test(b.textContent)) { const r = ring(); return { guard: r ? r.effect.getTiming().duration - r.currentTime : 600 } }
@@ -67,6 +69,8 @@ export async function openGame({ mode, touch = false, userAgent } = {}) {
       }, bot.want)
       const kb = page.keyboard
       if (st.mash) for (let i = 0; i < 16; i++) { await kb.press('x'); await page.waitForTimeout(40) }
+      else if (st.pick != null) { if (st.pick >= 0) await kb.press(['ArrowLeft', 'ArrowUp', 'ArrowRight'][st.pick]) }
+      else if (st.vanish) { await page.waitForSelector('.vanish.show', { timeout: 3000 }).catch(() => {}); await kb.press('x') }
       else if (st.swipe) for (const g of st.swipe) { await kb.press({ '◀': 'ArrowLeft', '▲': 'ArrowUp', '▼': 'ArrowDown', '▶': 'ArrowRight' }[g]); await page.waitForTimeout(120) }
       else if (st.guard != null) { await kb.down('z'); await page.waitForTimeout(Math.max(0, st.guard - 20)); await kb.up('z') }
       else if (st.charge) { await kb.down('x'); await page.waitForTimeout(980); await kb.up('x') }

@@ -66,7 +66,7 @@ function label(n: Notice): string {
  * glanced at on the way past is still there when you come back for the
  * numbers.
  */
-export function MarketNotices({ onRead }: { onRead?: () => void }) {
+export function MarketNotices({ onRead, empty }: { onRead?: () => void; empty?: string }) {
   const [notices, setNotices] = useState<Notice[] | null>(null)
   const marked = useRef(false)
   // Held in a ref so an inline callback from the parent does not re-run the
@@ -94,7 +94,8 @@ export function MarketNotices({ onRead }: { onRead?: () => void }) {
     return () => { alive = false }
   }, [])
 
-  if (notices === null || notices.length === 0) return null
+  if (notices === null) return null
+  if (notices.length === 0) return empty ? <p className="text-xs text-muted">{empty}</p> : null
 
   return (
     <ul className="space-y-1.5">
@@ -143,7 +144,7 @@ export function MarketNotices({ onRead }: { onRead?: () => void }) {
  * the table level, but a feed that showed sales and not bids would read as a
  * dead market, which was the point of adding it.
  */
-export function MarketFeed() {
+export function MarketFeed({ title = 'Recent activity' }: { title?: string } = {}) {
   const [rows, setRows] = useState<Activity[] | null>(null)
 
   useEffect(() => {
@@ -156,7 +157,7 @@ export function MarketFeed() {
 
   return (
     <section className="space-y-2 pt-2 border-t border-card-border">
-      <h3 className="font-display font-semibold text-sm">Recent activity</h3>
+      <h3 className="font-display font-semibold text-sm">{title}</h3>
 
       {rows === null ? (
         <p className="text-xs text-muted">Loading…</p>
