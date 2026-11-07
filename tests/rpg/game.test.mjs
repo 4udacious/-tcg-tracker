@@ -1227,16 +1227,29 @@ test('every leader\'s team: real species with sprites and cries, the mid-game on
     const r = await page.evaluate(() => {
       const leaders = [...GYMS, ...ELITE, ...KANTO_ELITE]
       return {
-        missing: leaders.flatMap((L) => L.team.filter((n) => { const s = DATA.trainer.find((t) => t.name === n) ?? speciesByName(n); return !s || !ART[s.id] || !ART[s.id + 'b'] || !ART['cry:' + s.id] }).map((n) => `${L.short}: ${n}`)),
+        missing: leaders.flatMap((L) => [L.team, ...(L.alts ?? [])].flat().filter((n) => { const s = DATA.trainer.find((t) => t.name === n) ?? speciesByName(n); return !s || !ART[s.id] || !ART[s.id + 'b'] || !ART['cry:' + s.id] }).map((n) => `${L.short}: ${n}`)),
         strong: [...GYMS.slice(3, 8), ...ELITE.slice(0, 4)].every((L) => L.strong) && !GYMS[0].strong && !GYMS[1].strong && !GYMS[2].strong,
         mamoswine: !!TRAINER_MOVES.MAMOSWINE && GYMS[6].team.at(-1) === 'MAMOSWINE',
         sizes: [...GYMS.slice(8, 15), ...ELITE.slice(0, 4), ...KANTO_ELITE.slice(0, 3)].map((L) => L.team.length),
+        // Every leader but Red has two alternate teams: as many, the same ace last, none the same as another.
+        alts: leaders.filter((L) => !L.red).map((L) => [L.short, (L.alts?.length === 2 && L.alts.every((t) => t.length === L.team.length && t.at(-1) === L.team.at(-1))
+          && new Set([L.team, ...L.alts].map(String)).size === 3)]).filter(([, ok]) => !ok).map(([n]) => n),
+        red: KANTO_ELITE.find((L) => L.red).alts,
+        // The everyday trainers' alternate pools too: two each, every Pokémon real, with sprites and cry.
+        crew: SCALPERS.filter((T) => POOL_ALTS[T.short]?.length !== 2).map((T) => T.short),
+        crewMissing: Object.entries(POOL_ALTS).flatMap(([who, alts]) => alts.flat().filter(({ name: n }) => { const s = speciesByName(n); return !s || !ART[s.id] || !ART[s.id + 'b'] || !ART['cry:' + s.id] }).map(({ name }) => `${who}: ${name}`)),
+        picks: [0, 0.4, 0.9].map((x) => teamFor(GYMS[0], () => x).join()),
       }
     })
     assert.deepEqual(r.missing, [], 'every leader\'s Pokémon has its sprites and cry')
     assert.ok(r.strong, 'Morty to Clair and the Johto Elite Four use the stronger moves; Falkner, Bugsy and Whitney don\'t')
     assert.ok(r.mamoswine, 'Pryce\'s ace is Mamoswine, with his signature moves')
     assert.ok(r.sizes.every((n) => n === 6), `the Kanto gyms and both Elite Fours bring six: ${r.sizes}`)
+    assert.deepEqual(r.alts, [], 'every leader but Red has two alternate teams, as big as their main one and with the same ace')
+    assert.equal(r.red, undefined, 'Red always brings the same team')
+    assert.deepEqual(r.crew, [], 'every everyday trainer and scalper has two alternate pools')
+    assert.deepEqual(r.crewMissing, [], 'every Pokémon in them has its sprites and cry')
+    assert.equal(new Set(r.picks).size, 3, `a battle picks any of the three: ${r.picks}`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -1567,8 +1580,12 @@ test('everyday trainers grow up with you: evolved teams late, their earliest sta
         at(lv)
         out[lv] = v.SCALPERS.map((T) => { const decks = Array.from({ length: 12 }, () => v.deckFor(T, lv)); return { who: T.short, sizes: [...new Set(decks.map((d) => d.length))], names: [...new Set(decks.flat().map((m) => m.name))], missing: decks.flat().filter((m) => !m?.stats).length } })
       }
+      // A trainer's decks come from all three of their pools: Rose, 60 decks at Lv 35, brings Pokémon only her alternates have.
+      at(35); const rose = v.SCALPERS.find((T) => T.short === 'ROSE'), seen = new Set(Array.from({ length: 60 }, () => v.deckFor(rose, 35).pool))
+      out.pools = [...seen].sort()
       return out
     })
+    assert.deepEqual(r.pools, [0, 1, 2], 'decks come from the main pool and both alternates')
     for (const t of r[10]) assert.ok(t.sizes.every((n) => n === 2 || n === 3), `${t.who} at Lv 10 brings two or three (${t.sizes})`)
     for (const t of r[60]) {
       assert.ok(t.sizes.every((n) => n === 3 || n === 4), `${t.who} at Lv 60 brings three or four (${t.sizes})`)
