@@ -4721,6 +4721,51 @@ ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 KANTO_ELITE.forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
 
 /*
+ * Alternate teams, so a leader isn't the same fight every time: each gym
+ * leader and Elite Four member (not Red) brings one of three teams, picked
+ * at random per battle. Each is as big as their main team, with the same ace
+ * last (and its signature moves) at the same levels; only the rest changes.
+ * The Watch demos always use the main team.
+ */
+const LEADER_ALTS = {
+  gyms: {
+    'FALKNER': [['SPEAROW', 'PIDGEY', 'PIDGEOTTO'], ['HOOTHOOT', 'DODUO', 'PIDGEOTTO']],
+    'BUGSY': [['LEDYBA', 'SPINARAK', 'SCYTHER'], ['PARAS', 'VENONAT', 'SCYTHER']],
+    'WHITNEY': [['WIGGLYTUFF', 'PERSIAN', 'KANGASKHAN', 'MILTANK'], ['GRANBULL', 'DUNSPARCE', 'TAUROS', 'MILTANK']],
+    'MORTY': [['MISDREAVUS', 'SABLEYE', 'HAUNTER', 'GENGAR'], ['GASTLY', 'ROTOM', 'MISMAGIUS', 'GENGAR']],
+    'CHUCK': [['PRIMEAPE', 'MACHOKE', 'HITMONTOP', 'HERACROSS', 'POLIWRATH'], ['MANKEY', 'MACHAMP', 'HITMONTOP', 'LUCARIO', 'POLIWRATH']],
+    'JASMINE': [['SKARMORY', 'MAWILE', 'MAGNETON', 'FORRETRESS', 'STEELIX'], ['FORRETRESS', 'MAGNEZONE', 'SKARMORY', 'MAWILE', 'STEELIX']],
+    'PRYCE': [['DEWGONG', 'SNEASEL', 'PILOSWINE', 'JYNX', 'LAPRAS', 'MAMOSWINE'], ['CLOYSTER', 'LAPRAS', 'PILOSWINE', 'GLACEON', 'JYNX', 'MAMOSWINE']],
+    'CLAIR': [['DRAGONAIR', 'SEADRA', 'GYARADOS', 'AERODACTYL', 'DRAGONAIR', 'KINGDRA'], ['SEADRA', 'DRAGONAIR', 'GABITE', 'GYARADOS', 'DRAGONAIR', 'KINGDRA']],
+    'BROCK': [['GOLEM', 'RHYDON', 'KABUTOPS', 'OMASTAR', 'AERODACTYL', 'STEELIX'], ['SUDOWOODO', 'GOLEM', 'TYRANITAR', 'OMASTAR', 'RHYPERIOR', 'STEELIX']],
+    'MISTY': [['GOLDUCK', 'LAPRAS', 'QUAGSIRE', 'POLITOED', 'GYARADOS', 'STARMIE'], ['VAPOREON', 'SEAKING', 'CLOYSTER', 'POLITOED', 'LAPRAS', 'STARMIE']],
+    'LT. SURGE': [['RAICHU', 'MAGNETON', 'ELECTRODE', 'JOLTEON', 'AMPHAROS', 'ELECTIVIRE'], ['LANTURN', 'RAICHU', 'ROTOM', 'MAGNEZONE', 'JOLTEON', 'ELECTIVIRE']],
+    'ERIKA': [['VICTREEBEL', 'JUMPLUFF', 'BELLOSSOM', 'ROSERADE', 'VENUSAUR', 'TANGROWTH'], ['EXEGGUTOR', 'VILEPLUME', 'LEAFEON', 'VICTREEBEL', 'TROPIUS', 'TANGROWTH']],
+    'JANINE': [['ARIADOS', 'MUK', 'VENOMOTH', 'WEEZING', 'GENGAR', 'CROBAT'], ['TENTACRUEL', 'NIDOKING', 'QWILFISH', 'GARBODOR', 'NIDOQUEEN', 'CROBAT']],
+    'SABRINA': [['MR. MIME', 'JYNX', 'XATU', 'SLOWBRO', 'ALAKAZAM', 'ESPEON'], ['GIRAFARIG', 'STARMIE', 'EXEGGUTOR', 'SLOWKING', 'ALAKAZAM', 'ESPEON']],
+    'BLAINE': [['NINETALES', 'RAPIDASH', 'MAGCARGO', 'HOUNDOOM', 'CHARIZARD', 'ARCANINE'], ['MAGMORTAR', 'FLAREON', 'NINETALES', 'RAPIDASH', 'TYPHLOSION', 'ARCANINE']],
+    'BLUE': [['PIDGEOT', 'MACHAMP', 'RHYPERIOR', 'EXEGGUTOR', 'GYARADOS', 'ARCANINE'], ['HERACROSS', 'ALAKAZAM', 'TYRANITAR', 'EXEGGUTOR', 'GYARADOS', 'ARCANINE']],
+  },
+  elite: {
+    'WILL': [['GIRAFARIG', 'JYNX', 'SLOWKING', 'MR. MIME', 'EXEGGUTOR', 'XATU'], ['MR. MIME', 'STARMIE', 'JYNX', 'EXEGGUTOR', 'SLOWBRO', 'XATU']],
+    'KOGA': [['ARIADOS', 'VENOMOTH', 'MUK', 'FORRETRESS', 'QWILFISH', 'CROBAT'], ['WEEZING', 'TENTACRUEL', 'NIDOKING', 'ARIADOS', 'MUK', 'CROBAT']],
+    'BRUNO': [['STEELIX', 'HERACROSS', 'HITMONLEE', 'PRIMEAPE', 'HITMONTOP', 'MACHAMP'], ['GOLEM', 'HITMONCHAN', 'LUCARIO', 'POLIWRATH', 'HERACROSS', 'MACHAMP']],
+    'KAREN': [['UMBREON', 'SNEASEL', 'SABLEYE', 'HONCHKROW', 'GENGAR', 'HOUNDOOM'], ['LIEPARD', 'UMBREON', 'HONCHKROW', 'TYRANITAR', 'MIMIKYU', 'HOUNDOOM']],
+    'LANCE': [['GYARADOS', 'DRAGONITE', 'KINGDRA', 'AERODACTYL', 'DRAGONITE', 'DRAGONITE'], ['CHARIZARD', 'DRAGONITE', 'GARCHOMP', 'GYARADOS', 'DRAGONITE', 'DRAGONITE']],   // three Dragonite, as in his main team
+  },
+  kanto: {
+    'LORELEI': [['CLOYSTER', 'DEWGONG', 'JYNX', 'SLOWBRO', 'MAMOSWINE', 'LAPRAS'], ['MAMOSWINE', 'GLACEON', 'JYNX', 'DEWGONG', 'CLOYSTER', 'LAPRAS']],
+    'BRUNO': [['STEELIX', 'HITMONCHAN', 'HITMONTOP', 'MACHAMP', 'HERACROSS', 'LUCARIO'], ['GOLEM', 'HITMONLEE', 'POLIWRATH', 'PRIMEAPE', 'MACHAMP', 'LUCARIO']],
+    'AGATHA': [['CROBAT', 'HAUNTER', 'ARBOK', 'ROTOM', 'MISMAGIUS', 'GENGAR'], ['ARBOK', 'SABLEYE', 'MIMIKYU', 'GHOLDENGO', 'CROBAT', 'GENGAR']],
+    'LANCE': [['CHARIZARD', 'KINGDRA', 'GARCHOMP', 'GYARADOS', 'DRAGONITE'], ['AERODACTYL', 'GARCHOMP', 'KINGDRA', 'CHARIZARD', 'DRAGONITE']],
+  },
+}
+;[[GYMS, LEADER_ALTS.gyms], [ELITE, LEADER_ALTS.elite], [KANTO_ELITE, LEADER_ALTS.kanto]].forEach(([list, alts]) =>
+  list.forEach((L) => { if (!L.red && alts[L.short]) L.alts = alts[L.short] }))
+/** One of a leader's teams for a battle: the main one or an alternate, at random. */
+const teamFor = (L, r = Math.random) => { const all = [L.team, ...(L.alts ?? [])]; return all[Math.floor(r() * all.length)] }
+
+/*
  * Balance (tests/rpg/sim.mjs, `npm run sim:rpg`: thousands of simulated battles).
  * Aim, for an average player arriving at the leader's level: about 2 wins in 3
  * now the leaders parry (Lance and Red about 1 in 3, Alex's last 1 in 7). Levels are set (`low` to
@@ -7611,7 +7656,7 @@ async function run(id) {
   }
   function rematchTeam(L) {
     const ace = Math.min(LEVEL_CAP, trainerLevel() + 2), lv = leaderLevels({ ...L, min: ace, low: Math.max(2, ace - 6) })
-    return L.team.map((name, i) => {
+    return teamFor(L, rand).map((name, i) => {
       const f = finalForm(name), m = individual(DATA.trainer.find((t) => t.name === f) ?? speciesByName(f), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(25, m.ivs[k])
       m.stats = statsAt(m, m.level); m.hp = m.stats.hp
@@ -7667,7 +7712,7 @@ async function run(id) {
   function gymTeam(n) {
     // leaderLevels(): set levels, from `low` up to the ace at `min`.
     const L = GYMS[n], lv = leaderLevels(L)
-    return L.team.map((name, i) => {
+    return (demo ? L.team : teamFor(L, rand)).map((name, i) => {
       const m = individual(DATA.trainer.find((t) => t.name === name) ?? speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(L.ivs ?? 20, m.ivs[k])
       m.stats = statsAt(m, m.level); m.hp = m.stats.hp
@@ -7728,7 +7773,7 @@ async function run(id) {
   /** An Elite Four member's team: levels as leaderLevels() sets them, every IV at least their floor (`ivs`, 20 unless set). */
   function eliteTeam(L) {
     const lv = leaderLevels(L)
-    return L.team.map((name, i) => {
+    return (demo ? L.team : teamFor(L, rand)).map((name, i) => {
       const m = individual(DATA.trainer.find((t) => t.name === name) ?? speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(L.ivs ?? 20, m.ivs[k])
       m.stats = statsAt(m, m.level); m.hp = m.stats.hp

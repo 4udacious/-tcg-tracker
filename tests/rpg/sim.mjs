@@ -141,7 +141,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
 
   /* ── every challenge, in the order you meet them, with the party you'd have ── */
   const IVS = (team, floor) => team.map((m) => { for (const k of STAT_KEYS) m.ivs[k] = Math.max(floor, m.ivs[k]); m.stats = statsAt(m, m.level); m.hp = m.stats.hp; return m })
-  const leaderTeam = (L, floor = L.ivs ?? 20, find = (n) => DATA.trainer.find((t) => t.name === n) ?? speciesByName(n)) => () => { const l = leaderLevels(L); return IVS(L.team.map((n, i) => individual(find(n), l[i], R)), floor) }
+  const leaderTeam = (L, floor = L.ivs ?? 20, find = (n) => DATA.trainer.find((t) => t.name === n) ?? speciesByName(n)) => () => { const l = leaderLevels(L); const all = [L.team, ...(L.alts ?? [])]; return IVS(all[Math.floor(R() * all.length)].map((n, i) => individual(find(n), l[i], R)), floor) }   // any of their teams, as in the game
   // Where you arrive. A leader: `gap` below their ace, the most everyday trainers take you to (trainerCap). A story
   // battle (Alex, Herb, Paul) turns up straight after the win that makes it due: where that leader's cap left you,
   // plus 2 levels from beating them.
