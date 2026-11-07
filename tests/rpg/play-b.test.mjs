@@ -140,6 +140,7 @@ test('2v2: when one trainer of a tag team runs out, their partner sends in anoth
     await bot.finishTutorial()
     // Half the trainers bring one Pokémon, half bring three: a tag team of one of each runs one trainer dry first.
     await page.evaluate(() => {
+      for (const k in POOL_ALTS) delete POOL_ALTS[k]   // their main pools only, set here
       SCALPERS.forEach((T, i) => { POOLS[T.short] = i % 2 ? [{ name: 'RATTATA', min: 0 }, { name: 'PIDGEY', min: 0 }, { name: 'ZUBAT', min: 0 }] : [{ name: 'MAGIKARP', min: 0 }] })
     })
     let seen = null

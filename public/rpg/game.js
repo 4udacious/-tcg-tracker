@@ -3708,6 +3708,68 @@ for (const [who, late] of Object.entries({
     if (had) { if (max) had.max = max } else POOLS[who].push({ name, min, ...(max ? { max } : {}) })
   }
 }
+/*
+ * Alternate teams for everyday trainers (and the scalpers), so the same
+ * person doesn't always bring the same Pokémon: two more pools each, in the
+ * late-game list's form ([name, from trainer level, retired after]). Each
+ * battle draws its deck from one of the three, at random (deckFor()). Every
+ * pool keeps at least two for any level (three from 20), and the levels are set by
+ * levelBand() as before, so a trainer is no harder on any of them.
+ */
+const POOL_ALTS = Object.fromEntries(Object.entries({
+  HERB: [
+    [['GIMMIGHOUL', 1, 30], ['MEOWTH', 1, 24], ['MURKROW', 8, 36], ['SNEASEL', 12], ['PERSIAN', 22], ['GHOLDENGO', 30], ['HONCHKROW', 34]],
+    [['GHOLDENGO', 1], ['SABLEYE', 1], ['MISDREAVUS', 6, 32], ['MAWILE', 12], ['ROTOM', 24], ['MISMAGIUS', 30]],
+  ],
+  PAUL: [
+    [['MUNCHLAX', 1, 30], ['HIPPOPOTAS', 1, 28], ['TRUBBISH', 6, 30], ['SNORLAX', 22], ['HIPPOWDON', 26], ['GARBODOR', 28], ['SLAKING', 44]],
+    [['TEDDIURSA', 1, 28], ['LICKITUNG', 1, 30], ['PHANPY', 8, 30], ['URSARING', 24], ['DONPHAN', 26], ['LICKILICKY', 30], ['SNORLAX', 40]],
+  ],
+  BRIAN: [
+    [['CATERPIE', 1, 22], ['WEEDLE', 1, 22], ['RATTATA', 1, 26], ['BUTTERFREE', 18], ['BEEDRILL', 18], ['RATICATE', 22], ['PINSIR', 32]],
+    [['GOLDEEN', 1, 28], ['SPEAROW', 1, 24], ['SENTRET', 1, 24], ['FEAROW', 20], ['FURRET', 20], ['SEAKING', 26], ['GYARADOS', 36]],
+  ],
+  ROSE: [
+    [['HAPPINY', 1, 20], ['TOGEPI', 1, 24], ['MEOWTH', 1, 26], ['CHANSEY', 14, 40], ['TOGETIC', 20], ['PERSIAN', 24], ['BLISSEY', 36], ['TOGEKISS', 44]],
+    [['MINCCINO', 1, 28], ['CLEFFA', 1, 20], ['IGGLYBUFF', 1, 20], ['CLEFAIRY', 12, 36], ['JIGGLYPUFF', 12, 32], ['MILTANK', 20], ['CINCCINO', 26], ['WIGGLYTUFF', 30], ['CLEFABLE', 34]],
+  ],
+  DEREK: [
+    [['VOLTORB', 1, 26], ['MAREEP', 1, 24], ['KOFFING', 1, 30], ['FLAAFFY', 18, 32], ['ELECTRODE', 22], ['WEEZING', 28], ['AMPHAROS', 32]],
+    [['MAGNEMITE', 1, 26], ['PORYGON', 1, 32], ['ELEKID', 1, 22], ['ELECTABUZZ', 20, 44], ['MAGNETON', 24], ['PORYGON2', 30], ['MAGNEZONE', 40], ['ELECTIVIRE', 44]],
+  ],
+  NATE: [
+    [['ODDISH', 1, 24], ['PARAS', 1, 26], ['VENONAT', 1, 26], ['GLOOM', 18, 36], ['PARASECT', 24], ['VENOMOTH', 24], ['VILEPLUME', 34]],
+    [['ZUBAT', 1, 22], ['PINECO', 1, 30], ['YANMA', 1], ['GOLBAT', 20, 38], ['NOCTOWL', 24], ['FORRETRESS', 28], ['CROBAT', 38]],
+  ],
+  HANA: [
+    [['EEVEE', 1, 30], ['TOGEPI', 1, 24], ['FLABÉBÉ', 1, 24], ['FLOETTE', 20, 38], ['TOGETIC', 22, 44], ['SYLVEON', 28], ['FLORGES', 38], ['TOGEKISS', 44]],
+    [['MARILL', 1, 22], ['SNUBBULL', 1, 26], ['SMOOCHUM', 1, 22], ['AZUMARILL', 20], ['JYNX', 20], ['GRANBULL', 24], ['MIMIKYU', 30]],
+  ],
+  TYLER: [
+    [['PICHU', 1, 20], ['EEVEE', 1, 26], ['CHATOT', 1], ['PIKACHU', 18, 34], ['JOLTEON', 26], ['ROTOM', 30], ['RAICHU', 34]],
+    [['CHINCHOU', 1, 28], ['ELEKID', 1, 22], ['MAREEP', 1, 20], ['FLAAFFY', 18, 32], ['ELECTABUZZ', 20, 44], ['LANTURN', 26], ['AMPHAROS', 32], ['ELECTIVIRE', 44]],
+  ],
+  DANA: [
+    [['HOPPIP', 1, 20], ['BELLSPROUT', 1, 24], ['EXEGGCUTE', 1, 32], ['SKIPLOOM', 18, 30], ['WEEPINBELL', 20, 34], ['JUMPLUFF', 28], ['VICTREEBEL', 32], ['EXEGGUTOR', 34]],
+    [['SKWOVET', 1, 28], ['BUDEW', 1, 22], ['TROPIUS', 1], ['MILTANK', 10], ['ROSELIA', 18, 36], ['GREEDENT', 24], ['ROSERADE', 36]],
+  ],
+  MARCUS: [
+    [['HOUNDOUR', 1, 26], ['RIOLU', 1, 30], ['MACHOP', 1, 24], ['MACHOKE', 20, 36], ['HOUNDOOM', 24], ['LUCARIO', 30], ['MACHAMP', 36]],
+    [['SNUBBULL', 1, 26], ['TYROGUE', 1, 22], ['GROWLITHE', 1, 30], ['HITMONTOP', 20], ['GRANBULL', 24], ['HITMONLEE', 26], ['ARCANINE', 30]],
+  ],
+  GRANT: [
+    [['OMANYTE', 1, 30], ['KABUTO', 1, 30], ['ABRA', 1, 18], ['KADABRA', 16, 40], ['OMASTAR', 26], ['KABUTOPS', 26], ['AERODACTYL', 34], ['ALAKAZAM', 40]],
+    [['DROWZEE', 1, 28], ['GIRAFARIG', 1], ['SMOOCHUM', 1, 22], ['MIME JR.', 1, 22], ['MR. MIME', 20], ['JYNX', 22], ['HYPNO', 26], ['SLOWKING', 32]],
+  ],
+  KYLE: [
+    [['MURKROW', 1, 36], ['ZUBAT', 1, 22], ['TRUBBISH', 1, 30], ['GOLBAT', 20, 38], ['GARBODOR', 28], ['HONCHKROW', 36], ['CROBAT', 38]],
+    [['HOUNDOUR', 1, 26], ['SNEASEL', 1], ['GRIMER', 1, 30], ['EKANS', 1, 26], ['ARBOK', 22], ['HOUNDOOM', 26], ['MUK', 30]],
+  ],
+  MIKA: [
+    [['UNOWN', 1], ['EEVEE', 1, 26], ['SHUCKLE', 1], ['VAPOREON', 24], ['ESPEON', 28], ['UMBREON', 28], ['LEAFEON', 34], ['GLACEON', 34]],
+    [['DITTO', 1], ['CORSOLA', 1], ['DUNSPARCE', 1], ['DELIBIRD', 8], ['MAWILE', 14], ['MIMIKYU', 26], ['TAUROS', 30]],
+  ],
+}).map(([who, alts]) => [who, alts.map((pool) => pool.map(([name, min, max]) => ({ name, min, ...(max ? { max } : {}) })))]))
 /* What each says sending out two at once (as SOLO_DOUBLE above). */
 Object.assign(SOLO_DOUBLE, {
   ROSE: [["Two at once? The grandkids call that a 'double battle.'", "Nana's going to try it."], ['I brought two. One for each grandkid.', 'Otherwise they argue.']],
@@ -6328,13 +6390,15 @@ async function run(id) {
     // Not capped at the species' evolution level any more: one caught above it evolves at its next level-up.
     return Math.max(2, Math.min(LEVEL_CAP, trainerCap(), leadLevel() - 3 + Math.floor(Math.random() * 4)))
   }
-  function deckFor(T, lv, force) {
+  function deckFor(T, lv, force, poolIx) {
     const tl = trainerLevel()
+    // One of their pools: the main one or an alternate (POOL_ALTS), at random; the Watch demos keep the main one.
+    const pools = [POOLS[T.short], ...(POOL_ALTS[T.short] ?? [])], ix = force ? 0 : poolIx ?? (demo ? 0 : Math.floor(rand() * pools.length))
     const names = force ?? (() => {
       // Two or three, then three from trainer level 30, then three or four from 45 (the late-game teams above).
       const size = tl >= 45 ? (rand() < 0.5 ? 3 : 4) : tl >= 30 ? 3 : rand() < 0.5 ? 2 : 3
       // What your level has unlocked from their pool (and not yet retired, `max`), topped up with the next in line when that's fewer than they bring.
-      const pool = [...POOLS[T.short]].sort((a, b) => a.min - b.min), out = []
+      const pool = [...pools[ix]].sort((a, b) => a.min - b.min), out = []
       const avail = pool.filter((p) => p.min <= tl && (p.max == null || tl <= p.max)).map((p) => p.name)
       for (const p of pool) if (avail.length < size && !avail.includes(p.name)) avail.push(p.name)
       while (out.length < Math.min(size, avail.length)) { const n = avail[Math.floor(rand() * avail.length)]; if (!out.includes(n)) out.push(n) }
@@ -6343,7 +6407,9 @@ async function run(id) {
     // Levels from the band for this kind of trainer, around `lv` (your lead); their ace, last, one above the rest,
     // and never above your next challenge's (trainerCap()).
     const [lo, hi] = levelBand(T, lv), base = Math.min(lv + lo + Math.floor(rand() * (hi - lo + 1)), trainerCap() - 1)
-    return names.map((n, i) => individual(DATA.trainer.find((t) => t.name === n) ?? speciesByName(n), Math.max(2, Math.min(LEVEL_CAP, base + (i === names.length - 1 && names.length > 1 ? 1 : 0))), rand))
+    const deck = names.map((n, i) => individual(DATA.trainer.find((t) => t.name === n) ?? speciesByName(n), Math.max(2, Math.min(LEVEL_CAP, base + (i === names.length - 1 && names.length > 1 ? 1 : 0))), rand))
+    deck.pool = ix   // which pool it came from, so a veteran's extra comes from the same one
+    return deck
   }
   /** A partner's timing ring, tapped by them: usually GREAT, sometimes PERFECT, now and then GOOD. */
   async function autoTap(cx, cy, label, approach = 820) {
@@ -9963,7 +10029,7 @@ async function run(id) {
   /** A veteran's team: their deck, one more if they can, a few levels up, every IV at least 20. */
   function veteranDeck(T) {
     const lv = leadLevel() + VETERAN_LEVELS, deck = deckFor(T, lv)
-    if (deck.length < 4) { const more = deckFor(T, lv).find((m) => !deck.some((d) => d.name === m.name)); if (more) deck.splice(deck.length - 1, 0, more) }
+    if (deck.length < 4) { const more = deckFor(T, lv, null, deck.pool).find((m) => !deck.some((d) => d.name === m.name)); if (more) deck.splice(deck.length - 1, 0, more) }
     // (deckFor still keeps them under your next challenge's cap, like any trainer's: before you're Champion, a veteran's edge is mostly its IVs and smarts.)
     for (const m of deck) { for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k]); m.stats = statsAt(m, m.level); m.hp = m.stats.hp }
     return deck
