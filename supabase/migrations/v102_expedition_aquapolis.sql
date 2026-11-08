@@ -16,7 +16,7 @@
 -- /cards/ecard2-<number>.webp (H1-H32 included; image_url is a generated
 -- column). Wrappers, from pack photos through scripts/import-pack-art.mjs:
 -- Expedition's Charizard, Blastoise, Venusaur and Feraligatr, Aquapolis's
--- Arcanine. Sorted after the One Piece packs (80-83).
+-- Arcanine, Scizor, Tyranitar and Entei. Sorted after the One Piece packs (80-83).
 --
 -- Not stocked: the packs are active so the sets show up in /admin/vvm, and
 -- vending_set_info starts at 0 of 0 to keep them out of the machine until
@@ -396,7 +396,10 @@ values
   ('Expedition', 'Blastoise',  '/packs/expedition-blastoise.webp',  85, true, 'ecard1'),
   ('Expedition', 'Venusaur',   '/packs/expedition-venusaur.webp',   86, true, 'ecard1'),
   ('Expedition', 'Feraligatr', '/packs/expedition-feraligatr.webp', 87, true, 'ecard1'),
-  ('Aquapolis',  'Arcanine',   '/packs/aquapolis-arcanine.webp',    88, true, 'ecard2')
+  ('Aquapolis',  'Arcanine',   '/packs/aquapolis-arcanine.webp',    88, true, 'ecard2'),
+  ('Aquapolis',  'Scizor',     '/packs/aquapolis-scizor.webp',      89, true, 'ecard2'),
+  ('Aquapolis',  'Tyranitar',  '/packs/aquapolis-tyranitar.webp',   90, true, 'ecard2'),
+  ('Aquapolis',  'Entei',      '/packs/aquapolis-entei.webp',       91, true, 'ecard2')
 on conflict (set_name, pack_name) do update
   set image_url = excluded.image_url,
       sort_order = excluded.sort_order,
