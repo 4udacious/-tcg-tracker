@@ -40,6 +40,7 @@ export const SET_NAMES: Record<string, string> = {
   gym1: 'Gym Heroes', gym2: 'Gym Challenge', neo1: 'Neo Genesis', neo2: 'Neo Discovery', neo3: 'Neo Revelation', neo4: 'Neo Destiny',
   op01: 'Romance Dawn', op02: 'Paramount War', op03: 'Pillars of Strength', op04: 'Kingdoms of Intrigue',
   si1: 'Southern Islands',
+  ecard1: 'Expedition', ecard2: 'Aquapolis',
 }
 
 /** Plank face, its lit edge, and the back wall the shelf hangs on. */
