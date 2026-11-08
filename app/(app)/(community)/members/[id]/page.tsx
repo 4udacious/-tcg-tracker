@@ -14,6 +14,9 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         All members
       </Link>
       <TrainerCard id={id} />
+      <Link href={`/trades?u=${id}`} className="flex items-center justify-center min-h-11 rounded-xl border border-card-border bg-card text-sm font-medium hover:border-ink/30 transition-colors">
+        Trade binder
+      </Link>
     </div>
   )
 }
