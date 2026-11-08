@@ -14,8 +14,9 @@
 --
 -- Art from pokemontcg.io at /cards/ecard1-<number>.webp and
 -- /cards/ecard2-<number>.webp (H1-H32 included; image_url is a generated
--- column). Wrappers: Expedition's Blastoise and Aquapolis's Arcanine, from
--- pack photos through scripts/import-pack-art.mjs.
+-- column). Wrappers, from pack photos through scripts/import-pack-art.mjs:
+-- Expedition's Charizard, Blastoise, Venusaur and Feraligatr, Aquapolis's
+-- Arcanine. Sorted after the One Piece packs (80-83).
 --
 -- Not stocked: the packs are active so the sets show up in /admin/vvm, and
 -- vending_set_info starts at 0 of 0 to keep them out of the machine until
@@ -391,8 +392,11 @@ on conflict (set_code, number) do nothing;
 
 insert into public.vending_packs (set_name, pack_name, image_url, sort_order, is_active, set_code)
 values
-  ('Expedition', 'Blastoise', '/packs/expedition-blastoise.webp', 78, true, 'ecard1'),
-  ('Aquapolis',  'Arcanine',  '/packs/aquapolis-arcanine.webp',   79, true, 'ecard2')
+  ('Expedition', 'Charizard',  '/packs/expedition-charizard.webp',  84, true, 'ecard1'),
+  ('Expedition', 'Blastoise',  '/packs/expedition-blastoise.webp',  85, true, 'ecard1'),
+  ('Expedition', 'Venusaur',   '/packs/expedition-venusaur.webp',   86, true, 'ecard1'),
+  ('Expedition', 'Feraligatr', '/packs/expedition-feraligatr.webp', 87, true, 'ecard1'),
+  ('Aquapolis',  'Arcanine',   '/packs/aquapolis-arcanine.webp',    88, true, 'ecard2')
 on conflict (set_name, pack_name) do update
   set image_url = excluded.image_url,
       sort_order = excluded.sort_order,
