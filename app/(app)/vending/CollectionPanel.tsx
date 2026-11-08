@@ -324,6 +324,10 @@ const BINDERS: Record<string, Binder> = {
   // Fuchsia body, kept clear of Neo Revelation's burgundy, with the rays' gold
   // for the foil. Held a little left of centre so the logo stays in frame.
   neo4:  { cover: '/binders/neo-destiny.webp',         spine: '#4a044e', body: '#86198f', foil: '#fde047', fit: 'cover', pos: '30% 50%' },
+  // e-Card (v102). No binder art yet, so the wrapper stands in. Expedition: the
+  // gold foil of its packs; Aquapolis: the silver-blue of its sea-city tiles.
+  ecard1: { cover: '/packs/expedition-blastoise.webp', spine: '#713f12', body: '#a16207', foil: '#fef08a', fit: 'contain' },
+  ecard2: { cover: '/packs/aquapolis-arcanine.webp',   spine: '#1e3a5f', body: '#3b6ea5', foil: '#e0f2fe', fit: 'contain' },
   // The real Southern Islands collection box, which was its binder: the island
   // in a deep-blue sea, framed in orange ferns. Ocean-teal body (kept clear of
   // the Base Set and Neo Genesis blues) with the ferns' orange for the foil.
