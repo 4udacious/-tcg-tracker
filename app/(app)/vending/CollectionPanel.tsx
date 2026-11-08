@@ -326,10 +326,10 @@ const BINDERS: Record<string, Binder> = {
   neo4:  { cover: '/binders/neo-destiny.webp',         spine: '#4a044e', body: '#86198f', foil: '#fde047', fit: 'cover', pos: '30% 50%' },
   // e-Card (v102). Expedition: its logo on the orange of its wrappers' lower
   // band (a redder orange than Gym Heroes'), shaped to the cover window so the
-  // logo isn't cropped. Aquapolis has no binder art yet, so its wrapper stands
-  // in, on the silver-blue of its sea-city tiles.
+  // logo isn't cropped. Aquapolis: its binder, Lugia, Umbreon and Octillery
+  // under the logo, on the silver-blue of its sea-city tiles.
   ecard1: { cover: '/binders/expedition.webp', spine: '#7c2d12', body: '#dc4a14', foil: '#fde68a', fit: 'cover', pos: '50% 0%' },
-  ecard2: { cover: '/packs/aquapolis-arcanine.webp',   spine: '#1e3a5f', body: '#3b6ea5', foil: '#e0f2fe', fit: 'contain' },
+  ecard2: { cover: '/binders/aquapolis.webp',  spine: '#1e3a5f', body: '#3b6ea5', foil: '#e0f2fe', fit: 'cover', pos: '50% 50%' },
   // The real Southern Islands collection box, which was its binder: the island
   // in a deep-blue sea, framed in orange ferns. Ocean-teal body (kept clear of
   // the Base Set and Neo Genesis blues) with the ferns' orange for the foil.
