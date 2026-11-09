@@ -11,7 +11,7 @@ export interface CrashRow {
     /** The session so far (newer games): minutes open, battles, songs decoded, the playing song's length, and the page's size. */
     session?: { mins?: number; battles?: number; decodes?: number; songSecs?: number; nodes?: number; imgs?: number; anims?: number
       /** Newer games: decoding a song hung (Safari 27), so songs stream instead; how many have. */
-      hung?: boolean; streams?: number }
+      hung?: boolean; streams?: number; decodeErr?: string | null }
   }
   device: { ua?: string; screen?: string; mem?: number | null; cores?: number | null }
   member: { username: string; display_name: string | null } | null
@@ -102,7 +102,7 @@ function Group({ title, hint, rows }: { title?: string; hint?: string; rows: { r
                   <dt className="text-muted">Their party</dt><dd>{r.note.party || '—'}</dd>
                   <dt className="text-muted">Music</dt><dd>{r.note.music || '—'}{r.note.musicTier != null ? ` · ${['full', 'lighter', 'lightest'][r.note.musicTier] ?? r.note.musicTier} detail` : ''}{r.note.musicVol != null ? ` · volume ${Math.round(r.note.musicVol * 60)}%` : ''}</dd>
                   {r.note.session && (<><dt className="text-muted">Session</dt><dd>
-                    {r.note.session.mins ?? '?'} min open · battle {r.note.session.battles ?? '?'} · {r.note.session.decodes ?? '?'} songs loaded{r.note.session.songSecs ? ` (this one ${r.note.session.songSecs} s)` : ''}{r.note.session.hung ? ` · decode hung, ${r.note.session.streams ?? 0} streamed` : ''} · {r.note.session.nodes ?? '?'} elements, {r.note.session.imgs ?? '?'} images, {r.note.session.anims ?? '?'} animations
+                    {r.note.session.mins ?? '?'} min open · battle {r.note.session.battles ?? '?'} · {r.note.session.decodes ?? '?'} songs loaded{r.note.session.songSecs ? ` (this one ${r.note.session.songSecs} s)` : ''}{r.note.session.hung ? ` · decode failed (${r.note.session.decodeErr ?? '?'}), ${r.note.session.streams ?? 0} songs streamed` : ''} · {r.note.session.nodes ?? '?'} elements, {r.note.session.imgs ?? '?'} images, {r.note.session.anims ?? '?'} animations
                   </dd></>)}
                   <dt className="text-muted">In battle for</dt><dd>{r.note.started && r.note.at ? `${Math.round((r.note.at - r.note.started) / 1000)} s` : '—'}</dd>
                   {!!r.note.trail?.length && (<><dt className="text-muted">Battle start</dt>

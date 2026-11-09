@@ -220,7 +220,7 @@ test('pre-rendered music: every song has a current file, and plays as one loopin
   } finally { await g.close() }
 })
 
-test('a browser that never finishes decoding a song (Safari 27): it gives up and streams the song instead, from then on', async () => {
+test('a browser that never finishes decoding a song: it gives up and streams the song instead, from then on', async () => {
   const g = await openGame()
   try {
     const r = await g.page.evaluate(async () => {
@@ -251,6 +251,34 @@ test('a browser that never finishes decoding a song (Safari 27): it gives up and
     assert.ok(r.second.stream, 'the next song streams straight away')
     assert.equal(r.second.decodesAsked, 1, 'without trying to decode again')
     assert.equal(r.second.played.length, 2)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a browser whose decode fails (Safari 27): the song streams, not the live synthesiser, and the crash note says why', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic()
+      HTMLMediaElement.prototype.canPlayType = () => 'probably'
+      let decodesAsked = 0; const played = []
+      BaseAudioContext.prototype.decodeAudioData = function () { decodesAsked++; return Promise.reject(new DOMException('Decoding failed', 'EncodingError')) }
+      HTMLMediaElement.prototype.play = function () { played.push(this.src); return Promise.resolve() }
+      try { localStorage.removeItem('vvm-decode-hung') } catch {}
+      // Counts the audio nodes made: the live synthesiser makes hundreds a second, a stream a couple in all.
+      let n = 0
+      for (const k of Object.getOwnPropertyNames(BaseAudioContext.prototype)) if (/^create/.test(k)) { const f0 = BaseAudioContext.prototype[k]; BaseAudioContext.prototype[k] = function (...a) { n++; return f0.apply(this, a) } }
+      const until = async (f) => { for (let i = 0; i < 40 && !f(); i++) await new Promise((r) => setTimeout(r, 100)) }
+      Sound.setOn(true); Sound.music('wild')
+      await until(() => window.__musicFile?.name === 'wild')
+      const a = n; await new Promise((r) => setTimeout(r, 2000)); const perSec = (n - a) / 2
+      const out = { stream: !!window.__musicFile?.stream, decodesAsked, played: played.length, stats: window.__musicStats(), perSec }
+      Sound.stopMusic(); return out
+    })
+    assert.ok(r.stream, 'a failed decode streams the song')
+    assert.equal(r.played, 1)
+    assert.ok(r.perSec < 2, `not the live synthesiser: about no audio nodes a second (${r.perSec})`)
+    assert.match(r.stats.decodeErr ?? '', /EncodingError: Decoding failed/, 'the crash note keeps the error')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
