@@ -144,7 +144,8 @@ test('2v2: when one trainer of a tag team runs out, their partner sends in anoth
       SCALPERS.forEach((T, i) => { POOLS[T.short] = i % 2 ? [{ name: 'RATTATA', min: 0 }, { name: 'PIDGEY', min: 0 }, { name: 'ZUBAT', min: 0 }] : [{ name: 'MAGIKARP', min: 0 }] })
     })
     let seen = null
-    for (let tries = 0; tries < 8 && !seen; tries++) {
+    // Up to 20 duo battles: half are solo (one trainer, two Pokémon) and a tag team may pair two of a kind, so 8 missed it about one run in ten.
+    for (let tries = 0; tries < 20 && !seen; tries++) {
       await page.evaluate(() => {
         const mk = (n) => { const m = individual(speciesByName(n), 60, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 3000 }); m.hp = 3000; return m }
         window.__vvm.party.splice(0, 9, mk('MACHAMP'), mk('ARCANINE'))
