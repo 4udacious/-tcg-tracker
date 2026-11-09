@@ -70,6 +70,42 @@ test('a quick double tap on a phone: no double-tap scroll, and both taps still c
   } finally { await g.close() }
 })
 
+test('a tracking move (Aurora Beam, Flamethrower…): holding just while the dot is in the arc is PERFECT; holding throughout or never isn\'t', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    // Plays the real input: each frame, reads the dot's and the arc's angles off the screen and holds A (or not).
+    const play = (how) => page.evaluate(async (how) => {
+      const key = (type) => dispatchEvent(new KeyboardEvent(type, { key: 'x' }))
+      let held = false, done = false
+      const steer = async () => {
+        while (!done) {
+          const box = document.querySelector('.track')
+          if (box) {
+            const dot = box.querySelector('.dot'), arc = box.querySelector('.arc')
+            const a = (Math.atan2(parseFloat(dot.style.left) - 56, 56 - parseFloat(dot.style.top)) * 180 / Math.PI + 360) % 360
+            const m = /from (-?[\d.]+)deg/.exec(arc.style.background), from = m ? +m[1] : 0
+            const span = parseFloat(/0 ([\d.]+)deg/.exec(arc.style.background)?.[1] ?? '120'), mid = (from + span / 2 + 360) % 360
+            const inside = Math.abs(((a - mid + 540) % 360) - 180) <= span / 2 - 4
+            const want = how === 'arc' ? inside : how === 'always'
+            if (want !== held) { key(want ? 'keydown' : 'keyup'); held = want }
+          }
+          await new Promise((r) => setTimeout(r, 8))
+        }
+      }
+      const s = steer(); const grade = await window.__vvm.trackHold(160, 120); done = true; await s
+      if (held) key('keyup')
+      return grade.label ?? grade.name ?? grade.text ?? JSON.stringify(grade)
+    }, how)
+    const arc = await play('arc'), always = await play('always'), never = await play('never')
+    assert.match(arc, /PERFECT/, `holding just while the dot is in the arc: ${arc}`)
+    assert.doesNotMatch(always, /PERFECT/, `holding the whole time isn't PERFECT: ${always}`)
+    assert.match(never, /MISS/, `never holding misses: ${never}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Lv 100 is the cap: no EXP past it on the field, a save from past it comes back to it, stats and all', async () => {
   const g = await openGame()
   try {

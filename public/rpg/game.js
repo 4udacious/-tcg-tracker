@@ -8503,24 +8503,32 @@ async function run(id) {
     await W(approach + gap + 240); off(); await W(120); rgs.forEach((r) => r.clear()); panel(null)
     return closes.map((c, k) => accuracy(taps[k] == null ? Infinity : Math.abs(taps[k] - c) / tight))
   }
-  async function trackHold(cx, cy, ms = 2200) {
+  /*
+   * Hold A only while the dot is in the bright arc. It was too quick to read: the dot crossed a 70° arc in a quarter of
+   * a second, and PERFECT needed 85% of that held, so these moves landed PERFECT 0-16% of the time against 50-90% for
+   * the rest (move usage, Admin → VVM → Moves). Now a slower dot (130°/s) and arc (20°/s back), a 120° arc, an 18°
+   * edge either side where holding counts neither way (a press a moment early, a release a moment late), and PERFECT
+   * at 75% held: about 60% PERFECT for a typical player, as the other moves.
+   */
+  const TRACK = { ms: 2500, dot: 130, arc: 20, span: 120, edge: 18, outCost: 0.4, perfect: 0.75 }
+  async function trackHold(cx, cy, ms = TRACK.ms) {
     strikeBtn('HOLD A', 'only while the dot is in the bright arc')
     const box = document.createElement('div'); box.className = 'track'; box.style.left = (cx - 56) + 'px'; box.style.top = (cy - 56) + 'px'
     box.innerHTML = '<div class="arc"></div><div class="dot"></div>'; fx.appendChild(box)
-    const arc = box.querySelector('.arc'), dot = box.querySelector('.dot'), SPAN = 70
+    const arc = box.querySelector('.arc'), dot = box.querySelector('.dot'), SPAN = TRACK.span
     let inT = 0, inHeld = 0, outT = 0, outHeld = 0, last = performance.now(); const t0 = last
     while (performance.now() - t0 < ms) {
       const now = performance.now(), dt = now - last, k = (now - t0) / 1000; last = now
-      const a = (k * 200) % 360, c = (360 - (k * 90) % 360 + 140) % 360   // the dot goes round one way, the arc the other
+      const a = (k * TRACK.dot) % 360, c = (360 - (k * TRACK.arc) % 360 + 140) % 360   // the dot goes round one way, the arc the other
       arc.style.background = `conic-gradient(from ${c - SPAN / 2}deg, rgb(250 204 21 / .95) 0 ${SPAN}deg, rgb(15 23 42 / .3) ${SPAN}deg)`   // dark track, bright target: readable on snow as on night scenes
       dot.style.left = (56 + 49 * Math.sin(a * Math.PI / 180)) + 'px'; dot.style.top = (56 - 49 * Math.cos(a * Math.PI / 180)) + 'px'
-      const inside = Math.abs(((a - c + 540) % 360) - 180) <= SPAN / 2, on = !!btnDown.a
+      const off = Math.abs(((a - c + 540) % 360) - 180), inside = off <= SPAN / 2, on = !!btnDown.a
       box.classList.toggle('on', on)
-      if (inside) { inT += dt; if (on) inHeld += dt } else { outT += dt; if (on) outHeld += dt }
+      if (inside) { inT += dt; if (on) inHeld += dt } else if (off > SPAN / 2 + TRACK.edge) { outT += dt; if (on) outHeld += dt }
       await W(16)
     }
     panel(null); box.remove()
-    return byShare(Math.max(0, (inT ? inHeld / inT : 0) - (outT ? outHeld / outT : 0) * 0.6) / 0.85)
+    return byShare(Math.max(0, (inT ? inHeld / inT : 0) - (outT ? outHeld / outT : 0) * TRACK.outCost) / TRACK.perfect)
   }
   /** Four beats after two count-in clicks: tap on each. How many of the four you hit. */
   async function rhythmTap(cx, cy, gap = 440) {
@@ -10422,7 +10430,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { gainExp, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, trackHold, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
