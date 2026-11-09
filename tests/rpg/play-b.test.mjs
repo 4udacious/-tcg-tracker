@@ -143,15 +143,24 @@ test('2v2: when one trainer of a tag team runs out, their partner sends in anoth
       for (const k in POOL_ALTS) delete POOL_ALTS[k]   // their main pools only, set here
       SCALPERS.forEach((T, i) => { POOLS[T.short] = i % 2 ? [{ name: 'RATTATA', min: 0 }, { name: 'PIDGEY', min: 0 }, { name: 'ZUBAT', min: 0 }] : [{ name: 'MAGIKARP', min: 0 }] })
     })
+    // Every line the message box shows, as it shows it: these ones pass on their own in 120-200 ms, quicker than the
+    // bot's log samples (it missed them now and then, so the test failed about one run in five).
+    await page.evaluate(() => {
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
+    })
     let seen = null
-    for (let tries = 0; tries < 8 && !seen; tries++) {
+    // Up to 20 duo battles: about one in four is the case (half are solo, and a tag team may pair two of a kind).
+    for (let tries = 0; tries < 20 && !seen; tries++) {
       await page.evaluate(() => {
         const mk = (n) => { const m = individual(speciesByName(n), 60, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 3000 }); m.hp = 3000; return m }
         window.__vvm.party.splice(0, 9, mk('MACHAMP'), mk('ARCANINE'))
+        window.__said.length = 0
       })
-      const from = g.log.length
       await bot.encounter('duo')
-      const lines = g.log.slice(from), i = lines.findIndex((l) => /is out of Pokémon!/.test(l))
+      // A line types out a letter at a time: keep each one as it ended (not the steps that only lead to the next).
+      const lines = await page.evaluate(() => window.__said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)))
+      const i = lines.findIndex((l) => /is out of Pokémon!/.test(l))
       if (i >= 0) seen = lines.slice(i, i + 6)
     }
     assert.ok(seen, 'a tag battle where one trainer ran out while the other still had Pokémon')
