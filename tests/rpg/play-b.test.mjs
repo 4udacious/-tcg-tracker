@@ -36,7 +36,7 @@ test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to he
       const v = window.__vvm
       for (let i = 0; i < 16; i++) if (!v.badges.includes(i)) v.badges.push(i)
       v.setLeague({ champion: true }); v.setRival(7)   // (Alex is done, so the taps are only for this)
-      KANTO_ELITE[0].team = ['LAPRAS']   // a short battle: this is about the ladder, not the fight
+      KANTO_ELITE[0].team = ['LAPRAS']; delete KANTO_ELITE[0].alts   // a short battle (and not one of her six-strong alternates): this is about the ladder, not the fight
       for (const n of ['GARCHOMP', 'TYRANITAR', 'GENGAR', 'GYARADOS', 'ARCANINE']) { const m = individual(speciesByName(n), 90, Math.random); m.hp = m.stats.hp; v.party.push(m) }
       for (const m of v.party) m.hp = m.stats.hp
       v.bag[v.leagueKey()] = 1; v.renderTools()

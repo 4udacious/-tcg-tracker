@@ -5314,7 +5314,7 @@ async function run(id) {
     for (const x of gifts) {
       if (giftIds.includes(x.id)) continue
       const sp = speciesByName(x.species); if (!sp) continue
-      const m = individual(sp, x.level ?? wildLevel(sp), rand); m.hp = m.stats.hp
+      const m = individual(sp, Math.max(2, Math.min(LEVEL_CAP, x.level ?? wildLevel(sp))), rand); m.hp = m.stats.hp
       if (SHINY_IDS.has(m.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) m.shiny = true   // __forceShiny: testing only
       if (party.length < 6) party.push(m); else toBox(m)
       giftIds = [...giftIds, x.id].slice(-200)
@@ -6574,9 +6574,11 @@ async function run(id) {
   async function gainExp(m, amount, bar, onLevel) {
     m.exp ??= 0
     addBond(m, 10)   // fought in it
+    // Lv 100 is as far as it goes (LEVEL_CAP): no EXP past it, as off the field (offFieldExp) and with a Rare Candy.
+    if (m.level >= LEVEL_CAP) { m.exp = 0; renderTools(); return }
     await say(`${m.name} gained`, `${amount} EXP. Points!`, 180)
     let left = amount
-    while (left > 0) {
+    while (left > 0 && m.level < LEVEL_CAP) {
       const need = expToNext(m.level), take = Math.min(left, need - m.exp)
       const a = m.exp / need * 100; m.exp += take; left -= take
       const b = m.exp / need * 100
@@ -10334,6 +10336,8 @@ async function run(id) {
     party.splice(0, party.length, ...s.party); box.splice(0, box.length, ...(s.box ?? []))
     boxAt = s.boxAt ?? 0; boxSort = s.boxSort ?? 'caught'; settleBoxes()
     restoreForms()   // a save from before that fix may still have one in it
+    // The Pokémon on the field once levelled past Lv 100 (gainExp had no cap): back to LEVEL_CAP, their stats with them.
+    for (const m of [...party, ...box]) if (m.level > LEVEL_CAP) { const full = m.hp >= m.stats.hp; m.level = LEVEL_CAP; m.exp = 0; m.stats = statsAt(m, LEVEL_CAP); m.hp = full ? m.stats.hp : Math.min(m.hp, m.stats.hp) }
     for (const m of [...party, ...box]) catchUpMoves(m)   // moves added to their schedule since (a second type's): in Learned, to swap in
     for (const k of Object.keys(bag)) delete bag[k]
     for (const [k, n] of Object.entries(s.bag ?? {})) {
@@ -10411,7 +10415,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),

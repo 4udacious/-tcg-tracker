@@ -63,6 +63,33 @@ test('a quick double tap on a phone: no double-tap scroll, and both taps still c
   } finally { await g.close() }
 })
 
+test('Lv 100 is the cap: no EXP past it on the field, a save from past it comes back to it, stats and all', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    // A save from before the cap held on the field: a Lucario at Lv 103 (in the party) and a Gyarados at Lv 101 (in the Box).
+    await page.evaluate(() => {
+      const at = (n, lv) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; learnAtLevel(m); return m }
+      localStorage.setItem('vvm-save', JSON.stringify({ v: 1, at: Date.now(), party: [at('LUCARIO', 103), at('CHARMANDER', 99)], box: [at('GYARADOS', 101)],
+        bag: { ball: 1 }, wallet: 10, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+    })
+    await page.reload(); await page.click('#mPlay'); await page.waitForFunction(() => window.__vvm?.party.length === 2, null, { timeout: 15000 })
+    const r = await page.evaluate(async () => {
+      const v = window.__vvm, [luc, chr] = v.party, gya = window.__vvm.box?.[0] ?? null
+      const ok100 = (m) => m.level === 100 && JSON.stringify(m.stats) === JSON.stringify(statsAt(m, 100)) && m.hp <= m.stats.hp
+      const loaded = { luc: luc.level, lucStats: ok100(luc), lucFull: luc.hp === luc.stats.hp }
+      await v.gainExp(luc, 50000)   // at the cap: nothing
+      await v.gainExp(chr, 5000000)   // far more than Lv 99 to 100 needs: stops at 100
+      return { ...loaded, lucAfter: luc.level, lucExp: luc.exp, chr: chr.level, chrStats: ok100(chr), gya: gya?.level ?? null }
+    })
+    assert.equal(r.luc, 100, 'a Lv 103 Pokémon from an old save loads at Lv 100'); assert.ok(r.lucStats, 'with its Lv 100 stats'); assert.ok(r.lucFull, 'and still at full HP')
+    if (r.gya != null) assert.equal(r.gya, 100, 'the same for one in the Box')
+    assert.deepEqual([r.lucAfter, r.lucExp], [100, 0], 'a Lv 100 Pokémon gains no EXP')
+    assert.equal(r.chr, 100, 'a Lv 99 Pokémon given far more EXP than it needs stops at Lv 100'); assert.ok(r.chrStats)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('battle rules', async () => {
   const g = await openGame()
   try {
