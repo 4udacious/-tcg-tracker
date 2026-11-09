@@ -53,12 +53,19 @@ test('a quick double tap on a phone: no double-tap scroll, and both taps still c
       addEventListener('touchend', (e) => setTimeout(() => window.__dt.prevented.push(e.defaultPrevented)), { capture: false })
     })
     await page.touchscreen.tap(80, 50); await page.waitForTimeout(120); await page.touchscreen.tap(80, 50)
-    await page.waitForTimeout(400)
+    await page.waitForTimeout(600)
     await page.touchscreen.tap(80, 50)   // a slow third tap: the browser's own
+    await page.waitForTimeout(600)
+    // A double tap whose second tap is held a moment (a hard tap through "A critical hit!"): iOS counts from the first
+    // tap's end to the second's start, so it's a double tap though the two ends are 480 ms apart.
+    const cdp = await page.context().newCDPSession(page), pt = [{ x: 80, y: 50 }]
+    await page.touchscreen.tap(80, 50); await page.waitForTimeout(180)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt }); await page.waitForTimeout(300)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
     await page.waitForTimeout(300)
     const r = await page.evaluate(() => window.__dt)
-    assert.equal(r.clicks, 3, 'every tap clicked once')
-    assert.deepEqual(r.prevented, [false, true, false], 'only the quick second tap has its default cancelled')
+    assert.equal(r.clicks, 5, 'every tap clicked once')
+    assert.deepEqual(r.prevented, [false, true, false, false, true], 'only the quick second taps have their default cancelled, a held one too')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -594,6 +601,46 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.ok(healed.full, 'the paid heal heals the party'); assert.match(healed.toast, /That was 0\.75 tk/)
     assert.equal(Math.round((healed.before - healed.after) * 100) / 100, 0.75, 'the server took the price'); assert.equal(healed.wallet, `${healed.after.toFixed(2)} tk`)
     assert.equal((await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'buyHeal').length, 1)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('in the app: on cooldown, a tap that turns into a battle shows the cooldown, not a shelf you can\'t buy from', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      // A stocked machine, but you bought a minute ago: back in 50 minutes.
+      const until = new Date(Date.now() + 50 * 60000).toISOString()
+      window.__vvmApi = {
+        async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: until, balance: 10, wild: true, trainers: true, heal_price: 0.5, find_chance: 0,
+          packs: [{ set_code: 'base2', set_name: 'Jungle', quantity: 3, image_url: '/packs/x.webp' }], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 10 }, async claim() { calls.push(['claim']); return { ok: false, reason: 'cooldown', holder_name: null, expires_at: until } },
+        async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardMilestone() { return { ok: false } }, async awardTokens() { return { ok: false, reason: 'daily_cap', awarded: 0, balance: 10 } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 12, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 5 }, wallet: 10, badges: [0], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    // Every line the machine's screen shows from here, and whether any pack tile is up when it does.
+    await frame.evaluate(() => {
+      window.__lines = []; const line = document.getElementById('homeLine')
+      new MutationObserver(() => window.__lines.push([line.textContent, !!document.querySelector('#supplies [data-buy]')])).observe(line, { childList: true, characterData: true, subtree: true })
+      document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click()
+    })
+    await frame.waitForFunction(() => getComputedStyle(document.getElementById('battleL')).display !== 'none', null, { timeout: 15000 })
+    const r = await frame.evaluate(() => window.__lines)
+    assert.ok(r.some(([t]) => t === 'COOLING DOWN'), `the screen behind the battle says COOLING DOWN (${JSON.stringify(r)})`)
+    assert.ok(!r.some(([t]) => t === 'PACKS ARE IN!'), 'never the stocked shelf')
+    assert.ok(!r.some(([, tiles]) => tiles), 'no pack tiles to add to a cart')
+    assert.deepEqual(await page.evaluate(() => window.__calls), [], 'a battle\'s tap still doesn\'t claim the machine')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
