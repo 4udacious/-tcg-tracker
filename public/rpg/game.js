@@ -4423,15 +4423,18 @@ document.addEventListener('pointerdown', (e) => {
 /*
  * No double-tap scroll on an iPhone. A quick second tap on a spot that isn't a
  * button (the grey battle panel, say) makes iOS scroll the page to centre it,
- * whatever touch-action says. So a tap that ends within 350 ms of the last one
- * has its default cancelled (that stops the gesture, and the browser's own
+ * whatever touch-action says. So a tap that starts (or ends) within 400 ms of
+ * the last one ending has its default cancelled (that stops the gesture, and the browser's own
  * click), and the click is sent here instead, so the tap still does what it
  * would have. Typing fields keep the browser's own handling.
  */
 {
-  let lastEnd = -1e9
+  // iOS counts a double tap from one tap's end to the next one's start, so that's what's measured here: a second tap
+  // held a moment (a hard tap through "A critical hit!" or a faint) still counts, though its end comes later.
+  let lastEnd = -1e9, startGap = 1e9
+  document.addEventListener('touchstart', (e) => { if (e.touches.length === 1) startGap = e.timeStamp - lastEnd }, { passive: true, capture: true })
   document.addEventListener('touchend', (e) => {
-    const quick = e.timeStamp - lastEnd < 350; lastEnd = e.timeStamp
+    const quick = startGap < 400 || e.timeStamp - lastEnd < 400; lastEnd = e.timeStamp; startGap = 1e9
     if (!quick || e.touches.length || e.changedTouches.length !== 1 || !e.cancelable) return
     const t = e.target, at = e.changedTouches[0]
     if (!(t instanceof Element) || t.closest('input, textarea, select, [contenteditable]')) return
@@ -8245,7 +8248,11 @@ async function run(id) {
     $('tts').textContent = 'STARTING…'; sfx('select'); await W(450)
     // The purchase screen is one trainer at a time; encounters don't need it (a battle claims it on the way back, in backToMachine).
     const elsewhere = state === 'in' && !!machine.lockedBy && machine.lockedBy !== YOU
-    const hold = enc ? { waiting: elsewhere, refused: null } : await holdMachine(state)
+    // On cooldown (from the machine's status), a battle's tap shows that, not a stocked shelf you can't buy from:
+    // the server would refuse the claim (holdMachine shows the same for a plain tap), and checkout needs it.
+    const cool = api && state === 'in' && realShelf?.cooldown_until && Date.parse(realShelf.cooldown_until) > Date.now()
+      ? { ok: false, reason: 'cooldown', expires_at: realShelf.cooldown_until } : null
+    const hold = enc ? { waiting: elsewhere && !cool, refused: cool } : await holdMachine(state)
     // Someone else is shopping and nothing jumped out: stay on the idle screen, so the next tap rolls again
     // (it used to stop on a "tap to go back" screen, wasting every other tap while you waited).
     if (!enc && hold.waiting && battlesActive()) {
