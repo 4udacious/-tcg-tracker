@@ -8505,7 +8505,7 @@ async function run(id) {
     while (performance.now() - t0 < ms) {
       const now = performance.now(), dt = now - last, k = (now - t0) / 1000; last = now
       const a = (k * 200) % 360, c = (360 - (k * 90) % 360 + 140) % 360   // the dot goes round one way, the arc the other
-      arc.style.background = `conic-gradient(from ${c - SPAN / 2}deg, rgb(250 204 21 / .75) 0 ${SPAN}deg, rgb(255 255 255 / .15) ${SPAN}deg)`
+      arc.style.background = `conic-gradient(from ${c - SPAN / 2}deg, rgb(250 204 21 / .95) 0 ${SPAN}deg, rgb(15 23 42 / .3) ${SPAN}deg)`   // dark track, bright target: readable on snow as on night scenes
       dot.style.left = (56 + 49 * Math.sin(a * Math.PI / 180)) + 'px'; dot.style.top = (56 - 49 * Math.cos(a * Math.PI / 180)) + 'px'
       const inside = Math.abs(((a - c + 540) % 360) - 180) <= SPAN / 2, on = !!btnDown.a
       box.classList.toggle('on', on)

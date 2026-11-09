@@ -1055,6 +1055,11 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .target { border-color: rgba(255,255,255,.9); box-shadow: 0 0 0 1.5px rgba(15,23,42,.55), inset 0 0 0 1.5px rgba(15,23,42,.45); }
 .ring.low { box-shadow: 0 0 0 2px rgba(15,23,42,.8), 0 0 10px rgba(245,158,11,.9), inset 0 0 0 2px rgba(15,23,42,.55); }
 .target.low { box-shadow: 0 0 0 1.5px rgba(15,23,42,.5); }
+/* The tracking moves' circle (Psychic, Ice Beam, Aurora Beam…) the same way: a dark edge inside and out of the track, and a dark-ringed dot. */
+.track { box-shadow: 0 0 0 2px rgba(15,23,42,.75), 0 0 0 3.5px rgba(255,255,255,.35), 0 0 8px rgba(0,0,0,.35); }   /* and a light rim, for night scenes */
+.track::after { content: ''; position: absolute; inset: 9px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(15,23,42,.6), inset 0 0 0 1.5px rgba(255,255,255,.3); }
+.track .dot { z-index: 1; border: 2px solid #0f172a; box-shadow: 0 0 0 1.5px #fff, 0 0 8px rgba(255,255,255,.9); }
+.track.on .dot { box-shadow: 0 0 0 1.5px #fff, 0 0 12px #fde047; }
 
 /* App mode (inside TCG Tracker's /play): just the machine and your stuff,
    filling the phone, with room at the top for the app's exit button. */
@@ -1241,6 +1246,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=1cc263690a"></script>
+<script src="/rpg/game.js?v=291775586b"></script>
 </body>
 </html>
