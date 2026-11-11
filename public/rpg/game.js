@@ -2574,9 +2574,9 @@ const CONF_DEFEND = 0.6
 const BALL_CATCH = { ball: 1, great: 1.5, ultra: 2 }
 const isBall = (k) => k in BALL_CATCH
 const STATUS_CATCH = { slp: 2.5, frz: 2.5, par: 1.5, brn: 1.5, psn: 1.5, tox: 1.5 }
-/** The chance each of a ball's four shakes holds (all four is a catch): HP, status, ball and throw. */
+/** The chance each of a ball's four shakes holds (all four is a catch): HP, status, ball, throw, and the balls a roaming legendary has already dodged. */
 function shakeOdds(foe, ball, throwMult) {
-  const a = ((3 * foe.max - 2 * foe.hp) * foe.capture * (BALL_CATCH[ball] ?? 1) * throwMult * (STATUS_CATCH[foe.status] ?? 1)) / (3 * foe.max)
+  const a = ((3 * foe.max - 2 * foe.hp) * foe.capture * (BALL_CATCH[ball] ?? 1) * throwMult * (STATUS_CATCH[foe.status] ?? 1) * legendWear(foe)) / (3 * foe.max)
   return a >= 255 ? 1 : 1 / Math.pow(255 / a, 0.1875)
 }
 /*
@@ -3803,12 +3803,20 @@ const TEAM_UP = {
 /*
  * The roaming legendaries: Raikou, Entei and Suicune. One of each roams at a
  * time, shared by every trainer: whoever meets one fights the same Pokémon,
- * with whatever HP the last trainer left it on. They attack once, then flee
- * on their second turn. Catch rate 3, so it takes a worn-down one, a good
- * ball and an Excellent throw. Knocked out or caught, a fresh one (full HP,
- * new IVs and nature) starts roaming in its place.
+ * with whatever HP the last trainer left it on. They attack for four turns
+ * (LEGEND_TURNS), then run on their next, as their move: one that can't move
+ * (asleep, frozen, fully paralyzed, flinching) can't run either. Catch rate 3, so it takes a worn-down one,
+ * a good ball and an Excellent throw, but every ball anyone has thrown at it
+ * wears it down a little more: each one adds a quarter to the catch rate, up
+ * to three times it after eight (LEGEND_WEAR, legendWear()). Like its HP, the
+ * count carries over to whoever meets it next. Knocked out or caught, a fresh
+ * one (full HP, new IVs and nature, no balls thrown) starts roaming in its place.
  */
 const LEGEND_LEVEL = 40
+const LEGEND_TURNS = 4      // the turns a roaming legendary attacks for before it flees
+const LEGEND_WEAR = { per: 0.25, max: 3 }   // the catch rate grows by `per` for each ball thrown at it, to at most `max` times
+/** How much easier a roaming legendary is to catch for the balls already thrown at it (×1 for anything else). */
+const legendWear = (m) => m.roamer ? Math.min(LEGEND_WEAR.max, 1 + LEGEND_WEAR.per * (m.balls ?? 0)) : 1
 const LEGEND_RATE = 0.04   // the share of wild encounters that turn out to be a roaming legendary
 const LEGENDS = ['RAIKOU', 'ENTEI', 'SUICUNE']
 const LEGEND_MOVES = {
@@ -8020,7 +8028,7 @@ async function run(id) {
   const pickLegend = (r = flavor) => ROAM[LEGENDS[Math.floor(r() * LEGENDS.length)]]
   const pct = (m) => Math.round(m.hp / m.stats.hp * 100)
   /** The testing panel's line: each one's HP as it stands. */
-  function renderRoamers() { const el = $('roamers'); if (el) el.innerHTML = LEGENDS.filter((n) => ROAM[n]).map((n) => `${n} <b>${pct(ROAM[n])}%</b>`).join(' · ') }
+  function renderRoamers() { const el = $('roamers'); if (el) el.innerHTML = LEGENDS.filter((n) => ROAM[n]).map((n) => `${n} <b>${pct(ROAM[n])}%</b>${ROAM[n].balls ? ` (${ROAM[n].balls} balls)` : ''}`).join(' · ') }
   /**
    * After a legendary battle, for any trainer: a fresh one if it was knocked
    * out or caught, otherwise it keeps its HP for whoever meets it next.
@@ -8032,11 +8040,12 @@ async function run(id) {
     } else feed(`The roaming <b>${m.name}</b> got away from <b>${who}</b> with <b>${pct(m)}%</b> HP left.`)
     renderRoamers()
   }
-  /** Another trainer meets one: they chip at it (sometimes finish it, very rarely catch it), and it runs. */
+  /** Another trainer meets one: they chip at it, throw a ball or two (sometimes finish it, rarely catch it), and it runs. */
   function otherLegend(name, r) {
     const m = pickLegend(r), hit = Math.round(m.stats.hp * (0.08 + r() * 0.3))
     m.hp = Math.max(0, m.hp - hit)
-    const caught = m.hp > 0 && r() < 0.03 * (1 - m.hp / m.stats.hp)
+    const caught = m.hp > 0 && r() < 0.03 * (1 - m.hp / m.stats.hp) * legendWear(m)
+    if (m.hp > 0 && !caught) m.balls = (m.balls ?? 0) + Math.floor(r() * 3)
     feed(`<b>${name}</b> tapped: the roaming legendary <b>${m.name}</b> burst out!`)
     legendAfter(m, caught ? 'caught' : m.hp <= 0 ? 'fainted' : 'fled', name)
   }
@@ -9021,7 +9030,7 @@ async function run(id) {
       $('enemy').getAnimations().forEach((a) => a.cancel())
       $('ehud').style.visibility = 'visible'; anim($('ehud'), [{ transform: 'translateX(-180px)' }, { transform: 'none' }], { duration: 280 })
       cry(foe)
-      if (foe.roamer) { shake(8, 500); await say(`The roaming legendary ${foe.name}`, `appeared! (${Math.round(foe.hp / foe.max * 100)}% HP)`, 700) }
+      if (foe.roamer) { shake(8, 500); await say(`The roaming legendary ${foe.name}`, `appeared! (${Math.round(foe.hp / foe.max * 100)}% HP${foe.balls ? `, ${foe.balls} ball${foe.balls === 1 ? '' : 's'} dodged` : ''})`, 700) }
       else if (foe.shiny) { shinySparkle(C.e); await W(500); await say(`A wild shiny ${foe.name}`, 'appeared!', 600) }
       else await say(`A wild ${foe.name}`, 'appeared!', 300)
     } else {
@@ -9284,11 +9293,12 @@ async function run(id) {
       await anim($('enemy'), [{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(0)', filter: 'brightness(4) sepia(1) hue-rotate(-50deg)' }], { duration: 360, easing: 'ease-in' }).finished
       $('enemy').style.visibility = 'hidden'
       await anim(ball, [{ transform: `translate(${dx}px,${dy}px)` }, { transform: `translate(${dx}px,${dy + 38}px)`, offset: .6 }, { transform: `translate(${dx}px,${dy + 30}px)`, offset: .8 }, { transform: `translate(${dx}px,${dy + 38}px)` }], { duration: 420, easing: 'ease-in' }).finished
-      let shakes = forcedShakes
+      let shakes = forcedShakes ?? window.__forceShakes   // __forceShakes: testing only
       if (shakes == null) {
         const b = shakeOdds(foe, k, throwMult)
         shakes = 0; while (shakes < 4 && Math.random() < b) shakes++
       }
+      if (foe.roamer) foe.balls = (foe.balls ?? 0) + 1   // the next ball at it, anyone's, has better odds
       for (let i = 0; i < Math.min(3, shakes); i++) {
         await W(450); sfx('wobble')
         await anim(ball, [{ transform: `translate(${dx}px,${dy + 38}px) rotate(0)` }, { transform: `translate(${dx}px,${dy + 38}px) rotate(-24deg)`, offset: .3 }, { transform: `translate(${dx}px,${dy + 38}px) rotate(18deg)`, offset: .7 }, { transform: `translate(${dx}px,${dy + 38}px) rotate(0)` }], { duration: 420 }).finished
@@ -9307,6 +9317,7 @@ async function run(id) {
       $('enemy').style.visibility = 'visible'
       await anim($('enemy'), [{ transform: 'scale(0)' }, { transform: 'scale(1.1)', offset: .7 }, { transform: 'scale(1)' }], { duration: 300 }).finished
       await say(['Oh no! It broke free!', 'Aww! It appeared to be caught!', 'Aargh! Almost had it!', 'Gah! It was so close, too!'][Math.min(3, shakes)])
+      if (foe.roamer && legendWear(foe) > legendWear({ ...foe, balls: foe.balls - 1 })) await say(`${foe.name} is tiring!`, 'The next ball has a better chance.', 300)
       return 'free'
     }
 
@@ -9436,13 +9447,6 @@ async function run(id) {
     const LEADER_STATUS = { koga: 'POISON POWDER', janine: 'POISON POWDER', erika: 'POISON POWDER', bugsy: 'POISON POWDER',
       karen: 'WILL-O-WISP', morty: 'WILL-O-WISP', blaine: 'WILL-O-WISP', lt_surge: 'THUNDER WAVE', sabrina: 'THUNDER WAVE', will: 'THUNDER WAVE', lance: 'THUNDER WAVE' }
     async function foeTurn() {
-      // A roaming legendary attacks once, then runs on its second turn, keeping whatever HP it has left.
-      if (foe.roamer && foe.turn >= 1 && !ST(foe).trapped) {
-        sfx('run'); await anim($('enemy'), [{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(260px)', opacity: 0 }], { duration: 520, easing: 'ease-in' }).finished
-        $('enemy').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'
-        await say(`${foe.name} fled!`, `It still has ${Math.round(foe.hp / foe.max * 100)}% of its HP.`, 700)
-        fled = true; return
-      }
       if (kind === 'trainer' && !demoNoBlunder && (await blunder(trainer, foe))) return
       // A Full Heal, used instead of moving (so even asleep or frozen), unless a Full Restore is about to cover it.
       if (fullHeals > 0 && !(restores > 0 && foe.hp < foe.max * 0.35) && foeWantsFullHeal(foe, trainer, rand)) {
@@ -9453,6 +9457,15 @@ async function run(id) {
         return
       }
       if (await blockedByStatus(foe)) return
+      // A roaming legendary attacks for LEGEND_TURNS turns, then uses its next turn to run, keeping whatever HP
+      // it has left. Running is its move for the turn, so it has to be able to move: asleep, frozen, fully
+      // paralyzed, flinching or hurting itself in confusion, it stays put (and Mean Look holds it for good).
+      if (foe.roamer && foe.turn >= LEGEND_TURNS && !ST(foe).trapped) {
+        sfx('run'); await anim($('enemy'), [{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(260px)', opacity: 0 }], { duration: 520, easing: 'ease-in' }).finished
+        $('enemy').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'
+        await say(`${foe.name} fled!`, `It still has ${Math.round(foe.hp / foe.max * 100)}% of its HP.`, 700)
+        fled = true; return
+      }
       // A Ditto transforms on its first turn out, into yours.
       if (canTransform(foe) && !foe.form?.stats && !foe.triedTransform && !ST(foe).taunt && !foe.charged) {
         foe.triedTransform = true; foe.turn++
@@ -9878,7 +9891,7 @@ async function run(id) {
       Sound.stopMusic()
     }
     else if (out.result === 'lost') { await say('You have no Pokémon left', 'that can fight!') }
-    if (roamer) { if (out.result === 'caught') foe.roamer = false; legendAfter(roamer, out.result, 'You') }
+    if (roamer) { if (out.result === 'caught') { foe.roamer = false; delete foe.balls } legendAfter(roamer, out.result, 'You') }
     // The home feed: a roaming legendary caught, knocked out or met, and a shiny caught (the server checks and keeps them).
     const event = roamer ? { caught: 'legend_caught', fainted: 'legend_ko' }[out.result] ?? 'legend_seen' : out.result === 'caught' && foe.shiny ? 'shiny_caught' : null
     if (event) Promise.resolve(vvm()?.logEvent?.(event, foe.name, foe.id, foe.level)).catch(() => {})
@@ -10430,7 +10443,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { gainExp, trackHold, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, trackHold, ROAM, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
