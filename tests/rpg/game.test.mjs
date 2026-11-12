@@ -854,6 +854,55 @@ test('in the app: what you buy drops into the tray at angles; a jammed pack hang
   } finally { await g.close() }
 })
 
+test('in the app: items bought at the VVM sell back from the Bag, for what the server says, after the save is up to date', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const calls = window.__calls = []
+      let balance = 4, saved = null
+      window.__vvmApi = {
+        async machine() { return { status: 'idle', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: true, trainers: true, heal_price: 0.5, find_chance: 0,
+          packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return balance }, async claim() { return { ok: true } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { calls.push(['putSave', d.bag.ultra]); saved = d; return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+        // The server: two Ultra Balls were bought (the third was a gift), the Potions were all used up, the Rare Candy was never bought.
+        async sellable() { calls.push(['sellable']); return [{ key: 'ultra_ball', qty: Math.min(2, saved?.bag.ultra ?? 0), price: 0.35 }, { key: 'potion', qty: 0, price: 0.12 }] },
+        async sellItems(items) { calls.push(['sell', items]); const amount = items.reduce((a, i) => a + i.qty * 0.35, 0); balance += amount; return { ok: true, reason: 'ok', key: null, amount, balance } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 8, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ultra: 3, potion: 2, rarecandy: 1 }, wallet: 4, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(1200)
+    await frame.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
+    await frame.waitForSelector('#sheetBody [data-sellpage]', { timeout: 5000 })
+    await frame.evaluate(() => document.querySelector('#sheetBody [data-sellpage]').click())
+    await frame.waitForSelector('#sheetBody [data-sell="ultra"]', { timeout: 5000 })
+    const rows = await frame.evaluate(() => Object.fromEntries([...document.querySelectorAll('#sheetBody .sellrow')].map((r) => [r.querySelector('b').textContent,
+      { sub: r.querySelector('.sub').textContent, one: !r.querySelector('[data-sell]').disabled, all: r.querySelector('[data-sellall]')?.textContent ?? null }])))
+    assert.deepEqual(rows['ULTRA BALL'], { sub: '0.35 tk each · 2 of 3 can be sold', one: true, all: 'ALL 2' }, 'only the bought ones')
+    assert.equal(rows.POTION.one, false, 'used-up ones: none'); assert.match(rows.POTION.sub, /none left that you bought at the VVM/)
+    assert.match(rows['RARE CANDY'].sub, /not bought at the VVM/)
+    await frame.evaluate(() => document.querySelector('#sheetBody [data-sellall="ultra"]').click())
+    await frame.waitForFunction(() => /Sold 2 × ULTRA BALL for 0\.70 tk/.test(document.querySelector('#sheetBody .toast')?.textContent ?? ''), null, { timeout: 5000 })
+    const after = await frame.evaluate(() => ({ ultra: window.__vvm.bag.ultra, wallet: document.getElementById('wallet').textContent, sellOne: !document.querySelector('#sheetBody [data-sell="ultra"]').disabled }))
+    assert.deepEqual(after, { ultra: 1, wallet: '4.70 tk', sellOne: false }, 'gone from the Bag, paid, and the last (a gift) stays')
+    const calls = await page.evaluate(() => window.__calls)
+    const sold = calls.findIndex((c) => c[0] === 'sell')
+    assert.deepEqual(calls[sold][1], [{ key: 'ultra_ball', qty: 2 }])
+    assert.ok(calls.slice(0, sold).some((c) => c[0] === 'putSave' && c[1] === 3), 'the save went up before the sale')
+    await page.waitForTimeout(600)
+    assert.ok((await page.evaluate(() => window.__calls)).slice(sold).some((c) => c[0] === 'putSave' && c[1] === 1), 'and again after, without them')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: a roaming legendary met in a wild battle is reported for the home feed', async () => {
   const g = await openGame()
   try {

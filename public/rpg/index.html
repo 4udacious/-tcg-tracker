@@ -440,6 +440,11 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .irow { width: 100%; background: none; cursor: pointer; text-align: left; }
 .irow .mid { display: flex; flex-direction: column; }
 .irow[disabled] { cursor: default; }
+.sellrow { flex-wrap: wrap; }
+.sellrow .sellbtns { display: flex; gap: 6px; flex: none; }
+.sellrow .sellbtns button { padding: 7px 10px; border: 0; border-radius: 999px; cursor: pointer; font: 800 11px system-ui, sans-serif; letter-spacing: .04em; background: #facc15; color: #0f172a; box-shadow: 0 2px 0 #a16207; }
+.sellrow .sellbtns button[disabled] { background: #cbd5e1; color: #64748b; box-shadow: none; cursor: default; }
+.sheet button.sellgo { margin-top: 12px; }
 .irow[disabled] .mid b { color: var(--muted); }
 .irow:hover:not([disabled]), .irow.hot { background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .back { border: 0; background: none; cursor: pointer; padding: 2px 2px 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
@@ -1246,6 +1251,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=793a1193ef"></script>
+<script src="/rpg/game.js?v=c20409ec67"></script>
 </body>
 </html>

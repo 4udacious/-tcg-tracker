@@ -134,6 +134,22 @@ export function makeVvmApi(userId: string) {
       const { data } = await db.rpc('battle_take_items', { p_keys: keys })
       return ((data as { item_key: string; qty: number }[] | null) ?? []).map((r) => ({ key: r.item_key, qty: r.qty }))
     },
+    /**
+     * Items you can sell back to the machine (v103): how many of each (bought, not yet sold, and still in your
+     * saved Bag) and what each one pays. Null before v103, so the game hides selling.
+     */
+    async sellable() {
+      const { data, error } = await db.rpc('vvm_sellable')
+      if (error) return null
+      return ((data as { item_key: string; qty: number; price: number | string }[] | null) ?? []).map((r) => ({ key: r.item_key, qty: r.qty, price: n(r.price) }))
+    },
+    /** Sell items back for half the shop price, into earned tokens. All or nothing. */
+    async sellItems(items: { key: string; qty: number }[]) {
+      const { data, error } = await db.rpc('vvm_sell_items', { p_items: items })
+      const r = one(data as { ok: boolean; reason: string; item_key: string | null; amount: number | string; balance: number | string | null } | null)
+      return r ? { ok: r.ok, reason: r.reason, key: r.item_key, amount: n(r.amount), balance: r.balance == null ? await balance() : n(r.balance) }
+        : { ok: false, reason: error?.message ?? 'error', key: null, amount: 0, balance: await balance() }
+    },
     /** A real pack from a set's inventory into your collection (capped per day). */
     async awardPack(source: string) {
       const { data } = await db.rpc('battle_award_pack', { p_source: source })
