@@ -11,7 +11,10 @@ export interface CrashRow {
     /** The session so far (newer games): minutes open, battles, songs decoded, the playing song's length, and the page's size. */
     session?: { mins?: number; battles?: number; decodes?: number; songSecs?: number; nodes?: number; imgs?: number; anims?: number
       /** Newer games: decoding a song hung (Safari 27), so songs stream instead; how many have. */
-      hung?: boolean; streams?: number; decodeErr?: string | null; loops?: number; lateMs?: number; jumps?: number; ranOut?: number }
+      hung?: boolean; streams?: number; decodeErr?: string | null; loops?: number; lateMs?: number; jumps?: number; ranOut?: number; upgrades?: number }
+    /** A music report, not a crash (a phone that streams the songs, once a session): what the songs went through. */
+    report?: 'music'
+    events?: { s: number; song?: string; ev: string; off?: number; tries?: number; waited?: number; late?: number; secs?: number; err?: string }[]
   }
   device: { ua?: string; screen?: string; mem?: number | null; cores?: number | null }
   member: { username: string; display_name: string | null } | null
@@ -48,7 +51,8 @@ export default function CrashReportsClient({ reports }: { reports: CrashRow[] })
     const had = seen.get(k)
     if (!had) seen.set(k, { row: r, copies: 1 }); else had.copies++
   }
-  const all = [...seen.values()]
+  const music = [...seen.values()].filter((x) => x.row.note.report === 'music')
+  const all = [...seen.values()].filter((x) => x.row.note.report !== 'music')
   const onScreen = all.filter((x) => !x.row.note.hidden), background = all.filter((x) => x.row.note.hidden)
   return (
     <section className="space-y-3">
@@ -76,7 +80,53 @@ export default function CrashReportsClient({ reports }: { reports: CrashRow[] })
           </details>
         </>
       )}
+      {music.length > 0 && <MusicReports rows={music.map((x) => x.row)} />}
     </section>
+  )
+}
+
+/** One event of a streamed song, as a line: "12.4s battle · hand-over 8 ms out of step". */
+function eventLine(e: NonNullable<CrashRow['note']['events']>[number]) {
+  const what = e.ev === 'hand-over' ? `hand-over ${Math.abs(e.off ?? 0)} ms out of step${e.tries ? `, ${e.tries} nudges` : ''}${e.waited ? `, ${e.waited} ms to start` : ''}`
+    : e.ev === 'jump back' ? `jumped back (${e.late ?? '?'} ms past the loop)` : e.secs != null ? `${e.ev} (after ${e.secs} s)` : e.err ? `${e.ev}: ${e.err}` : e.ev
+  return `${e.s.toFixed(1)}s ${e.song ?? ''} · ${what}`
+}
+
+/**
+ * Music reports (newer games): a phone that can't decode the songs quickly
+ * plays them from <audio> players instead, and once a session, after a
+ * battle, it reports how that went: every loop's hand-over between its two
+ * players, any jump back, a player left waiting on its file, the audio
+ * interrupted, and the song decoded in the background at last.
+ */
+function MusicReports({ rows }: { rows: CrashRow[] }) {
+  return (
+    <details className="space-y-1.5">
+      <summary className="cursor-pointer text-sm font-semibold">Music reports <span className="font-normal text-muted">· {rows.length}</span></summary>
+      <p className="text-xs text-muted leading-snug pt-1">
+        Not crashes: phones that play the songs from audio players (their browser decodes too slowly) report how the songs went, once a session.
+      </p>
+      <ul className="space-y-1.5">
+        {rows.map((r) => (
+          <li key={r.id} className="bg-card border border-card-border rounded-xl px-3 py-2">
+            <details>
+              <summary className="cursor-pointer list-none text-xs flex items-baseline gap-2">
+                <span className="font-medium shrink-0">{r.member ? (r.member.display_name || `@${r.member.username}`) : 'A member'}</span>
+                <span className="min-w-0 flex-1 truncate text-muted">
+                  {deviceName(r.device.ua)} · {r.note.session?.loops ?? 0} loops, worst {r.note.session?.lateMs ?? 0} ms{r.note.session?.jumps ? ` · ${r.note.session.jumps} jumps` : ''}{r.note.session?.upgrades ? ` · ${r.note.session.upgrades} decoded later` : ''}
+                </span>
+                <span className="font-mono text-[11px] text-muted shrink-0">{ago(r.created_at)}</span>
+              </summary>
+              <div className="mt-2 space-y-0.5 text-[11px]">
+                <p className="text-muted">Why streaming: {r.note.session?.decodeErr ?? '?'} · {r.note.session?.streams ?? 0} songs streamed · game {r.note.ver ?? '?'}</p>
+                {(r.note.events ?? []).map((e, i) => <p key={i} className={`font-mono ${/jump|waiting|stalled|ran out|interrupted|failed/.test(e.ev) ? 'text-signal' : ''}`}>{eventLine(e)}</p>)}
+                <p className="font-mono break-all text-muted pt-1">{r.device.ua ?? ''}</p>
+              </div>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 

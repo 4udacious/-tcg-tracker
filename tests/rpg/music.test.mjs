@@ -244,12 +244,12 @@ test('a browser that never finishes decoding a song: it gives up and streams the
       return { first, second }
     })
     assert.ok(r.first.stream, 'the hung decode gave up and the song streams')
-    assert.equal(r.first.decodesAsked, 1)
+    assert.equal(r.first.decodesAsked, 2, 'the song\'s own decode, then one in the background (to cross over to, if it ever finishes)')
     assert.match(r.first.played.at(-1) ?? '', /\/rpg\/a\/music\/.+/, 'from its file')
     assert.ok(r.first.hung, 'remembered for this browser')
     assert.ok(r.first.stats.hung && r.first.stats.streams === 1, 'and in the crash note\'s stats')
     assert.ok(r.second.stream, 'the next song streams straight away')
-    assert.equal(r.second.decodesAsked, 1, 'without trying to decode again')
+    assert.equal(r.second.decodesAsked, 2, 'without trying to decode again: the hung background one is still the one (they never pile up)')
     assert.equal(r.second.played.length, 2)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
@@ -394,6 +394,38 @@ test('a battle\'s cries are fetched as it starts, not when each is first heard',
       return got.map((u) => u.split('/').pop())
     })
     assert.deepEqual(r.sort(), ['150.ogg', '25.ogg', '6.ogg'], 'each one once')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a streamed song is decoded in the background, then crosses over to the decoded buffer; the music report says so, once', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async (setup) => {
+      eval(setup)
+      // The first decode (the song's own) fails, so it streams; the background one succeeds, after a while.
+      let calls = 0
+      BaseAudioContext.prototype.decodeAudioData = function () {
+        return ++calls === 1 ? Promise.reject(new DOMException('slow', 'EncodingError'))
+          : new Promise((ok) => setTimeout(() => ok(new AudioBuffer({ length: 44100 * 50, numberOfChannels: 2, sampleRate: 44100 })), 600))
+      }
+      const sent = []; window.__sendMusicReport = (n) => sent.push(n)
+      Sound.setOn(true); Sound.music('battle')
+      await __until(() => window.__musicFile?.name === 'battle' && window.__musicFile.stream)
+      const streaming = window.__musicFile.el
+      __clock.get(streaming).t = 10
+      await __until(() => window.__musicFile?.upgraded)
+      await __wait(600)
+      const out = { upgraded: !!window.__musicFile?.upgraded, playersStopped: window.__musicPool().every((el) => el.paused), stats: window.__musicStats(), log: window.__musicLog().map((e) => e.ev) }
+      Sound.musicReport(); Sound.musicReport()
+      out.sent = sent.map((n) => ({ report: n.report, events: n.events.map((e) => e.ev), upgrades: n.session.upgrades }))
+      Sound.stopMusic(); return out
+    }, STREAM_SETUP)
+    assert.ok(r.upgraded, 'the decoded buffer takes over'); assert.ok(r.playersStopped, 'and the <audio> players stop')
+    assert.equal(r.stats.upgrades, 1)
+    assert.deepEqual(r.log.filter((e) => /stream|decoded/.test(e)), ['stream', 'decoded: no more hand-overs'])
+    assert.equal(r.sent.length, 1, 'one music report a session')
+    assert.equal(r.sent[0].report, 'music'); assert.equal(r.sent[0].upgrades, 1); assert.ok(r.sent[0].events.includes('decoded: no more hand-overs'))
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
