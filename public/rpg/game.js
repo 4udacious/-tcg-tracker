@@ -132,7 +132,7 @@ const Sound = (() => {
   // game is open. The Watch demos keep all of it, for the recorded video's soundtrack.
   const logged = (e) => { log.push(e); if (log.length > 3000 && MODE === 'play') log.splice(0, 1000) }
   let decodes = 0, playingSecs = 0   // for the crash note: songs decoded since the page loaded, and how long the one playing is
-  window.__musicStats = () => ({ decodes, secs: playingSecs })
+  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr })
   const stamp = () => performance.timeOrigin + performance.now()
 
   function graph(ctx) {
@@ -160,13 +160,40 @@ const Sound = (() => {
   let aac = null
   const canAac = () => (aac ??= !!document.createElement('audio').canPlayType?.('audio/mp4; codecs="mp4a.40.2"'))
   const loadFiles = () => (filesP ??= fetch('/rpg/music.json').then((r) => (r.ok ? r.json() : null)).then((j) => (files = j?.songs ?? {})).catch(() => (files = {})))
+  /*
+   * Safari 27 (iOS) never decodes these files (crash reports: 0 songs decoded in whole sessions, on that browser only,
+   * though the music played). A failed decode used to fall back to the live synthesiser, the very engine whose
+   * hundreds of audio nodes a second iPhones kill the page over, and those pages were dying mid-battle. So now a decode
+   * that fails, or takes longer than DECODE_MS, streams the song through one <audio> element instead (the browser's own
+   * player, no decoding here), its loop kept by a timer; from then on, remembered for this browser, every song does.
+   * The live synthesiser is only the last resort, if streaming fails too. The crash note keeps why (decodeErr).
+   */
+  const DECODE_MS = () => window.__decodeMs ?? 8000, HUNG_KEY = 'vvm-decode-hung'
+  let decodeHung = (() => { try { return localStorage.getItem(HUNG_KEY) === navigator.userAgent } catch { return false } })(), streams = 0, decodeErr = null
+  let streamEl = null, streamNode = null, streamTimer = null
+  function streamFile(name, song, g, f) {
+    const tok = ++fileTok
+    try {
+      if (!streamEl) { streamEl = new Audio(); streamEl.preload = 'auto'; streamEl.setAttribute('playsinline', ''); streamNode = ac.createMediaElementSource(streamEl) }
+      streamNode.disconnect()
+      const v = ac.createGain(); v.gain.value = f.gain ?? 1; streamNode.connect(v).connect(g)
+      streamEl.src = `/rpg/a/music/${f.file}`
+      window.__crumb?.(`streaming song ${name}`); streams++
+      streamEl.play().catch(() => { if (tok === fileTok && !g.__stopped) playSynth(song, g) })
+      // Round the loop by hand (the element only loops the whole file): back to the loop's start as it reaches its end.
+      if (f.loop) streamTimer = setInterval(() => { if (tok === fileTok && streamEl.currentTime >= f.loopEnd - 0.03) streamEl.currentTime = f.loopStart + Math.max(0, streamEl.currentTime - f.loopEnd) }, 40)
+      window.__musicFile = { name, stream: true, el: streamEl, f }
+    } catch { if (tok === fileTok && !g.__stopped) playSynth(song, g) }
+  }
   async function playFile(name, song, g, f) {
     const tok = ++fileTok
     try {
       window.__crumb?.(`fetching song ${name}`)
-      const bytes = await (await fetch(`/rpg/a/music/${f.file}`)).arrayBuffer()
+      const res = await fetch(`/rpg/a/music/${f.file}`); if (!res.ok) throw new Error('fetch_failed')
+      const bytes = await res.arrayBuffer()
       window.__crumb?.(`decoding song ${name} (${Math.round(f.samples / f.rate)} s)`)
-      const buf = await ac.decodeAudioData(bytes)
+      let hang; const buf = await Promise.race([ac.decodeAudioData(bytes),
+        new Promise((_, no) => { hang = setTimeout(() => no(new Error('decode_hung')), DECODE_MS()) })]).finally(() => clearTimeout(hang))
       decodes++
       window.__crumb?.(`playing song ${name}`)
       if (tok !== fileTok || g.__stopped) return
@@ -179,7 +206,14 @@ const Sound = (() => {
       if (f.loop) { src.loop = true; src.loopStart = f.loopStart + lead; src.loopEnd = f.loopEnd + lead }
       src.connect(v).connect(g); src.start(ac.currentTime + 0.03, lead)
       fileSrc = src; window.__musicFile = { name, src, f }
-    } catch { if (tok === fileTok && !g.__stopped) playSynth(song, g) }   // no file to be had: play it live
+    } catch (e) {
+      if (e?.message === 'fetch_failed') { if (tok === fileTok && !g.__stopped) playSynth(song, g); return }   // no file to be had: play it live
+      // The decode failed or hung: stream this song and every one after it.
+      decodeHung = true; decodeErr = e?.message === 'decode_hung' ? 'hung' : `${e?.name ?? 'Error'}: ${e?.message ?? e}`.slice(0, 120)
+      try { localStorage.setItem(HUNG_KEY, navigator.userAgent) } catch {}
+      window.__crumb?.(`decode failed (${decodeErr}): streaming songs from now on`)
+      if (tok === fileTok && !g.__stopped) streamFile(name, song, g, f)
+    }
   }
   function playSynth(song, g) {
     let next = ac.currentTime + 0.15   // a short lead-in: the first pass (mixer, reverb, a song's worth of notes) is built in time
@@ -194,12 +228,14 @@ const Sound = (() => {
     ensure()
     const g = musGain = ac.createGain(); musGain.connect(musBus)
     if (window.__synthMusic) return playSynth(song, g)   // testing, and the render script: the live engine
-    const go = () => { if (musGain !== g) return; const f = files[name]; f && f.sig === musicSig(name) && canAac() ? playFile(name, song, g, f) : playSynth(song, g) }
+    const go = () => { if (musGain !== g) return; const f = files[name]; f && f.sig === musicSig(name) && canAac() ? (decodeHung ? streamFile : playFile)(name, song, g, f) : playSynth(song, g) }
     files ? go() : loadFiles().then(go)
   }
   function stopNodes() {
     fileTok++
     if (loopTimer) { clearInterval(loopTimer); loopTimer = null }
+    if (streamTimer) { clearInterval(streamTimer); streamTimer = null }
+    if (streamEl) { try { streamEl.pause() } catch {} if (window.__musicFile?.stream) window.__musicFile = null }
     if (fileSrc) { const s = fileSrc; fileSrc = null; window.__musicFile = null; try { s.stop(ac.currentTime + 0.4) } catch {} }
     if (musGain) { const g = musGain; musGain = null; g.__stopped = true; try { g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => g.disconnect(), 400) } catch {} }
   }
@@ -4304,7 +4340,7 @@ const CRUMBS = (() => {
     // The session so far, for telling a slow build-up from a one-off: minutes open, battles, songs decoded (and the
     // playing one's length), and what the page holds (elements, images, running animations).
     const ms = window.__musicStats?.() ?? {}
-    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0,
+    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0, hung: !!ms.hung, streams: ms.streams ?? 0, decodeErr: ms.decodeErr ?? null,
       nodes: document.getElementsByTagName('*').length, imgs: document.images.length, anims: document.getAnimations?.().length ?? 0 }
     try { localStorage.setItem(key, JSON.stringify(c)) } catch {}
   }
