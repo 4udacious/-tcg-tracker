@@ -135,20 +135,21 @@ export function makeVvmApi(userId: string) {
       return ((data as { item_key: string; qty: number }[] | null) ?? []).map((r) => ({ key: r.item_key, qty: r.qty }))
     },
     /**
-     * Items you can sell back to the machine (v103): how many of each (bought, not yet sold, and still in your
-     * saved Bag) and what each one pays. Null before v103, so the game hides selling.
+     * Bag items you can sell back to the machine (v103), by the game's Bag key: how many (what your saved Bag
+     * holds, less what's sold since) and what each pays; and what today's sales may still pay. Null on an error.
      */
     async sellable() {
       const { data, error } = await db.rpc('vvm_sellable')
       if (error) return null
-      return ((data as { item_key: string; qty: number; price: number | string }[] | null) ?? []).map((r) => ({ key: r.item_key, qty: r.qty, price: n(r.price) }))
+      const rows = (data as { item_key: string; qty: number; price: number | string; left_today: number | string }[] | null) ?? []
+      return { items: rows.map((r) => ({ key: r.item_key, qty: r.qty, price: n(r.price) })), leftToday: rows.length ? n(rows[0].left_today) : null }
     },
-    /** Sell items back for half the shop price, into earned tokens. All or nothing. */
+    /** Sell Bag items back for half the shop price, into earned tokens. All or nothing; at most a daily amount. */
     async sellItems(items: { key: string; qty: number }[]) {
       const { data, error } = await db.rpc('vvm_sell_items', { p_items: items })
-      const r = one(data as { ok: boolean; reason: string; item_key: string | null; amount: number | string; balance: number | string | null } | null)
-      return r ? { ok: r.ok, reason: r.reason, key: r.item_key, amount: n(r.amount), balance: r.balance == null ? await balance() : n(r.balance) }
-        : { ok: false, reason: error?.message ?? 'error', key: null, amount: 0, balance: await balance() }
+      const r = one(data as { ok: boolean; reason: string; item_key: string | null; amount: number | string; balance: number | string | null; left_today: number | string | null } | null)
+      return r ? { ok: r.ok, reason: r.reason, key: r.item_key, amount: n(r.amount), balance: r.balance == null ? await balance() : n(r.balance), leftToday: r.left_today == null ? null : n(r.left_today) }
+        : { ok: false, reason: error?.message ?? 'error', key: null, amount: 0, balance: await balance(), leftToday: null }
     },
     /** A real pack from a set's inventory into your collection (capped per day). */
     async awardPack(source: string) {
