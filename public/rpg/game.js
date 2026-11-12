@@ -5283,6 +5283,20 @@ async function run(id) {
   /** Why a catalog supply can't be bought right now (a summon needs a gym to go to), or ''. */
   /** A Gym Summon already in the Bag (for any gym): one at a time, so another isn't sold until it's used. */
   const heldSummon = () => Object.entries(bag).some(([k, v]) => /^summon:\d+$/.test(k) && v > 0)
+  /**
+   * A battle ticket you don't qualify for yet: a rematch with someone you
+   * haven't beaten, a Gym Summon with no gym left to go to (all 8 Johto badges
+   * before you're Champion; all 16 after), or a League ticket before its League
+   * is open. It's left off your shelf entirely, though it's on the machine for
+   * everyone who does qualify. (Ones held back for other reasons, like already
+   * having one, stay on the shelf, greyed out, with the reason: supNot().)
+   */
+  function supLocked(key) {
+    if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r || !r.beaten() }
+    if (key === 'gym_summon') return !(nextGym() < GYMS.length && (nextGym() < 8 || champion))
+    if (key === 'elite_ticket') return !leagueNow()
+    return false
+  }
   function supNot(key) {
     if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r ? 'not in this game' : !r.beaten() ? 'beat them first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
@@ -5306,8 +5320,8 @@ async function run(id) {
       const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
       return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
     }
-    // A League ticket isn't on the shelf at all until its League is open: all 8 Johto badges (or, as Champion, all 16).
-    const shelved = t.supplies.filter((x) => x.key !== 'elite_ticket' || leagueNow())
+    // Battle tickets you don't qualify for aren't on your shelf at all (supLocked).
+    const shelved = t.supplies.filter((x) => !supLocked(x.key))
     return [...(t.boxes ?? []).filter((x) => x.max > 0).map(sealed), ...t.packs.filter((p) => p.quantity > 0).map(pack), ...t.tickets.filter((x) => x.max > 0).map(ticket), ...shelved.map(sup)].join('')
   }
   /**
