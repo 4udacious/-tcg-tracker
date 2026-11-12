@@ -5239,6 +5239,8 @@ async function run(id) {
     // Evolution items (v88).
     thunder_stone: 'thunderstone', water_stone: 'waterstone', fire_stone: 'firestone', leaf_stone: 'leafstone', ice_stone: 'icestone', moon_stone: 'moonstone',
     sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }
+  /** Can this Bag item be sold back to the VVM (v103)? Anything but Gym Summons, League and rematch tickets and key items. */
+  const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && ITEMS[k].summon == null && !ITEMS[k].rematch && !['summon', 'elite', 'disc'].includes(k)
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
@@ -5754,6 +5756,31 @@ async function run(id) {
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
     }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders and, now and then, the VVM. Beaten trainers sometimes leave a booster pack: it goes to your collection.</p>`
+      + (vvm()?.sellable && all.some(([k]) => sellsBack(k)) ? `<button class="challenge sellgo" data-sellpage style="--c:#facc15">SELL ITEMS BACK TO THE VVM</button>` : '')
+  }
+  /**
+   * Selling back (app): what's in your Bag that the VVM buys back, and for
+   * how much. The server's list (`sell.items`, by Bag key) says how many of
+   * each it will buy (what your saved Bag holds) and the price; `sell.left`
+   * is what today's sales may still pay.
+   */
+  function sellPage(sell, busy) {
+    const back = `<button class="back" data-back>◀ Bag</button>`
+    if (sell === null) return back + `<p class="note">Checking what the VVM will buy back…</p>`
+    if (sell === 'error') return back + `<p class="note">Couldn't reach the VVM. Close the Bag and try again in a moment.</p>`
+    const rows = Object.entries(ITEMS).filter(([k]) => bag[k] > 0 && sellsBack(k)).map(([k, it]) => {
+      const s = sell.items[k], can = sellCan(sell, k)
+      const sub = !s ? 'not in your saved game yet: close the Bag and try again' : `${s.price.toFixed(2)} tk each` + (can ? '' : sell.left != null && sell.left < s.price ? " · today's limit is reached" : '')
+      return `<div class="irow sellrow"><span class="ic ${it.disc ? 'disc' : k}"></span><span class="mid"><b>${it.name}</b><span class="sub blk">${sub}</span></span><span class="ct">×${bag[k]}</span>` +
+        `<span class="sellbtns"><button data-sell="${k}"${can && !busy ? '' : ' disabled'}>SELL 1</button>${can > 1 ? `<button data-sellall="${k}"${busy ? ' disabled' : ''}>${can === bag[k] ? 'ALL' : 'SELL'} ${can}</button>` : ''}</span></div>`
+    })
+    return back + `<p class="note" style="margin:0 2px 8px">The VVM buys back anything in your Bag (not summons or tickets) for <b>half</b> the price it sells for. Tokens go straight into your balance` +
+      (sell.left != null ? `, up to <b>${sell.left.toFixed(2)} tk</b> more today.` : '.') + `</p>` + (rows.join('') || `<p class="note">Nothing in your Bag sells back.</p>`)
+  }
+  /** How many of a Bag item can be sold right now: what you have, what the server will take, and what today's limit still pays for. */
+  function sellCan(sell, k) {
+    const s = sell?.items?.[k]; if (!s || !(s.price > 0)) return 0
+    return Math.max(0, Math.min(bag[k] ?? 0, s.qty, sell.left == null ? Infinity : Math.floor((sell.left + 1e-9) / s.price)))
   }
   /** A summon's challenge page: who, how many, how strong; then the button. */
   function summonPage(k) {
@@ -5959,11 +5986,11 @@ async function run(id) {
    */
   function openSheet(kind) {
     let view = { page: 'list' }
-    const title = () => kind === 'party' ? (view.page === 'stats' ? 'Stats' : `Party · ${party.length}/6`) : kind === 'bag' ? (view.page === 'target' ? 'Use item' : view.page === 'moves' ? 'Moves' : view.page === 'summon' ? 'Gym challenge' : view.page === 'elite' ? 'Elite Four' : 'Bag') : view.page === 'moves' ? 'Moves' : `Box · ${everyone().length}`
+    const title = () => kind === 'party' ? (view.page === 'stats' ? 'Stats' : `Party · ${party.length}/6`) : kind === 'bag' ? (view.page === 'target' ? 'Use item' : view.page === 'moves' ? 'Moves' : view.page === 'summon' ? 'Gym challenge' : view.page === 'elite' ? 'Elite Four' : view.page === 'sell' ? 'Sell to the VVM' : 'Bag') : view.page === 'moves' ? 'Moves' : `Box · ${everyone().length}`
     const draw = () => {
       $('sheetTitle').textContent = title()
       const body = kind === 'party' ? (view.page === 'stats' ? statPage(view.mon) : partyList())
-        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Box', view.release) : boxBody(view.pick)
+        : kind === 'bag' ? (view.page === 'target' ? bagTarget(view.item) : view.page === 'summon' ? summonPage(view.item) : view.page === 'elite' ? elitePage(view.item) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Bag') : view.page === 'sell' ? sellPage(sellList, selling) : bagList()) : view.page === 'moves' ? movesPage(view.mon, view.slot, 'Box', view.release) : boxBody(view.pick)
       $('sheetBody').innerHTML = (toast ? `<div class="toast${toastBad ? ' bad' : ''}">${toast}</div>` : '') + body
     }
     const do_ = (a) => {
@@ -5974,6 +6001,8 @@ async function run(id) {
       if (a.up != null && a.up > 0) { [party[a.up - 1], party[a.up]] = [party[a.up], party[a.up - 1]]; sfx('move') }
       if (a.down != null && a.down < party.length - 1) { [party[a.down + 1], party[a.down]] = [party[a.down], party[a.down + 1]]; sfx('move') }
       if (a.tab != null) { bagTab = a.tab; sfx('move') }
+      if (a.sellpage != null) { view = { page: 'sell' }; sellList = null; sfx('select'); draw(); loadSellable(); return }
+      if (a.sell != null || a.sellall != null) { const k = a.sell ?? a.sellall; sellItem(k, a.sell != null ? 1 : sellCan(sellList, k)); return }
       if (a.share != null) { shareOn = !shareOn; sfx('select'); toast = `EXP. SHARE switched ${shareOn ? 'on' : 'off'}.`; saveGame() }
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: LEAGUES[s] ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
@@ -6048,6 +6077,42 @@ async function run(id) {
       draw(); renderTools()
     }
     /** A heal after the day's free ones: paid in tokens (in the app, on the server, at its price). */
+    // Selling back to the VVM (app): the server's list, and a sale under way.
+    let sellList = null, selling = false
+    /** The account's save has to be up to date first: the server sells only what that save's Bag holds. */
+    async function flushSave() { saveGame(); for (let i = 0; i < 60 && (pushing || pushNext); i++) await W(100) }
+    async function loadSellable() {
+      await flushSave()
+      const r = await vvm()?.sellable?.().catch(() => null)
+      if (!live() || view.page !== 'sell') return
+      sellList = r ? { items: Object.fromEntries(r.items.map((x) => [x.key, x])), left: r.leftToday } : 'error'; draw()
+    }
+    async function sellItem(k, qty) {
+      const api = vvm()
+      if (selling || !api?.sellItems || !sellsBack(k) || !(qty > 0) || !(bag[k] >= qty)) return
+      selling = true; toast = 'Selling…'; toastBad = false; draw()
+      await flushSave()
+      const r = await api.sellItems([{ key: k, qty }]).catch(() => ({ ok: false, reason: 'error', balance: null }))
+      selling = false
+      if (!live()) return
+      if (r.balance != null) { wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk` }
+      if (r.ok) {
+        const name = ITEMS[k].name
+        bag[k] -= qty; renderTools(); saveGame(); sfx('tokens')
+        toast = `Sold ${qty > 1 ? `${qty} × ` : ''}${name} for ${r.amount.toFixed(2)} tk.`
+        feed(`<b>You</b> sold ${qty > 1 ? `${qty} ` : 'a '}${name} back to the VVM for ${r.amount.toFixed(2)} tk.`)
+        if (sellList && sellList !== 'error') {
+          const s = sellList.items[k]; if (s) sellList.items[k] = { ...s, qty: s.qty - qty }
+          if (r.leftToday != null) sellList.left = r.leftToday
+        }
+        draw()
+      } else {
+        sfx('blocked'); toastBad = true
+        toast = r.reason === 'daily_cap' ? `That's more than today's sell-back limit: up to ${(r.leftToday ?? 0).toFixed(2)} tk more today.`
+          : r.reason === 'not_sellable' ? "The VVM won't buy that back right now. Close the Bag and try again." : "Couldn't sell it. Try again in a moment."
+        sellList = null; draw(); loadSellable()
+      }
+    }
     let paying = false
     async function buyHeal() {
       if (paying) return
@@ -6070,7 +6135,7 @@ async function run(id) {
     }
     toast = ''; draw(); fitSheet(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release', 'sellpage', 'sell', 'sellall']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
