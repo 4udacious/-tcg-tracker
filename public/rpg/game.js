@@ -132,7 +132,7 @@ const Sound = (() => {
   // game is open. The Watch demos keep all of it, for the recorded video's soundtrack.
   const logged = (e) => { log.push(e); if (log.length > 3000 && MODE === 'play') log.splice(0, 1000) }
   let decodes = 0, playingSecs = 0   // for the crash note: songs decoded since the page loaded, and how long the one playing is
-  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr })
+  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, ranOut })
   const stamp = () => performance.timeOrigin + performance.now()
 
   function graph(ctx) {
@@ -170,6 +170,9 @@ const Sound = (() => {
    */
   const DECODE_MS = () => window.__decodeMs ?? 8000, HUNG_KEY = 'vvm-decode-hung'
   let decodeHung = (() => { try { return localStorage.getItem(HUNG_KEY) === navigator.userAgent } catch { return false } })(), streams = 0, decodeErr = null
+  // A streamed song's loop, rounded by hand: how many times, the latest a jump back came (ms past the loop's end), and
+  // how often the file ran out before one did (the music had stopped).
+  let loops = 0, lateMs = 0, ranOut = 0
   let streamEl = null, streamNode = null, streamTimer = null
   function streamFile(name, song, g, f) {
     const tok = ++fileTok
@@ -180,8 +183,17 @@ const Sound = (() => {
       streamEl.src = `/rpg/a/music/${f.file}`
       window.__crumb?.(`streaming song ${name}`); streams++
       streamEl.play().catch(() => { if (tok === fileTok && !g.__stopped) playSynth(song, g) })
-      // Round the loop by hand (the element only loops the whole file): back to the loop's start as it reaches its end.
-      if (f.loop) streamTimer = setInterval(() => { if (tok === fileTok && streamEl.currentTime >= f.loopEnd - 0.03) streamEl.currentTime = f.loopStart + Math.max(0, streamEl.currentTime - f.loopEnd) }, 40)
+      // Round the loop by hand (the element only loops the whole file): back to the loop's start as it reaches its end,
+      // as far in as it went past it. The file carries the loop's first seconds again after its end (render-music.mjs),
+      // so a jump that comes late (a phone busy with a battle holds timers back) still lands on the right note.
+      if (f.loop) streamTimer = setInterval(() => {
+        const t = streamEl.currentTime
+        if (tok !== fileTok || t < f.loopEnd - 0.03) return
+        const over = Math.max(0, t - f.loopEnd); loops++; lateMs = Math.max(lateMs, Math.round(over * 1000))
+        streamEl.currentTime = f.loopStart + over
+      }, 40)
+      // Later still and the file runs out: start the loop again rather than leave the music stopped.
+      streamEl.onended = () => { if (tok !== fileTok || g.__stopped || !f.loop) return; ranOut++; window.__crumb?.(`song ${name} ran out: looped again`); streamEl.currentTime = f.loopStart; streamEl.play().catch(() => {}) }
       window.__musicFile = { name, stream: true, el: streamEl, f }
     } catch { if (tok === fileTok && !g.__stopped) playSynth(song, g) }
   }
@@ -4348,7 +4360,7 @@ const CRUMBS = (() => {
     // The session so far, for telling a slow build-up from a one-off: minutes open, battles, songs decoded (and the
     // playing one's length), and what the page holds (elements, images, running animations).
     const ms = window.__musicStats?.() ?? {}
-    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0, hung: !!ms.hung, streams: ms.streams ?? 0, decodeErr: ms.decodeErr ?? null,
+    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0, hung: !!ms.hung, streams: ms.streams ?? 0, decodeErr: ms.decodeErr ?? null, loops: ms.loops ?? 0, lateMs: ms.lateMs ?? 0, ranOut: ms.ranOut ?? 0,
       nodes: document.getElementsByTagName('*').length, imgs: document.images.length, anims: document.getAnimations?.().length ?? 0 }
     try { localStorage.setItem(key, JSON.stringify(c)) } catch {}
   }

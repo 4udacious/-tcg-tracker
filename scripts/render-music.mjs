@@ -52,8 +52,10 @@ for (const [name, sig] of names) {
     const buf = await ac.startRendering()
     const at = (sec) => Math.round(sec * RATE)
     // The file: the intro, then the second pass of the loop (or the whole jingle and its tail). After the loop, its first
-    // GUARD seconds again, so a decoder that keeps AAC's priming (and plays everything a little late) never reaches silence at the seam.
-    const p2 = at(T0 + I + L), GUARD = at(0.12)
+    // GUARD seconds again: a decoder that keeps AAC's priming (and plays everything a little late) never reaches silence at
+    // the seam, and a phone that streams the song (rounding the loop by hand, from a timer a busy battle can hold back) still
+    // plays the right notes when it jumps back late.
+    const p2 = at(T0 + I + L), GUARD = Math.min(at(3), at(L))
     const regions = s.loop ? [[at(T0), at(T0 + I)], [p2, p2 + at(L)], [p2, p2 + GUARD]] : [[at(T0), buf.length]]
     const n = regions.reduce((a, [x, y]) => a + (y - x), 0), ch = [buf.getChannelData(0), buf.getChannelData(1)]
     let peak = 0
