@@ -188,8 +188,10 @@ test('pre-rendered music: every song has a current file, and plays as one loopin
     const stale = Object.entries(want).filter(([n, sig]) => man[n]?.sig !== sig).map(([n]) => n)
     assert.deepEqual(stale, [], `songs changed since their files were rendered: run npm run music:render (${stale.join(', ')})`)
     assert.deepEqual(Object.keys(man).sort(), Object.keys(want).sort(), 'music.json lists exactly the rendered songs')
-    assert.deepEqual(Object.values(man).filter((f) => !onDisk.has(f.file)).map((f) => f.file), [], 'every file is there')
-    assert.equal(onDisk.size, Object.keys(man).length, 'and no old files are left behind')
+    assert.deepEqual(Object.values(man).flatMap((f) => [f.file, f.mp3]).filter((x) => !onDisk.has(x)), [], 'every file is there, AAC and MP3')
+    assert.equal(onDisk.size, Object.keys(man).length * 2, 'and no old files are left behind')
+    // Each looping song's MP3 has its loop's first seconds again after its end too (so an encoder's delay can't break the loop).
+    assert.ok(Object.values(man).filter((f) => f.loop).every((f) => f.samples / f.rate - f.loopEnd >= 2.9))
 
     // Playing: this Chromium can't decode AAC, so a stand-in decoder returns a buffer of the file's length (and, the
     // second time, one that kept AAC's 1024-sample priming).
@@ -403,10 +405,10 @@ test('a streamed song is decoded in the background, then crosses over to the dec
   try {
     const r = await g.page.evaluate(async (setup) => {
       eval(setup)
-      // The first decode (the song's own) fails, so it streams; the background one succeeds, after a while.
-      let calls = 0
+      // The first decode (the song's own) takes too long, so it streams; the background one finishes, after a while.
+      let calls = 0; window.__decodeMs = 300
       BaseAudioContext.prototype.decodeAudioData = function () {
-        return ++calls === 1 ? Promise.reject(new DOMException('slow', 'EncodingError'))
+        return ++calls === 1 ? new Promise(() => {})
           : new Promise((ok) => setTimeout(() => ok(new AudioBuffer({ length: 44100 * 50, numberOfChannels: 2, sampleRate: 44100 })), 600))
       }
       const sent = []; window.__sendMusicReport = (n) => sent.push(n)
@@ -419,13 +421,85 @@ test('a streamed song is decoded in the background, then crosses over to the dec
       const out = { upgraded: !!window.__musicFile?.upgraded, playersStopped: window.__musicPool().every((el) => el.paused), stats: window.__musicStats(), log: window.__musicLog().map((e) => e.ev) }
       Sound.musicReport(); Sound.musicReport()
       out.sent = sent.map((n) => ({ report: n.report, events: n.events.map((e) => e.ev), upgrades: n.session.upgrades }))
-      Sound.stopMusic(); return out
+      delete window.__decodeMs; Sound.stopMusic(); return out
     }, STREAM_SETUP)
     assert.ok(r.upgraded, 'the decoded buffer takes over'); assert.ok(r.playersStopped, 'and the <audio> players stop')
     assert.equal(r.stats.upgrades, 1)
     assert.deepEqual(r.log.filter((e) => /stream|decoded/.test(e)), ['stream', 'decoded: no more hand-overs'])
     assert.equal(r.sent.length, 1, 'one music report a session')
     assert.equal(r.sent[0].report, 'music'); assert.equal(r.sent[0].upgrades, 1); assert.ok(r.sent[0].events.includes('decoded: no more hand-overs'))
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a browser that can\'t decode AAC (Safari 27) decodes the MP3 instead: no streaming, and it remembers', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic()
+      HTMLMediaElement.prototype.canPlayType = () => 'probably'
+      const asked = []
+      // AAC (an MP4 file: "ftyp" at byte 4) fails at once; MP3 decodes.
+      BaseAudioContext.prototype.decodeAudioData = function (b) {
+        const mp4 = new TextDecoder().decode(new Uint8Array(b, 4, 4)) === 'ftyp'; asked.push(mp4 ? 'aac' : 'mp3')
+        return mp4 ? Promise.reject(new DOMException('Decoding failed', 'EncodingError')) : Promise.resolve(new AudioBuffer({ length: 44100 * 50, numberOfChannels: 2, sampleRate: 44100 }))
+      }
+      try { localStorage.removeItem('vvm-decode-hung'); localStorage.removeItem('vvm-music-fmt') } catch {}
+      const until = async (f) => { for (let i = 0; i < 50 && !f(); i++) await new Promise((r) => setTimeout(r, 100)) }
+      Sound.setOn(true); Sound.music('battle')
+      await until(() => window.__musicFile?.name === 'battle')
+      const first = { stream: !!window.__musicFile.stream, mp3: !!window.__musicFile.mp3, loop: !!window.__musicFile.src?.loop, asked: asked.slice() }
+      Sound.music('wild'); await until(() => window.__musicFile?.name === 'wild')
+      const second = { mp3: !!window.__musicFile.mp3, asked: asked.slice() }
+      const out = { first, second, fmt: localStorage.getItem('vvm-music-fmt')?.split('|').pop(), hung: localStorage.getItem('vvm-decode-hung'), stats: window.__musicStats() }
+      Sound.stopMusic(); return out
+    })
+    assert.deepEqual(r.first, { stream: false, mp3: true, loop: true, asked: ['aac', 'mp3'] }, 'the AAC failed, the MP3 plays as a looping buffer')
+    assert.deepEqual(r.second, { mp3: true, asked: ['aac', 'mp3', 'mp3'] }, 'the next song goes straight to its MP3')
+    assert.equal(r.fmt, 'mp3', 'remembered for this browser'); assert.equal(r.hung, null)
+    assert.equal(r.stats.fmt, 'mp3'); assert.equal(r.stats.streams, 0)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a browser that was streaming before there were MP3s tries them on its next visit', async () => {
+  const g = await openGame()
+  try {
+    await g.page.evaluate(() => { localStorage.setItem('vvm-decode-hung', navigator.userAgent); localStorage.removeItem('vvm-music-fmt') })
+    await g.page.reload(); await g.page.waitForFunction(() => typeof Sound !== 'undefined' && window.__musicStats)
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic()
+      HTMLMediaElement.prototype.canPlayType = () => 'probably'
+      const asked = []
+      BaseAudioContext.prototype.decodeAudioData = function (b) { asked.push(new TextDecoder().decode(new Uint8Array(b, 4, 4)) === 'ftyp' ? 'aac' : 'mp3'); return Promise.resolve(new AudioBuffer({ length: 44100 * 50, numberOfChannels: 2, sampleRate: 44100 })) }
+      for (let i = 0; i < 50 && !window.__musicFile?.src; i++) { if (i === 0) { Sound.setOn(true); Sound.music('gym') } await new Promise((r) => setTimeout(r, 100)) }
+      const out = { asked, stream: !!window.__musicFile?.stream, fmt: localStorage.getItem('vvm-music-fmt')?.split('|').pop() }
+      Sound.stopMusic(); return out
+    })
+    assert.deepEqual(r, { asked: ['mp3'], stream: false, fmt: 'mp3' })
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the short songs at a battle\'s start and end are decoded ahead, and start at once when they\'re called for', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic()
+      HTMLMediaElement.prototype.canPlayType = () => 'probably'
+      try { localStorage.removeItem('vvm-decode-hung'); localStorage.removeItem('vvm-music-fmt') } catch {}
+      let decodes = 0
+      BaseAudioContext.prototype.decodeAudioData = function () { decodes++; return new Promise((ok) => setTimeout(() => ok(new AudioBuffer({ length: 44100 * 12, numberOfChannels: 2, sampleRate: 44100 })), 400)) }
+      Sound.setOn(true); Sound.prefetch(['victory', 'win', 'battle'])
+      await new Promise((r) => setTimeout(r, 900))
+      const ahead = decodes, t0 = performance.now()
+      Sound.music('victory')
+      for (let i = 0; i < 100 && window.__musicFile?.name !== 'victory'; i++) await new Promise((r) => setTimeout(r, 10))
+      const out = { ahead, after: decodes, ms: performance.now() - t0 }
+      Sound.stopMusic(); return out
+    })
+    assert.equal(r.ahead, 2, 'the two short ones (not a long battle theme)')
+    assert.equal(r.after, 2, 'and no decode when it plays'); assert.ok(r.ms < 150, `started in ${Math.round(r.ms)} ms`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
