@@ -38,7 +38,7 @@ let done = 0
 for (const [name, sig] of names) {
   if (only.length && !only.includes(name)) continue
   const had = manifest.songs[name]
-  if (!all && !only.length && had?.sig === sig && fs.existsSync(path.join(DIR, had.file))) continue
+  if (!all && !only.length && had?.sig === sig && fs.existsSync(path.join(DIR, had.file)) && had.mp3 && fs.existsSync(path.join(DIR, had.mp3))) continue
   const t0 = Date.now()
   const r = await g.page.evaluate(async ([name, RATE]) => {
     const s = SONGS[name], len = (p) => p.lead.length * 60 / p.bpm / p.div
@@ -77,9 +77,15 @@ for (const [name, sig] of names) {
   fs.writeFileSync(w, wav)
   execFileSync('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', w, '-c:a', 'aac', '-b:a', `${KBPS}k`, '-ar', String(RATE), '-movflags', '+faststart', m])
   const body = fs.readFileSync(m), hash = createHash('sha1').update(body).digest('hex').slice(0, 8), file = `${name}.${hash}.m4a`
-  for (const old of fs.readdirSync(DIR)) if (old.startsWith(`${name}.`) && old !== file) fs.unlinkSync(path.join(DIR, old))
-  fs.writeFileSync(path.join(DIR, file), body)
-  manifest.songs[name] = { file, sig, rate: RATE, samples: r.samples, loop: r.loop, loopStart: +r.loopStart.toFixed(6), loopEnd: +r.loopEnd.toFixed(6), gain: r.gain }
+  // The same as MP3, for browsers that can't decode AAC into a buffer (Safari 27 on iPhone: EncodingError) but can MP3.
+  // An MP3 starts with the encoder's delay (about 1100 samples of silence); the loop stays seamless all the same, since
+  // past its end the file repeats the loop's first seconds (GUARD): both loop points shift together.
+  const p3 = path.join(tmp, `${name}.mp3`)
+  execFileSync('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', w, '-c:a', 'libmp3lame', '-b:a', `${KBPS}k`, '-ar', String(RATE), p3])
+  const body3 = fs.readFileSync(p3), mp3 = `${name}.${createHash('sha1').update(body3).digest('hex').slice(0, 8)}.mp3`
+  for (const old of fs.readdirSync(DIR)) if (old.startsWith(`${name}.`) && old !== file && old !== mp3) fs.unlinkSync(path.join(DIR, old))
+  fs.writeFileSync(path.join(DIR, file), body); fs.writeFileSync(path.join(DIR, mp3), body3)
+  manifest.songs[name] = { file, mp3, sig, rate: RATE, samples: r.samples, loop: r.loop, loopStart: +r.loopStart.toFixed(6), loopEnd: +r.loopEnd.toFixed(6), gain: r.gain }
   done++
   console.log(`${name.padEnd(16)} ${(r.samples / RATE).toFixed(1).padStart(6)} s  ${String(Math.round(body.length / 1024)).padStart(5)} KB  peak ${r.peak.toFixed(2)}  ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 }

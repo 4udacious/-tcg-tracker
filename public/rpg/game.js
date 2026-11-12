@@ -132,7 +132,7 @@ const Sound = (() => {
   // game is open. The Watch demos keep all of it, for the recorded video's soundtrack.
   const logged = (e) => { log.push(e); if (log.length > 3000 && MODE === 'play') log.splice(0, 1000) }
   let decodes = 0, playingSecs = 0   // for the crash note: songs decoded since the page loaded, and how long the one playing is
-  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, jumps, ranOut, upgrades })
+  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, jumps, ranOut, upgrades, fmt: !canDecode ? 'none' : useMp3 ? 'mp3' : 'aac' })
   const stamp = () => performance.timeOrigin + performance.now()
 
   function graph(ctx) {
@@ -170,6 +170,28 @@ const Sound = (() => {
    */
   const DECODE_MS = () => window.__decodeMs ?? 3000, SLOW_MS = 2000, HUNG_KEY = 'vvm-decode-hung'
   let decodeHung = (() => { try { return localStorage.getItem(HUNG_KEY) === navigator.userAgent } catch { return false } })(), streams = 0, decodeErr = null
+  /*
+   * Which file a browser decodes. Safari 27 on iPhone won't decode AAC into a
+   * buffer at all (EncodingError, at once), though it plays it and decodes
+   * MP3 (the cries) fine; so every song is also an MP3 (render-music.mjs),
+   * and a browser whose AAC fails tries that, and remembers the answer
+   * (FMT_KEY: 'mp3', or 'none' if the MP3 failed too). A browser that was
+   * streaming before there were MP3s gives them one try.
+   */
+  const FMT_KEY = 'vvm-music-fmt'
+  const fmtStored = (() => { try { const v = localStorage.getItem(FMT_KEY) ?? ''; return v.startsWith(navigator.userAgent + '|') ? v.slice(navigator.userAgent.length + 1) : null } catch { return null } })()
+  let useMp3 = fmtStored === 'mp3' || (decodeHung && fmtStored == null), canDecode = fmtStored !== 'none'
+  if (useMp3) decodeHung = false
+  const storeFmt = (v) => { try { localStorage.setItem(FMT_KEY, `${navigator.userAgent}|${v}`) } catch {} }
+  const fileOf = (f) => (useMp3 && f.mp3 ? f.mp3 : f.file)
+  /** Fetches and decodes a song's file (the format this browser decodes), giving up after `ms`. */
+  async function fetchDecode(f, ms) {
+    const res = await fetch(`/rpg/a/music/${fileOf(f)}`); if (!res.ok) throw new Error('fetch_failed')
+    const bytes = await res.arrayBuffer()
+    let hang; return Promise.race([ac.decodeAudioData(bytes), new Promise((_, no) => { hang = setTimeout(() => no(new Error('decode_hung')), ms) })]).finally(() => clearTimeout(hang))
+  }
+  // Short songs decoded ahead (prefetch: the battle's start and end), so they start at once; at most 4 kept.
+  const decoded = new Map()
   // A streamed song's loops: how many, the worst a hand-over was out of step (ms), how many fell back to a jump, and how
   // often the file ran out before either (the music had stopped).
   let loops = 0, lateMs = 0, jumps = 0, ranOut = 0, upgrades = 0
@@ -265,12 +287,12 @@ const Sound = (() => {
    * all. One decode at a time (each is the whole song, uncompressed): a song
    * changed meanwhile just doesn't get one.
    */
-  let upgrading = false
+  let upgrading = false, prefetched = false
   async function upgrade(name, g, f, tok) {
-    if (upgrading || window.__noUpgrade) return
+    if (upgrading || window.__noUpgrade || !canDecode) return
     upgrading = true; const t0 = performance.now()
     try {
-      const bytes = await (await fetch(`/rpg/a/music/${f.file}`)).arrayBuffer()
+      const bytes = await (await fetch(`/rpg/a/music/${fileOf(f)}`)).arrayBuffer()
       if (tok !== fileTok) return
       const buf = await ac.decodeAudioData(bytes)
       if (tok !== fileTok || g.__stopped || musGain !== g) return
@@ -293,8 +315,8 @@ const Sound = (() => {
   /** The music report (a phone that streams): once a session, after a battle with something to tell. Sent by the app's bridge. */
   let reported = false
   function musicReport() {
-    if (reported || !decodeHung) return
-    const told = loops >= 3 || jumps || ranOut || upgrades || mlog.some((e) => /waiting|stalled|audio (interrupted|suspended)|failed/.test(e.ev))
+    if (reported || !(decodeHung || useMp3 || !canDecode)) return
+    const told = loops >= 3 || jumps || ranOut || upgrades || useMp3 || mlog.some((e) => /waiting|stalled|audio (interrupted|suspended)|failed/.test(e.ev))
     if (!told) return
     reported = true
     window.__sendMusicReport?.({ report: 'music', ver: document.querySelector('script[src*="game.js"]')?.src.match(/v=(\w+)/)?.[1] ?? null,
@@ -303,17 +325,18 @@ const Sound = (() => {
   async function playFile(name, song, g, f) {
     const tok = ++fileTok
     try {
-      window.__crumb?.(`fetching song ${name}`)
-      const res = await fetch(`/rpg/a/music/${f.file}`); if (!res.ok) throw new Error('fetch_failed')
-      const bytes = await res.arrayBuffer()
-      window.__crumb?.(`decoding song ${name} (${Math.round(f.samples / f.rate)} s)`)
       const t0 = performance.now()
-      let hang; const buf = await Promise.race([ac.decodeAudioData(bytes),
-        new Promise((_, no) => { hang = setTimeout(() => no(new Error('decode_hung')), DECODE_MS()) })]).finally(() => clearTimeout(hang))
+      let buf = await decoded.get(name)?.catch(() => null), ahead = !!buf   // decoded ahead (prefetch)
+      if (!buf) {
+        window.__crumb?.(`fetching song ${name}${useMp3 ? ' (mp3)' : ''}`)
+        window.__crumb?.(`decoding song ${name} (${Math.round(f.samples / f.rate)} s)`)
+        buf = await fetchDecode(f, DECODE_MS())
+      }
       decodes++
       window.__crumb?.(`playing song ${name}`)
+      if (useMp3 && fmtStored !== 'mp3' && !fileOk) { fileOk = true; storeFmt('mp3'); try { localStorage.removeItem(HUNG_KEY) } catch {} mev('mp3 decodes here', { song: name }) }
       // Decoded, but slowly (some iPhones take seconds for every one): this song plays, the next ones stream, which start at once.
-      if (performance.now() - t0 > SLOW_MS && !decodeHung) {
+      if (!ahead && performance.now() - t0 > SLOW_MS && !decodeHung) {
         decodeHung = true; decodeErr = `slow (${Math.round(performance.now() - t0)} ms)`
         try { localStorage.setItem(HUNG_KEY, navigator.userAgent) } catch {}
         window.__crumb?.(`decoding is slow here (${decodeErr}): streaming songs from now on`)
@@ -321,21 +344,45 @@ const Sound = (() => {
       if (tok !== fileTok || g.__stopped) return
       playingSecs = Math.round(buf.duration)
       // A decoder that keeps AAC's priming (1024 samples, then up to a frame of padding at the end) puts everything that much
-      // late: the loop points move with it. (One that trims the start but not the end comes out under 1024 long.)
+      // late: the loop points move with it. (One that trims the start but not the end comes out under 1024 long.) An MP3's
+      // encoder delay is a little longer, which the loop doesn't mind: past its end the file repeats the loop's start.
       const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
       const src = ac.createBufferSource(), v = ac.createGain()
       src.buffer = buf; v.gain.value = f.gain ?? 1
       if (f.loop) { src.loop = true; src.loopStart = f.loopStart + lead; src.loopEnd = f.loopEnd + lead }
       src.connect(v).connect(g); src.start(ac.currentTime + 0.03, lead)
-      fileSrc = src; window.__musicFile = { name, src, f }
+      fileSrc = src; window.__musicFile = { name, src, f, mp3: useMp3 }
     } catch (e) {
       if (e?.message === 'fetch_failed') { if (tok === fileTok && !g.__stopped) playSynth(song, g); return }   // no file to be had: play it live
+      const hung = e?.message === 'decode_hung'
+      // AAC that won't decode (an error, not a hang): the same song as MP3, straight away.
+      if (!hung && !useMp3 && f.mp3 && canDecode) {
+        useMp3 = true; mev('aac won\'t decode: trying mp3', { song: name }); window.__crumb?.('aac won\'t decode here: trying mp3')
+        if (tok === fileTok && !g.__stopped) return playFile(name, song, g, f)
+        return
+      }
+      if (!hung && useMp3) { useMp3 = false; canDecode = false; storeFmt('none'); mev('mp3 won\'t decode either', { song: name }) }
       // The decode failed or hung: stream this song and every one after it.
-      decodeHung = true; decodeErr = e?.message === 'decode_hung' ? 'hung' : `${e?.name ?? 'Error'}: ${e?.message ?? e}`.slice(0, 120)
+      decodeHung = true; decodeErr = hung ? 'hung' : `${e?.name ?? 'Error'}: ${e?.message ?? e}`.slice(0, 120)
       try { localStorage.setItem(HUNG_KEY, navigator.userAgent) } catch {}
       window.__crumb?.(`decode failed (${decodeErr}): streaming songs from now on`)
       if (tok === fileTok && !g.__stopped) streamFile(name, song, g, f)
     }
+  }
+  let fileOk = false
+  /** Short songs decoded ahead, so they start at once when they're called for (a battle's start, its end). */
+  function prefetch(names) {
+    if (!on || window.__musicOff?.() || window.__synthMusic) return
+    ensure()
+    const run = () => {
+      for (const n of names) {
+        const f = files?.[n]
+        if (!f || f.sig !== musicSig(n) || !canAac() || decodeHung || !canDecode || decoded.has(n) || f.samples / f.rate > 15) continue
+        const p = fetchDecode(f, 20000); p.catch(() => decoded.delete(n)); decoded.set(n, p)
+        while (decoded.size > 4) decoded.delete(decoded.keys().next().value)
+      }
+    }
+    files ? run() : loadFiles().then(run)
   }
   function playSynth(song, g) {
     let next = ac.currentTime + 0.15   // a short lead-in: the first pass (mixer, reverb, a song's worth of notes) is built in time
@@ -350,6 +397,7 @@ const Sound = (() => {
     ensure()
     const g = musGain = ac.createGain(); musGain.connect(musBus)
     if (window.__synthMusic) return playSynth(song, g)   // testing, and the render script: the live engine
+    if (!prefetched && !window.__synthMusic) { prefetched = true; setTimeout(() => prefetch(['vs', 'encounter', 'victory', 'win']), 3000) }
     const go = () => { if (musGain !== g) return; const f = files[name]; f && f.sig === musicSig(name) && canAac() ? (decodeHung ? streamFile : playFile)(name, song, g, f) : playSynth(song, g) }
     files ? go() : loadFiles().then(go)
   }
@@ -370,6 +418,7 @@ const Sound = (() => {
     },
     cry(id, rate = 1) { logged({ t: stamp(), kind: 'cry', id, rate }); if (!on) return; ensure(); window.__playCry?.(ac, sfxBus, id, rate) },
     musicReport,
+    prefetch,
     /** A battle's cries, fetched and decoded as it starts, so each plays on time (some iPhones take seconds to decode one). */
     preloadCries(ids) { if (!on) return; ensure(); for (const id of [...new Set(ids)].filter(Boolean).slice(0, 8)) cryBuffer(ac, id) },
     music(name) { logged({ t: stamp(), kind: 'music', name }); current = name; startMusic(name) },
@@ -6881,7 +6930,7 @@ async function run(id) {
    */
   async function duoBattle(o) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
-    Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id)))
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id)))
     MOVE_LOG.reset(); let res = null
     try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result); Sound.musicReport() }
   }
@@ -9012,7 +9061,7 @@ async function run(id) {
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     CRUMBS.phase('battle set up')
-    Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
     try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
   }

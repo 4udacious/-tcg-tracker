@@ -1,7 +1,8 @@
 {
  "songs": {
   "battle": {
-   "file": "battle.14fd95aa.m4a",
+   "file": "battle.c078903e.m4a",
+   "mp3": "battle.1402e432.mp3",
    "sig": "abc73a20",
    "rate": 44100,
    "samples": 2167684,
@@ -11,7 +12,8 @@
    "gain": 1
   },
   "battleB": {
-   "file": "battleB.d43e3099.m4a",
+   "file": "battleB.c10a0c00.m4a",
+   "mp3": "battleB.87a11a5f.mp3",
    "sig": "a4b60920",
    "rate": 44100,
    "samples": 2116800,
@@ -21,7 +23,8 @@
    "gain": 1
   },
   "caught": {
-   "file": "caught.21ad809c.m4a",
+   "file": "caught.77e76ecf.m4a",
+   "mp3": "caught.3f1703b8.mp3",
    "sig": "cf14172e",
    "rate": 44100,
    "samples": 299880,
@@ -31,7 +34,8 @@
    "gain": 1
   },
   "champion": {
-   "file": "champion.67732283.m4a",
+   "file": "champion.2cfd5cef.m4a",
+   "mp3": "champion.95d4b719.mp3",
    "sig": "0a98d44b",
    "rate": 44100,
    "samples": 5159700,
@@ -41,7 +45,8 @@
    "gain": 1
   },
   "championIntro": {
-   "file": "championIntro.ec64cd9a.m4a",
+   "file": "championIntro.5cf32e9b.m4a",
+   "mp3": "championIntro.587ee88e.mp3",
    "sig": "96e5728a",
    "rate": 44100,
    "samples": 1190700,
@@ -51,7 +56,8 @@
    "gain": 1
   },
   "e4Agatha": {
-   "file": "e4Agatha.ca2ee344.m4a",
+   "file": "e4Agatha.c327736e.m4a",
+   "mp3": "e4Agatha.bd38dbd4.mp3",
    "sig": "e0b6e5b4",
    "rate": 44100,
    "samples": 1392300,
@@ -61,7 +67,8 @@
    "gain": 1
   },
   "e4Bruno": {
-   "file": "e4Bruno.8f03fbaf.m4a",
+   "file": "e4Bruno.3ac9b55a.m4a",
+   "mp3": "e4Bruno.91c89352.mp3",
    "sig": "16de9287",
    "rate": 44100,
    "samples": 934119,
@@ -71,7 +78,8 @@
    "gain": 1
   },
   "e4KantoLance": {
-   "file": "e4KantoLance.1e4a92a8.m4a",
+   "file": "e4KantoLance.988685ee.m4a",
+   "mp3": "e4KantoLance.4d326752.mp3",
    "sig": "e8260db1",
    "rate": 44100,
    "samples": 1112300,
@@ -81,7 +89,8 @@
    "gain": 1
   },
   "e4Karen": {
-   "file": "e4Karen.b09b5c0d.m4a",
+   "file": "e4Karen.cfecc570.m4a",
+   "mp3": "e4Karen.29d5dd04.mp3",
    "sig": "7b812474",
    "rate": 44100,
    "samples": 1234800,
@@ -91,7 +100,8 @@
    "gain": 1
   },
   "e4Koga": {
-   "file": "e4Koga.a3b81d99.m4a",
+   "file": "e4Koga.656ad696.m4a",
+   "mp3": "e4Koga.db367f76.mp3",
    "sig": "1bd13781",
    "rate": 44100,
    "samples": 1014300,
@@ -101,7 +111,8 @@
    "gain": 1
   },
   "e4Lorelei": {
-   "file": "e4Lorelei.36cefe17.m4a",
+   "file": "e4Lorelei.c5838e6c.m4a",
+   "mp3": "e4Lorelei.86935cde.mp3",
    "sig": "358fd1ba",
    "rate": 44100,
    "samples": 841050,
@@ -111,7 +122,8 @@
    "gain": 1
   },
   "e4Will": {
-   "file": "e4Will.d056915f.m4a",
+   "file": "e4Will.edaa0d48.m4a",
+   "mp3": "e4Will.af84b573.mp3",
    "sig": "3a71a7a1",
    "rate": 44100,
    "samples": 1149992,
@@ -121,7 +133,8 @@
    "gain": 1
   },
   "elite": {
-   "file": "elite.3d2efa11.m4a",
+   "file": "elite.7f709ede.m4a",
+   "mp3": "elite.a70ceb96.mp3",
    "sig": "fd80f43b",
    "rate": 44100,
    "samples": 2249100,
@@ -131,7 +144,8 @@
    "gain": 1
   },
   "encounter": {
-   "file": "encounter.d59a2853.m4a",
+   "file": "encounter.07bbd126.m4a",
+   "mp3": "encounter.bae05a12.mp3",
    "sig": "6dc30973",
    "rate": 44100,
    "samples": 410826,
@@ -141,7 +155,8 @@
    "gain": 1
   },
   "endgame": {
-   "file": "endgame.00d52635.m4a",
+   "file": "endgame.089afa77.m4a",
+   "mp3": "endgame.d66db373.mp3",
    "sig": "a208814c",
    "rate": 44100,
    "samples": 2045071,
@@ -151,7 +166,8 @@
    "gain": 1
   },
   "evolution": {
-   "file": "evolution.056affb5.m4a",
+   "file": "evolution.68f2e45a.m4a",
+   "mp3": "evolution.80d65515.mp3",
    "sig": "3827826b",
    "rate": 44100,
    "samples": 773755,
@@ -161,7 +177,8 @@
    "gain": 1
   },
   "evolved": {
-   "file": "evolved.ed3080b9.m4a",
+   "file": "evolved.d3607587.m4a",
+   "mp3": "evolved.313a1c15.mp3",
    "sig": "de5a2d91",
    "rate": 44100,
    "samples": 434700,
@@ -171,7 +188,8 @@
    "gain": 1
   },
   "gym": {
-   "file": "gym.a6e4332e.m4a",
+   "file": "gym.79bd0775.m4a",
+   "mp3": "gym.9cc1132d.mp3",
    "sig": "8164bd46",
    "rate": 44100,
    "samples": 2107980,
@@ -181,7 +199,8 @@
    "gain": 1
   },
   "gymIntro": {
-   "file": "gymIntro.f76c5d69.m4a",
+   "file": "gymIntro.abc741bc.m4a",
+   "mp3": "gymIntro.027a3c48.mp3",
    "sig": "a3817195",
    "rate": 44100,
    "samples": 1077300,
@@ -191,7 +210,8 @@
    "gain": 1
   },
   "hallOfFame": {
-   "file": "hallOfFame.d478cfe1.m4a",
+   "file": "hallOfFame.ef8efa13.m4a",
+   "mp3": "hallOfFame.4880bb4b.mp3",
    "sig": "ebefd2a0",
    "rate": 44100,
    "samples": 2203083,
@@ -201,7 +221,8 @@
    "gain": 1
   },
   "kantoElite": {
-   "file": "kantoElite.ada1d4af.m4a",
+   "file": "kantoElite.c910935e.m4a",
+   "mp3": "kantoElite.0117559f.mp3",
    "sig": "ee1be6e4",
    "rate": 44100,
    "samples": 1732207,
@@ -211,7 +232,8 @@
    "gain": 1
   },
   "red": {
-   "file": "red.1011c04f.m4a",
+   "file": "red.a34c6a9c.m4a",
+   "mp3": "red.2685e308.mp3",
    "sig": "af0d1482",
    "rate": 44100,
    "samples": 2203083,
@@ -221,7 +243,8 @@
    "gain": 1
   },
   "rival": {
-   "file": "rival.b6b08ea2.m4a",
+   "file": "rival.df70e95a.m4a",
+   "mp3": "rival.1923d79b.mp3",
    "sig": "66adf12b",
    "rate": 44100,
    "samples": 2400300,
@@ -231,7 +254,8 @@
    "gain": 1
   },
   "rival2": {
-   "file": "rival2.9a9d6c2c.m4a",
+   "file": "rival2.db84ecbf.m4a",
+   "mp3": "rival2.317c6508.mp3",
    "sig": "a6f17b3b",
    "rate": 44100,
    "samples": 2513700,
@@ -241,7 +265,8 @@
    "gain": 1
   },
   "rival3": {
-   "file": "rival3.f3d0624f.m4a",
+   "file": "rival3.3fcdda86.m4a",
+   "mp3": "rival3.4af232b3.mp3",
    "sig": "c018b375",
    "rate": 44100,
    "samples": 2347556,
@@ -251,7 +276,8 @@
    "gain": 1
   },
   "rivalTalk": {
-   "file": "rivalTalk.9fff8662.m4a",
+   "file": "rivalTalk.62f3e815.m4a",
+   "mp3": "rivalTalk.73eae800.mp3",
    "sig": "f768c70f",
    "rate": 44100,
    "samples": 853937,
@@ -261,7 +287,8 @@
    "gain": 1
   },
   "victory": {
-   "file": "victory.76210098.m4a",
+   "file": "victory.d482edba.m4a",
+   "mp3": "victory.f5515e44.mp3",
    "sig": "047464fe",
    "rate": 44100,
    "samples": 283500,
@@ -271,7 +298,8 @@
    "gain": 1
   },
   "vs": {
-   "file": "vs.61f51713.m4a",
+   "file": "vs.a0849ab2.m4a",
+   "mp3": "vs.4f6992a0.mp3",
    "sig": "91e8c06b",
    "rate": 44100,
    "samples": 236748,
@@ -281,7 +309,8 @@
    "gain": 1
   },
   "wild": {
-   "file": "wild.57607aba.m4a",
+   "file": "wild.a2f489a5.m4a",
+   "mp3": "wild.2d3af359.mp3",
    "sig": "2c662d08",
    "rate": 44100,
    "samples": 2116800,
@@ -291,7 +320,8 @@
    "gain": 1
   },
   "win": {
-   "file": "win.4f3db2cc.m4a",
+   "file": "win.22f20d47.m4a",
+   "mp3": "win.619ac47b.mp3",
    "sig": "35ddbc46",
    "rate": 44100,
    "samples": 485100,
