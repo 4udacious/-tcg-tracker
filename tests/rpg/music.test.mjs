@@ -282,3 +282,37 @@ test('a browser whose decode fails (Safari 27): the song streams, not the live s
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('a streamed song loops seamlessly even when the jump back comes late, and starts again if the file runs out', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      RUN++; Sound.stopMusic()
+      HTMLMediaElement.prototype.canPlayType = () => 'probably'
+      BaseAudioContext.prototype.decodeAudioData = function () { return Promise.reject(new DOMException('Decoding failed', 'EncodingError')) }
+      let plays = 0
+      HTMLMediaElement.prototype.play = function () { plays++; return Promise.resolve() }
+      try { localStorage.removeItem('vvm-decode-hung') } catch {}
+      const until = async (f) => { for (let i = 0; i < 40 && !f(); i++) await new Promise((r) => setTimeout(r, 100)) }
+      Sound.setOn(true); Sound.music('battle')
+      await until(() => window.__musicFile?.name === 'battle' && window.__musicFile.stream)
+      const { el, f } = window.__musicFile
+      // The element's clock, played by hand: a battle held the timer back, so the jump comes 1.5 s past the loop's end.
+      let t = 0; Object.defineProperty(el, 'currentTime', { get: () => t, set: (v) => { t = v }, configurable: true })
+      t = f.loopEnd + 1.5
+      await new Promise((r) => setTimeout(r, 150))
+      const late = t - f.loopStart
+      // Later still: the file ran out. It starts the loop again.
+      t = 999; const before = plays; el.dispatchEvent(new Event('ended'))
+      await new Promise((r) => setTimeout(r, 50))
+      const out = { late, restarted: t === f.loopStart && plays === before + 1, stats: window.__musicStats(),
+        tail: window.__musicFile.f.loopEnd + 1.5 <= (f.samples ?? 0) / (f.rate ?? 44100) }
+      Sound.stopMusic(); return out
+    })
+    assert.ok(Math.abs(r.late - 1.5) < 0.05, `jumped back to the same spot in the loop, 1.5 s in (${r.late.toFixed(3)})`)
+    assert.ok(r.tail, 'and the file has those 1.5 s past the loop\'s end to play meanwhile')
+    assert.ok(r.restarted, 'a file that ran out starts its loop again')
+    assert.equal(r.stats.loops, 1); assert.ok(r.stats.lateMs >= 1450, `the crash note keeps how late (${r.stats.lateMs} ms)`); assert.equal(r.stats.ranOut, 1)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
