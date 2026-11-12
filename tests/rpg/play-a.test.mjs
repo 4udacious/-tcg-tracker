@@ -140,3 +140,63 @@ test('Stone Edge and Phantom Force played: the glowing stone picked, the shadow 
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('a roaming legendary stays for 4 turns before it flees (unless it can\'t move: asleep, it stays), and remembers every ball thrown at it', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm
+      const m = individual(speciesByName('SNORLAX'), 100, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      v.party.splice(0, v.party.length, m); v.bag.ball = 20; window.__forceShakes = 0
+      // Every line the battle says, kept as it finishes typing (a sampled read can miss a quick one).
+      const said = window.__said = [], msg = document.getElementById('msg')
+      new MutationObserver(() => { if (said.at(-1) !== msg.textContent) said.push(msg.textContent) }).observe(msg, { childList: true, subtree: true, characterData: true })
+    })
+    const meetLegend = async () => {
+      for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
+      await page.selectOption('#nextTap', 'legend'); await page.evaluate(() => document.activeElement?.blur())
+      let fought = false
+      for (let i = 0; i < 40 && !fought; i++) { await page.evaluate(() => document.getElementById('home').click()); await bot.step(); fought = await bot.inBattle() }
+      assert.ok(fought, 'a legendary battle started')
+    }
+    const thrown = () => page.evaluate(() => window.__said.filter((t) => /threw a.*BALL!$/.test(t)).length)
+    /** Every turn, a ball: open the Bag, pick the Poké Ball, then let the bot time the throw. Until the battle ends, or `upTo` balls. */
+    const throwBalls = async (upTo = Infinity) => {
+      const from = await thrown()
+      for (let i = 0; i < 400 && (await bot.inBattle()) && (await thrown()) - from < upTo; i++) {
+        const tapped = await page.evaluate(() => {
+          const shown = (id) => { const p = document.getElementById(id); return p && p.style.display !== 'none' && p.offsetParent }
+          const tap = (sel, type = 'pointerdown') => { const b = document.querySelector(sel); if (!b) return false; b.dispatchEvent(new (type === 'click' ? MouseEvent : PointerEvent)(type, { bubbles: true })); return true }
+          if (shown('pBag')) return tap('#pBag [data-act="ball"]', 'click')   // the Bag's scrolling list answers clicks
+          if (shown('pMain')) return tap('#pMain [data-act="bag"]')
+          return false
+        })
+        if (tapped) await page.waitForTimeout(300); else await bot.step()
+      }
+    }
+    await meetLegend()
+    // Other trainers' taps can throw at the roamers too, so count from here.
+    const before = await page.evaluate(() => Object.fromEntries(Object.entries(window.__vvm.ROAM).map(([k, m]) => [k, m.balls ?? 0])))
+    await throwBalls()
+    const r = await page.evaluate(() => Object.fromEntries(Object.entries(window.__vvm.ROAM).map(([k, m]) => [k, { turn: m.turn, balls: m.balls ?? 0, hp: m.hp }])))
+    const said = await page.evaluate(() => window.__said.slice())
+    const name = Object.keys(r).find((k) => r[k].turn != null), met = r[name]
+    assert.ok(said.some((t) => /fled!/.test(t)), 'it fled')
+    assert.equal(met.turn, 4, 'after four turns of attacking')
+    assert.equal(met.balls - before[name], 5, 'a ball each turn, and one more as it fled: all five remembered')
+    assert.ok(said.some((t) => /is tiring!/.test(t)), 'and you\'re told each one helps')
+    // The count is saved with it, for whoever meets it next.
+    const saved = await page.waitForFunction((n) => JSON.parse(localStorage.getItem('vvm-save') ?? '{}').roam?.[n]?.balls, name, { timeout: 15000 }).then((h) => h.jsonValue()).catch(() => null)
+    assert.equal(saved, met.balls)
+    // Running is its move for the turn: fast asleep, it can't, however long the battle goes.
+    await page.evaluate(() => { for (const m of Object.values(window.__vvm.ROAM)) { m.status = 'slp'; m.sleep = 99 } window.__said.length = 0 })
+    await meetLegend()
+    await throwBalls(7)
+    const asleep = await page.evaluate(() => ({ said: window.__said.slice() }))
+    assert.ok(await bot.inBattle(), 'still there after seven balls')
+    assert.ok(!asleep.said.some((t) => /fled!/.test(t)) && asleep.said.some((t) => /fast asleep/.test(t)), 'asleep, and it never ran')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

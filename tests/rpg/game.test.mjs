@@ -1368,6 +1368,24 @@ test('every leader\'s team: real species with sprites and cries, the mid-game on
   } finally { await g.close() }
 })
 
+test('a roaming legendary gets easier to catch with every ball thrown at it, a quarter more each, up to three times after eight', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const legend = (balls) => ({ max: 100, hp: 30, capture: 3, roamer: true, balls })
+      const p = (m) => shakeOdds(m, 'ultra', 1.8) ** 4
+      return { wear: [0, 1, 4, 8, 20].map((b) => legendWear(legend(b))), wild: legendWear({ balls: 9 }), turns: LEGEND_TURNS,
+        p: [0, 4, 8, 20].map((b) => p(legend(b))) }
+    })
+    assert.deepEqual(r.wear, [1, 1.25, 2, 3, 3])
+    assert.equal(r.wild, 1, 'only roaming legendaries')
+    assert.equal(r.turns, 4)
+    assert.ok(r.p[0] < r.p[1] && r.p[1] < r.p[2] && r.p[2] === r.p[3], `the chance climbs, then holds (${r.p.map((x) => x.toFixed(3)).join(' → ')})`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a wild Pokémon is easier to catch at low HP and with a status: asleep or frozen ×2.5, paralyzed, burned or poisoned ×1.5', async () => {
   const g = await openGame()
   try {
