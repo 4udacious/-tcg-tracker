@@ -132,7 +132,7 @@ const Sound = (() => {
   // game is open. The Watch demos keep all of it, for the recorded video's soundtrack.
   const logged = (e) => { log.push(e); if (log.length > 3000 && MODE === 'play') log.splice(0, 1000) }
   let decodes = 0, playingSecs = 0   // for the crash note: songs decoded since the page loaded, and how long the one playing is
-  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, jumps, ranOut })
+  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, jumps, ranOut, upgrades })
   const stamp = () => performance.timeOrigin + performance.now()
 
   function graph(ctx) {
@@ -142,7 +142,7 @@ const Sound = (() => {
     return { s, m }
   }
   function ensure() {
-    if (!ac) { ac = new AudioContext(); const g = graph(ac); sfxBus = g.s; musBus = g.m; window.__busReady?.(sfxBus, musBus) }
+    if (!ac) { ac = new AudioContext(); const g = graph(ac); sfxBus = g.s; musBus = g.m; window.__busReady?.(sfxBus, musBus); ac.addEventListener?.('statechange', () => mev(`audio ${ac.state}`)) }
     if (ac.state === 'suspended') ac.resume()
   }
   /*
@@ -172,7 +172,16 @@ const Sound = (() => {
   let decodeHung = (() => { try { return localStorage.getItem(HUNG_KEY) === navigator.userAgent } catch { return false } })(), streams = 0, decodeErr = null
   // A streamed song's loops: how many, the worst a hand-over was out of step (ms), how many fell back to a jump, and how
   // often the file ran out before either (the music had stopped).
-  let loops = 0, lateMs = 0, jumps = 0, ranOut = 0
+  let loops = 0, lateMs = 0, jumps = 0, ranOut = 0, upgrades = 0
+  /*
+   * What a streamed song went through, for the music report (musicReport):
+   * each hand-over, jump and run-out, a player waiting on its file, the audio
+   * being interrupted, the upgrade to a decoded buffer. Seconds since the song
+   * started; the last 40 kept.
+   */
+  const mlog = []; let songAt = 0, songName = ''
+  const mev = (ev, o = {}) => { mlog.push({ s: Math.round((performance.now() - songAt) / 100) / 10, song: songName, ev, ...o }); if (mlog.length > 40) mlog.shift() }
+  window.__musicLog = () => mlog.slice()
   /*
    * Streaming plays the file through an <audio> element, which only loops a
    * whole file, and on an iPhone moving one back (a seek) drops the sound for
@@ -184,7 +193,12 @@ const Sound = (() => {
    * going, the old jump back is the fallback.
    */
   const pool = []
-  const player = (i) => (pool[i] ??= (() => { const el = new Audio(); el.preload = 'auto'; el.setAttribute('playsinline', ''); return { el, node: null, v: null } })())
+  const player = (i) => (pool[i] ??= (() => {
+    const el = new Audio(); el.preload = 'auto'; el.setAttribute('playsinline', '')
+    // A player that has to wait for its file mid-song (the sound stops until it has more), on the music report.
+    for (const ev of ['waiting', 'stalled']) el.addEventListener(ev, () => { if (window.__musicFile?.stream && el.src.includes('/music/')) mev(`${ev} (${window.__musicFile.el === el ? 'playing' : 'other'} player)`) })
+    return { el, node: null, v: null }
+  })())
   const wire = (p, g, gain) => { p.node ??= ac.createMediaElementSource(p.el); p.node.disconnect(); p.v = ac.createGain(); p.v.gain.value = gain; p.node.connect(p.v).connect(g) }
   const fade = (v, to) => { const t = ac.currentTime; v.gain.cancelScheduledValues(t); v.gain.setValueAtTime(v.gain.value, t); v.gain.linearRampToValueAtTime(to, t + 0.08) }
   // An iPhone starts an <audio> only from a tap: both players are given that tap once (a silent clip), so the second
@@ -206,12 +220,12 @@ const Sound = (() => {
       let a = player(cur), b = player(1 - cur)
       wire(a, g, gain); wire(b, g, 0)
       a.el.src = url; if (f.loop) b.el.src = url   // the second loads alongside (the same file, from the cache)
-      window.__crumb?.(`streaming song ${name}`); streams++
+      window.__crumb?.(`streaming song ${name}`); streams++; songAt = performance.now(); songName = name; mev('stream')
       a.el.play().catch(() => { if (tok === fileTok && !g.__stopped) playSynth(song, g) })
       if (f.loop) {
         // 'play': the first plays; 'sync': the second is starting, silent, a loop behind; then they cross over.
         let phase = 'play', tries = 0, since = 0
-        const jump = (t) => { jumps++; loops++; a.el.currentTime = f.loopStart + Math.max(0, t - f.loopEnd); phase = 'play'; try { b.el.pause() } catch {} }
+        const jump = (t) => { jumps++; loops++; mev('jump back', { late: Math.round((t - f.loopEnd) * 1000) }); a.el.currentTime = f.loopStart + Math.max(0, t - f.loopEnd); phase = 'play'; try { b.el.pause() } catch {} }
         streamTimer = setInterval(() => {
           if (tok !== fileTok) return
           const t = a.el.currentTime
@@ -230,17 +244,61 @@ const Sound = (() => {
           if (Math.abs(off) > 0.03 && tries < 4) { tries++; b.el.currentTime = t - L + Math.max(0, off) * 0.5; return }   // nudge it (a seek lands a little late: lead it)
           if (t < f.loopEnd + 0.9 && Math.abs(off) > 0.03) return   // a moment more to settle
           // In step: cross over. The first stops once it's silent; next loop, the parts swap.
-          fade(a.v, 0); fade(b.v, gain); loops++; lateMs = Math.max(lateMs, Math.round(Math.abs(off) * 1000))
+          fade(a.v, 0); fade(b.v, gain); loops++; lateMs = Math.max(lateMs, Math.round(Math.abs(off) * 1000)); mev('hand-over', { off: Math.round(off * 1000), tries, waited: Math.round(performance.now() - since) })
           const old = a; setTimeout(() => { try { if (old !== a) old.el.pause() } catch {} }, 150)
           cur = 1 - cur; [a, b] = [b, a]; phase = 'play'
           window.__musicFile = { name, stream: true, el: a.el, f }
         }, 40)
       }
       // A file that runs out (it shouldn't, now): start the loop again rather than leave the music stopped.
-      const out = (p) => () => { if (tok !== fileTok || g.__stopped || !f.loop || p !== player(cur)) return; ranOut++; window.__crumb?.(`song ${name} ran out: looped again`); p.el.currentTime = f.loopStart; p.el.play().catch(() => {}) }
+      const out = (p) => () => { if (tok !== fileTok || g.__stopped || !f.loop || p !== player(cur)) return; ranOut++; mev('ran out'); window.__crumb?.(`song ${name} ran out: looped again`); p.el.currentTime = f.loopStart; p.el.play().catch(() => {}) }
       player(0).el.onended = out(player(0)); player(1).el.onended = out(player(1))
       window.__musicFile = { name, stream: true, el: a.el, f }
+      if (f.loop) upgrade(name, g, f, tok)
     } catch { if (tok === fileTok && !g.__stopped) playSynth(song, g) }
+  }
+  /*
+   * The browsers that stream aren't (all) unable to decode: some are only
+   * slow, taking about as long as the song. So while a looping song streams,
+   * it's decoded in the background, and once it is, playback crosses over to
+   * the decoded buffer, which loops on the exact sample with no hand-overs at
+   * all. One decode at a time (each is the whole song, uncompressed): a song
+   * changed meanwhile just doesn't get one.
+   */
+  let upgrading = false
+  async function upgrade(name, g, f, tok) {
+    if (upgrading || window.__noUpgrade) return
+    upgrading = true; const t0 = performance.now()
+    try {
+      const bytes = await (await fetch(`/rpg/a/music/${f.file}`)).arrayBuffer()
+      if (tok !== fileTok) return
+      const buf = await ac.decodeAudioData(bytes)
+      if (tok !== fileTok || g.__stopped || musGain !== g) return
+      const p = player(cur), gain = f.gain ?? 1, L = f.loopEnd - f.loopStart, ahead = 0.15
+      const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
+      let pos = p.el.currentTime + ahead; if (pos >= f.loopEnd) pos -= L   // where the stream will be when the buffer starts
+      const when = ac.currentTime + ahead
+      const src = ac.createBufferSource(), v = ac.createGain()
+      src.buffer = buf; src.loop = true; src.loopStart = f.loopStart + lead; src.loopEnd = f.loopEnd + lead
+      v.gain.setValueAtTime(0, when); v.gain.linearRampToValueAtTime(gain, when + 0.08)
+      src.connect(v).connect(g); src.start(when, pos + lead)
+      p.v.gain.setValueAtTime(p.v.gain.value, when); p.v.gain.linearRampToValueAtTime(0, when + 0.08)
+      if (streamTimer) { clearInterval(streamTimer); streamTimer = null }
+      setTimeout(() => { if (tok === fileTok) for (const q of pool) try { q.el.pause() } catch {} }, (ahead + 0.3) * 1000)
+      fileSrc = src; playingSecs = Math.round(buf.duration); window.__musicFile = { name, src, f, upgraded: true }
+      upgrades++; mev('decoded: no more hand-overs', { secs: Math.round((performance.now() - t0) / 100) / 10 })
+      window.__crumb?.(`song ${name} decoded after ${Math.round((performance.now() - t0) / 1000)} s: playing the buffer`)
+    } catch (e) { mev('decode failed', { err: String(e?.name ?? e).slice(0, 40) }) } finally { upgrading = false }
+  }
+  /** The music report (a phone that streams): once a session, after a battle with something to tell. Sent by the app's bridge. */
+  let reported = false
+  function musicReport() {
+    if (reported || !decodeHung) return
+    const told = loops >= 3 || jumps || ranOut || upgrades || mlog.some((e) => /waiting|stalled|audio (interrupted|suspended)|failed/.test(e.ev))
+    if (!told) return
+    reported = true
+    window.__sendMusicReport?.({ report: 'music', ver: document.querySelector('script[src*="game.js"]')?.src.match(/v=(\w+)/)?.[1] ?? null,
+      session: window.__musicStats(), events: mlog.slice(), at: Date.now() })
   }
   async function playFile(name, song, g, f) {
     const tok = ++fileTok
@@ -311,6 +369,7 @@ const Sound = (() => {
       ensure(); SFX[name].synth(ac, sfxBus, ac.currentTime + 0.005)
     },
     cry(id, rate = 1) { logged({ t: stamp(), kind: 'cry', id, rate }); if (!on) return; ensure(); window.__playCry?.(ac, sfxBus, id, rate) },
+    musicReport,
     /** A battle's cries, fetched and decoded as it starts, so each plays on time (some iPhones take seconds to decode one). */
     preloadCries(ids) { if (!on) return; ensure(); for (const id of [...new Set(ids)].filter(Boolean).slice(0, 8)) cryBuffer(ac, id) },
     music(name) { logged({ t: stamp(), kind: 'music', name }); current = name; startMusic(name) },
@@ -4453,6 +4512,8 @@ const CRUMBS = (() => {
     })
   }
   const deviceOf = () => ({ ua: navigator.userAgent, screen: `${screen.width}x${screen.height}@${devicePixelRatio}`, mem: navigator.deviceMemory ?? null, cores: navigator.hardwareConcurrency ?? null })
+  // The music report (Sound.musicReport): through the crash-report channel, marked report: 'music' (Admin → VVM lists them apart).
+  window.__sendMusicReport = (note) => { try { vvm()?.reportCrash?.(note, deviceOf())?.catch?.(() => {}) } catch {} }
   let crashed = null
   if (on) {
     let n = null; try { n = JSON.parse(localStorage.getItem(key) || 'null') } catch {}
@@ -6822,7 +6883,7 @@ async function run(id) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id)))
     MOVE_LOG.reset(); let res = null
-    try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result) }
+    try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result); Sound.musicReport() }
   }
   async function duoBattleCore({ foes, bench: foeBench = [], trainers, allies = [], tips = null, plan }) {
     // Tips: what a partner says the first time each thing happens (TUTORIAL_TIPS).
@@ -8953,7 +9014,7 @@ async function run(id) {
     CRUMBS.phase('battle set up')
     Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
-    try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result) }
+    try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
   }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
     let me = party.find((m) => m.hp > 0)
