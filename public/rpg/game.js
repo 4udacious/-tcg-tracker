@@ -132,7 +132,7 @@ const Sound = (() => {
   // game is open. The Watch demos keep all of it, for the recorded video's soundtrack.
   const logged = (e) => { log.push(e); if (log.length > 3000 && MODE === 'play') log.splice(0, 1000) }
   let decodes = 0, playingSecs = 0   // for the crash note: songs decoded since the page loaded, and how long the one playing is
-  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, ranOut })
+  window.__musicStats = () => ({ decodes, secs: playingSecs, hung: decodeHung, streams, decodeErr, loops, lateMs, jumps, ranOut })
   const stamp = () => performance.timeOrigin + performance.now()
 
   function graph(ctx) {
@@ -168,33 +168,78 @@ const Sound = (() => {
    * player, no decoding here), its loop kept by a timer; from then on, remembered for this browser, every song does.
    * The live synthesiser is only the last resort, if streaming fails too. The crash note keeps why (decodeErr).
    */
-  const DECODE_MS = () => window.__decodeMs ?? 8000, HUNG_KEY = 'vvm-decode-hung'
+  const DECODE_MS = () => window.__decodeMs ?? 3000, SLOW_MS = 2000, HUNG_KEY = 'vvm-decode-hung'
   let decodeHung = (() => { try { return localStorage.getItem(HUNG_KEY) === navigator.userAgent } catch { return false } })(), streams = 0, decodeErr = null
-  // A streamed song's loop, rounded by hand: how many times, the latest a jump back came (ms past the loop's end), and
-  // how often the file ran out before one did (the music had stopped).
-  let loops = 0, lateMs = 0, ranOut = 0
-  let streamEl = null, streamNode = null, streamTimer = null
+  // A streamed song's loops: how many, the worst a hand-over was out of step (ms), how many fell back to a jump, and how
+  // often the file ran out before either (the music had stopped).
+  let loops = 0, lateMs = 0, jumps = 0, ranOut = 0
+  /*
+   * Streaming plays the file through an <audio> element, which only loops a
+   * whole file, and on an iPhone moving one back (a seek) drops the sound for
+   * a moment: once a loop, every 40-odd seconds. So there are two players.
+   * Just past the loop's end (the file carries the loop's first 3 seconds again
+   * after it, render-music.mjs), the other starts, silent, from the loop's
+   * start; it's nudged until it's in step, then the two cross over in 80 ms
+   * and the first stops. Next loop they swap. Should the second one never get
+   * going, the old jump back is the fallback.
+   */
+  const pool = []
+  const player = (i) => (pool[i] ??= (() => { const el = new Audio(); el.preload = 'auto'; el.setAttribute('playsinline', ''); return { el, node: null, v: null } })())
+  const wire = (p, g, gain) => { p.node ??= ac.createMediaElementSource(p.el); p.node.disconnect(); p.v = ac.createGain(); p.v.gain.value = gain; p.node.connect(p.v).connect(g) }
+  const fade = (v, to) => { const t = ac.currentTime; v.gain.cancelScheduledValues(t); v.gain.setValueAtTime(v.gain.value, t); v.gain.linearRampToValueAtTime(to, t + 0.08) }
+  // An iPhone starts an <audio> only from a tap: both players are given that tap once (a silent clip), so the second
+  // can start later on its own.
+  const SILENT = 'data:audio/wav;base64,UklGRqQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='
+  let blessed = false
+  const bless = () => {
+    if (blessed || !decodeHung) return; blessed = true
+    // A player already playing has had its start; one that's idle (or loaded and waiting) gets a start and a stop.
+    for (const i of [0, 1]) { const { el } = player(i); if (!el.paused) continue; if (!el.src) el.src = SILENT; el.play()?.then(() => { if (!window.__musicFile || window.__musicFile.el !== el) el.pause() }).catch(() => {}) }
+  }
+  for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, bless, { capture: true, passive: true })   // the events an iPhone counts as a tap for audio
+  let streamTimer = null, cur = 0
+  window.__musicPool = () => pool.map((p) => p.el)   // testing
   function streamFile(name, song, g, f) {
     const tok = ++fileTok
     try {
-      if (!streamEl) { streamEl = new Audio(); streamEl.preload = 'auto'; streamEl.setAttribute('playsinline', ''); streamNode = ac.createMediaElementSource(streamEl) }
-      streamNode.disconnect()
-      const v = ac.createGain(); v.gain.value = f.gain ?? 1; streamNode.connect(v).connect(g)
-      streamEl.src = `/rpg/a/music/${f.file}`
+      const gain = f.gain ?? 1, url = `/rpg/a/music/${f.file}`, L = f.loopEnd - f.loopStart
+      let a = player(cur), b = player(1 - cur)
+      wire(a, g, gain); wire(b, g, 0)
+      a.el.src = url; if (f.loop) b.el.src = url   // the second loads alongside (the same file, from the cache)
       window.__crumb?.(`streaming song ${name}`); streams++
-      streamEl.play().catch(() => { if (tok === fileTok && !g.__stopped) playSynth(song, g) })
-      // Round the loop by hand (the element only loops the whole file): back to the loop's start as it reaches its end,
-      // as far in as it went past it. The file carries the loop's first seconds again after its end (render-music.mjs),
-      // so a jump that comes late (a phone busy with a battle holds timers back) still lands on the right note.
-      if (f.loop) streamTimer = setInterval(() => {
-        const t = streamEl.currentTime
-        if (tok !== fileTok || t < f.loopEnd - 0.03) return
-        const over = Math.max(0, t - f.loopEnd); loops++; lateMs = Math.max(lateMs, Math.round(over * 1000))
-        streamEl.currentTime = f.loopStart + over
-      }, 40)
-      // Later still and the file runs out: start the loop again rather than leave the music stopped.
-      streamEl.onended = () => { if (tok !== fileTok || g.__stopped || !f.loop) return; ranOut++; window.__crumb?.(`song ${name} ran out: looped again`); streamEl.currentTime = f.loopStart; streamEl.play().catch(() => {}) }
-      window.__musicFile = { name, stream: true, el: streamEl, f }
+      a.el.play().catch(() => { if (tok === fileTok && !g.__stopped) playSynth(song, g) })
+      if (f.loop) {
+        // 'play': the first plays; 'sync': the second is starting, silent, a loop behind; then they cross over.
+        let phase = 'play', tries = 0, since = 0
+        const jump = (t) => { jumps++; loops++; a.el.currentTime = f.loopStart + Math.max(0, t - f.loopEnd); phase = 'play'; try { b.el.pause() } catch {} }
+        streamTimer = setInterval(() => {
+          if (tok !== fileTok) return
+          const t = a.el.currentTime
+          if (phase === 'play') {
+            if (t < f.loopEnd + 0.1) return
+            // Past the loop's end, into its repeated start: the second player takes over from here.
+            b.el.currentTime = t - L; b.v.gain.value = 0; tries = 0; since = performance.now()
+            b.el.play().then(() => {}, () => { if (tok === fileTok && phase === 'sync') jump(a.el.currentTime) })
+            phase = 'sync'; return
+          }
+          if (phase !== 'sync') return
+          // Too long in step-finding (the second never started), or about to run out of the repeated start: jump.
+          if (t > f.loopEnd + 2.6 || performance.now() - since > 2500) return jump(t)
+          if (b.el.paused || b.el.readyState < 3) return
+          const off = (t - L) - b.el.currentTime
+          if (Math.abs(off) > 0.03 && tries < 4) { tries++; b.el.currentTime = t - L + Math.max(0, off) * 0.5; return }   // nudge it (a seek lands a little late: lead it)
+          if (t < f.loopEnd + 0.9 && Math.abs(off) > 0.03) return   // a moment more to settle
+          // In step: cross over. The first stops once it's silent; next loop, the parts swap.
+          fade(a.v, 0); fade(b.v, gain); loops++; lateMs = Math.max(lateMs, Math.round(Math.abs(off) * 1000))
+          const old = a; setTimeout(() => { try { if (old !== a) old.el.pause() } catch {} }, 150)
+          cur = 1 - cur; [a, b] = [b, a]; phase = 'play'
+          window.__musicFile = { name, stream: true, el: a.el, f }
+        }, 40)
+      }
+      // A file that runs out (it shouldn't, now): start the loop again rather than leave the music stopped.
+      const out = (p) => () => { if (tok !== fileTok || g.__stopped || !f.loop || p !== player(cur)) return; ranOut++; window.__crumb?.(`song ${name} ran out: looped again`); p.el.currentTime = f.loopStart; p.el.play().catch(() => {}) }
+      player(0).el.onended = out(player(0)); player(1).el.onended = out(player(1))
+      window.__musicFile = { name, stream: true, el: a.el, f }
     } catch { if (tok === fileTok && !g.__stopped) playSynth(song, g) }
   }
   async function playFile(name, song, g, f) {
@@ -204,10 +249,17 @@ const Sound = (() => {
       const res = await fetch(`/rpg/a/music/${f.file}`); if (!res.ok) throw new Error('fetch_failed')
       const bytes = await res.arrayBuffer()
       window.__crumb?.(`decoding song ${name} (${Math.round(f.samples / f.rate)} s)`)
+      const t0 = performance.now()
       let hang; const buf = await Promise.race([ac.decodeAudioData(bytes),
         new Promise((_, no) => { hang = setTimeout(() => no(new Error('decode_hung')), DECODE_MS()) })]).finally(() => clearTimeout(hang))
       decodes++
       window.__crumb?.(`playing song ${name}`)
+      // Decoded, but slowly (some iPhones take seconds for every one): this song plays, the next ones stream, which start at once.
+      if (performance.now() - t0 > SLOW_MS && !decodeHung) {
+        decodeHung = true; decodeErr = `slow (${Math.round(performance.now() - t0)} ms)`
+        try { localStorage.setItem(HUNG_KEY, navigator.userAgent) } catch {}
+        window.__crumb?.(`decoding is slow here (${decodeErr}): streaming songs from now on`)
+      }
       if (tok !== fileTok || g.__stopped) return
       playingSecs = Math.round(buf.duration)
       // A decoder that keeps AAC's priming (1024 samples, then up to a frame of padding at the end) puts everything that much
@@ -247,7 +299,8 @@ const Sound = (() => {
     fileTok++
     if (loopTimer) { clearInterval(loopTimer); loopTimer = null }
     if (streamTimer) { clearInterval(streamTimer); streamTimer = null }
-    if (streamEl) { try { streamEl.pause() } catch {} if (window.__musicFile?.stream) window.__musicFile = null }
+    for (const p of pool) try { p.el.pause() } catch {}
+    if (window.__musicFile?.stream) window.__musicFile = null
     if (fileSrc) { const s = fileSrc; fileSrc = null; window.__musicFile = null; try { s.stop(ac.currentTime + 0.4) } catch {} }
     if (musGain) { const g = musGain; musGain = null; g.__stopped = true; try { g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => g.disconnect(), 400) } catch {} }
   }
@@ -258,6 +311,8 @@ const Sound = (() => {
       ensure(); SFX[name].synth(ac, sfxBus, ac.currentTime + 0.005)
     },
     cry(id, rate = 1) { logged({ t: stamp(), kind: 'cry', id, rate }); if (!on) return; ensure(); window.__playCry?.(ac, sfxBus, id, rate) },
+    /** A battle's cries, fetched and decoded as it starts, so each plays on time (some iPhones take seconds to decode one). */
+    preloadCries(ids) { if (!on) return; ensure(); for (const id of [...new Set(ids)].filter(Boolean).slice(0, 8)) cryBuffer(ac, id) },
     music(name) { logged({ t: stamp(), kind: 'music', name }); current = name; startMusic(name) },
     stopMusic() { logged({ t: stamp(), kind: 'music', name: null }); current = null; stopNodes() },
     setOn(v) {
@@ -4360,7 +4415,7 @@ const CRUMBS = (() => {
     // The session so far, for telling a slow build-up from a one-off: minutes open, battles, songs decoded (and the
     // playing one's length), and what the page holds (elements, images, running animations).
     const ms = window.__musicStats?.() ?? {}
-    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0, hung: !!ms.hung, streams: ms.streams ?? 0, decodeErr: ms.decodeErr ?? null, loops: ms.loops ?? 0, lateMs: ms.lateMs ?? 0, ranOut: ms.ranOut ?? 0,
+    c.session = { mins: Math.round((now - loadedAt) / 6e4), battles, decodes: ms.decodes ?? 0, songSecs: ms.secs ?? 0, hung: !!ms.hung, streams: ms.streams ?? 0, decodeErr: ms.decodeErr ?? null, loops: ms.loops ?? 0, lateMs: ms.lateMs ?? 0, jumps: ms.jumps ?? 0, ranOut: ms.ranOut ?? 0,
       nodes: document.getElementsByTagName('*').length, imgs: document.images.length, anims: document.getAnimations?.().length ?? 0 }
     try { localStorage.setItem(key, JSON.stringify(c)) } catch {}
   }
@@ -6765,6 +6820,7 @@ async function run(id) {
    */
   async function duoBattle(o) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
+    Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id)))
     MOVE_LOG.reset(); let res = null
     try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result) }
   }
@@ -8895,6 +8951,7 @@ async function run(id) {
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     CRUMBS.phase('battle set up')
+    Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
     try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result) }
   }

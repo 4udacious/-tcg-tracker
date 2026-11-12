@@ -283,36 +283,117 @@ test('a browser whose decode fails (Safari 27): the song streams, not the live s
   } finally { await g.close() }
 })
 
-test('a streamed song loops seamlessly even when the jump back comes late, and starts again if the file runs out', async () => {
+/** In the page: decoding fails, so songs stream; each <audio> gets a clock the test moves by hand. */
+const STREAM_SETUP = `
+  RUN++; Sound.stopMusic()
+  HTMLMediaElement.prototype.canPlayType = () => 'probably'
+  BaseAudioContext.prototype.decodeAudioData = function () { return Promise.reject(new DOMException('Decoding failed', 'EncodingError')) }
+  window.__clock = new Map(); window.__plays = 0; window.__startsOk = true
+  const st = (el) => { if (!__clock.has(el)) __clock.set(el, { t: 0, paused: true }); return __clock.get(el) }
+  Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', { get() { return st(this).t }, set(v) { st(this).t = v }, configurable: true })
+  Object.defineProperty(HTMLMediaElement.prototype, 'paused', { get() { return st(this).paused }, configurable: true })
+  Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { get() { return 4 }, configurable: true })
+  HTMLMediaElement.prototype.play = function () { __plays++; if (__startsOk) st(this).paused = false; return Promise.resolve() }
+  HTMLMediaElement.prototype.pause = function () { st(this).paused = true }
+  try { localStorage.removeItem('vvm-decode-hung') } catch {}
+  window.__until = async (f) => { for (let i = 0; i < 50 && !f(); i++) await new Promise((r) => setTimeout(r, 50)) }
+  window.__wait = (ms) => new Promise((r) => setTimeout(r, ms))
+`
+
+test('a streamed song loops on two players: the second starts in step a loop behind, and they cross over without a jump', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async (setup) => {
+      eval(setup)
+      Sound.setOn(true); Sound.music('battle')
+      await __until(() => window.__musicFile?.name === 'battle' && window.__musicFile.stream)
+      const [e0, e1] = window.__musicPool(), { f } = window.__musicFile, L = f.loopEnd - f.loopStart
+      const first = window.__musicFile.el
+      const other = first === e0 ? e1 : e0
+      // The first player reaches the loop's end and goes on into its repeated start.
+      __clock.get(first).t = f.loopEnd + 0.2
+      await __until(() => other.paused === false)
+      const cued = other.currentTime - f.loopStart   // where the second was started: as far into the loop as the first is past its end
+      // The second plays in step (a loop behind the first), as a started player would.
+      __clock.get(first).t = f.loopEnd + 0.4; __clock.get(other).t = f.loopStart + 0.4
+      await __until(() => window.__musicFile.el === other)
+      await __wait(250)
+      const out = { cued, handed: window.__musicFile.el === other, firstStopped: __clock.get(first).paused, firstAt: first.currentTime - f.loopEnd, stats: window.__musicStats() }
+      Sound.stopMusic(); return out
+    }, STREAM_SETUP)
+    assert.ok(Math.abs(r.cued - 0.2) < 0.05, `the second started from the same place in the loop (${r.cued.toFixed(3)} s in)`)
+    assert.ok(r.handed, 'the second takes over'); assert.ok(r.firstStopped, 'and the first stops once it has faded out')
+    assert.ok(r.firstAt > 0.3, 'the first was never moved back (no jump, so no dropout)')
+    assert.deepEqual([r.stats.loops, r.stats.jumps, r.stats.ranOut], [1, 0, 0])
+    assert.ok(r.stats.lateMs <= 30, `in step to within 30 ms (${r.stats.lateMs})`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a streamed song whose second player never starts falls back to jumping back, and a file that runs out starts its loop again', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async (setup) => {
+      eval(setup)
+      Sound.setOn(true); Sound.music('battle')
+      await __until(() => window.__musicFile?.name === 'battle' && window.__musicFile.stream)
+      const { el, f } = window.__musicFile
+      __startsOk = false   // the second player's start is refused (no tap to start it)
+      __clock.get(el).t = f.loopEnd + 0.2
+      await __wait(150)
+      __clock.get(el).t = f.loopEnd + 2.7   // still not going, and about to run out of the repeated start: jump back
+      await __until(() => window.__musicStats().jumps === 1)
+      const late = el.currentTime - f.loopStart
+      __startsOk = true; const before = __plays
+      __clock.get(el).t = 999; el.dispatchEvent(new Event('ended')); await __wait(50)
+      const out = { late, restarted: el.currentTime === f.loopStart && __plays === before + 1, stats: window.__musicStats() }
+      Sound.stopMusic(); return out
+    }, STREAM_SETUP)
+    assert.ok(Math.abs(r.late - 2.7) < 0.05, `jumped back to the same place in the loop (${r.late.toFixed(3)})`)
+    assert.ok(r.restarted, 'a file that ran out starts its loop again')
+    assert.deepEqual([r.stats.jumps, r.stats.ranOut], [1, 1])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a browser that decodes, but slowly: that song plays, and the songs after it stream (they start at once)', async () => {
   const g = await openGame()
   try {
     const r = await g.page.evaluate(async () => {
       RUN++; Sound.stopMusic()
       HTMLMediaElement.prototype.canPlayType = () => 'probably'
-      BaseAudioContext.prototype.decodeAudioData = function () { return Promise.reject(new DOMException('Decoding failed', 'EncodingError')) }
-      let plays = 0
-      HTMLMediaElement.prototype.play = function () { plays++; return Promise.resolve() }
+      HTMLMediaElement.prototype.play = function () { return Promise.resolve() }
       try { localStorage.removeItem('vvm-decode-hung') } catch {}
-      const until = async (f) => { for (let i = 0; i < 40 && !f(); i++) await new Promise((r) => setTimeout(r, 100)) }
-      Sound.setOn(true); Sound.music('battle')
-      await until(() => window.__musicFile?.name === 'battle' && window.__musicFile.stream)
-      const { el, f } = window.__musicFile
-      // The element's clock, played by hand: a battle held the timer back, so the jump comes 1.5 s past the loop's end.
-      let t = 0; Object.defineProperty(el, 'currentTime', { get: () => t, set: (v) => { t = v }, configurable: true })
-      t = f.loopEnd + 1.5
-      await new Promise((r) => setTimeout(r, 150))
-      const late = t - f.loopStart
-      // Later still: the file ran out. It starts the loop again.
-      t = 999; const before = plays; el.dispatchEvent(new Event('ended'))
-      await new Promise((r) => setTimeout(r, 50))
-      const out = { late, restarted: t === f.loopStart && plays === before + 1, stats: window.__musicStats(),
-        tail: window.__musicFile.f.loopEnd + 1.5 <= (f.samples ?? 0) / (f.rate ?? 44100) }
-      Sound.stopMusic(); return out
+      // Decodes fine, in 2.3 s (this test browser has no AAC decoder of its own: a silent buffer stands in).
+      BaseAudioContext.prototype.decodeAudioData = function () { return new Promise((ok) => setTimeout(() => ok(new AudioBuffer({ length: 44100 * 50, numberOfChannels: 2, sampleRate: 44100 })), 2300)) }
+      window.__decodeMs = 6000
+      const until = async (f) => { for (let i = 0; i < 80 && !f(); i++) await new Promise((r) => setTimeout(r, 100)) }
+      Sound.setOn(true); Sound.music('wild')
+      await until(() => window.__musicFile?.name === 'wild')
+      const first = { stream: !!window.__musicFile.stream, stats: window.__musicStats() }
+      Sound.music('battle')
+      await until(() => window.__musicFile?.name === 'battle')
+      const second = !!window.__musicFile.stream
+      delete window.__decodeMs; Sound.stopMusic(); return { first, second }
     })
-    assert.ok(Math.abs(r.late - 1.5) < 0.05, `jumped back to the same spot in the loop, 1.5 s in (${r.late.toFixed(3)})`)
-    assert.ok(r.tail, 'and the file has those 1.5 s past the loop\'s end to play meanwhile')
-    assert.ok(r.restarted, 'a file that ran out starts its loop again')
-    assert.equal(r.stats.loops, 1); assert.ok(r.stats.lateMs >= 1450, `the crash note keeps how late (${r.stats.lateMs} ms)`); assert.equal(r.stats.ranOut, 1)
+    assert.equal(r.first.stream, false, 'the slow one still plays, decoded')
+    assert.ok(r.first.stats.hung && /^slow \(\d+ ms\)$/.test(r.first.stats.decodeErr), `noted as slow (${r.first.stats.decodeErr})`)
+    assert.equal(r.second, true, 'the next song streams')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('a battle\'s cries are fetched as it starts, not when each is first heard', async () => {
+  const g = await openGame()
+  try {
+    const r = await g.page.evaluate(async () => {
+      const got = []; const f0 = window.fetch
+      window.fetch = (u, ...a) => { if (/cries/.test(String(u))) got.push(String(u)); return f0(u, ...a) }
+      Sound.setOn(true); Sound.preloadCries([25, 25, 6, null, 150])
+      await new Promise((r) => setTimeout(r, 300)); window.fetch = f0
+      return got.map((u) => u.split('/').pop())
+    })
+    assert.deepEqual(r.sort(), ['150.ogg', '25.ogg', '6.ogg'], 'each one once')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
