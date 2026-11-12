@@ -541,7 +541,8 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
           supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null },
             { key: 'elite_ticket', kind: 'item', name: 'Elite Four Ticket', description: 'All five League battles', price: 5, contents: null },
-            { key: 'rematch_gym_0', kind: 'item', name: 'Falkner Rematch', description: 'Rematch Falkner', price: 1, contents: null, max: 1, left_today: null }],
+            { key: 'rematch_gym_0', kind: 'item', name: 'Falkner Rematch', description: 'Rematch Falkner', price: 1, contents: null, max: 1, left_today: null },
+            { key: 'gym_summon', kind: 'item', name: 'Gym Summon', description: 'Your next gym', price: 3, contents: null, max: 1, left_today: null }],
           boxes: [{ box_id: 5, name: 'Jungle Booster Box', set_name: 'Jungle', packs: 36, price: 3, image: '/rpg/a/jungle-scyther.webp', quantity: 2, max: 1 }] } },
         async balance() { return balance },
         async claim() { calls.push(['claim']); return { ok: true, reason: 'ok', holder_name: null, expires_at: null } },
@@ -588,8 +589,8 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     await frame.evaluate(() => { document.getElementById('nextTap').value = 'wild'; document.getElementById('home').click() })
     await frame.waitForSelector('[data-buy="set:base2"]', { timeout: 10000 }); await page.waitForTimeout(1200)   // the screen finishes fading in
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:elite_ticket"]')), null, 'no Elite Four ticket on the shelf before all 8 badges')
-    const rematchTile = await frame.$eval('[data-buy="sup:rematch_gym_0"]', (b) => ({ off: b.disabled, text: b.textContent }))
-    assert.ok(rematchTile.off && /beat them first/.test(rematchTile.text), `a rematch with a leader you haven't beaten is greyed out (${rematchTile.text})`)
+    assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:rematch_gym_0"]')), null, 'no rematch on the shelf with a leader you haven\'t beaten')
+    assert.ok(await frame.$('[data-buy="sup:gym_summon"]'), 'a Gym Summon, with a gym to go to')
     await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball', 'box:5', 'box:5']) document.querySelector(`[data-buy="${k}"]`).click() })   // the box twice: only 1 is allowed
     await frame.evaluate(() => document.getElementById('cbGo').click())
     await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
@@ -610,6 +611,9 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     }
     const tile = await frame.waitForSelector('[data-buy="sup:elite_ticket"]', { timeout: 10000 })
     assert.equal(await tile.evaluate((b) => b.disabled), true)
+    // The same machine, now you qualify: Falkner's rematch is there too, and the Gym Summon isn't (no gym left before the League).
+    assert.ok(await frame.$('[data-buy="sup:rematch_gym_0"]'), 'the rematch, once Falkner is beaten')
+    assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:gym_summon"]')), null, 'no Gym Summon with all 8 Johto badges, before the League')
     await page.waitForTimeout(1200); await tile.evaluate((b) => b.querySelector('b').click())
     assert.equal(await frame.evaluate(() => document.getElementById('cbSum').textContent), 'CART empty', 'a greyed-out tile never goes in the cart')
     // A battle at a stocked machine doesn't hold it; coming back from one does, so the shelf can be bought from
