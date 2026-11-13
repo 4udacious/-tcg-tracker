@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { borderColor } from './cardBorders'
+import { CARD_EDGES } from './cardEdges'
 import { gameOf } from '@/lib/vending/games'
 
 export interface Condition {
@@ -53,6 +54,30 @@ const VK = 245 / 342
  * circle; inline, so it wins over whatever rounded-* the caller passes.
  */
 const OP_CORNER = { borderRadius: `7% / ${(7 * VK).toFixed(2)}%` }
+
+/*
+ * A One Piece card's frame follows its edge (cardEdges.ts: 12 colours, three
+ * to a side, clockwise from the top left): a conic gradient round the centre
+ * with each colour at the middle of its stretch of edge, blended between, so
+ * a red-and-green card's frame is red down one side and green down the other.
+ * The angles are the card's own (245 x 342), from the top, clockwise.
+ */
+const EDGE_ANGLES = (() => {
+  const W = 245, H = 342, mids: [number, number][] = []
+  for (let i = 0; i < 3; i++) mids.push([(i + 0.5) * W / 3 - W / 2, -H / 2])
+  for (let i = 0; i < 3; i++) mids.push([W / 2, (i + 0.5) * H / 3 - H / 2])
+  for (let i = 2; i >= 0; i--) mids.push([(i + 0.5) * W / 3 - W / 2, H / 2])
+  for (let i = 2; i >= 0; i--) mids.push([-W / 2, (i + 0.5) * H / 3 - H / 2])
+  return mids.map(([x, y]) => (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360)
+})()
+function frameBackground(src: string): string {
+  const e = CARD_EDGES[src]
+  if (!e || e.length !== 36) return borderColor(src)
+  const col = (i: number) => `#${e.slice(i * 3, i * 3 + 3)}`
+  const from = EDGE_ANGLES[0]
+  const stops = EDGE_ANGLES.map((a, i) => `${col(i)} ${((a - from + 360) % 360).toFixed(1)}deg`)
+  return `conic-gradient(from ${from.toFixed(1)}deg at 50% 50%, ${stops.join(', ')}, ${col(0)} 360deg)`
+}
 
 /**
  * Card units for the wear overlay's SVG. Marks are authored against the
@@ -658,7 +683,7 @@ export default function ConditionedCard({
       <div
         className={`absolute inset-0 ${frameClassName}`}
         style={{
-          background: borderColor(src),
+          background: frameBackground(src),
           ...(mask && {
             maskImage: mask, WebkitMaskImage: mask,
             maskSize: '100% 100%', WebkitMaskSize: '100% 100%',
