@@ -104,7 +104,8 @@ test('the foe\'s HP bar always shows its HP, Pokémon after Pokémon', { skip: q
         if (Math.abs(shown - f.hp / f.max) > 0.08) window.__hpBad.push(`${f.name} ${f.hp}/${f.max} shown ${(shown * 100).toFixed(0)}%`)
       }, 300)
     })
-    for (let i = 0; i < 3; i++) {
+    // Three encounters, or more (up to 6) when some end, or don't turn up, before three move prompts have been checked.
+    for (let i = 0; i < 6 && (i < 3 || (await page.evaluate(() => window.__hpSeen)) < 3); i++) {
       await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } })
       await bot.encounter('scalper', 400)
     }
