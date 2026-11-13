@@ -2616,6 +2616,8 @@ const upcoming = (m) => levelMoves(learn(m)).filter(([lv, n]) => lv > m.level &&
    booster pack's rare slot can hold one. */
 const DISC_POOL = ['HELPING HAND', 'TAILWIND', 'AFTER YOU', 'HEAL PULSE', 'HOWL', 'EARTHQUAKE', 'ROCK SLIDE', 'HYPER VOICE']
 const discKey = (n) => 'disc:' + n
+/** The Move Disc the real machine stocks this restock (its cycle number): one known move, shown on the shelf and bought as itself. */
+const discOfCycle = (c) => DISC_POOL[(Math.imul((c | 0) + 1, 2654435761) >>> 0) % DISC_POOL.length]
 /*
  * Which Pokémon each disc can teach, like the games' TM lists. The support
  * staples work for nearly everyone; the rest follow type, with a few extra
@@ -5152,6 +5154,8 @@ async function run(id) {
   const flavor = demo ? rng(11) : Math.random     // lines and drops: also their own stream
   const pickOf = (list) => list[Math.floor(flavor() * list.length)]
   const bag = { ball: 0, great: 0, potion: 0, super: 0, revive: 0 }   // empty: Alex hands you the first Potions and Balls
+  // Move Discs bought at the real machine, by move, until they're collected (the shelf said which move each restock's is).
+  const discDue = []
   const badges = [], nextGym = () => badges.length   // gyms beaten, in order
   let champion = false   // beat the Elite Four and Lance: opens Kanto (and its row in the badge case)
   /*
@@ -5381,6 +5385,7 @@ async function run(id) {
     // Stocked: the machine's grid, the packs and then whatever battle supplies this restock has, side by side.
     const sup = state === 'in' ? shelfItems : [], real = vvm() && realShelf
     h.classList.toggle('has-sup', state === 'in' && (real ? true : sup.length > 0))
+    if (state !== 'in') $('shelfPop')?.classList.remove('open')   // leaving the stocked screen closes an item's details
     $('supplies').innerHTML = state === 'in' && real ? realTiles() : state === 'in' ? STOCK_PACKS.map((p) => `<button class="tile pack" data-pack="${p.name}"><span class="art"><img src="${ART['pack:' + p.art]}" alt=""></span><span class="qty">${p.left}</span><b>${p.name}</b><span class="meta">1 token · ${p.left} left</span></button>`).join('') + sup.map(supplyTile).join('') : ''
     $('homeLine').textContent = blocked ? 'BLOCKED!' : { in: 'PACKS ARE IN!', out: 'NEXT RESTOCK 03:12', maint: 'BACK SOON' }[state]
     $('homeSub').textContent = blocked ? `${scalper.short} is camping the machine` : { in: 'tap items to add them to your cart', out: 'sold out', maint: 'under maintenance' }[state]
@@ -5496,8 +5501,10 @@ async function run(id) {
       if (x.key.startsWith('rematch_')) { const r = rematchOf(x.key.slice(8)); if (!r) return ''
         return `<button class="tile summon" data-buy="sup:${esc(x.key)}"${off}><span class="art"><img src="${ART[r.T.face]}" alt=""></span><i class="kind">REMATCH</i><b>${esc(r.T.short)}</b>${meta('1v1 or 2v2')}</button>` }
       if (x.key === 'elite_ticket') { const c = LEAGUES[leagueNow() ?? (champion ? 'kanto' : 'elite')].card; return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b>${meta('all 5 battles')}</button>` }
-      const ic = x.key === 'move_disc' ? 'disc' : BAG_OF[x.key] ?? ''
-      return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">${x.key === 'move_disc' ? 'MOVE DISC' : 'ITEM'}</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
+      if (x.key === 'move_disc') { const n = discOfCycle(t.cycle_no ?? 0), m = moveInfo(n)
+        return `<button class="tile item" data-buy="sup:move_disc"${off}><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${n}</b>${meta(m.type.toUpperCase())}</button>` }
+      const ic = BAG_OF[x.key] ?? ''
+      return `<button class="tile item" data-buy="sup:${esc(x.key)}"${off}><span class="art"><span class="supic ${ic}"></span></span><i class="kind">ITEM</i><b>${esc(x.name.toUpperCase())}</b>${meta(x.description ?? '')}</button>`
     }
     // Battle tickets you don't qualify for aren't on your shelf at all (supLocked).
     const shelved = t.supplies.filter((x) => !supLocked(x.key))
@@ -5532,7 +5539,7 @@ async function run(id) {
       else if (key.startsWith('rematch_') && rematchItem(key.slice(8))) { const k = rematchKey(key.slice(8)); bag[k] = (bag[k] ?? 0) + qty; said.push(`${qty} ${ITEMS[k].name}`) }
       else if (key === 'gym_summon') { const g = nextGym(); summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + qty; said.push(`${qty} ${ITEMS[summonKey(g)].name}`) }
       else if (key === 'elite_ticket') { const k = leagueKey(); bag[k] = 1; said.push(`${aOrAn(ITEMS[k].name)}`) }   // the catalog's one League ticket: for the League that's open
-      else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
+      else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = discDue.shift() ?? pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
     }
     if (said.length) { renderTools(); saveGame(); feed(`<b>You</b> collected ${said.join(', ')} into the Bag.`) }
     await collectGifts()
@@ -5651,14 +5658,77 @@ async function run(id) {
     if (pk) { hot(pk); $('homeSub').textContent = `${pk.dataset.pack} packs check out as they do today`; return }
     const k = b.dataset.buy
     if (b.disabled) { sfx('blocked'); return }   // a greyed-out supply (a summon or ticket you can't use yet) never goes in the cart
-    if (e.target.closest('[data-minus]')) { const n = (cart.get(k) ?? 0) - 1; n > 0 ? cart.set(k, n) : cart.delete(k); sfx('move') }
-    else {
-      const n = cart.get(k) ?? 0
-      if (n >= cartMax(k)) { sfx('blocked'); $('homeSub').textContent = cartMax(k) === 1 ? 'one of those at a time' : `up to ${cartMax(k)} of each`; return }
-      cart.set(k, n + 1); sfx('click'); hot(b)
-      anim(b, [{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 200 })
+    if (e.target.closest('[data-minus]')) { const n = (cart.get(k) ?? 0) - 1; n > 0 ? cart.set(k, n) : cart.delete(k); sfx('move'); paintCart(); vvm()?.heartbeat(); return }
+    hot(b); sfx('select'); openPop(k)
+  }
+  /*
+   * A shelf item's details, over the shelf: what it is and what it does (a
+   * Move Disc: its move's type, power and effect), its price and how many are
+   * left, and how many to put in the cart, up to what may be bought.
+   */
+  let popKey = null, popQty = 1
+  const para = (t) => String(t ?? '').split(/\n{2,}/).filter(Boolean).map((x) => `<p>${esc(x)}</p>`).join('')
+  const learners = (n) => { const c = party.filter((m) => canLearnDisc(m, n)).length; return c ? `${c === 1 ? '1 of your party' : `${c} of your party`} can learn it.` : 'Nobody in your party can learn it yet.' }
+  function itemInfo(bk) {   // a Bag item: what it does, and who it's for
+    const it = ITEMS[bk]; if (!it) return ''
+    if (it.evo || it.held) { const n = party.filter((m) => evoByItem(m, bk, bag).rule).length; return `<p>${esc(it.sub)}.</p><p>${n ? `${n === 1 ? '1 of your party' : `${n} of your party`} can evolve with it now.` : 'Nobody in your party can use it right now.'}</p>` }
+    if (it.candy) return `<p>${esc(it.sub)}: up to Lv ${LEVEL_CAP}.</p>`
+    if (isBall(bk)) return `<p>A ball for wild Pokémon: ${esc(it.sub)}. A better throw, a lower HP and a status all help.</p>`
+    return `<p>${esc(it.sub)}${it.cure ? '' : '. Use it from the Bag, in battle or out'}.</p>`
+  }
+  function shelfInfo(k) {
+    if (isReal(k)) {
+      const [kind, id] = realKey(k), r = realRow(k)
+      if (!r) return { title: 'Sold out', kind: '', art: trayArt(k), desc: '<p>That one has just gone.</p>' }
+      if (kind === 'set') return { title: r.set_name, kind: 'BOOSTER PACK', art: `<img src="${esc(r.image)}" alt="">`, left: `${r.quantity} left`, desc: para(r.description) || '<p>A booster pack. It goes to your Collection, to open there.</p>' }
+      if (kind === 'ticket') return { title: r.name, kind: 'RAFFLE TICKET', art: r.image ? `<img src="${esc(r.image)}" alt="">` : '<span class="supic summon"></span>', left: `${r.quantity} left`, desc: `<p>A ticket for the ${esc(r.name)} raffle.</p>` }
+      if (kind === 'box') return { title: r.name, kind: 'BOOSTER BOX', art: r.image ? `<img src="${esc(r.image)}" alt="">` : '<span class="supic box"></span>', left: `${r.quantity} left`, desc: `<p>A sealed booster box: ${r.packs} packs${r.set_name ? ` of ${esc(r.set_name)}` : ''}. It goes to your Collection, where you can open it, or keep it sealed for your Showcase.</p>` }
+      const left = r.left_today != null ? `${r.left_today} left today` : ''
+      if (id === 'move_disc') { const n = discOfCycle(realShelf?.cycle_no ?? 0); return { title: n, kind: 'MOVE DISC', art: '<span class="supic disc"></span>', left, disc: n, desc: `<p>Teaches ${n} to one Pokémon that can learn it, then it's used up. Every restock the disc is a different move. ${learners(n)}</p>` } }
+      if (r.kind === 'bundle') return { title: r.name, kind: 'BUNDLE', art: '<span class="supic summon"></span>', left, desc: `${para(r.description)}<ul>${(r.contents ?? []).map((c) => `<li>${c.qty} × ${esc(ITEMS[BAG_OF[c.key]]?.name ?? c.key)}</li>`).join('')}</ul><p>Each lands in your Bag on its own.</p>` }
+      if (id === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, left, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Win and you get the ${esc(L.badge)} BADGE and ${L.tokens} tokens. Used up when they arrive, win or lose.</p>` } }
+      if (id === 'elite_ticket') { const lg = leagueNow() ?? (champion ? 'kanto' : 'elite'), c = LEAGUES[lg].card; return { title: c.summonName, kind: 'LEAGUE TICKET', art: `<img src="${ART[c.face]}" alt="">`, left, desc: `<p>All five League battles: ${esc(LEAGUES[lg].sub)}. Win and the ticket carries you to the next; lose and it's gone.</p>` } }
+      if (id.startsWith('rematch_')) { const re = rematchOf(id.slice(8)); return { title: re ? `${re.T.short} REMATCH` : r.name, kind: 'REMATCH', art: re ? `<img src="${ART[re.T.face]}" alt="">` : '', left, desc: `<p>A rematch with ${esc(re?.T.full ?? r.name)}, 1v1 or 2v2, at your level. A win pays ${REMATCH_TOKENS} tokens and a Move Disc of their type.</p>` } }
+      const bk = BAG_OF[id]
+      return { title: r.name.toUpperCase(), kind: 'ITEM', art: `<span class="supic ${bk ?? ''}"></span>`, left, desc: (itemInfo(bk) || para(r.description)) }
     }
-    paintCart(); vvm()?.heartbeat()
+    // The machine in Play without the app: its own catalog.
+    if (k.startsWith('bundle:')) { const b = bundleById(k.slice(7)); return { title: b?.name ?? 'BUNDLE', kind: 'BUNDLE', art: '<span class="supic summon"></span>', desc: `<ul>${BUNDLE_ITEMS.filter((i) => b?.items[i] > 0).map((i) => `<li>${b.items[i]} × ${ITEMS[i].name}</li>`).join('')}</ul>` } }
+    if (k === 'summon') { const L = GYMS[nextGym()]; return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Used up when they arrive, win or lose.</p>` } }
+    if (k === 'elite') { const c = LEAGUES[leagueNow() ?? 'elite'].card; return { title: c.summonName, kind: 'LEAGUE TICKET', art: `<img src="${ART[c.face]}" alt="">`, desc: `<p>All five League battles, one at a time.</p>` } }
+    if (k.startsWith('disc:')) { const n = ITEMS[k].disc; return { title: n, kind: 'MOVE DISC', art: '<span class="supic disc"></span>', disc: n, desc: `<p>Teaches ${n} to one Pokémon that can learn it, then it's used up. ${learners(n)}</p>` } }
+    return { title: ITEMS[k]?.name ?? k, kind: ITEMS[k]?.key ? 'KEY ITEM' : 'ITEM', art: `<span class="supic ${k}"></span>`, desc: itemInfo(k) }
+  }
+  function drawPop() {
+    const k = popKey, i = shelfInfo(k), max = cartMax(k), had = cart.get(k) ?? 0, price = priceOf(k)
+    const label = popQty === 0 ? 'TAKE OUT OF CART' : had ? `CART: ${popQty} · ${(price * popQty).toFixed(2)} tk` : `ADD ${popQty} · ${(price * popQty).toFixed(2)} tk`
+    $('shelfPop').innerHTML = `<div class="sp">
+      <div class="sphead"><div class="spart">${i.art ?? ''}</div><div class="sptt"><i>${i.kind}</i><b>${esc(i.title)}</b><span>${price.toFixed(2)} tk${i.left ? ` · ${i.left}` : ''}</span></div></div>
+      ${i.disc ? moveCard(i.disc, '', ' info', 'div') : ''}
+      <div class="spdesc">${i.desc ?? ''}</div>
+      ${max > 0 ? `<div class="spqty"><button data-pop="minus" aria-label="One fewer" ${popQty <= (had ? 0 : 1) ? 'disabled' : ''}>−</button><b>${popQty}</b><button data-pop="plus" aria-label="One more" ${popQty >= max ? 'disabled' : ''}>+</button><small>${max === 1 ? 'one at a time' : `up to ${max}`}</small></div>` : ''}
+      <div class="spbtns"><button class="cb back" data-pop="close">◀ BACK</button><button class="cb go" data-pop="add" ${max > 0 && (popQty > 0 || had) ? '' : 'disabled'}>${max > 0 ? label : 'SOLD OUT'}</button></div>
+    </div>`
+  }
+  function openPop(k) { popKey = k; popQty = cart.get(k) || 1; drawPop(); $('shelfPop').classList.add('open') }
+  function closePop() { popKey = null; $('shelfPop').classList.remove('open') }
+  $('shelfPop').onclick = (e) => {
+    e.stopPropagation()   // a tap here isn't a tap on the screen (which goes back to idle)
+    if (MODE !== 'play' || !popKey) return
+    if (e.target === $('shelfPop')) { sfx('move'); return closePop() }   // the dimmed shelf around it
+    const b = e.target.closest('[data-pop]'); if (!b || b.disabled) return
+    const a = b.dataset.pop, k = popKey, max = cartMax(k)
+    if (a === 'close') { sfx('move'); return closePop() }
+    if (a === 'minus') popQty = Math.max(cart.get(k) ? 0 : 1, popQty - 1)
+    if (a === 'plus') popQty = Math.min(max, popQty + 1)
+    if (a === 'add') {
+      const n = Math.min(popQty, max)
+      n > 0 ? cart.set(k, n) : cart.delete(k); sfx('click'); closePop(); paintCart(); vvm()?.heartbeat()
+      const el = $('supplies').querySelector(`[data-buy="${CSS.escape(k)}"]`)
+      if (el) anim(el, [{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 200 })
+      return
+    }
+    sfx('move'); drawPop()
   }
   /* ── the cart ──
      Taps put supplies in the cart; CHECKOUT shows the order, PAY takes the
@@ -5736,6 +5806,7 @@ async function run(id) {
     if (!n || wallet + 1e-9 < total) return
     // What will drop into the tray, read before the shelf can change.
     const drops = items.flatMap(([k, q]) => Array(q).fill(k)).slice(0, TRAY_MAX).map((k) => ({ k, art: trayArt(k), jam: false }))
+    const discNow = discOfCycle(realShelf?.cycle_no ?? 0), discsBought = items.filter(([k]) => k === 'sup:move_disc').reduce((a, [, q]) => a + q, 0)
     let collected = [], stuck = 0, freed = 0
     if (vvm()) {
       // The real checkout: the server checks the stock, your tokens and that you still hold the machine.
@@ -5748,6 +5819,7 @@ async function run(id) {
       }
       wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`; machine.lockedBy = null
       stuck = r.packs_stuck ?? 0; freed = r.packs_freed ?? 0   // a pack that jammed (no refund), one someone else left stuck that fell out for you
+      for (let i = 0; i < discsBought; i++) discDue.push(discNow)   // the disc the shelf showed: collected as that move
       collected = await collectItems()
     } else {
       wallet = Math.round((wallet - total) * 100) / 100; $('wallet').textContent = `${wallet.toFixed(2)} tk`
@@ -10599,7 +10671,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -10670,6 +10742,7 @@ async function run(id) {
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
+    discDue.splice(0, discDue.length, ...(Array.isArray(s.discDue) ? s.discDue.filter((n) => DISC_POOL.includes(n)) : []))
     champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; emblemSent = !!s.emblemSent; dailyWon = s.dailyWon ?? null; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])

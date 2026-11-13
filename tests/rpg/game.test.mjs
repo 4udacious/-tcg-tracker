@@ -591,7 +591,8 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:elite_ticket"]')), null, 'no Elite Four ticket on the shelf before all 8 badges')
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:rematch_gym_0"]')), null, 'no rematch on the shelf with a leader you haven\'t beaten')
     assert.ok(await frame.$('[data-buy="sup:gym_summon"]'), 'a Gym Summon, with a gym to go to')
-    await frame.evaluate(() => { for (const k of ['set:base2', 'sup:great_ball', 'box:5', 'box:5']) document.querySelector(`[data-buy="${k}"]`).click() })   // the box twice: only 1 is allowed
+    // A tap opens an item's details; its quantity and ADD put it in the cart. The box: 2 asked for, only 1 allowed.
+    await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('set:base2'); add('sup:great_ball'); add('box:5', 2) })
     await frame.evaluate(() => document.getElementById('cbGo').click())
     await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
     await frame.waitForFunction(() => window.__vvm.bag.great === 1, null, { timeout: 10000 })
@@ -623,7 +624,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     await frame.evaluate(() => window.__vvm.backToMachine('in'))
     assert.equal((await page.evaluate(() => window.__calls)).filter((c) => c[0] === 'claim').length, claims + 1, 'back from a battle: the machine is claimed')
     assert.equal(await frame.evaluate(() => window.__vvm.machine.lockedBy), 'YOU')
-    await frame.evaluate(() => document.querySelector('[data-buy="sup:great_ball"]').click())
+    await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('sup:great_ball') })
     assert.match(await frame.evaluate(() => document.getElementById('cbSum').textContent), /CART 1/)
     // The Pokémon Center after today's 3 free heals: the server's price, paid through the bridge.
     const healed = await frame.evaluate(async () => {
@@ -835,7 +836,7 @@ test('in the app: what you buy drops into the tray at angles; a jammed pack hang
       await frame.waitForFunction(() => /\bidle\b/.test(document.getElementById('home').className), null, { timeout: 10000 })   // back from the last one
       for (let t = 0; t < 4 && !(await frame.$('[data-buy="set:base2"]')); t++) { await frame.evaluate(() => document.getElementById('home').click()); await page.waitForTimeout(1500) }
       await page.waitForTimeout(1200)   // the screen finishes fading in
-      await frame.evaluate(() => { for (const k of ['set:base2', 'set:base2', 'set:base2', 'sup:great_ball']) document.querySelector(`[data-buy="${k}"]`).click(); document.getElementById('cbGo').click() })
+      await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('set:base2', 3); add('sup:great_ball'); document.getElementById('cbGo').click() })
       await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
       await frame.waitForFunction(() => document.getElementById('checkout').classList.contains('disp'), null, { timeout: 10000 })
       await frame.waitForFunction(() => !document.getElementById('checkout').classList.contains('open'), null, { timeout: 20000 })
@@ -1101,7 +1102,7 @@ test('in the app: one Gym Summon at a time: not for sale while one is in the Bag
     frame = await open({ ball: 1 }, {})
     assert.equal(await frame.$eval('[data-buy="sup:gym_summon"]', (b) => b.disabled), false, 'none in the Bag: on sale')
     for (let t = 0; t < 10 && !/CART 1/.test(await frame.$eval('#cbSum', (e) => e.textContent)); t++) {   // once the machine's screen has settled
-      await frame.evaluate(() => document.querySelector('[data-buy="sup:gym_summon"]').click()); await page.waitForTimeout(500)
+      await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('sup:gym_summon') }); await page.waitForTimeout(500)
     }
     await frame.evaluate(() => document.getElementById('cbGo').click())
     await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
@@ -1154,6 +1155,79 @@ test('in the app: a finished game claims the Champion\'s Emblem once, with the H
   } finally { await g.close() }
 })
 
+test('in the app: tapping a shelf item shows its details (a Move Disc: its move) and how many to add; the disc bought is the one shown', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      let balance = 10; const owned = {}
+      window.__vvmApi = {
+        async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: true, heal_price: 0.5, find_chance: 0,
+          packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: 'Into the jungle.\n\nSixty-four cards of the wild.' }], tickets: [],
+          supplies: [{ key: 'move_disc', kind: 'item', name: 'Move Disc', description: 'A move', price: 1.5, contents: null, max: 3, left_today: null },
+            { key: 'potion', kind: 'item', name: 'Potion', description: 'Heals 30% HP', price: 0.25, contents: null, max: 9, left_today: null }], boxes: [] } },
+        async balance() { return balance }, async claim() { return { ok: true, reason: 'ok' } }, async heartbeat() {}, async release() {},
+        async checkout(p, t, sup) { balance -= 3; for (const x of sup) owned[x.key] = (owned[x.key] ?? 0) + x.qty; return { ok: true, reason: 'ok', packs_bought: 0, supplies_bought: 1, balance } },
+        async takeItems(keys) { const out = keys.filter((k) => owned[k]).map((k) => ({ key: k, qty: owned[k] })); for (const k of keys) delete owned[k]; return out },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 15, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 1 }, wallet: 10, badges: [0, 1], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(1200)
+    for (let t = 0; t < 4 && !(await frame.$('[data-buy="sup:move_disc"]')); t++) { await frame.evaluate(() => { document.getElementById('nextTap').value = 'none'; document.getElementById('home').click() }); await page.waitForTimeout(1500) }
+    await page.waitForTimeout(1200)
+    const want = await frame.evaluate(() => { const n = discOfCycle(7); return { n, type: moveInfo(n).type, tile: document.querySelector('[data-buy="sup:move_disc"] b').textContent } })
+    assert.equal(want.tile, want.n, "the disc's tile names this restock's move")
+    // The disc: its move card (type and what it does), the price, how many.
+    const pop = await frame.evaluate(() => {
+      document.querySelector('[data-buy="sup:move_disc"]').click()
+      const p = document.getElementById('shelfPop'), q = (s) => p.querySelector(s)
+      const out = { open: p.classList.contains('open'), kind: q('.sptt i').textContent, title: q('.sptt b').textContent, price: q('.sptt span').textContent, card: q('.mvcard')?.textContent ?? '', qty: q('.spqty b').textContent, cart: document.getElementById('cbSum').textContent }
+      for (let i = 0; i < 5; i++) q('[data-pop="plus"]:not([disabled])')?.click()
+      out.most = [q('.spqty b').textContent, q('[data-pop="plus"]').disabled]
+      for (let i = 0; i < 5; i++) q('[data-pop="minus"]:not([disabled])')?.click()
+      out.least = [q('.spqty b').textContent, q('[data-pop="minus"]').disabled]
+      q('[data-pop="plus"]').click(); out.button = q('[data-pop="add"]').textContent; q('[data-pop="add"]').click()
+      out.after = { open: p.classList.contains('open'), cart: document.getElementById('cbSum').textContent, tile: document.querySelector('[data-buy="sup:move_disc"] .incart')?.textContent }
+      return out
+    })
+    assert.equal(pop.open, true); assert.equal(pop.kind, 'MOVE DISC'); assert.equal(pop.title, want.n)
+    assert.match(pop.card, new RegExp(want.type, 'i'), 'the move card shows its type'); assert.match(pop.card, new RegExp(want.n))
+    assert.match(pop.price, /1\.50 tk/); assert.equal(pop.cart, 'CART empty', 'nothing in the cart just for looking')
+    assert.deepEqual(pop.most, ['3', true], 'up to the 3 that may be bought'); assert.deepEqual(pop.least, ['1', true], 'and no fewer than 1')
+    assert.equal(pop.button, 'ADD 2 · 3.00 tk')
+    assert.deepEqual(pop.after, { open: false, cart: 'CART 2 · 3.00 tk', tile: '×2' })
+    // A pack shows its set's description; a Potion what it does. Back closes without changing the cart.
+    const more = await frame.evaluate(() => {
+      const p = document.getElementById('shelfPop')
+      document.querySelector('[data-buy="set:base2"]').click(); const pack = [p.querySelector('.sptt i').textContent, p.querySelector('.spdesc').textContent]
+      p.querySelector('[data-pop="close"]').click()
+      document.querySelector('[data-buy="sup:potion"]').click(); const potion = p.querySelector('.spdesc').textContent
+      p.querySelector('[data-pop="close"]').click()
+      // Back in the disc's: 2 in the cart; down to 0 takes it out.
+      document.querySelector('[data-buy="sup:move_disc"] b').click(); const had = p.querySelector('.spqty b').textContent
+      p.querySelector('[data-pop="minus"]').click(); p.querySelector('[data-pop="minus"]').click(); const out = p.querySelector('[data-pop="add"]').textContent
+      p.querySelector('[data-pop="add"]').click(); const emptied = document.getElementById('cbSum').textContent
+      return { pack, potion, had, out, emptied, open: p.classList.contains('open') }
+    })
+    assert.deepEqual(more.pack, ['BOOSTER PACK', 'Into the jungle.Sixty-four cards of the wild.'])
+    assert.match(more.potion, /heals 30%/i)
+    assert.deepEqual([more.had, more.out, more.emptied, more.open], ['2', 'TAKE OUT OF CART', 'CART empty', false])
+    // Bought: the discs collected are this restock's move, not a random one.
+    await frame.evaluate(() => { const p = document.getElementById('shelfPop'); document.querySelector('[data-buy="sup:move_disc"]').click(); p.querySelector('[data-pop="plus"]').click(); p.querySelector('[data-pop="add"]').click(); document.getElementById('cbGo').click() })
+    await frame.waitForSelector('[data-co="pay"]:not([disabled])'); await frame.evaluate(() => document.querySelector('[data-co="pay"]').click())
+    await frame.waitForFunction((n) => window.__vvm.bag['disc:' + n] === 2, want.n, { timeout: 15000 })
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: a supply\'s purchase limits: no more in the cart than is left today, and greyed out once today\'s are bought', async () => {
   const g = await openGame()
   try {
@@ -1189,9 +1263,9 @@ test('in the app: a supply\'s purchase limits: no more in the cart than is left 
     assert.equal(revive.off, true, "today's Revives are bought: greyed out"); assert.match(revive.meta, /today's limit is bought/)
     assert.match(await frame.$eval('[data-buy="sup:potion"] .meta', (m) => m.textContent), /2 left today/)
     for (let t = 0; t < 10 && !/CART 2/.test(await frame.$eval('#cbSum', (e) => e.textContent)); t++) {   // once the machine's screen has settled
-      await frame.evaluate(() => document.querySelector('[data-buy="sup:potion"]').click()); await page.waitForTimeout(400)
+      await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('sup:potion', 2) }); await page.waitForTimeout(400)
     }
-    await frame.evaluate(() => { for (let i = 0; i < 3; i++) document.querySelector('[data-buy="sup:potion"]').click(); document.querySelector('[data-buy="sup:revive"]').click() })
+    await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('sup:potion', 5); document.querySelector('[data-buy="sup:revive"]').click() })   // 5 asked for: the + stops at 2
     await page.waitForTimeout(400)
     assert.match(await frame.$eval('#cbSum', (e) => e.textContent), /CART 2/, 'no more than the 2 left today, and no Revive')
     assert.deepEqual(g.errors, [])
