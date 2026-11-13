@@ -1155,6 +1155,27 @@ test('in the app: a finished game claims the Champion\'s Emblem once, with the H
   } finally { await g.close() }
 })
 
+test('a wide sprite keeps its body on its spot, letting its wings run off the screen; a normal one stays wholly on screen', async () => {
+  const g = await openGame()
+  try {
+    await g.page.click('#mPlay'); await g.page.waitForFunction(() => window.__vvm?.place, null, { timeout: 15000 })
+    const r = await g.page.evaluate(async () => {
+      const at = async (src, cx, by, scale, maxH, maxW) => {
+        const el = document.createElement('div'); el.style.position = 'absolute'; el.innerHTML = '<img alt="">'; document.querySelector('.screen').appendChild(el)
+        const p = await window.__vvm.place(el, src, cx, by, scale, maxH, maxW, true)
+        const out = { centre: p.x, left: parseFloat(el.style.left), right: parseFloat(el.style.left) + parseFloat(el.style.width) }; el.remove(); return out
+      }
+      // The 2v2 foes' right-hand spot (x 266): Tropius, twice as wide as tall; then Pikachu pushed against the same edge.
+      return { tropius: await at('/rpg/a/357.gif', 266, 108, 1.2, 84, 140), pika: await at('/rpg/a/25.gif', 310, 108, 1.2, 84, 140) }
+    })
+    assert.ok(Math.abs(r.tropius.centre - 266) < 1, `Tropius's body on its spot (${r.tropius.centre})`)
+    assert.ok(r.tropius.right > 320, 'its wing runs off the right edge')
+    assert.ok(r.tropius.right - 320 <= (r.tropius.right - r.tropius.left) * 0.25 + 0.5, 'but no more than a quarter of it')
+    assert.ok(r.pika.left >= 2 && r.pika.right <= 318, `a normal sprite stays on screen (${r.pika.left}-${r.pika.right})`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('in the app: tapping a shelf item shows its details (a Move Disc: its move) and how many to add; the disc bought is the one shown', async () => {
   const g = await openGame()
   try {

@@ -6989,7 +6989,8 @@ async function run(id) {
    */
   const DUO_AT = {
     // Widths are generous: a wide sprite (Exeggutor's leaves, Charizard's wings) is sized by its height like the
-    // rest and may overlap its partner a little, rather than shrinking to fit a narrow slot. place() keeps it on screen.
+    // rest and may overlap its partner a little, rather than shrinking to fit a narrow slot. place() keeps its body on
+    // screen, letting a wide one's wings run off the edge.
     e: [{ x: 194, y: 118, maxH: 92, maxW: 150, scale: 1.3 }, { x: 266, y: 108, maxH: 84, maxW: 140, scale: 1.2 }],
     p: [{ x: 58, y: 206, maxH: 118, maxW: 140, scale: 1.7 }, { x: 146, y: 200, maxH: 110, maxW: 132, scale: 1.6 }],
   }
@@ -9024,7 +9025,10 @@ async function run(id) {
         const aspect = img.naturalWidth / img.naturalHeight, wCap = maxW * (flat ? Math.min(1.3, Math.max(1, aspect / 1.7)) : 1)
         const k = Math.min(scale, maxH / img.naturalHeight, wCap / img.naturalWidth)
         const w = img.naturalWidth * k, h = img.naturalHeight * k
-        const left = Math.max(2, Math.min(320 - 2 - w, cx - w / 2))   // never off either side of the 320-px screen
+        // Kept on the 320-px screen; but a wide one (Tropius's wings, Exeggutor's leaves) may run up to a quarter of its
+        // width off the edge, so its body stays on its spot rather than being pushed over onto its partner's.
+        const spare = aspect > 1.3 ? w * 0.25 : 0
+        const left = Math.max(2 - spare, Math.min(320 - 2 - w + spare, cx - w / 2))
         el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.left = left + 'px'; el.style.top = (by - h) + 'px'
         res({ x: left + w / 2, y: by - h / 2 })
       }
@@ -10810,7 +10814,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { gainExp, trackHold, ROAM, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, trackHold, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
