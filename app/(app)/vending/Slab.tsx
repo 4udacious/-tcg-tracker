@@ -15,7 +15,7 @@ const SET_YEAR: Record<string, string> = {
   base1: '1999', base2: '1999', base3: '1999', base4: '2000', base5: '2000',
   gym1: '2000', gym2: '2000', neo1: '2000', neo2: '2001', neo3: '2001', neo4: '2002', si1: '2001',
   ecard1: '2002', ecard2: '2003',
-  op01: '2022', op02: '2023', op03: '2023', op04: '2023',
+  op01: '2022', op02: '2023', op03: '2023', op04: '2023', op05: '2023', op06: '2024',
 }
 
 export const GRADE_LABEL: Record<number, string> = {

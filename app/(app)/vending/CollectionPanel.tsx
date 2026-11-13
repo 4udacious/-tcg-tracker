@@ -339,6 +339,8 @@ const BINDERS: Record<string, Binder> = {
   op02:  { cover: '', label: 'OP-02', spine: '#451a03', body: '#7c2d12', foil: '#fdba74', fit: 'contain' },   // Paramount War: burnt brown
   op03:  { cover: '', label: 'OP-03', spine: '#083344', body: '#155e75', foil: '#fde68a', fit: 'contain' },   // Pillars of Strength: teal blue
   op04:  { cover: '', label: 'OP-04', spine: '#a16207', body: '#ca8a04', foil: '#fef3c7', fit: 'contain' },   // Kingdoms of Intrigue: yellow
+  op05:  { cover: '', label: 'OP-05', spine: '#1e3a5f', body: '#5b8fc7', foil: '#f8fafc', fit: 'contain' },   // Awakening of the New Era: Gear 5 white and sky blue
+  op06:  { cover: '', label: 'OP-06', spine: '#0a0a0a', body: '#262626', foil: '#ef4444', fit: 'contain' },   // Wings of the Captain: black, with its title's red
   si1:   { cover: '/binders/southern-islands.webp',     spine: '#164e63', body: '#0e7490', foil: '#fb923c', fit: 'cover', pos: '35% 50%',
            // A 3×6 binder: the 18 cards as two 9-pocket pages (1-9, 10-18), every card in its own pocket.
            pockets: { count: 18, cols: 3, page: 9 } },

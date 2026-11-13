@@ -29,6 +29,8 @@ const SET_NAMES: Record<string, string> = {
   op02: 'Paramount War',
   op03: 'Pillars of Strength',
   op04: 'Kingdoms of Intrigue',
+  op05: 'Awakening of the New Era',
+  op06: 'Wings of the Captain',
   si1: 'Southern Islands',
 }
 
