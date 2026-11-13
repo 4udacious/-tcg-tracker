@@ -1008,6 +1008,30 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .home:not(.in) .cartbar .cb.go, .home.waiting .cartbar .cb.go { display: none; }
 .home .attract .checkout { position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column; background: #fff; color: #0E1726; padding: 14px 12px 10px; }
 .home .attract .checkout.open { display: flex; }
+/* A shelf item's details: what it is, what it does, and how many to put in the cart. Over the shelf, from the bottom. */
+.home .attract .shelfpop { position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column; justify-content: flex-end; background: rgba(14,23,38,.5); }
+.home .attract .shelfpop.open { display: flex; }
+.shelfpop .sp { max-height: 88%; overflow-y: auto; background: #fff; color: #0E1726; border-radius: 10px 10px 0 0; padding: 12px 12px 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 -4px 14px rgba(0,0,0,.3); }
+.shelfpop .sphead { display: flex; gap: 10px; align-items: center; }
+.shelfpop .spart { width: 54px; flex: none; aspect-ratio: 2 / 3; display: flex; align-items: center; justify-content: center; border-radius: 4px; overflow: hidden; background: radial-gradient(circle at 50% 40%, #fff, #dbeafe); }
+.shelfpop .spart img { width: 100%; height: 100%; object-fit: contain; }
+.shelfpop .spart .supic { zoom: 1.4; }
+.shelfpop .sptt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.shelfpop .sptt i { font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: .08em; color: #64748b; }
+.shelfpop .sptt b { font-size: 14px; line-height: 1.15; }
+.shelfpop .sptt span { font-size: 11px; font-weight: 700; color: #475569; }
+.shelfpop .spdesc { font-size: 11px; line-height: 1.4; color: #334155; }
+.shelfpop .spdesc p { margin: 0 0 5px; }
+.shelfpop .spdesc ul { margin: 0; padding-left: 16px; }
+.shelfpop .mvcard { cursor: default; border: 2px solid #e2e8f0; background: #f8fafc; }
+.shelfpop .mvcard small { grid-column: 2 / 4; font-size: 10px; color: #475569; }
+.shelfpop .spqty { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.shelfpop .spqty button { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #0E1726; color: #fff; font: 800 18px system-ui, sans-serif; cursor: pointer; }
+.shelfpop .spqty button:disabled { opacity: .3; cursor: default; }
+.shelfpop .spqty b { min-width: 28px; text-align: center; font-size: 18px; }
+.shelfpop .spqty small { font-size: 10px; color: #64748b; }
+.shelfpop .spbtns { display: flex; gap: 6px; }
+.shelfpop .spbtns .cb { flex: 1; padding: 10px 6px; }
 .checkout .cohd { font-size: 14px; font-weight: 800; letter-spacing: .08em; text-align: center; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,.15); }
 .checkout .colines { flex: 1; overflow-y: auto; padding: 6px 0; }
 .checkout .coline { display: flex; align-items: center; gap: 6px; padding: 5px 2px; border-bottom: 1px solid rgba(0,0,0,.06); font-size: 11px; }
@@ -1131,6 +1155,7 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
               <!-- Like the real machine: tap items into a cart, then check out. BACK leaves the screen. -->
               <div class="cartbar" id="cartbar"><button class="cb back" id="cbBack">◀ BACK</button><span class="cbsum" id="cbSum"></span><button class="cb go" id="cbGo">CHECKOUT</button></div>
               <div class="checkout" id="checkout"></div>
+              <div class="shelfpop" id="shelfPop" role="dialog" aria-label="Item details"></div>
             </div>
           </div>
 
@@ -1251,6 +1276,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=c3391221c1"></script>
+<script src="/rpg/game.js?v=de0bc172ce"></script>
 </body>
 </html>
