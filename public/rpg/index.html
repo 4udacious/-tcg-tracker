@@ -462,6 +462,14 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .svt { width: 100%; border-collapse: collapse; font-size: 13px; }
 .svt th { font-size: 10px; font-weight: 600; color: var(--muted); text-align: left; padding: 0 4px 2px; }
 .svt td { padding: 3px 4px; }
+.cmpwrap { overflow-x: auto; margin-bottom: 8px; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cmp th { font-size: 9px; font-weight: 700; color: var(--muted); padding: 0 3px 3px; text-align: center; }
+.cmp td { padding: 4px 3px; text-align: center; border-top: 1px solid var(--line); }
+.cmp td.who { text-align: left; white-space: nowrap; font-size: 11px; color: var(--muted); }
+.cmp td.best { font-weight: 800; color: #16a34a; }
+.cmp tr.me td { background: rgba(250, 204, 21, .18); }
+.cmp tr.me td.who { color: inherit; font-weight: 700; }
 .svt td.k { font-weight: 700; width: 58px; white-space: nowrap; } .svt td.k em { margin-left: 3px; }
 .svt td.v { width: 34px; font-weight: 700; text-align: right; }
 .svt td.bar div { height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; }
@@ -1276,6 +1284,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=8a8977051c"></script>
+<script src="/rpg/game.js?v=da249862da"></script>
 </body>
 </html>

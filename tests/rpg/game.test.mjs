@@ -327,6 +327,70 @@ test('a tap outside the Party, Bag or Box closes it, and never counts as a tap o
   } finally { await g.close() }
 })
 
+test('the Box: sort by IV total; a Box Pokémon shows its stats, and how its IVs compare with others of its kind', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    await page.evaluate(() => {
+      const mk = (n, iv) => { const m = individual(speciesByName(n), 20, Math.random); m.ivs = Object.fromEntries(STAT_KEYS.map((k) => [k, iv])); m.stats = statsAt(m, m.level); m.hp = m.stats.hp; return m }
+      window.__vvm.party.push(mk('PIKACHU', 10))
+      window.__vvm.box.push(mk('TOGEPI', 5), mk('ABRA', 31), mk('TOGEPI', 20), mk('ZUBAT', 12))
+      document.querySelectorAll('.tool').forEach((t) => { t.disabled = false })
+      document.getElementById('tBox').click()
+    })
+    await page.waitForSelector('#sheetBody [data-boxsort="iv"]')
+    await page.dispatchEvent('#sheetBody [data-boxsort="iv"]', 'click'); await page.waitForTimeout(200)
+    const order = await page.evaluate(() => [...document.querySelectorAll('#sheetBody [data-withdraw]')].map((b) => b.closest('.boxrow').querySelector('.nm')).map((n) => [n.querySelector('b').textContent, n.textContent]))
+    assert.deepEqual(order.map(([n]) => n), ['ABRA', 'TOGEPI', 'ZUBAT', 'TOGEPI'], 'highest IV total first')
+    assert.match(order[0][1], /IV 186/, 'each row shows its IV total')
+    // A Togepi's page: its stats, IV bars and both Togepi side by side, the best IVs picked out.
+    const pageOf = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('#sheetBody .boxrow')].find((r) => /TOGEPI.*IV 120/.test(r.textContent))
+      row.querySelector('[data-mon]').click()
+      const b = document.getElementById('sheetBody')
+      return { stats: b.querySelectorAll('.svt tr').length, nat: b.querySelector('.svnat')?.textContent ?? '', cmp: [...b.querySelectorAll('.cmp tr')].slice(1).map((r) => ({ me: r.classList.contains('me'), tot: r.lastElementChild.textContent, best: r.lastElementChild.classList.contains('best') })), moves: !!b.querySelector('.mvgrid') }
+    })
+    assert.equal(pageOf.stats, 7, 'a row for each of the six stats'); assert.match(pageOf.nat, /IV total 120\/186/)
+    assert.deepEqual(pageOf.cmp, [{ me: true, tot: '120', best: true }, { me: false, tot: '30', best: false }], 'both Togepi, the one shown marked, best first')
+    assert.ok(pageOf.moves, 'and its moves, as before')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('in the app: wild pools last as many days as the admin set (pool_days), counted from a Monday', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      window.__vvmApi = {
+        async machine() { return { status: 'idle', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 5, wild: true, trainers: false, heal_price: 0.5, find_chance: 0, pool_days: 3,
+          packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 5 }, async claim() { return { ok: true } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 8, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 1 }, wallet: 5, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'; f.src = '/rpg/index.html?app=1&u=u1'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(600)
+    const r = await frame.evaluate(() => {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(new Date()).map((x) => [x.type, +x.value]))
+      const day = Date.UTC(p.year, p.month - 1, p.day) / 864e5
+      return { period: window.__vvm.thisWeek(), want: Math.floor((day + 3) / 3), left: window.__vvm.nextRotation(), when: document.getElementById('poolWhen').textContent }
+    })
+    assert.equal(r.period, r.want, 'three-day periods from a Monday')
+    assert.ok(r.left > 0 && r.left <= 3 * 864e5, `the next change within 3 days (${r.left})`)
+    assert.match(r.when, /^changes in [0-2]d \d+h$/)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('the Box: party to Box, Box to party, and a swap with a full party', async () => {
   const g = await openGame()
   try {

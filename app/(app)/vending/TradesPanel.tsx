@@ -500,6 +500,8 @@ export default function TradesPanel({
   const [loading, setLoading] = useState<string | null>(null)
 
   const mine = useMemo(() => collectionItems(collection, packs, boxes), [collection, packs, boxes])
+  // Every card you have at least one copy of, for "Hide cards I own" in others' binders.
+  const owned = useMemo(() => new Set(collection.filter((c) => c.copies.length > 0).map((c) => c.card_id)), [collection])
   const others = binders.filter((b) => b.user_id !== userId)
 
   // Opening Offers clears its badge (the new ones are still marked until you leave).
@@ -571,7 +573,7 @@ export default function TradesPanel({
       </div>
 
       {tab === 'browse' && (viewing ? (
-        <BinderView binder={viewing} onBack={() => setViewing(null)}
+        <BinderView binder={viewing} owned={owned} onBack={() => setViewing(null)}
           onOffer={(want) => setCompose({ to: { ...viewing, id: viewing.user_id }, want, offerable: viewing.items })} />
       ) : (
         <section className="space-y-2">
@@ -636,9 +638,14 @@ export default function TradesPanel({
 
 /* ───────────── someone's binder ───────────── */
 
-function BinderView({ binder, onBack, onOffer }: { binder: Binder; onBack: () => void; onOffer: (want: TradeItem[]) => void }) {
+function BinderView({ binder, owned, onBack, onOffer }: { binder: Binder; owned: Set<number>; onBack: () => void; onOffer: (want: TradeItem[]) => void }) {
   const st = styleOf(binder.style)
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  // Cards you already have (any copy, in your collection) can be hidden, to see only what's new to you. Remembered on this device.
+  const [hideOwned, setHideOwned] = useState(() => { try { return localStorage.getItem('binder-hide-owned') === '1' } catch { return false } })
+  const ownedHere = useMemo(() => binder.items.filter((i) => i.kind === 'card' && owned.has(i.card_id)).length, [binder.items, owned])
+  const items = useMemo(() => (hideOwned ? binder.items.filter((i) => i.kind !== 'card' || !owned.has(i.card_id)) : binder.items), [binder.items, owned, hideOwned])
+  const flipHide = () => setHideOwned((v) => { try { localStorage.setItem('binder-hide-owned', v ? '0' : '1') } catch { /* private mode: just this visit */ } return !v })
   const toggle = (i: TradeItem) => setPicked((s) => { const n = new Set(s); if (n.has(keyOf(i))) n.delete(keyOf(i)); else if (n.size < MAX_SIDE) n.add(keyOf(i)); return n })
   return (
     <section className="space-y-3">
@@ -649,7 +656,13 @@ function BinderView({ binder, onBack, onOffer }: { binder: Binder; onBack: () =>
       <BinderCover style={st} owner={binder} count={binder.items.length} />
       {binder.note && <p className="text-xs text-muted leading-snug">Looking for: <span className="text-ink">{binder.note}</span></p>}
       <p className="text-xs text-muted">{picked.size > 0 ? `${picked.size} picked` : 'Tap a card to see it up close; tick the ones you’d like, then make an offer.'}</p>
-      <PickGrid items={binder.items} picked={picked} onToggle={toggle} empty="Nothing in this binder right now."
+      {ownedHere > 0 && (
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-card px-3 py-2 text-xs cursor-pointer">
+          <span>Hide cards I own <span className="text-muted">· {ownedHere} {ownedHere === 1 ? 'card' : 'cards'} you already have</span></span>
+          <input type="checkbox" checked={hideOwned} onChange={flipHide} className="w-4 h-4 accent-signal" />
+        </label>
+      )}
+      <PickGrid items={items} picked={picked} onToggle={toggle} empty={hideOwned && binder.items.length ? 'You already own every card in this binder.' : 'Nothing in this binder right now.'}
         initialSort={st.sort} layout={st.layout} style={st} actionLabel={(on) => (on ? 'Don’t want this' : 'I’d like this')} />
       {picked.size > 0 && (
         <div className="sticky bottom-20 z-10">
