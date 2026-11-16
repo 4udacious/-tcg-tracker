@@ -10254,6 +10254,10 @@ async function run(id) {
       delete foe.triedTransform
       foe.hp = foe.stats.hp
       const boxed = party.length < 6 ? (party.push(foe), null) : toBox(foe)
+      // Saved now, before its summary: a phone that drops the page meanwhile (a screenshot, a switch to another app to
+      // share it) used to come back to the save from before the catch, the legendary still roaming.
+      if (roamer) { foe.roamer = false; delete foe.balls; legendAfter(roamer, 'caught', 'You') }
+      saveGame()
       $('player').style.visibility = 'hidden'; $('phud').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'
       renderTools()
       if (demo) cap('CAUGHT', `It arrives with its own IVs and nature, rolled the moment it appeared. ${party[0].name} kept its damage — HP carries over.`)
@@ -10261,7 +10265,7 @@ async function run(id) {
       Sound.stopMusic()
     }
     else if (out.result === 'lost') { await say('You have no Pokémon left', 'that can fight!') }
-    if (roamer) { if (out.result === 'caught') { foe.roamer = false; delete foe.balls } legendAfter(roamer, out.result, 'You') }
+    if (roamer && out.result !== 'caught') legendAfter(roamer, out.result, 'You')   // a catch was settled (and saved) above
     // The home feed: a roaming legendary caught, knocked out or met, and a shiny caught (the server checks and keeps them).
     const event = roamer ? { caught: 'legend_caught', fainted: 'legend_ko' }[out.result] ?? 'legend_seen' : out.result === 'caught' && foe.shiny ? 'shiny_caught' : null
     if (event) Promise.resolve(vvm()?.logEvent?.(event, foe.name, foe.id, foe.level)).catch(() => {})

@@ -145,3 +145,46 @@ test('the daily challenge: offered under the machine, won once a day for a pack 
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('a caught Pokémon is saved at once, before its summary is dismissed: a roaming legendary caught is in the save, and no longer roaming', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm, party = v.party
+      while (party.length < 6) { const m = individual(speciesByName('SNORLAX'), 100, Math.random); m.hp = m.stats.hp; learnAtLevel(m); party.push(m) }   // a full party: the catch goes to the Box
+      v.bag.ball = 5; window.__forceShakes = 4
+    })
+    for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
+    await page.selectOption('#nextTap', 'legend'); await page.evaluate(() => document.activeElement?.blur())
+    let fought = false
+    for (let i = 0; i < 40 && !fought; i++) { await page.evaluate(() => document.getElementById('home').click()); await bot.step(); fought = await bot.inBattle() }
+    assert.ok(fought, 'a legendary battle')
+    const caught = await page.evaluate(() => Object.entries(window.__vvm.ROAM).map(([k, m]) => [k, JSON.stringify(m.ivs)]))
+    // One ball (it can't miss), then stop at the summary: its CONTINUE isn't pressed.
+    for (let i = 0; i < 200; i++) {
+      const at = await page.evaluate(() => {
+        const shown = (id) => { const p = document.getElementById(id); return p && p.style.display !== 'none' && p.offsetParent }
+        if (/was sent to BOX/.test(document.getElementById('msg')?.textContent ?? '')) return 'summary'
+        if (shown('pBag')) { document.querySelector('#pBag [data-act="ball"]')?.click(); return 'bag' }
+        if (shown('pMain')) { document.querySelector('#pMain [data-act="bag"]')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return 'main' }
+        return ''
+      })
+      if (at === 'summary') break
+      if (!at) await bot.step(); else await page.waitForTimeout(300)
+    }
+    await page.waitForTimeout(400)
+    const r = await page.evaluate((before) => {
+      const save = JSON.parse(localStorage.getItem('vvm-save')), names = before.map(([k]) => k)
+      const got = save.box.find((m) => names.includes(m.name))
+      return { summary: /was sent to BOX/.test(document.getElementById('msg').textContent), got: got && { name: got.name, roamer: got.roamer, ivs: JSON.stringify(got.ivs), hp: got.hp, max: got.stats.hp },
+        wasRoaming: got && before.find(([k]) => k === got.name)?.[1], roamingNow: got && JSON.stringify(save.roam[got.name]?.ivs) }
+    }, caught)
+    assert.ok(r.summary, 'still on the summary')
+    assert.ok(r.got, 'the legendary is in the saved Box already')
+    assert.equal(r.got.ivs, r.wasRoaming, 'the very one that was roaming'); assert.equal(r.got.roamer, false); assert.equal(r.got.hp, r.got.max)
+    assert.notEqual(r.roamingNow, r.wasRoaming, 'and a fresh one roams in its place, in the same save')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
