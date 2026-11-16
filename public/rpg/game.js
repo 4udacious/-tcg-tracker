@@ -5432,6 +5432,7 @@ async function run(id) {
     wallet = m.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
     if (m.heal_price != null) healPrice = m.heal_price   // the admin's price for a heal after the free ones
     if (m.find_chance != null) findChance = m.find_chance   // and how often an empty tap turns up a spare item
+    if (m.pool_days != null && m.pool_days !== poolDays) { poolDays = Math.max(1, Math.min(7, m.pool_days | 0)); if (!$('poolPanel').hidden) renderPool(true) }   // and how often wild pools change (v105)
     const st = m.status === 'in_stock' ? 'in' : m.status === 'out_of_stock' ? 'out' : 'maint'
     machine.state = st; $('machineState').value = st
     machine.lockedBy = !m.holder_id ? null : m.holder_id === m.me ? YOU : (m.holder_name ?? 'SOMEONE')
@@ -5946,14 +5947,33 @@ async function run(id) {
         </span></div>`).join('') +
       `<p class="note">Battle order: number 1 goes out first. Use ▲ ▼ to change it. HP carries over between battles.</p>`
   }
-  function statPage(m) {
-    const i = party.indexOf(m)
-    const [nat, up, dn] = m.nature
-    const rows = STAT_KEYS.map((k) => {
+  /** A Pokémon's stats, with each IV as a bar out of 31 and its nature's ▲ and ▼ (the Party's stats page and the Box's). */
+  function statRows(m) {
+    const [, up, dn] = m.nature
+    return STAT_KEYS.map((k) => {
       const col = m.ivs[k] >= 30 ? '#eab308' : m.ivs[k] >= 21 ? '#22c55e' : m.ivs[k] >= 11 ? '#3b82f6' : '#94a3b8'
       const tag = up === k ? '<em class="up">▲</em>' : dn === k ? '<em class="dn">▼</em>' : ''
       return `<tr><td class="k">${STAT_LABEL[k]}${tag}</td><td class="v">${m.stats[k]}</td><td class="bar"><div><i style="width:${m.ivs[k] / 31 * 100}%;background:${col}"></i></div></td><td class="iv">${m.ivs[k]}/31</td></tr>`
     }).join('')
+  }
+  /**
+   * Every one of a species you have, IVs side by side: so two Togepi can be
+   * told apart without moving either into the party. The best of each IV is
+   * picked out; `m`'s own row is marked. Empty with only one of them.
+   */
+  function sameSpecies(m) {
+    const all = everyone().filter((x) => x.name === m.name || (x.form ? unformed(x).name : null) === m.name)
+    if (all.length < 2) return ''
+    const best = Object.fromEntries([...STAT_KEYS, 'tot'].map((k) => [k, Math.max(...all.map((x) => (k === 'tot' ? ivTotal(x) : x.ivs[k])))]))
+    const cell = (v, k) => `<td class="${v === best[k] ? 'best' : ''}">${v}</td>`
+    const rows = all.slice().sort((a, b) => ivTotal(b) - ivTotal(a)).map((x) => `<tr class="${x === m ? 'me' : ''}"><td class="who">${party.includes(x) ? 'Party' : `Box ${boxOf(x) + 1}`} · Lv ${x.level}${x.shiny ? ' ★' : ''}</td>${STAT_KEYS.map((k) => cell(x.ivs[k], k)).join('')}${cell(ivTotal(x), 'tot')}</tr>`).join('')
+    return `<div class="lbl">Your ${m.name} <span>${all.length} · IVs, best first</span></div>
+      <div class="cmpwrap"><table class="cmp"><tr><th></th>${STAT_KEYS.map((k) => `<th>${STAT_LABEL[k]}</th>`).join('')}<th>Total</th></tr>${rows}</table></div>`
+  }
+  function statPage(m) {
+    const i = party.indexOf(m)
+    const [nat, up, dn] = m.nature
+    const rows = statRows(m)
     return `<button class="back" data-back>◀ Party</button>
       <div class="svhead"><img src="${spr(m)}" alt=""><div>
         <div class="nm"><b>${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}</b> <span>Lv ${m.level}${i === 0 ? ' · LEAD' : ` · #${i + 1} in order`}</span></div>
@@ -6083,7 +6103,7 @@ async function run(id) {
    */
   const BOX_CAP = 30, BOX_MIN = 8
   let boxAt = 0, boxSort = 'caught'
-  const BOX_SORTS = { caught: 'Caught', level: 'Level', name: 'Name', type: 'Type', dex: 'No.' }
+  const BOX_SORTS = { caught: 'Caught', level: 'Level', iv: 'IVs', name: 'Name', type: 'Type', dex: 'No.' }
   const boxOf = (m) => (Number.isInteger(m.boxNo) && m.boxNo >= 0 ? m.boxNo : -1)   // -1: not settled yet (settleBoxes)
   const boxFill = (b) => box.reduce((n, m) => n + (boxOf(m) === b), 0)
   function boxCount() {
@@ -6109,7 +6129,7 @@ async function run(id) {
   /** The Box indexes (into `box`) of one box's Pokémon, in the chosen order. */
   function boxView(b) {
     const js = box.map((m, j) => j).filter((j) => boxOf(box[j]) === b)
-    const by = { level: (x, y) => y.level - x.level, name: (x, y) => x.name.localeCompare(y.name), type: (x, y) => x.types[0].localeCompare(y.types[0]) || x.id - y.id, dex: (x, y) => x.id - y.id }[boxSort]
+    const by = { level: (x, y) => y.level - x.level, iv: (x, y) => ivTotal(y) - ivTotal(x), name: (x, y) => x.name.localeCompare(y.name), type: (x, y) => x.types[0].localeCompare(y.types[0]) || x.id - y.id, dex: (x, y) => x.id - y.id }[boxSort]
     return by ? js.sort((i, k) => by(unformed(box[i]), unformed(box[k])) || i - k) : js
   }
   /**
@@ -6120,7 +6140,7 @@ async function run(id) {
    */
   function boxBody(pick = null) {
     const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${spr(m)}" alt=""><span class="mid">
-        <span class="nm"><b>${m.name}</b><span>Lv ${m.level}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
+        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · IV ${ivTotal(m)}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
         <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>${side}</div>`
     const inParty = party.map((m, i) => row(m, i, pick != null
       ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
@@ -6132,7 +6152,7 @@ async function run(id) {
       : `<button class="pbtn${pick === party.length + j ? ' on' : ''}" data-withdraw="${j}" aria-label="Swap ${m.name} into your party">${pick === party.length + j ? 'CANCEL' : 'SWAP IN'}</button>`) }).join('')
     const tabs = Array.from({ length: n }, (_, b) => { const c = boxFill(b)
       return `<button class="${b === boxAt ? 'on' : ''}${c >= BOX_CAP ? ' full' : ''}" data-boxto="${b}" aria-label="Box ${b + 1}, ${c} of ${BOX_CAP}" aria-current="${b === boxAt}">${b + 1}<i>${c}</i></button>` }).join('')
-    return `<p class="note" style="margin:0 2px 8px">${pick != null ? `Now tap <b>SWAP</b> on the party Pokémon that ${everyone()[pick].name} replaces.` : 'Tap a Pokémon to choose its four moves (and move it to another box). The button beside it moves it between your party and the Box.'}</p>` +
+    return `<p class="note" style="margin:0 2px 8px">${pick != null ? `Now tap <b>SWAP</b> on the party Pokémon that ${everyone()[pick].name} replaces.` : 'Tap a Pokémon for its stats (and how it compares with others of its kind) and to choose its four moves (and move it to another box). The button beside it moves it between your party and the Box.'}</p>` +
       `<div class="lbl">Party <span>${party.length}/6 · battle order is set in Party</span></div>${inParty}` +
       `<div class="lbl">Boxes <span>${box.length} Pokémon in ${n} boxes</span></div>` +
       `<div class="boxnav"><button data-boxgo="-1" aria-label="Previous box">◀</button><b>BOX ${boxAt + 1}</b><span>${boxFill(boxAt)}/${BOX_CAP}</span><button data-boxgo="1" aria-label="Next box">▶</button></div>` +
@@ -6154,8 +6174,11 @@ async function run(id) {
     learn(m)
     const spare = m.learned.filter((n) => !m.moves.includes(n))
     return `<button class="back" data-back>◀ ${backTo}</button>
-      <div class="svhead"><img src="${spr(m)}" alt=""><div><div class="nm"><b>${m.name}</b> <span>Lv ${m.level}</span></div>
-        <div class="types">${m.types.map((t) => `<span style="background:${TYPE_COL[t]}">${t}</span>`).join('')}</div></div></div>
+      <div class="svhead"><img src="${spr(m)}" alt=""><div><div class="nm"><b>${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}</b> <span>Lv ${m.level}</span></div>
+        <div class="types">${m.types.map((t) => `<span style="background:${TYPE_COL[t]}">${t}</span>`).join('')}</div>${hpBar(m)}</div></div>
+      <div class="svnat"><b>${m.nature[0]}</b> nature${m.nature[1] ? `: <em class="up">${STAT_LABEL[m.nature[1]]} +10%</em>, <em class="dn">${STAT_LABEL[m.nature[2]]} −10%</em>` : ': no stat changes'} · IV total <b>${ivTotal(m)}</b>/186</div>
+      <table class="svt"><tr><th></th><th>Stat</th><th>IV</th><th></th></tr>${statRows(m)}</table>
+      ${sameSpecies(m)}
       ${box.includes(m) ? `<div class="lbl">In BOX ${boxOf(m) + 1} <span>move it to another box</span></div><div class="boxtabs">${Array.from({ length: boxCount() }, (_, b) => { const c = boxFill(b)
         return `<button class="${b === boxOf(m) ? 'on' : ''}${c >= BOX_CAP ? ' full' : ''}" data-moveto="${b}" ${b === boxOf(m) || c >= BOX_CAP ? 'disabled' : ''} aria-label="Move to box ${b + 1}, ${c} of ${BOX_CAP}">${b + 1}<i>${c}</i></button>` }).join('')}</div>
         ${releasing ? `<div class="release ask"><p>Release <b>${m.name}</b>${m.shiny ? ' (shiny!)' : ''}, Lv ${m.level}? It goes back to the wild for good. This can't be undone.</p><div><button class="pbtn danger" data-release="yes">RELEASE</button><button class="pbtn" data-release="no">KEEP</button></div></div>`
@@ -6235,7 +6258,7 @@ async function run(id) {
    */
   function openSheet(kind) {
     let view = { page: 'list' }
-    const title = () => kind === 'party' ? (view.page === 'stats' ? 'Stats' : `Party · ${party.length}/6`) : kind === 'bag' ? (view.page === 'target' ? 'Use item' : view.page === 'moves' ? 'Moves' : view.page === 'summon' ? 'Gym challenge' : view.page === 'elite' ? 'Elite Four' : view.page === 'sell' ? 'Sell to the VVM' : 'Bag') : view.page === 'moves' ? 'Moves' : `Box · ${everyone().length}`
+    const title = () => kind === 'party' ? (view.page === 'stats' ? 'Stats' : `Party · ${party.length}/6`) : kind === 'bag' ? (view.page === 'target' ? 'Use item' : view.page === 'moves' ? 'Moves' : view.page === 'summon' ? 'Gym challenge' : view.page === 'elite' ? 'Elite Four' : view.page === 'sell' ? 'Sell to the VVM' : 'Bag') : view.page === 'moves' ? 'Stats & moves' : `Box · ${everyone().length}`
     const draw = () => {
       $('sheetTitle').textContent = title()
       const body = kind === 'party' ? (view.page === 'stats' ? statPage(view.mon) : partyList())
@@ -8449,15 +8472,19 @@ async function run(id) {
    * the same.
    */
   let weekShift = 0
+  /** How many days a wild pool lasts: 7 (Monday to Monday) unless an admin set it shorter (Admin → VVM, battle_modes' pool_days). */
+  let poolDays = 7
   /** Now in Seattle: its calendar day (as days since the epoch) and the ms since its midnight. */
   const seattleNow = () => {
     const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
       .formatToParts(new Date()).map((x) => [x.type, +x.value]))
     return { day: Date.UTC(p.year, p.month - 1, p.day) / 864e5, ms: ((p.hour * 60 + p.minute) * 60 + p.second) * 1000 }
   }
-  const thisWeek = () => (demo ? 2900 : Math.floor((seattleNow().day + 3) / 7)) + weekShift   // day 0 was a Thursday: +3 puts the turn on Monday
-  /** ms until the next Monday midnight in Seattle. */
-  const nextRotation = () => { const { day, ms } = seattleNow(); return (7 - ((day + 3) % 7)) * 864e5 - ms }
+  // Which pool period it is: whole runs of poolDays days, counted from a Monday (day 0 was a Thursday: +3), so at 7
+  // it turns every Monday as it always has. (Still called a week in the code, whatever its length.)
+  const thisWeek = () => (demo ? 2900 : Math.floor((seattleNow().day + 3) / poolDays)) + weekShift
+  /** ms until the pools next change: midnight in Seattle at the end of this period. */
+  const nextRotation = () => { const { day, ms } = seattleNow(); return (poolDays - ((day + 3) % poolDays)) * 864e5 - ms }
   /**
    * A machine's six species for a week, drawn by rarity (RARITY_WEIGHT): a
    * rare one is in about 1 machine's pool in 7. The demo keeps its old
@@ -8507,7 +8534,7 @@ async function run(id) {
     return demo ? pool[Math.floor(roll() * pool.length)] : weightedPick(pool, rarityWeight, roll)
   }
   let poolWeek = null   // the week the panel shows: when it turns (the game left open, or a phone bringing back a tab from last week), it's redrawn
-  const freshPool = () => { if (poolWeek !== null && poolWeek !== thisWeek() && !$('poolPanel').hidden) { renderPool(true); if (MODE === 'play') feed('A new week: the wild pool has changed.') } }
+  const freshPool = () => { if (poolWeek !== null && poolWeek !== thisWeek() && !$('poolPanel').hidden) { renderPool(true); if (MODE === 'play') feed(`${poolDays === 7 ? 'A new week' : poolDays === 1 ? 'A new day' : 'A new rotation'}: the wild pool has changed.`) } }
   if (!demo) { setInterval(() => { if (live()) freshPool() }, 60e3); document.addEventListener('visibilitychange', () => { if (live() && document.visibilityState === 'visible') freshPool() }) }
   function renderPool(flash = false) {
     poolWeek = thisWeek()

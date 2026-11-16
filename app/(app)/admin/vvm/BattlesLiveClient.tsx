@@ -27,7 +27,7 @@ const LABEL: Record<Kind, { title: string; on: string; off: string }> = {
 /** How the find chance reads, by how often. */
 const findWord = (pct: number) => (pct === 0 ? 'Never' : pct <= 10 ? 'Very rare' : pct <= 25 ? 'Rare' : pct <= 45 ? 'Sometimes' : pct <= 70 ? 'Often' : 'Almost always')
 
-export default function BattlesLiveClient({ wild, trainers, healPrice, findChance }: { wild: boolean; trainers: boolean; healPrice: number | string | null; findChance: number | string | null }) {
+export default function BattlesLiveClient({ wild, trainers, healPrice, findChance, poolDays }: { wild: boolean; trainers: boolean; healPrice: number | string | null; findChance: number | string | null; poolDays: number | null }) {
   const toast = useToast()
   const [live, setLive] = useState<Record<Kind, boolean>>({ wild, trainers })
   const [busy, setBusy] = useState<Kind | null>(null)
@@ -40,6 +40,20 @@ export default function BattlesLiveClient({ wild, trainers, healPrice, findChanc
   const [find, setFind] = useState(findChance == null ? 35 : Math.round(Number(findChance) * 100))
   const [findSaved, setFindSaved] = useState(find)
   const [savingFind, setSavingFind] = useState(false)
+
+  // How many days a wild pool lasts before every machine's changes, 1-7 (v105; null before it).
+  const [days, setDays] = useState(poolDays ?? 7)
+  const [daysSaved, setDaysSaved] = useState(days)
+  const [savingDays, setSavingDays] = useState(false)
+  async function saveDays() {
+    setSavingDays(true)
+    const { data, error } = await createClient().rpc('set_wild_pool_days', { p_days: days })
+    setSavingDays(false)
+    if (error) { toast.show(`Couldn't change it: ${error.message}`); return }
+    const next = Number(data ?? days)
+    setDays(next); setDaysSaved(next)
+    toast.show(next === 7 ? 'Wild pools now change every Monday.' : `Wild pools now change every ${next === 1 ? 'day' : `${next} days`}.`)
+  }
 
   async function saveFind() {
     setSavingFind(true)
@@ -157,6 +171,39 @@ export default function BattlesLiveClient({ wild, trainers, healPrice, findChanc
                 type="button"
                 onClick={saveFind}
                 disabled={savingFind || find === findSaved}
+                className="text-xs font-medium text-signal border border-signal/30 rounded-lg px-3 py-1 hover:bg-signal/10 transition-colors disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </li>
+        )}
+        {poolDays != null && (
+          <li className="bg-card border border-card-border rounded-2xl p-4 space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-semibold">Wild pool reset</p>
+              <p className="text-xs font-mono text-muted shrink-0">every {days === 1 ? 'day' : `${days} days`}{days === 7 ? ' (Mondays)' : ''}</p>
+            </div>
+            <p className="text-xs text-muted">
+              How long each machine&apos;s six wild Pokémon last before every machine&apos;s pool changes. Resets fall at midnight Seattle time, counted from a Monday. Changing it changes every pool straight away.
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-muted">1 day</span>
+              <input
+                type="range"
+                min={1}
+                max={7}
+                step={1}
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
+                className="flex-1 accent-signal"
+                aria-label="How many days a wild pool lasts"
+              />
+              <span className="text-[11px] text-muted">7 days</span>
+              <button
+                type="button"
+                onClick={saveDays}
+                disabled={savingDays || days === daysSaved}
                 className="text-xs font-medium text-signal border border-signal/30 rounded-lg px-3 py-1 hover:bg-signal/10 transition-colors disabled:opacity-50"
               >
                 Save

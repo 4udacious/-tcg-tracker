@@ -143,6 +143,7 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
           trainers={!!(settings as { battle_rewards_open: boolean } | null)?.battle_rewards_open}
           healPrice={(settings as { battle_heal_price?: number | string | null } | null)?.battle_heal_price ?? null}
           findChance={(settings as { battle_find_chance?: number | string | null } | null)?.battle_find_chance ?? null}
+          poolDays={(settings as { wild_pool_days?: number | null } | null)?.wild_pool_days ?? null}
         />
       )}
       {tab === 'gifts' && !gifts.error && (
