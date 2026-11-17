@@ -1963,22 +1963,31 @@ test('gym rematches: every leader comes back fully evolved, at your level', asyn
   } finally { await g.close() }
 })
 
-test('the daily challenge: one type a day, the same all day, four fully evolved Pokémon of it', async () => {
+test('the daily challenge: one theme a day (a type, or a stat), the same all day, four fully evolved Pokémon that fit it', async () => {
   const g = await openGame()
   try {
     const { page } = g
     await page.click('#mPlay'); await page.waitForTimeout(500)
     const r = await page.evaluate(() => {
-      const v = window.__vvm, days = Array.from({ length: 14 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`)
+      const v = window.__vvm, days = Array.from({ length: 60 }, (_, i) => new Date(Date.UTC(2026, 10, 1 + i)).toISOString().slice(0, 10))
       const cs = days.map((d) => v.dailyChallenge(d))
+      // A stat day's team: from the 16 fully evolved species with the most of that stat.
+      const BASE = { atk: 'attack', def: 'defense', spa: 'special-attack', spd: 'special-defense', spe: 'speed', hp: 'hp' }
+      const top = (st) => { const all = [...new Set([...DATA.wild, ...DATA.trainer].map((x) => v.finalForm(x.name)))].map(speciesByName).filter((x) => x && ART[x.id] && !LEGENDS.includes(x.name) && x.name !== 'MEWTWO' && x.name !== 'ZAPDOS').map((x) => x.base[BASE[st]]).sort((a, b) => b - a); return all[15] }
+      const fits = (c, n) => { const sp = speciesByName(n); return sp && v.finalForm(n) === n && (c.kind === 'stat' ? sp.base[BASE[c.stat]] >= top(c.stat) : sp.types.includes(c.type)) }
       return { same: JSON.stringify(v.dailyChallenge('2026-11-02')) === JSON.stringify(v.dailyChallenge('2026-11-02')),
-        types: [...new Set(cs.map((c) => c.type))].length,
-        bad: cs.flatMap((c) => c.team.filter((n) => { const sp = speciesByName(n); return !sp || !sp.types.includes(c.type) || v.finalForm(n) !== n }).map((n) => `${c.day} ${c.type}: ${n}`)),
+        types: [...new Set(cs.filter((c) => c.kind === 'type').map((c) => c.type))].length,
+        stats: [...new Set(cs.filter((c) => c.kind === 'stat').map((c) => c.stat))].length,
+        statDays: cs.filter((c) => c.kind === 'stat').length,
+        labels: cs.every((c) => (c.kind === 'stat' ? /^HIGH (ATTACK|DEFENSE|SP\. ATK|SP\. DEF|SPEED|HP)$/ : /^[A-Z]+ TYPES$/).test(c.label)),
+        bad: cs.flatMap((c) => c.team.filter((n) => !fits(c, n)).map((n) => `${c.day} ${c.label}: ${n}`)),
         sizes: [...new Set(cs.map((c) => new Set(c.team).size))], who: cs.every((c) => c.who?.vs) }
     })
     assert.ok(r.same, 'the same challenge all day')
-    assert.ok(r.types >= 6, `it changes from day to day (${r.types} types in 14 days)`)
-    assert.deepEqual(r.bad, [], 'every Pokémon is of the day\'s type, and fully evolved')
+    assert.ok(r.types >= 8, `it changes from day to day (${r.types} types in 60 days)`)
+    assert.ok(r.statDays >= 12 && r.statDays <= 30 && r.stats >= 5, `about a third of days are a stat (${r.statDays} of 60, ${r.stats} stats)`)
+    assert.ok(r.labels, 'each named for the bar')
+    assert.deepEqual(r.bad, [], 'every Pokémon fits the day (its type, or among the 16 with the most of its stat), and is fully evolved')
     assert.deepEqual(r.sizes, [4], 'four different ones to draw from'); assert.ok(r.who)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }

@@ -8015,7 +8015,7 @@ async function run(id) {
   /* ══════════ the daily challenge ══════════ */
   /*
    * Once a day (Seattle's day, like the Pokémon Center), from your first
-   * badge: one type, the same for everyone that day, and an everyday trainer
+   * badge: one type (or stat, DAILY_STATS), the same for everyone that day, and an everyday trainer
    * with three fully evolved Pokémon of it (four once you're Champion), a
    * level or two above you (no higher than your next challenge allows), with
    * a leader's move choices. Beat it for a pack and DAILY_TOKENS; lose, and
@@ -8024,23 +8024,53 @@ async function run(id) {
   const DAILY_TOKENS = '1.00'
   let dailyWon = null   // the day it was last won (localDay()), saved
   const DAILY_TYPES = ['fire', 'water', 'grass', 'electric', 'psychic', 'fighting', 'ghost', 'dragon', 'rock', 'ground', 'ice', 'poison', 'bug', 'flying', 'normal', 'dark', 'steel', 'fairy']
-  /** The day's challenge: its type, its trainer and their team's species (all fully evolved), the same for everyone. */
-  function dailyChallenge(day = localDay()) {
-    const r = rng(hashStr(`daily:${day}`)), finals = new Map()
+  /*
+   * Or, about one day in three, a stat: the fully evolved Pokémon with the
+   * highest base Attack (or Defense, Sp. Atk, Sp. Def, Speed, HP), the team
+   * drawn from the top DAILY_STAT_TOP of them, each with a perfect IV in it.
+   */
+  const DAILY_STATS = [
+    { key: 'atk', base: 'attack', label: 'HIGH ATTACK', who: 'the hardest hitters around' },
+    { key: 'def', base: 'defense', label: 'HIGH DEFENSE', who: 'the toughest walls around' },
+    { key: 'spa', base: 'special-attack', label: 'HIGH SP. ATK', who: 'the strongest special attackers around' },
+    { key: 'spd', base: 'special-defense', label: 'HIGH SP. DEF', who: 'Pokémon that shrug off special attacks' },
+    { key: 'spe', base: 'speed', label: 'HIGH SPEED', who: 'the fastest Pokémon around' },
+    { key: 'hp', base: 'hp', label: 'HIGH HP', who: 'the Pokémon with the most HP around' },
+  ]
+  const DAILY_STAT_TOP = 16
+  /** Every fully evolved Pokémon the daily challenge can field (no legendaries), by name. */
+  function dailyFinals() {
+    const finals = new Map()
     for (const sp of [...DATA.wild, ...DATA.trainer]) { const f = finalForm(sp.name), s = speciesByName(f); if (s && ART[s.id] && !LEGENDS.includes(f) && f !== 'MEWTWO' && f !== 'ZAPDOS') finals.set(f, s) }
-    const types = DAILY_TYPES.filter((t) => [...finals.values()].filter((s) => s.types.includes(t)).length >= 4)
-    const type = types[Math.floor(r() * types.length)]
-    const pool = [...finals.values()].filter((s) => s.types.includes(type)).map((s) => s.name)
-    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]] }
-    const crew = CREW.filter((T) => POOLS[T.short])
-    return { day, type, who: crew[Math.floor(r() * crew.length)], team: pool.slice(0, 4) }
+    return finals
   }
+  /**
+   * The day's challenge, the same for everyone: its theme (`kind` 'type' with
+   * its `type`, or 'stat' with its `stat`), `label` for the bar ('FIRE TYPES',
+   * 'HIGH ATTACK'), its trainer and their team's species (all fully evolved).
+   */
+  function dailyChallenge(day = localDay()) {
+    const r = rng(hashStr(`daily:${day}`)), finals = [...dailyFinals().values()]
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+    const crew = CREW.filter((T) => POOLS[T.short])
+    if (r() < 1 / 3) {
+      const st = DAILY_STATS[Math.floor(r() * DAILY_STATS.length)]
+      const pool = shuffle(finals.slice().sort((a, b) => b.base[st.base] - a.base[st.base] || a.id - b.id).slice(0, DAILY_STAT_TOP).map((s) => s.name))
+      return { day, kind: 'stat', stat: st.key, label: st.label, who: crew[Math.floor(r() * crew.length)], team: pool.slice(0, 4) }
+    }
+    const types = DAILY_TYPES.filter((t) => finals.filter((s) => s.types.includes(t)).length >= 4)
+    const type = types[Math.floor(r() * types.length)]
+    const pool = shuffle(finals.filter((s) => s.types.includes(type)).map((s) => s.name))
+    return { day, kind: 'type', type, label: `${type.toUpperCase()} TYPES`, who: crew[Math.floor(r() * crew.length)], team: pool.slice(0, 4) }
+  }
+  /** How the challenger puts the day's theme. */
+  const dailyWhat = (c) => (c.kind === 'stat' ? DAILY_STATS.find((x) => x.key === c.stat).who : `${c.type.toUpperCase()} types`)
   const dailyOpen = () => MODE === 'play' && tutorialDone && badges.length >= 1 && modeOn('trainers') && dailyWon !== localDay()
   function paintDaily() {
     const b = $('dailyBar'); if (!b) return
     const show = dailyOpen() && !busy && homeState === 'idle' && $('battleL').style.display !== 'block' && !$('sheet').classList.contains('open')
     b.hidden = !show
-    if (show) { const c = dailyChallenge(); b.innerHTML = `<b>DAILY CHALLENGE</b> · ${c.type.toUpperCase()} TYPES · <span>a pack and ${DAILY_TOKENS} tk</span>` }
+    if (show) { const c = dailyChallenge(); b.innerHTML = `<b>DAILY CHALLENGE</b> · ${c.label} · <span>a pack and ${DAILY_TOKENS} tk</span>` }
   }
   if (!demo) setInterval(() => { if (live()) paintDaily() }, 1000)
   async function dailyEncounter(state = 'in') {
@@ -8056,7 +8086,7 @@ async function run(id) {
     })
     setTimeout(() => { if (live()) Sound.music('encounter') }, 1500)
     await W(1300)
-    await talk(T, [`Today's challenge: ${c.type.toUpperCase()} types, and they're all fully evolved.`, `Beat my ${champion ? 'four' : 'three'} and the prize is yours.`])
+    await talk(T, [`Today's challenge: ${dailyWhat(c)}, and they're all fully evolved.`, `Beat my ${champion ? 'four' : 'three'} and the prize is yours.`])
     $('vs').style.display = 'none'; $('vs').getAnimations({ subtree: true }).forEach((a) => a.cancel())
     Sound.music('endgame')   // the endgame challenges' own theme
     // A level above your best, their ace two, never past your next challenge's cap; every IV at least 20.
@@ -8064,6 +8094,7 @@ async function run(id) {
     const team = c.team.slice(0, champion ? 4 : 3).map((n, i, all) => {
       const m = individual(DATA.trainer.find((t) => t.name === n) ?? speciesByName(n), Math.max(2, Math.min(LEVEL_CAP, cap - (i === all.length - 1 ? 0 : 1), top + (i === all.length - 1 ? 2 : 1))), rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(20, m.ivs[k])
+      if (c.kind === 'stat') m.ivs[c.stat] = 31   // the day's stat, as high as it goes
       m.stats = statsAt(m, m.level); m.hp = m.stats.hp
       return m
     })
@@ -8071,14 +8102,14 @@ async function run(id) {
     if (out.result === 'won') {
       dailyWon = localDay()
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
-      await trainerOn(T, 'down'); await talk(T, ["That's today's challenge done.", 'Come back tomorrow: a new type, a new team.'], 'faceDown'); await trainerOff()
+      await trainerOn(T, 'down'); await talk(T, ["That's today's challenge done.", 'Come back tomorrow: a new challenge, a new team.'], 'faceDown'); await trainerOff()
       await out.exp?.()
       await payTokens(DAILY_TOKENS, 'daily')
       const p = await givePack('daily'); if (p) { sfx('click'); await say('Your prize:', `${p}!`, 700) }
-      feed(`<b>You</b> beat today's DAILY CHALLENGE: ${c.type.toUpperCase()} types.`)
+      feed(`<b>You</b> beat today's DAILY CHALLENGE: ${c.label}.`)
       renderTools()
     } else {
-      await trainerOn(T); await talk(T, [`${c.type.toUpperCase()} types too much for you?`, "The challenge is here all day. Come back when you're ready."]); await trainerOff()
+      await trainerOn(T); await talk(T, [`${c.kind === 'stat' ? dailyWhat(c)[0].toUpperCase() + dailyWhat(c).slice(1) : `${c.type.toUpperCase()} types`} too much for you?`, "The challenge is here all day. Come back when you're ready."]); await trainerOff()
     }
     Sound.stopMusic(); saveGame(); await backToMachine(state)
   }

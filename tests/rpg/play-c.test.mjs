@@ -130,7 +130,7 @@ test('the daily challenge: offered under the machine, won once a day for a pack 
     })
     await page.waitForFunction(() => !document.getElementById('dailyBar').hidden, null, { timeout: 10000 })
     const bar = await page.textContent('#dailyBar')
-    assert.match(bar, /DAILY CHALLENGE · [A-Z]+ TYPES/, 'the bar names the day\'s type')
+    assert.match(bar, /DAILY CHALLENGE · ([A-Z]+ TYPES|HIGH [A-Z. ]+) ·/, 'the bar names the day\'s theme')
     const from = log.length, wallet = await page.evaluate(() => window.__vvm.wallet)
     await page.waitForTimeout(1500); await page.waitForFunction(() => !document.getElementById('dailyBar').hidden)   // shown once the machine has settled
     await page.click('#dailyBar')
