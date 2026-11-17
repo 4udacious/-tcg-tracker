@@ -24,6 +24,7 @@ const SET_NAMES: Record<string, string> = {
   neo4: 'Neo Destiny',
   ecard1: 'Expedition',
   ecard2: 'Aquapolis',
+  ex1: 'EX Ruby & Sapphire',
   // One Piece Card Game (v96).
   op01: 'Romance Dawn',
   op02: 'Paramount War',
