@@ -2001,7 +2001,7 @@ test('the daily challenge: one theme a day (a type, or a stat), the same all day
       const cs = days.map((d) => v.dailyChallenge(d))
       // A stat day's team: from the 16 fully evolved species with the most of that stat.
       const BASE = { atk: 'attack', def: 'defense', spa: 'special-attack', spd: 'special-defense', spe: 'speed', hp: 'hp' }
-      const top = (st) => { const all = [...new Set([...DATA.wild, ...DATA.trainer].map((x) => v.finalForm(x.name)))].map(speciesByName).filter((x) => x && ART[x.id] && !LEGENDS.includes(x.name) && x.name !== 'MEWTWO' && x.name !== 'ZAPDOS').map((x) => x.base[BASE[st]]).sort((a, b) => b - a); return all[15] }
+      const top = (st) => { const all = [...new Set([...DATA.wild, ...DATA.trainer].map((x) => v.finalForm(x.name)))].map(speciesByName).filter((x) => x && ART[x.id] && !LEGENDS.includes(x.name) && !['MEWTWO', 'RAIKOU', 'ENTEI', 'SUICUNE'].includes(x.name)).map((x) => x.base[BASE[st]]).sort((a, b) => b - a); return all[15] }
       const fits = (c, n) => { const sp = speciesByName(n); return sp && v.finalForm(n) === n && (c.kind === 'stat' ? sp.base[BASE[c.stat]] >= top(c.stat) : sp.types.includes(c.type)) }
       return { same: JSON.stringify(v.dailyChallenge('2026-11-02')) === JSON.stringify(v.dailyChallenge('2026-11-02')),
         types: [...new Set(cs.filter((c) => c.kind === 'type').map((c) => c.type))].length,
