@@ -4014,7 +4014,9 @@ const TEAM_UP = {
 }
 /* Everyone who can block the machine. In Play, who turns up is random. */
 /*
- * The roaming legendaries: Raikou, Entei and Suicune. One of each roams at a
+ * The roaming legendaries: Articuno, Zapdos and Moltres, Kanto's legendary
+ * birds (Johto's Raikou, Entei and Suicune roamed before them; any already
+ * caught stay yours). One of each roams at a
  * time, shared by every trainer: whoever meets one fights the same Pokémon,
  * with whatever HP the last trainer left it on. They attack for four turns
  * (LEGEND_TURNS), then run on their next, as their move: one that can't move
@@ -4031,11 +4033,11 @@ const LEGEND_WEAR = { per: 0.25, max: 3 }   // the catch rate grows by `per` for
 /** How much easier a roaming legendary is to catch for the balls already thrown at it (×1 for anything else). */
 const legendWear = (m) => m.roamer ? Math.min(LEGEND_WEAR.max, 1 + LEGEND_WEAR.per * (m.balls ?? 0)) : 1
 const LEGEND_RATE = 0.04   // the share of wild encounters that turn out to be a roaming legendary
-const LEGENDS = ['RAIKOU', 'ENTEI', 'SUICUNE']
+const LEGENDS = ['ARTICUNO', 'ZAPDOS', 'MOLTRES']
 const LEGEND_MOVES = {
-  RAIKOU: [S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), L_('DISCHARGE', 'electric', 60, 'spec', 'current', 'zap'), S_('EXTRASENSORY', 'psychic', 65, 'spec', 'shadow', { ranged: true })],
-  ENTEI: [S_('FLAMETHROWER', 'fire', 75, 'spec', 'whoosh', { ranged: true }), S_('FIRE FANG', 'fire', 65, 'phys', 'crunch'), L_('LAVA PLUME', 'fire', 65, 'spec', 'wave', 'whoosh')],
-  SUICUNE: [L_('SURF', 'water', 70, 'spec', 'wave', 'whoosh'), S_('AURORA BEAM', 'ice', 60, 'spec', 'whoosh', { ranged: true }), S_('EXTRASENSORY', 'psychic', 65, 'spec', 'shadow', { ranged: true })],
+  ARTICUNO: [S_('ICE BEAM', 'ice', 75, 'spec', 'whoosh', { ranged: true }), S_('AIR SLASH', 'flying', 65, 'spec', 'whoosh', { ranged: true }), L_('BLIZZARD', 'ice', 65, 'spec', 'wave', 'whoosh')],
+  ZAPDOS: [S_('THUNDERBOLT', 'electric', 75, 'spec', 'zap', { ranged: true }), S_('DRILL PECK', 'flying', 70, 'phys', 'whoosh'), L_('DISCHARGE', 'electric', 60, 'spec', 'current', 'zap')],
+  MOLTRES: [S_('FLAMETHROWER', 'fire', 75, 'spec', 'whoosh', { ranged: true }), S_('AIR SLASH', 'flying', 65, 'spec', 'whoosh', { ranged: true }), L_('HEAT WAVE', 'fire', 65, 'spec', 'wave', 'whoosh')],
 }
 // Herb and Paul pick their hardest-hitting move, like a leader (no tells, though).
 HERB.smart = PAUL.smart = true
@@ -4196,10 +4198,13 @@ const RIVAL_MOVES = {
   ZAPDOS: [S_('THUNDER', 'electric', 85, 'spec', 'zap', { ranged: true }), S_('DRILL PECK', 'flying', 70, 'phys', 'whoosh'), L_('DISCHARGE', 'electric', 60, 'spec', 'current', 'zap'), S_('HEAT WAVE', 'fire', 65, 'spec', 'whoosh', { ranged: true })],
   MEWTWO: [S_('PSYSTRIKE', 'psychic', 85, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('AURA SPHERE', 'fighting', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' }), L_('PSYWAVE', 'psychic', 60, 'spec', 'wave', 'shadow'), S_('SHADOW BALL', 'ghost', 70, 'spec', 'shadow', { ranged: true, fx: 'orb' })],
 }
-/** Mewtwo and Zapdos: only Alex has them (they aren't wild, and don't evolve from anything). */
+/** Mewtwo and Zapdos: Alex's (they aren't wild, and don't evolve from anything). Zapdos also roams, with Articuno and Moltres (LEGENDS). */
 DATA.forms.push({ id: 150, name: 'MEWTWO', types: ['psychic'], base: { hp: 106, attack: 110, defense: 90, 'special-attack': 154, 'special-defense': 90, speed: 130 }, capture: 3 },
   { id: 145, name: 'ZAPDOS', types: ['electric', 'flying'], base: { hp: 90, attack: 90, defense: 85, 'special-attack': 125, 'special-defense': 90, speed: 100 }, capture: 3 })
-for (const id of [150, 145]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+// The other two legendary birds, roaming with Zapdos.
+DATA.forms.push({ id: 144, name: 'ARTICUNO', types: ['ice', 'flying'], base: { hp: 90, attack: 85, defense: 100, 'special-attack': 95, 'special-defense': 125, speed: 85 }, capture: 3 },
+  { id: 146, name: 'MOLTRES', types: ['fire', 'flying'], base: { hp: 90, attack: 100, defense: 90, 'special-attack': 125, 'special-defense': 85, speed: 90 }, capture: 3 })
+for (const id of [150, 145, 144, 146]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
@@ -8041,7 +8046,7 @@ async function run(id) {
   /** Every fully evolved Pokémon the daily challenge can field (no legendaries), by name. */
   function dailyFinals() {
     const finals = new Map()
-    for (const sp of [...DATA.wild, ...DATA.trainer]) { const f = finalForm(sp.name), s = speciesByName(f); if (s && ART[s.id] && !LEGENDS.includes(f) && f !== 'MEWTWO' && f !== 'ZAPDOS') finals.set(f, s) }
+    for (const sp of [...DATA.wild, ...DATA.trainer]) { const f = finalForm(sp.name), s = speciesByName(f); if (s && ART[s.id] && !LEGENDS.includes(f) && !['MEWTWO', 'RAIKOU', 'ENTEI', 'SUICUNE'].includes(f)) finals.set(f, s) }
     return finals
   }
   /**
@@ -8444,7 +8449,7 @@ async function run(id) {
   const OTHERS = ['MAYA', 'SAM', 'JO']
   /** One of each legendary, roaming. A fresh one replaces any that's knocked out or caught. */
   const ROAM = {}
-  const spawnLegend = (name) => { const m = individual(DATA.trainer.find((t) => t.name === name), LEGEND_LEVEL, rand); m.roamer = true; ROAM[name] = m; renderRoamers(); return m }
+  const spawnLegend = (name) => { const m = individual(speciesByName(name), LEGEND_LEVEL, rand); m.roamer = true; ROAM[name] = m; renderRoamers(); return m }
   const pickLegend = (r = flavor) => ROAM[LEGENDS[Math.floor(r() * LEGENDS.length)]]
   const pct = (m) => Math.round(m.hp / m.stats.hp * 100)
   /** The testing panel's line: each one's HP as it stands. */
@@ -10813,7 +10818,8 @@ async function run(id) {
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     storyGap = { taps: 0, who: null, ...s.storyGap }
-    for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
+    // Only today's roamers: a save from when Raikou, Entei and Suicune roamed starts the birds fresh.
+    for (const [n, m] of Object.entries(s.roam ?? {})) if (LEGENDS.includes(n)) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
     tutorialDone = true
     { const moved = carrySummons(); if (moved) setTimeout(() => feed(moved), 0) }
