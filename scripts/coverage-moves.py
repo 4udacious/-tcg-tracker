@@ -18,7 +18,7 @@ for s in g['species']:
         if slug not in byslug: continue
         if any(v['move_learn_method']['name'] in ('machine', 'tutor', 'level-up') for v in m['version_group_details']): learn.add(byslug[slug])
     pref = 'spec' if s['spa'] >= s['atk'] else 'phys'
-    GENERIC = {'HYPER BEAM', 'THRASH', 'OUTRAGE', 'ROLLOUT', 'IRON TAIL', 'SOLAR BEAM', 'BODY SLAM', 'HEADBUTT', 'DOUBLE HIT', 'PETAL DANCE', 'SNORE', 'FURY SWIPES', 'DOUBLE KICK', 'DUAL CHOP', 'DUAL WINGBEAT', 'WATER SHURIKEN', 'ICICLE SPEAR', 'BULLET SEED', 'ROCK BLAST', 'BONE RUSH', 'VOLT TACKLE', 'KNOCK OFF', 'FEINT ATTACK', 'MUD SHOT', 'ROCK TOMB', 'WING ATTACK'}
+    GENERIC = {'HYPER BEAM', 'GIGA IMPACT', 'DOUBLE-EDGE', 'THRASH', 'OUTRAGE', 'ROLLOUT', 'IRON TAIL', 'SOLAR BEAM', 'BODY SLAM', 'HEADBUTT', 'DOUBLE HIT', 'PETAL DANCE', 'SNORE', 'FURY SWIPES', 'DOUBLE KICK', 'DUAL CHOP', 'DUAL WINGBEAT', 'WATER SHURIKEN', 'ICICLE SPEAR', 'BULLET SEED', 'ROCK BLAST', 'BONE RUSH', 'VOLT TACKLE', 'KNOCK OFF', 'FEINT ATTACK', 'MUD SHOT', 'ROCK TOMB', 'WING ATTACK'}
     # The classic TM coverage, most iconic first (a small tiebreak by position).
     ICONIC = ['THUNDERBOLT', 'ICE BEAM', 'FLAMETHROWER', 'PSYCHIC', 'SHADOW BALL', 'EARTH POWER', 'ENERGY BALL', 'SLUDGE BOMB', 'DARK PULSE', 'DRAGON PULSE',
               'FLASH CANNON', 'MOONBLAST', 'STONE EDGE', 'CRUNCH', 'IRON HEAD', 'BRICK BREAK', 'PLAY ROUGH', 'X-SCISSOR', 'POISON JAB', 'WATERFALL', 'ZEN HEADBUTT', 'DIG', 'AIR SLASH', 'BUG BUZZ', 'POWER GEM']
