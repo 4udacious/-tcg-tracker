@@ -718,7 +718,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, dawn_stone: 1, rematch_gym_1: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
@@ -759,7 +759,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(await frame.evaluate(() => window.__vvm.bag.fullheal), 1, 'a bought Full Heal is a FULL HEAL in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.hyper, window.__vvm.bag.maxrevive]), [2, 1], 'bought Hyper Potions and a Max Revive are in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag.ultra), 3, 'bought Ultra Balls are in the Bag')
-    assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale]), [1, 2, 1], 'bought evolution items are the game\'s own in the Bag')
+    assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale, window.__vvm.bag.dawnstone]), [1, 2, 1, 1], 'bought evolution items (the Dawn Stone too) are the game\'s own in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag['rematch:gym_1']), 1, 'a bought rematch ticket is in the Bag, for that leader')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
     await frame.waitForFunction(() => /TAC-07/.test(document.getElementById('poolWhere').textContent), null, { timeout: 10000 })

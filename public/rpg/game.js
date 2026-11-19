@@ -5890,7 +5890,7 @@ async function run(id) {
   const BAG_OF = { potion: 'potion', super_potion: 'super', hyper_potion: 'hyper', revive: 'revive', max_revive: 'maxrevive', poke_ball: 'ball', great_ball: 'great', ultra_ball: 'ultra', rare_candy: 'rarecandy', full_heal: 'fullheal',
     // Evolution items (v88).
     thunder_stone: 'thunderstone', water_stone: 'waterstone', fire_stone: 'firestone', leaf_stone: 'leafstone', ice_stone: 'icestone', moon_stone: 'moonstone',
-    sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }
+    sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', dawn_stone: 'dawnstone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }   // Dawn Stone: v107
   /** Can this Bag item be sold back to the VVM (v103)? Anything but Gym Summons, League and rematch tickets and key items. */
   const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && ITEMS[k].summon == null && !ITEMS[k].rematch && !['summon', 'elite', 'disc'].includes(k)
   async function syncMachine() {

@@ -12,6 +12,10 @@
 -- SINNOH_ELITE). Gym Summons for these gyms are summon:16 … summon:31 in the
 -- game's Bag, which one_gym_summon (v84) already counts.
 --
+-- And the DAWN STONE (Kirlia -> Gallade, Snorunt -> Froslass) in the machine's
+-- supplies, like v88's stones (1 token, on 4% of stocked taps), and bought
+-- back like them (vvm_sell_price, v103).
+--
 -- Safe to re-run.
 
 create or replace function public.battle_milestone_amount(p_key text)
@@ -105,3 +109,32 @@ language sql immutable as $$
 $$;
 
 revoke all on function public.battle_feed_label(text) from public, anon;
+
+-- The Dawn Stone, for sale.
+insert into public.vvm_supplies (key, kind, name, description, token_price, appearance_rate, is_active, sort_order) values
+  ('dawn_stone', 'item', 'Dawn Stone', 'Evolves Kirlia (Gallade), Snorunt (Froslass)', 1.00, 4, true, 97)
+on conflict (key) do nothing;
+
+-- What a Bag item sells back for (v103), knowing the Dawn Stone.
+create or replace function public.vvm_sell_price(p_bag_key text)
+returns numeric language sql stable security definer set search_path to 'public' as $$
+  with k as (
+    select case
+      when p_bag_key like 'disc:%' then 'move_disc'
+      else (select e.key from jsonb_each_text(jsonb_build_object(
+        'potion', 'potion', 'super_potion', 'super', 'hyper_potion', 'hyper', 'revive', 'revive', 'max_revive', 'maxrevive',
+        'poke_ball', 'ball', 'great_ball', 'great', 'ultra_ball', 'ultra', 'rare_candy', 'rarecandy', 'full_heal', 'fullheal',
+        'thunder_stone', 'thunderstone', 'water_stone', 'waterstone', 'fire_stone', 'firestone', 'leaf_stone', 'leafstone',
+        'ice_stone', 'icestone', 'moon_stone', 'moonstone', 'sun_stone', 'sunstone', 'dusk_stone', 'duskstone',
+        'shiny_stone', 'shinystone', 'dawn_stone', 'dawnstone', 'linking_cord', 'linkcable', 'dragon_scale', 'dragonscale')) e where e.value = p_bag_key)
+    end as supply
+  ), base as (
+    select coalesce(
+      (select s.token_price from public.vvm_supplies s, k where s.key = k.supply and s.kind = 'item'),
+      (jsonb_build_object('antidote', 0.15, 'parlyz', 0.20, 'burnheal', 0.20, 'iceheal', 0.20) ->> p_bag_key)::numeric) as price
+  )
+  select (floor(b.price * public.vvm_sell_rate() * 100) / 100)::numeric(12,2) from base b
+   where b.price is not null
+     and p_bag_key not like 'summon:%' and p_bag_key not like 'rematch:%' and p_bag_key not in ('summon', 'elite', 'expshare', 'disc')
+$$;
+revoke all on function public.vvm_sell_price(text) from public, anon, authenticated;
