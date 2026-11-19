@@ -197,13 +197,13 @@ test('Hoenn and Sinnoh, played: opened by the Hall of Fame, a trip there with a 
     await page.waitForFunction(() => window.__vvm.saveData()?.region === 'hs', null, { timeout: 60000 }).catch(() => {})
     const r = await page.evaluate(() => {
       const v = window.__vvm, [lead] = v.party, old = v.box.find((m) => m.name === 'CHARIZARD')
-      return { region: v.region, blue: document.body.classList.contains('hs'), lead: [lead.name, lead.level], party: v.party.map((m) => m.name), old: old && [v.overCap(old), !!old.capBoxed], cap: v.hsCap(), trainerCap: v.trainerCap(),
+      return { region: v.region, blue: document.body.classList.contains('hs'), lead: [lead.name, lead.level], party: v.party.map((m) => m.name), old: old && v.overCap(old), cap: v.hsCap(), trainerCap: v.trainerCap(),
         pool: v.poolFor(v.seedOf('YOU').m.code).filter((n) => !HOENN_SINNOH_WILD.includes(n)), poolHead: document.querySelector('#poolPanel .phead b').textContent,
         save: (() => { const s = v.saveData(); return s && [s.region, s.hsStarted] })(), travel: document.getElementById('travelBar').textContent }
     })
     assert.equal(r.region, 'hs'); assert.ok(r.blue, 'the blue machine in Hoenn and Sinnoh')
     assert.deepEqual(r.lead, ['TORCHIC', 5], 'a new partner, at Lv 5, leading the party')
-    assert.deepEqual(r.party, ['TORCHIC']); assert.deepEqual(r.old, [true, true], 'the Lv 70 Charizard, over the cap, went to the Box')
+    assert.deepEqual(r.party, ['TORCHIC']); assert.equal(r.old, true, 'the Lv 70 Charizard, over the cap, went to the Box')
     assert.equal(r.cap, 15); assert.equal(r.trainerCap, 12, 'wild Pokémon and trainers stay under the cap')
     assert.deepEqual(r.pool, [], 'the wild pool is Hoenn and Sinnoh\'s'); assert.match(r.poolHead, /HOENN & SINNOH/)
     assert.deepEqual(r.save, ['hs', true], 'saved there')
@@ -219,16 +219,16 @@ test('Hoenn and Sinnoh, played: opened by the Hall of Fame, a trip there with a 
       return { deck: deck.map((x) => x.name).filter((n) => !HS_POOLS.ROSE.some((p) => p.name === n)), level: m.level, dbg: [v.region, deck.map((x) => x.name + x.level).join(), v.trainerLevel()] }
     })
     assert.deepEqual(t.deck, [], `Rose's Hoenn team ${JSON.stringify(t.dbg)}`); assert.equal(t.level, 15, 'no EXP past the cap')
-    // And back: the red machine, no cap, and the Charizard back in the party. (The bar is on the idle screen: back to it from the shelf.)
+    // And back: the red machine, no cap. The Charizard stays in the Box, fit to fight again. (The bar is on the idle screen: back to it from the shelf.)
     for (let i = 0; i < 30 && !(await bot.atHome()); i++) await bot.step()
     for (let i = 0; i < 40 && await page.evaluate(() => document.getElementById('travelBar').hidden); i++) {
       await page.evaluate(() => { const b = document.getElementById('cbBack'); if (b && b.offsetParent) b.click() }); await page.waitForTimeout(1000)
     }
     assert.match(await page.textContent('#travelBar'), /back to Kanto & Johto/)
     await page.dispatchEvent('#travelBar', 'click')
-    await page.waitForFunction(() => window.__vvm.region === 'kj' && !!window.__vvm.party.find((m) => m.name === 'CHARIZARD'), null, { timeout: 30000 }).catch(() => {})
-    const back = await page.evaluate(() => { const v = window.__vvm, c = v.party.find((m) => m.name === 'CHARIZARD'); return { region: v.region, blue: document.body.classList.contains('hs'), charizard: v.canFight(c), flag: !!c?.capBoxed } })
-    assert.deepEqual(back, { region: 'kj', blue: false, charizard: true, flag: false }, 'back in the party, fit to fight')
+    await page.waitForFunction(() => window.__vvm.region === 'kj', null, { timeout: 30000 }).catch(() => {})
+    const back = await page.evaluate(() => { const v = window.__vvm, c = v.box.find((m) => m.name === 'CHARIZARD'); return { region: v.region, blue: document.body.classList.contains('hs'), boxed: !!c, charizard: v.canFight(c), party: v.party.map((m) => m.name) } })
+    assert.deepEqual(back, { region: 'kj', blue: false, boxed: true, charizard: true, party: ['TORCHIC'] }, 'still in the Box, and able to fight here again')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

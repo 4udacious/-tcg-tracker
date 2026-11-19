@@ -8367,23 +8367,17 @@ async function run(id) {
     if (show) b.innerHTML = inHS() ? '<b>TRAVEL</b> · back to Kanto &amp; Johto' : `<b>TRAVEL</b> · to Hoenn &amp; Sinnoh${hsStarted ? '' : ' · <span>NEW</span>'}`
   }
   /**
-   * Arriving in Hoenn and Sinnoh: the party Pokémon over the cap go to the Box
-   * (marked capBoxed). Should that leave nobody, the strongest under the cap
-   * come out of the Box instead (and if there's none, one stays). Returns how
-   * many went.
+   * Arriving in Hoenn and Sinnoh: the party Pokémon over the cap go to the Box,
+   * and stay there (back in Kanto and Johto too) until you move them. Should
+   * that leave nobody, the strongest under the cap come out of the Box instead
+   * (and if there's none, one stays). Returns how many went.
    */
   function boxOverCap() {
     const out = party.filter(overCap)
-    for (const m of out) { party.splice(party.indexOf(m), 1); m.capBoxed = true; toBox(m) }
+    for (const m of out) { party.splice(party.indexOf(m), 1); toBox(m) }
     if (!party.length) for (const m of box.filter((x) => !overCap(x)).sort((a, b) => b.level - a.level).slice(0, 6)) { box.splice(box.indexOf(m), 1); party.push(m) }
-    if (!party.length && out.length) { const m = out[0]; box.splice(box.indexOf(m), 1); delete m.capBoxed; party.push(m) }
+    if (!party.length && out.length) { const m = out[0]; box.splice(box.indexOf(m), 1); party.push(m) }
     return out.length - (out.some((m) => party.includes(m)) ? 1 : 0)
-  }
-  /** Back in Kanto and Johto: the ones boxed for the cap rejoin the party, as many as there's room for. Returns how many did. */
-  function unboxCapped() {
-    let n = 0
-    for (const m of box.filter((x) => x.capBoxed)) { delete m.capBoxed; if (party.length < 6) { box.splice(box.indexOf(m), 1); party.push(m); n++ } }
-    return n
   }
   const boxedLine = (n) => `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} over the Lv ${hsCap()} cap went to the Box.`
   // (Not `travel`: that's the attack effects' particle mover, in this same scope.)
@@ -8397,7 +8391,7 @@ async function run(id) {
     feed(`<b>You</b> travelled to ${to === 'hs' ? 'Hoenn and Sinnoh' : 'Kanto and Johto'}.`)
     if (to === 'hs' && !hsStarted) await hsArrival()
     else if (to === 'hs') { const n = boxOverCap(); homePop(`<b>Hoenn &amp; Sinnoh.</b> Level cap: Lv ${hsCap()}.${n ? ` ${boxedLine(n)}` : ''}`); if (n) feed(`<b>You</b>: ${boxedLine(n)}`) }
-    else { const n = unboxCapped(); homePop(`<b>Kanto &amp; Johto.</b> No level cap here.${n ? ` ${n === 1 ? '1 Pokémon' : `${n} Pokémon`} back from the Box.` : ''}`) }
+    else homePop('<b>Kanto &amp; Johto.</b> No level cap here.')
     renderTools(); toolsEnabled(true); saveGame()
   }
   /** Your first trip to Hoenn and Sinnoh: Alex explains, and you pick a new partner (Hoenn's three first), who leads your party here. */
