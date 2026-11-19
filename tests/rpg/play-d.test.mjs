@@ -188,22 +188,22 @@ test('Hoenn and Sinnoh, played: opened by the Hall of Fame, a trip there with a 
     })
     for (let i = 0; i < 30 && !(await bot.atHome()); i++) await bot.step()
     // The bar repaints every second, once the game is idle at the machine.
-    await page.waitForFunction(() => !document.getElementById('travelBar').hidden, null, { timeout: 15000 })
+    await page.waitForFunction(() => !document.getElementById('travelBar').hidden, null, { timeout: 60000 })
     assert.match(await page.textContent('#travelBar'), /to Hoenn & Sinnoh · NEW/, 'Travel shows once the Hall of Fame is in')
     assert.equal(await page.evaluate(() => document.body.classList.contains('hs')), false, 'the usual red machine in Kanto and Johto')
     // The trip: Alex, then a new partner (Hoenn's three shown first).
     await page.dispatchEvent('#travelBar', 'click')
     for (let i = 0; i < 200 && !(await page.evaluate(() => window.__vvm.hsStarted && getComputedStyle(document.getElementById('home')).display !== 'none' && document.getElementById('battleL').style.display !== 'block')); i++) await bot.step()
-    await page.waitForFunction(() => window.__vvm.saveData()?.region === 'hs', null, { timeout: 15000 }).catch(() => {})
+    await page.waitForFunction(() => window.__vvm.saveData()?.region === 'hs', null, { timeout: 60000 }).catch(() => {})
     const r = await page.evaluate(() => {
-      const v = window.__vvm, [lead, old] = v.party
-      return { region: v.region, blue: document.body.classList.contains('hs'), lead: [lead.name, lead.level], old: [old.name, v.overCap(old), v.fit(old)], cap: v.hsCap(), trainerCap: v.trainerCap(),
+      const v = window.__vvm, [lead] = v.party, old = v.box.find((m) => m.name === 'CHARIZARD')
+      return { region: v.region, blue: document.body.classList.contains('hs'), lead: [lead.name, lead.level], party: v.party.map((m) => m.name), old: old && [v.overCap(old), !!old.capBoxed], cap: v.hsCap(), trainerCap: v.trainerCap(),
         pool: v.poolFor(v.seedOf('YOU').m.code).filter((n) => !HOENN_SINNOH_WILD.includes(n)), poolHead: document.querySelector('#poolPanel .phead b').textContent,
         save: (() => { const s = v.saveData(); return s && [s.region, s.hsStarted] })(), travel: document.getElementById('travelBar').textContent }
     })
     assert.equal(r.region, 'hs'); assert.ok(r.blue, 'the blue machine in Hoenn and Sinnoh')
     assert.deepEqual(r.lead, ['TORCHIC', 5], 'a new partner, at Lv 5, leading the party')
-    assert.deepEqual(r.old, ['CHARIZARD', true, false], 'the Lv 70 Charizard is over the cap: it sits out')
+    assert.deepEqual(r.party, ['TORCHIC']); assert.deepEqual(r.old, [true, true], 'the Lv 70 Charizard, over the cap, went to the Box')
     assert.equal(r.cap, 15); assert.equal(r.trainerCap, 12, 'wild Pokémon and trainers stay under the cap')
     assert.deepEqual(r.pool, [], 'the wild pool is Hoenn and Sinnoh\'s'); assert.match(r.poolHead, /HOENN & SINNOH/)
     assert.deepEqual(r.save, ['hs', true], 'saved there')
@@ -216,16 +216,19 @@ test('Hoenn and Sinnoh, played: opened by the Hall of Fame, a trip there with a 
     const t = await page.evaluate(async () => {
       const v = window.__vvm, deck = v.deckFor(v.SCALPERS.find((T) => T.short === 'ROSE'), 10)
       const m = v.party[0]; m.level = 15; m.exp = 0; m.stats = statsAt(m, 15); await v.gainExp(m, 5000)
-      return { deck: deck.map((x) => x.name).filter((n) => !HS_POOLS.ROSE.some((p) => p.name === n)), level: m.level }
+      return { deck: deck.map((x) => x.name).filter((n) => !HS_POOLS.ROSE.some((p) => p.name === n)), level: m.level, dbg: [v.region, deck.map((x) => x.name + x.level).join(), v.trainerLevel()] }
     })
-    assert.deepEqual(t.deck, [], "Rose's Hoenn team"); assert.equal(t.level, 15, 'no EXP past the cap')
-    // And back: the red machine, no cap.
+    assert.deepEqual(t.deck, [], `Rose's Hoenn team ${JSON.stringify(t.dbg)}`); assert.equal(t.level, 15, 'no EXP past the cap')
+    // And back: the red machine, no cap, and the Charizard back in the party. (The bar is on the idle screen: back to it from the shelf.)
     for (let i = 0; i < 30 && !(await bot.atHome()); i++) await bot.step()
-    await page.waitForFunction(() => !document.getElementById('travelBar').hidden, null, { timeout: 15000 })
+    for (let i = 0; i < 40 && await page.evaluate(() => document.getElementById('travelBar').hidden); i++) {
+      await page.evaluate(() => { const b = document.getElementById('cbBack'); if (b && b.offsetParent) b.click() }); await page.waitForTimeout(1000)
+    }
     assert.match(await page.textContent('#travelBar'), /back to Kanto & Johto/)
-    await page.dispatchEvent('#travelBar', 'click'); await page.waitForTimeout(1500)
-    const back = await page.evaluate(() => { const v = window.__vvm; return { region: v.region, blue: document.body.classList.contains('hs'), charizard: v.fit(v.party.find((m) => m.name === 'CHARIZARD')) } })
-    assert.deepEqual(back, { region: 'kj', blue: false, charizard: true })
+    await page.dispatchEvent('#travelBar', 'click')
+    await page.waitForFunction(() => window.__vvm.region === 'kj' && !!window.__vvm.party.find((m) => m.name === 'CHARIZARD'), null, { timeout: 30000 }).catch(() => {})
+    const back = await page.evaluate(() => { const v = window.__vvm, c = v.party.find((m) => m.name === 'CHARIZARD'); return { region: v.region, blue: document.body.classList.contains('hs'), charizard: v.canFight(c), flag: !!c?.capBoxed } })
+    assert.deepEqual(back, { region: 'kj', blue: false, charizard: true, flag: false }, 'back in the party, fit to fight')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

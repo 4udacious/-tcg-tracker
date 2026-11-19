@@ -5420,7 +5420,7 @@ async function run(id) {
   /** Above the cap where you are: it sits out until badges raise it. */
   const overCap = (m) => !!m && m.level > levelCap()
   /** Can fight here: not fainted, and not above the cap. */
-  const fit = (m) => !!m && m.hp > 0 && !overCap(m)
+  const canFight = (m) => !!m && m.hp > 0 && !overCap(m)
   /** Why nobody can fight: `fainted` (your usual line), unless it's that the healthy ones are all over the cap here. */
   const noFighter = (fainted) => (party.some((m) => m.hp > 0) ? `your Pokémon are over the Lv ${levelCap()} cap here · swap one in from the Box` : fainted)
   /** The League whose ticket you can use now: Johto's ('elite') with all 8 Johto badges, Kanto's ('kanto') as Champion with all 16; or null. */
@@ -6540,7 +6540,7 @@ async function run(id) {
       // Summon: spend it, close the sheet, and the leader turns up.
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
       // A rematch ticket: spent, and they turn up once the sheet closes.
-      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some(fit)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
+      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some(canFight)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
       if (a.target != null && ITEMS[view.item].disc) {
         // A Move Disc: learned now, equipped if there's room, otherwise straight to the move editor.
         const m = party[a.target], n = ITEMS[view.item].disc, r = teach(m, n, true)
@@ -7033,7 +7033,7 @@ async function run(id) {
    * doesn't pay as well, since their Pokémon stop growing and EXP follows
    * the foe's level.
    */
-  const leadLevel = () => (party.find(fit) ?? party.find((m) => !overCap(m)) ?? party[0])?.level ?? 5
+  const leadLevel = () => (party.find(canFight) ?? party.find((m) => !overCap(m)) ?? party[0])?.level ?? 5
   // Balanced from Lv 10 (tests/rpg/sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
   const levelBand = (T, lv = leadLevel()) => (T === HERB || T === PAUL ? (lv < 10 ? [-1, 1] : [0, 2]) : (lv < 10 ? [-3, -2] : [-1, 0]))
   /**
@@ -7201,7 +7201,7 @@ async function run(id) {
    */
   async function shareExp(amount, fought) {
     if (!bag.expshare || !shareOn) return
-    const rest = party.filter((m) => fit(m) && !fought.includes(m)); if (!rest.length) return
+    const rest = party.filter((m) => canFight(m) && !fought.includes(m)); if (!rest.length) return
     const half = Math.max(1, Math.round(amount / 2))
     await say(`The rest of your party got ${half} EXP.`, 'thanks to the EXP. SHARE.', 300)
     for (const m of rest) { addBond(m, 4); await offFieldExp(m, half) }
@@ -7295,7 +7295,7 @@ async function run(id) {
    */
   async function duoBattle(o) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
-    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter(fit).slice(0, 2).map((m) => m.id)))
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter(canFight).slice(0, 2).map((m) => m.id)))
     MOVE_LOG.reset(); let res = null
     try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result); Sound.musicReport() }
   }
@@ -7381,7 +7381,7 @@ async function run(id) {
     }
     const allyOf = (s) => sides[s.side].slots.find((x) => x && x !== s && x.mon.hp > 0)
     const other = (side) => (side === 'p' ? 'e' : 'p')
-    const bench = () => party.filter((m) => fit(m) && !sides.p.slots.some((s) => s?.mon === m))
+    const bench = () => party.filter((m) => canFight(m) && !sides.p.slots.some((s) => s?.mon === m))
 
     /* ── openers ── */
     $('msg').style.display = 'block'
@@ -7389,7 +7389,7 @@ async function run(id) {
     for (let i = 0; i < foes.length; i++) { await say(...sentOut(foes[i].owner, foes[i].mon), 60); await enter('e', i, foes[i].mon, foes[i].owner) }
     if (foes.length === 1) await say(`${foes[0].owner.short} only has`, 'one Pokémon ready. 2 on 1!', 300)
     // Yours fill the slots a partner isn't using.
-    const firstTwo = party.filter(fit).slice(0, 2 - allies.length)
+    const firstTwo = party.filter(canFight).slice(0, 2 - allies.length)
     await say(`Go! ${firstTwo.map((m) => m.name).join(' and ')}!`, '', 80)
     for (let i = 0; i < firstTwo.length; i++) await enter('p', i, firstTwo[i])
     for (const [j, a] of allies.entries()) { await say(...sentOut(a.owner, a.mon), 80); await enter('p', firstTwo.length + j, a.mon, a.owner) }
@@ -8238,8 +8238,8 @@ async function run(id) {
   const trainerTheme = () => (demo || Math.random() < 0.5 ? 'battle' : 'battleB')
   async function duoEncounter(demoPlan, variant = 'tag', state = 'in') {
     toolsEnabled(false)
-    if (!party.some(fit)) { $('homeSub').textContent = noFighter('heal your party first'); toolsEnabled(true); return }
-    const lead = party.filter(fit).slice(0, 2)
+    if (!party.some(canFight)) { $('homeSub').textContent = noFighter('heal your party first'); toolsEnabled(true); return }
+    const lead = party.filter(canFight).slice(0, 2)
     const lv = Math.round(lead.reduce((n, m) => n + m.level, 0) / lead.length)   // your first two, on average: deckFor() sets the band around it
     // A tag team is any two trainers; the demo's is Herb and Paul. Solo: one trainer with two out.
     const crew = demoPlan ? (variant === 'tag' ? [HERB, PAUL] : [pickOf(SCALPERS)]) : randomTrainers(variant === 'tag' ? 2 : 1)
@@ -8366,7 +8366,28 @@ async function run(id) {
     b.hidden = !show
     if (show) b.innerHTML = inHS() ? '<b>TRAVEL</b> · back to Kanto &amp; Johto' : `<b>TRAVEL</b> · to Hoenn &amp; Sinnoh${hsStarted ? '' : ' · <span>NEW</span>'}`
   }
-  async function travel() {
+  /**
+   * Arriving in Hoenn and Sinnoh: the party Pokémon over the cap go to the Box
+   * (marked capBoxed). Should that leave nobody, the strongest under the cap
+   * come out of the Box instead (and if there's none, one stays). Returns how
+   * many went.
+   */
+  function boxOverCap() {
+    const out = party.filter(overCap)
+    for (const m of out) { party.splice(party.indexOf(m), 1); m.capBoxed = true; toBox(m) }
+    if (!party.length) for (const m of box.filter((x) => !overCap(x)).sort((a, b) => b.level - a.level).slice(0, 6)) { box.splice(box.indexOf(m), 1); party.push(m) }
+    if (!party.length && out.length) { const m = out[0]; box.splice(box.indexOf(m), 1); delete m.capBoxed; party.push(m) }
+    return out.length - (out.some((m) => party.includes(m)) ? 1 : 0)
+  }
+  /** Back in Kanto and Johto: the ones boxed for the cap rejoin the party, as many as there's room for. Returns how many did. */
+  function unboxCapped() {
+    let n = 0
+    for (const m of box.filter((x) => x.capBoxed)) { delete m.capBoxed; if (party.length < 6) { box.splice(box.indexOf(m), 1); party.push(m); n++ } }
+    return n
+  }
+  const boxedLine = (n) => `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} over the Lv ${hsCap()} cap went to the Box.`
+  // (Not `travel`: that's the attack effects' particle mover, in this same scope.)
+  async function regionTrip() {
     if (!travelOpen()) return
     toolsEnabled(false); $('travelBar').hidden = true
     const to = inHS() ? 'kj' : 'hs'
@@ -8375,7 +8396,8 @@ async function run(id) {
     renderPool(true)
     feed(`<b>You</b> travelled to ${to === 'hs' ? 'Hoenn and Sinnoh' : 'Kanto and Johto'}.`)
     if (to === 'hs' && !hsStarted) await hsArrival()
-    else homePop(to === 'hs' ? `<b>Hoenn &amp; Sinnoh.</b> Level cap: Lv ${hsCap()}.` : '<b>Kanto &amp; Johto.</b> No level cap here.')
+    else if (to === 'hs') { const n = boxOverCap(); homePop(`<b>Hoenn &amp; Sinnoh.</b> Level cap: Lv ${hsCap()}.${n ? ` ${boxedLine(n)}` : ''}`); if (n) feed(`<b>You</b>: ${boxedLine(n)}`) }
+    else { const n = unboxCapped(); homePop(`<b>Kanto &amp; Johto.</b> No level cap here.${n ? ` ${n === 1 ? '1 Pokémon' : `${n} Pokémon`} back from the Box.` : ''}`) }
     renderTools(); toolsEnabled(true); saveGame()
   }
   /** Your first trip to Hoenn and Sinnoh: Alex explains, and you pick a new partner (Hoenn's three first), who leads your party here. */
@@ -8384,18 +8406,20 @@ async function run(id) {
     await wipeTrainer(async () => { setScene(SCALPER_SCENES, sceneRoll); showLayer('battle') })
     await trainerOn(ALEX); await talk(ALEX, ALEX.hoenn); await trainerOff()
     const me = await pickStarter(2)
-    party.unshift(me); if (party.length > 6) toBox(party.pop())
+    party.unshift(me)
+    const boxed = boxOverCap(); if (party.length > 6) toBox(party.pop())
     renderTools()
     await summary(me, `A fresh start: Lv ${me.level}, under the Lv ${hsCap()} cap here.`, `${me.name} joined your party!`, 'It leads your party in Hoenn and Sinnoh.')
+    if (boxed) { await say(boxedLine(boxed), 'They\'ll be waiting there.', 900); feed(`<b>You</b>: ${boxedLine(boxed)}`) }
     await trainerOn(ALEX); await talk(ALEX, ALEX.hoennPicked(me.name)); await trainerOff()
     hsStarted = true
     feed(`<b>You</b> picked ${me.name} for Hoenn and Sinnoh.`)
     Sound.stopMusic(); await backToMachine('idle')
   }
-  $('travelBar') && ($('travelBar').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !live()) return; guard(travel)() })
+  $('travelBar') && ($('travelBar').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !live()) return; guard(regionTrip)() })
   async function dailyEncounter(state = 'in') {
     const c = dailyChallenge()
-    if (!dailyOpen() || !party.some(fit)) { if (!party.some(fit)) $('homeSub').textContent = noFighter('heal your party to take on the daily challenge'); return }
+    if (!dailyOpen() || !party.some(canFight)) { if (!party.some(canFight)) $('homeSub').textContent = noFighter('heal your party to take on the daily challenge'); return }
     const T = { ...c.who, title: 'DAILY CHALLENGE', smart: true, blunder: 0, easy: false }
     toolsEnabled(false); $('dailyBar').hidden = true
     Sound.music('vs')
@@ -8992,10 +9016,10 @@ async function run(id) {
     // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
     // A rival battle that's due takes this tap: Alex is waiting at the machine (with trainer battles on, and a Pokémon that can fight).
-    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some(fit))) { enc = 'rival'; pity = false }
+    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some(canFight))) { enc = 'rival'; pity = false }
     // If not, a glitcher battle that's due: Herb or Paul caught at the machine.
     let glitcher = force.enc === 'story' ? force.who ?? storyDue() : null
-    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some(fit)) glitcher = storyDue()
+    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some(canFight)) glitcher = storyDue()
     if (glitcher) { enc = 'story'; pity = false }
     // Either way, the other story characters keep their distance for a while.
     if (!demo && (enc === 'rival' || glitcher)) storyGap = { taps: STORY_GAP + Math.floor(flavor() * 5), who: enc === 'rival' ? 'ALEX' : glitcher }
@@ -9521,12 +9545,12 @@ async function run(id) {
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     CRUMBS.phase('battle set up')
-    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter(fit).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter(canFight).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
     try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
   }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
-    let me = party.find(fit)
+    let me = party.find(canFight)
     const foeTeam = kind === 'trainer' ? [foe, ...roster] : null   // a wild Pokémon has no team to show
     watchBalls($('eBalls'), $('pBalls'), () => ({ enemy: foeTeam, enemyOut: [foe], mine: party, mineOut: [me] }), () => getComputedStyle($('battleL')).display !== 'none')
     // Stat stages for this battle (Howl, Growth). Switching out clears them, as in the games.
@@ -9718,9 +9742,9 @@ async function run(id) {
           sfx('shadow'); showTags(); await say('All Pokémon that heard the song', 'will faint in three turns!', 450); return true
         }
         case 'baton': {
-          const others = party.filter((m) => fit(m) && m !== me); if (!others.length) return false
+          const others = party.filter((m) => canFight(m) && m !== me); if (!others.length) return false
           let next = others[0]
-          if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Pass to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); if (p !== 'back' && fit(party[+p.slice(1)]) && party[+p.slice(1)] !== me) next = party[+p.slice(1)] }
+          if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Pass to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); if (p !== 'back' && canFight(party[+p.slice(1)]) && party[+p.slice(1)] !== me) next = party[+p.slice(1)] }
           const keep = Object.fromEntries(['atk', 'spa', 'def', 'spd', 'spe', 'acc', 'eva'].map((k) => [k, t[k] ?? 0]))
           await switchTo(next); Object.assign(ST(me), keep); showTags(); await say(`${me.name} took over`, 'with the stat changes!', 300); return true
         }
@@ -9741,10 +9765,10 @@ async function run(id) {
           // A trainer battle: a flash that lowers the other side's accuracy, then it switches out.
           sfx('zap'); flash('#fff', .85, 280); await stage(other, 'acc', -1, other === foe)
           if (user === me) {
-            const others = party.filter((m) => fit(m) && m !== me)
+            const others = party.filter((m) => canFight(m) && m !== me)
             if (!others.length || t.trapped) return true
             let next = others[0]
-            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && fit(c) && c !== me) next = c }
+            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && canFight(c) && c !== me) next = c }
             await switchTo(next)
           } else if (roster.length) await foeSwap()
           return true
@@ -9882,7 +9906,7 @@ async function run(id) {
       $('pParty').innerHTML = [...Array(n).keys()].map((i) => {
         const m = party[i]; if (!m) return `<button class="btn fm${i} t-empty" disabled>—</button>`
         const pct = m.hp / m.stats.hp * 100
-        return `<button class="btn fm${i} t-party pmon${!fit(m) ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${overCap(m) ? `Lv ${m.level} · over the Lv ${levelCap()} cap` : `${m.hp}/${m.stats.hp} HP`}</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
+        return `<button class="btn fm${i} t-party pmon${!canFight(m) ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${overCap(m) ? `Lv ${m.level} · over the Lv ${levelCap()} cap` : `${m.hp}/${m.stats.hp} HP`}</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
       }).join('') + (sending ? '' : `<button class="btn fback t-run" data-act="back">◀ BACK</button>`)
     }
     function choose(panelId, scripted) {
@@ -10517,7 +10541,7 @@ async function run(id) {
         await anim($('player'), [{ transform: 'translateY(0)', clipPath: 'inset(0 0 0 0)' }, { transform: 'translateY(120px)', clipPath: 'inset(0 0 120px 0)' }], { duration: 520 }).finished
         $('player').style.visibility = 'hidden'
         await say(`${me.name} fainted!`); addBond(me, -10)
-        const up = party.filter(fit)
+        const up = party.filter(canFight)
         if (!up.length) { $('phud').style.visibility = 'hidden'; return { result: 'lost' } }
         // Your call who goes in next (the demo takes the first).
         let next = up[0]
@@ -10627,7 +10651,7 @@ async function run(id) {
   }
 
   async function wildEncounter(demoPlan, state = homeState, legend = false) {
-    if (!party.some(fit)) { renderHome(homeState); $('homeSub').textContent = noFighter('your party has fainted. Heal them first!'); sfx('blocked'); return }
+    if (!party.some(canFight)) { renderHome(homeState); $('homeSub').textContent = noFighter('your party has fainted. Heal them first!'); sfx('blocked'); return }
     toolsEnabled(false)
     // The machine shudders, and something leaps out from behind it.
     sfx('rustle')
@@ -10846,7 +10870,7 @@ async function run(id) {
     await W(560)
     renderHome(state, true); $('homeLoiterer').style.display = 'block'
     sfx('blocked'); const b = bangOn($('home'), 214, 92); await W(700); b.remove()
-    if (!party.some(fit)) { $('homeSub').textContent = noFighter('heal your party to take them on'); toolsEnabled(true); return }
+    if (!party.some(canFight)) { $('homeSub').textContent = noFighter('heal your party to take them on'); toolsEnabled(true); return }
     Sound.music('vs')
     await wipeTrainer(async () => {
       setScene(SCALPER_SCENES, sceneRoll); showLayer('battle')
@@ -11226,7 +11250,7 @@ async function run(id) {
   // Hoenn and Sinnoh, for the tests: the region, its progress and cap, and travelling.
   // (getOwnPropertyDescriptors, so the getters stay live: Object.assign would copy their values once.)
   Object.defineProperties(window.__vvm, Object.getOwnPropertyDescriptors({ get region() { return region }, setRegion: (v) => { region = v; paintRegion(); renderPool() }, get hsStarted() { return hsStarted }, setHsStarted: (v) => { hsStarted = v },
-    hsBadges, hs, hsCap, levelCap, fit, overCap, trainerCap, trainerLevel, travel: guard(travel), setFame: (v) => { fame = v }, paintTravel, saveData: () => readLocal() }))
+    hsBadges, hs, hsCap, levelCap, canFight, overCap, trainerCap, trainerLevel, regionTrip: guard(regionTrip), setFame: (v) => { fame = v }, paintTravel, saveData: () => readLocal() }))
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {

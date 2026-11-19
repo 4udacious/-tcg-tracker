@@ -575,14 +575,18 @@ test('attack effects: every move has its own look, and every one plays without e
       const A = { x: 100, y: 194 }, T = { x: 220, y: 114 }, el = document.getElementById('player'), recipes = {}
       const names = Object.keys(MOVEDEX)
       for (const name of names) recipes[name] = window.__fx.recipe(moveInfo(name))
+      // A thrown rock really flies: its pieces are on the layer mid-throw (they once went to a same-named function instead).
+      const layer = document.getElementById('fx'), thrown = window.__fx.strike(moveInfo('ROCK THROW'), A, T, el, true)
+      await new Promise((r) => setTimeout(r, 120)); const pieces = layer.childElementCount; await thrown
       // In batches, so the run is quick but the layer doesn't hold hundreds of particles at once.
       for (let i = 0; i < names.length; i += 12) await Promise.all(names.slice(i, i + 12).map(async (name) => {
         const mv = moveInfo(name); await window.__fx.strike(mv, A, T, el, true); window.__fx.impact(T, mv.type, true)
       }))
       const counts = {}; for (const R of Object.values(recipes)) counts[R] = (counts[R] ?? 0) + 1
-      return { recipes, counts, total: names.length }
+      return { recipes, counts, total: names.length, pieces }
     })
     for (const [name, R] of Object.entries(r.recipes)) assert.ok(typeof R === 'string' && R, `${name} has an effect`)
+    assert.ok(r.pieces >= 3, `Rock Throw's rocks are on screen mid-throw (${r.pieces})`)
     assert.ok(Object.keys(r.counts).length >= 25, `moves use many different effects (${Object.keys(r.counts).length})`)
     assert.ok(Math.max(...Object.values(r.counts)) < r.total * 0.25, `no one effect covers a quarter of the moves: ${JSON.stringify(r.counts)}`)
     assert.deepEqual(g.errors, [])
