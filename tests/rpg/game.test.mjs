@@ -307,6 +307,53 @@ test('Hoenn and Sinnoh: every Gen 3 and 4 Pokémon, their evolutions and their n
   } finally { await g.close() }
 })
 
+test('Hoenn and Sinnoh\'s League: 16 gyms at the level caps, two Elite Fours and Champions, their art and badges, summons and tickets for the region you\'re in', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(1200)
+    const r = await page.evaluate(async () => {
+      const img = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i.naturalWidth > 0); i.onerror = () => ok(false); i.src = src })
+      const v = window.__vvm, H = LEAGUES.hoenn.members, S = LEAGUES.sinnoh.members, all = [...HS_GYMS, ...H, ...S], bad = []
+      for (const L of all) {
+        for (const k of [L.vs, L.face, L.body]) if (!(await img(ART[k]))) bad.push(`${L.short} ${k}`)
+        for (const n of L.team) { const sp = speciesByName(n); if (!sp || !ART[sp.id] || !ART[sp.id + 'b'] || !ART['cry:' + sp.id]) bad.push(`${L.short}: ${n}`) }
+        if (!(L.sig?.length >= 3)) bad.push(`${L.short} sig`)
+        if (L.badge && !(await img(badgeArt(L.badge)))) bad.push(`${L.short} badge`)
+      }
+      // Where you are decides which gym a summon is for, and which League a ticket is.
+      v.setFame({ at: 1, team: [] }); v.setHsStarted(true)
+      const kj = { next: v.leagueKey(), gym: (v.setRegion('kj'), v.leagueNow()) }
+      v.setRegion('hs')
+      const at0 = { summon: summonItem(16).name, open: v.leagueNow(), cap: v.hsCap() }
+      for (let n = 16; n < 24; n++) v.hsBadges.push(n)
+      const at8 = { league: v.leagueNow(), key: v.leagueKey(), cap: v.hsCap(), ticket: ITEMS[v.leagueKey()].name }
+      v.hs.hoenn = true
+      const champ = { league: v.leagueNow(), cap: v.hsCap(), next: summonItem(24).name }
+      for (let n = 24; n < 32; n++) v.hsBadges.push(n)
+      const at16 = { league: v.leagueNow(), key: v.leagueKey(), cap: v.hsCap() }
+      v.hs.sinnoh = true
+      const done = { league: v.leagueNow(), cap: v.hsCap() }
+      v.setRegion('kj')
+      const back = { league: v.leagueNow(), badges: v.badges.length }
+      return { n: [HS_GYMS.length, H.length, S.length], bad, aces: HS_GYMS.map((L) => leaderLevels(L).at(-1)), champs: [H.at(-1).min, S.at(-1).min], roles: [H.at(-1).role, S.at(-1).role],
+        regions: [...new Set(HS_GYMS.map((L) => L.region))], numbers: HS_GYMS.map((L) => L.gym).join(), badges: HS_GYMS.map((L) => L.badge).join(), at0, at8, champ, at16, done, back, kj }
+    })
+    assert.deepEqual(r.n, [16, 5, 5]); assert.deepEqual(r.bad, [], 'every leader: art, team (with sprites and cries), signature moves and badge')
+    assert.deepEqual(r.aces, [15, 19, 24, 29, 33, 38, 43, 47, 58, 61, 64, 67, 70, 72, 74, 76], "each gym's ace at the cap its badge lifts (HS_GYM_CAP)")
+    assert.deepEqual(r.champs, [55, 80]); assert.deepEqual(r.roles, ['CHAMPION', 'CHAMPION'])
+    assert.deepEqual(r.regions, ['hoenn', 'sinnoh']); assert.equal(r.numbers, Array.from({ length: 16 }, (_, i) => 16 + i).join())
+    assert.equal(r.badges, 'STONE,KNUCKLE,DYNAMO,HEAT,BALANCE,FEATHER,MIND,RAIN,COAL,FOREST,COBBLE,FEN,RELIC,MINE,ICICLE,BEACON')
+    assert.deepEqual(r.at0, { summon: 'STONE SUMMON', open: null, cap: 15 })
+    assert.deepEqual(r.at8, { league: 'hoenn', key: 'summon:hoenn', cap: 55, ticket: 'HOENN LEAGUE TICKET' }, 'eight badges: the Hoenn League, and its Champion\'s level is the cap')
+    assert.deepEqual(r.champ, { league: null, cap: 58, next: 'COAL SUMMON' }, "Hoenn's Champion: Sinnoh's gyms, from Roark")
+    assert.deepEqual(r.at16, { league: 'sinnoh', key: 'summon:sinnoh', cap: 80 })
+    assert.deepEqual(r.done, { league: null, cap: 100 }, "Sinnoh's Champion: no cap but Lv 100")
+    assert.deepEqual(r.back, { league: null, badges: 0 }, "Kanto and Johto's own progress, untouched")
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', async () => {
   const g = await openGame()
   try {

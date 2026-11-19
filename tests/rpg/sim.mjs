@@ -53,19 +53,25 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
   }
 
   /* ── your party, arriving at a leader: species from the game's own pools, evolved by level, best moves equipped ── */
-  const pool = [...DATA.starters, ...DATA.wild].filter((s) => !EVO_HOW[s.name] || DATA.evos?.[s.name]?.length)
+  const usable = (s) => !EVO_HOW[s.name] || DATA.evos?.[s.name]?.length
+  const pool = [...DATA.starters, ...DATA.wild].filter(usable)
+  // In Hoenn and Sinnoh: a starter (any region's, as you pick there) and the region's own wild Pokémon.
+  const hsPool = [...DATA.starters, ...HS_WILD()].filter(usable)
   function grow(sp, level) {
     let m = individual(sp, level, R)
     for (let i = 0; i < 3; i++) { const e = evoDue(m); if (!e?.to || e.item) break; evolveInto(m, e.to) }
     learn(m)
     const attacks = m.learned.filter((n) => MOVEDEX[n] && !SUPPORT[n]), basic = attacks.find((n) => MOVEDEX[n].cost === 0) ?? attacks[0]
-    const best = attacks.filter((n) => n !== basic).sort((a, b) => (MOVEDEX[b].power ?? 60) * (MOVEDEX[b].hits ?? 1) - (MOVEDEX[a].power ?? 60) * (MOVEDEX[a].hits ?? 1)).slice(0, 3)
-    m.sim = [basic, ...best].filter(Boolean).map((n) => ({ name: n, ...MOVEDEX[n] }))
+    const pw = (n) => (MOVEDEX[n].recoil || MOVEDEX[n].selfDrop || MOVEDEX[n].spout ? 90 : MOVEDEX[n].power ?? 60) * (MOVEDEX[n].hits ?? 1)
+    const best = attacks.filter((n) => n !== basic).sort((a, b) => pw(b) - pw(a)).slice(0, 3)
+    // A move that pays for its power with a drawback the sim leaves out (recoil, its user's stats falling, Eruption's
+    // and Water Spout's power falling with HP) counts as a plain 3-PP move, 90.
+    m.sim = [basic, ...best].filter(Boolean).map((n) => ({ name: n, ...MOVEDEX[n], ...(MOVEDEX[n].recoil || MOVEDEX[n].selfDrop || MOVEDEX[n].spout ? { power: 90 } : {}) }))
     m.hp = m.stats.hp
     return m
   }
-  function partyFor(size, best) {
-    return Array.from({ length: size }, (_, i) => grow(pool[Math.floor(R() * pool.length)], Math.max(2, best - (i ? 1 + Math.floor(R() * 4) : 0))))
+  function partyFor(size, best, from = pool) {
+    return Array.from({ length: size }, (_, i) => grow(from[Math.floor(R() * from.length)], Math.max(2, best - (i ? 1 + Math.floor(R() * 4) : 0))))
   }
 
   /* ── one battle ── */
@@ -161,6 +167,11 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
     ...ELITE.map((L) => ({ name: L.short, group: 'Johto League', T: L, team: leaderTeam(L), last: L.role === 'CHAMPION' })),
     ...GYMS.slice(8).map((L) => ({ name: L.short, group: 'Kanto gyms', T: L, team: leaderTeam(L) })),
     ...KANTO_ELITE.map((L) => ({ name: L.short, group: 'Kanto League', T: L, team: leaderTeam(L), last: !!L.red })),
+    // Hoenn and Sinnoh: you arrive at the level cap's gap below each ace, with the region's Pokémon.
+    ...HS_GYMS.slice(0, 8).map((L) => ({ name: L.short, group: 'Hoenn gyms', T: L, team: leaderTeam(L), hs: true })),
+    ...LEAGUES.hoenn.members.map((L) => ({ name: L.short, group: 'Hoenn League', T: L, team: leaderTeam(L), last: L.role === 'CHAMPION', hs: true })),
+    ...HS_GYMS.slice(8).map((L) => ({ name: L.short, group: 'Sinnoh gyms', T: L, team: leaderTeam(L), hs: true })),
+    ...LEAGUES.sinnoh.members.map((L) => ({ name: L.short, group: 'Sinnoh League', T: L, team: leaderTeam(L), last: L.role === 'CHAMPION', hs: true })),
     ...RIVAL_BATTLES.map((B, n) => { const T = rivalTrainer(n); return { name: `ALEX ${n + 1}`, group: 'Alex', T, team: leaderTeam(T, T.ivs, speciesByName), last: n === 6, story: true } }),
     ...Object.keys(STORY).flatMap((who) => STORY[who].battles.map((B, n) => { const T = storyTrainer(who, n); return { name: `${who} ${n + 1}`, group: 'Herb and Paul', T, team: leaderTeam(T, T.ivs, speciesByName), story: true } })),
   ]
@@ -169,7 +180,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS }) {
     const out = { name: c.name, group: c.group, arrive: lv, ace: c.T.min, aim: AIMS[c.name] ?? (c.last ? 0.35 : 0.65) }
     for (const [k, skill] of Object.entries(SKILLS)) {
       let w = 0
-      for (let b = 0; b < N; b++) w += battle(skill, c.T, c.team, partyFor(size, lv)) ? 1 : 0
+      for (let b = 0; b < N; b++) w += battle(skill, c.T, c.team, partyFor(size, lv, c.hs ? hsPool : pool)) ? 1 : 0
       out[k] = w / N
     }
     rows.push(out)
