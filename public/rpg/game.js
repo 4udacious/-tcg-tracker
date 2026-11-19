@@ -4180,6 +4180,28 @@ Object.assign(SOLO_DOUBLE, {
   MIKA: [['Two at once! A matching set!', 'Collectors always buy two.'], ['One to battle,', 'and one to keep mint in the box.']],
 })
 /* What each says teaming up with someone in a 2v2 (Herb and Paul have their own double act: TAG_BANTER). */
+/*
+ * The same trainers in Hoenn and Sinnoh, with new teams: Hoenn and Sinnoh
+ * Pokémon in the spirit of their old ones (Rose's cute ones, Derek's
+ * electric ones, Kyle's dark and poison ones...). The late-game list's form:
+ * [name, from trainer level, retired after]. Their levels follow the same
+ * band (levelBand), under the region's cap.
+ */
+const HS_POOLS = Object.fromEntries(Object.entries({
+  HERB: [['SABLEYE', 1], ['MAWILE', 1], ['DUSKULL', 6, 36], ['ARON', 8, 32], ['LAIRON', 32, 42], ['DUSCLOPS', 37], ['AGGRON', 42], ['DUSKNOIR', 48]],
+  PAUL: [['HIPPOPOTAS', 1, 34], ['ZIGZAGOON', 1, 20], ['TRAPINCH', 6, 35], ['WAILMER', 12, 40], ['LINOONE', 20], ['HIPPOWDON', 34], ['VIBRAVA', 35, 45], ['WAILORD', 40], ['FLYGON', 45]],
+  BRIAN: [['WURMPLE', 1, 14], ['BIDOOF', 1, 26], ['KRICKETOT', 1, 20], ['MAGIKARP', 1, 30], ['KRICKETUNE', 20], ['BIBAREL', 22], ['LINOONE', 24], ['GYARADOS', 32]],
+  ROSE: [['AZURILL', 1, 20], ['SKITTY', 1, 26], ['BUNEARY', 6, 30], ['MARILL', 12, 34], ['DELCATTY', 22], ['LOPUNNY', 28], ['AZUMARILL', 34], ['MILOTIC', 44]],
+  DEREK: [['ELECTRIKE', 1, 26], ['MINUN', 1, 30], ['MAGNEMITE', 4, 28], ['BRONZOR', 10, 36], ['MANECTRIC', 26], ['MAGNETON', 28, 46], ['BRONZONG', 36], ['MAGNEZONE', 46]],
+  NATE: [['SLAKOTH', 1, 24], ['WHISMUR', 1, 24], ['SPOINK', 6, 32], ['VIGOROTH', 18, 44], ['LOUDRED', 20, 40], ['GRUMPIG', 32], ['EXPLOUD', 40], ['SLAKING', 46]],
+  HANA: [['PLUSLE', 1], ['MINUN', 1], ['PACHIRISU', 4], ['SWABLU', 8, 36], ['CHINGLING', 1, 24], ['CHIMECHO', 24], ['ALTARIA', 35], ['TOGEKISS', 46]],
+  TYLER: [['PACHIRISU', 1], ['CHATOT', 1], ['SHINX', 4, 26], ['LUXIO', 16, 34], ['ROTOM', 20], ['LUXRAY', 34], ['ELECTIVIRE', 46]],
+  DANA: [['SEEDOT', 1, 22], ['LOTAD', 1, 22], ['CHERUBI', 4, 30], ['NUZLEAF', 14, 36], ['LOMBRE', 14, 36], ['TROPIUS', 20], ['CHERRIM', 25], ['SHIFTRY', 36], ['LUDICOLO', 36], ['ABOMASNOW', 46]],
+  MARCUS: [['MAKUHITA', 1, 28], ['MEDITITE', 1, 32], ['NUMEL', 4, 30], ['HARIYAMA', 24], ['TORKOAL', 28], ['CAMERUPT', 33], ['MEDICHAM', 37]],
+  GRANT: [['RALTS', 1, 22], ['SPOINK', 1, 28], ['BALTOY', 6, 34], ['KIRLIA', 20, 40], ['GRUMPIG', 32], ['CLAYDOL', 36], ['BRONZONG', 38], ['GARDEVOIR', 40]],
+  KYLE: [['POOCHYENA', 1, 24], ['STUNKY', 1, 30], ['CARVANHA', 8, 30], ['SKORUPI', 6, 36], ['MIGHTYENA', 18], ['SHARPEDO', 30], ['SKUNTANK', 34], ['DRAPION', 40]],
+  MIKA: [['SPINDA', 1], ['KECLEON', 1], ['CASTFORM', 6], ['SHUPPET', 8, 36], ['SPIRITOMB', 30], ['BANETTE', 37]],
+}).map(([who, list]) => [who, list.map(([name, min, max]) => ({ name, min, ...(max ? { max } : {}) }))]))
 const TEAM_UP = {
   HERB: ["Fine, we team up. But I get first pick, chief.", "New partner? Cool. Don't slow me down."],
   PAUL: ['Tag team! I brought backups.', 'We split it evenly. Mostly. I get the boxes.'],
@@ -4278,6 +4300,10 @@ const ALEX = {
   again: ['Ready for round two?', "Same plan: you take yours, I'll take Porygon."],
   won: ["That's how it's done! You're a natural.", "They'll be back. They always are. Now you know how to send them packing."],
   lost: ['Ah, they got us this time.', "Heal up and we'll go again. I'm not going anywhere."],
+  // Your first trip to Hoenn and Sinnoh.
+  hoenn: ["Hoenn! And Sinnoh's just past it. I wondered when you'd turn up.", 'Heads up: levels start over here. A Pokémon above the level cap sits out until you earn badges.',
+    "So you'll want a new partner. Pick one!"],
+  hoennPicked: (name) => [`${name}! Good pick.`, "Your old team's still with you. Every badge here raises the cap, and they'll be back in it before you know it."],
 }
 /*
  * ══════════ Alex, the rival ══════════
@@ -5118,6 +5144,25 @@ function art(L) {
 }
 
 const LEVEL_CAP = 100
+/*
+ * Hoenn and Sinnoh: the second region, a soft reset. It opens once Alex is
+ * beaten for the last time (the Hall of Fame), and you travel between the two
+ * from under the machine (Travel): the same machines and packs, but each
+ * region has its own wild Pokémon, trainers' teams, badges and League.
+ * Levels start over there. Your Pokémon come with you, but one above the
+ * region's level cap sits out (it can't battle, and nothing gains EXP past the
+ * cap) until badges raise it: the cap is always the next challenge's ace.
+ *   HS_GYM_CAP      the cap with 0-7 Hoenn badges, then 8-15 with Sinnoh's too
+ *   HS_LEAGUE_CAP   with all eight of a region's badges, until its Champion falls
+ * After Sinnoh's Champion there's no cap but Lv 100.
+ */
+const HS_GYM_CAP = [15, 19, 24, 29, 33, 38, 43, 47, 58, 61, 64, 67, 70, 72, 74, 76]
+const HS_LEAGUE_CAP = { hoenn: 55, sinnoh: 80 }
+/** The Hoenn and Sinnoh gym leaders (the League part fills them in); the region stays closed until they're here. */
+const HS_GYMS = []
+const REGION_NAME = { kj: 'KANTO & JOHTO', hs: 'HOENN & SINNOH' }
+/** Hoenn and Sinnoh's wild species (fresh copies of the list, for drawing a pool from). */
+const HS_WILD = () => HOENN_SINNOH_WILD.map((n) => speciesByName(n))
 
 /**
  * Whether a leader who switches (`switches`: Lance, Red, Alex's last battle)
@@ -5354,6 +5399,30 @@ async function run(id) {
   let shareOn = true   // the EXP. SHARE's switch, in the Bag
   let fame = null   // the Hall of Fame, after Alex's last battle: { at, team: [{ id, name, level }] }
   let emblemSent = false   // app: the Champion's Emblem (v87) has been claimed for the Hall of Fame team
+  // Hoenn and Sinnoh (see HS_GYM_CAP): where you are, whether you've picked your partner there, and the region's own progress.
+  let region = 'kj', hsStarted = false
+  const hsBadges = []   // Hoenn's gyms (0-7) then Sinnoh's (8-15) beaten, in order: HS_GYMS indices
+  const hs = { hoenn: false, sinnoh: false, hoennStep: 0, sinnohStep: 0 }   // each League's Champion beaten, and who's next on its ladder
+  const inHS = () => region === 'hs'
+  /** Hoenn and Sinnoh are open to you: Alex beaten for the last time (and the region's gyms are in the game). */
+  const hsUnlocked = () => !!fame && (HS_GYMS.length > 0 || !!window.__hsOpen)   // __hsOpen: testing only
+  /** The level cap in Hoenn and Sinnoh: the next challenge's ace. */
+  function hsCap() {
+    const n = hsBadges.length
+    if (n < 8) return HS_GYM_CAP[n]
+    if (!hs.hoenn) return HS_LEAGUE_CAP.hoenn
+    if (n < 16) return HS_GYM_CAP[n]
+    if (!hs.sinnoh) return HS_LEAGUE_CAP.sinnoh
+    return LEVEL_CAP
+  }
+  /** The highest level that battles (and gains EXP) where you are. */
+  const levelCap = () => (inHS() ? hsCap() : LEVEL_CAP)
+  /** Above the cap where you are: it sits out until badges raise it. */
+  const overCap = (m) => !!m && m.level > levelCap()
+  /** Can fight here: not fainted, and not above the cap. */
+  const fit = (m) => !!m && m.hp > 0 && !overCap(m)
+  /** Why nobody can fight: `fainted` (your usual line), unless it's that the healthy ones are all over the cap here. */
+  const noFighter = (fainted) => (party.some((m) => m.hp > 0) ? `your Pokémon are over the Lv ${levelCap()} cap here · swap one in from the Box` : fainted)
   /** The League whose ticket you can use now: Johto's ('elite') with all 8 Johto badges, Kanto's ('kanto') as Champion with all 16; or null. */
   const leagueNow = () => (!champion ? (badges.length >= 8 ? 'elite' : null) : badges.length >= GYMS.length && !redBeaten ? 'kanto' : null)
   /** Where you are on a League's ladder. */
@@ -5858,7 +5927,7 @@ async function run(id) {
   function itemInfo(bk) {   // a Bag item: what it does, and who it's for
     const it = ITEMS[bk]; if (!it) return ''
     if (it.evo || it.held) { const n = party.filter((m) => evoByItem(m, bk, bag).rule).length; return `<p>${esc(it.sub)}.</p><p>${n ? `${n === 1 ? '1 of your party' : `${n} of your party`} can evolve with it now.` : 'Nobody in your party can use it right now.'}</p>` }
-    if (it.candy) return `<p>${esc(it.sub)}: up to Lv ${LEVEL_CAP}.</p>`
+    if (it.candy) return `<p>${esc(it.sub)}: up to Lv ${levelCap()}${inHS() && levelCap() < LEVEL_CAP ? ', the cap here' : ''}.</p>`
     if (isBall(bk)) return `<p>A ball for wild Pokémon: ${esc(it.sub)}. A better throw, a lower HP and a status all help.</p>`
     return `<p>${esc(it.sub)}${it.cure ? '' : '. Use it from the Bag, in battle or out'}.</p>`
   }
@@ -6121,10 +6190,12 @@ async function run(id) {
     const free = freeHealsLeft(), canPay = wallet + 1e-9 >= healPrice, price = `${healPrice.toFixed(2)} tk`
     const healSub = !hurt ? `Everyone is at full HP${free ? ` · ${free} free heal${free === 1 ? '' : 's'} left today` : ''}`
       : free ? `Heal the whole party, free — ${free} left today` : canPay ? `Heal the whole party for ${price} · today's ${FREE_HEALS} free heals are used` : `${price} a heal after ${FREE_HEALS} free a day · not enough tokens. Potions still work.`
-    return caseRow + `<button class="heal" data-heal ${hurt && (free || canPay) ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${healSub}</small></span></button>` +
-      party.map((m, i) => `<div class="prow${m.hp <= 0 ? ' fainted' : ''}">
+    // In Hoenn and Sinnoh: the level cap, and how it rises.
+    const capRow = inHS() ? `<p class="note capnote"><b>LEVEL CAP · Lv ${hsCap()}</b> in Hoenn &amp; Sinnoh. Pokémon above it sit out; each badge raises it.</p>` : ''
+    return caseRow + capRow + `<button class="heal" data-heal ${hurt && (free || canPay) ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${healSub}</small></span></button>` +
+      party.map((m, i) => `<div class="prow${m.hp <= 0 || overCap(m) ? ' fainted' : ''}">
         <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${spr(m)}" alt=""><span class="mid">
-          <span class="nm"><b>${i + 1}. ${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}</span></span>
+          <span class="nm"><b>${i + 1}. ${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}${overCap(m) ? ' · over the cap' : ''}</span></span>
           ${hpBar(m)}<span class="sub">${m.nature[0]} · IV ${ivTotal(m)}/186 · tap for stats</span></span></button>
         <span class="ord">
           <button data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${m.name} up">▲</button>
@@ -6205,8 +6276,8 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.held ? it.sub : n ? `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} can evolve with it · tap to use` : `${it.sub} · nobody in your party can use it`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       if (it.cure) { const n = party.filter((m) => m.status && it.cure.includes(m.status)).length
         return `<button class="irow" data-item="${k}"${n && bag[k] ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.sub} · ${n ? `${n === 1 ? '1 Pokémon needs' : `${n} Pokémon need`} it · tap to use` : 'nobody needs it right now'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
-      if (it.candy) { const n = party.filter((m) => m.level < LEVEL_CAP).length
-        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${n ? `${it.sub} · tap to use` : 'your whole party is at Lv 100'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
+      if (it.candy) { const n = party.filter((m) => m.level < levelCap()).length
+        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${n ? `${it.sub} · tap to use` : `your whole party is at Lv ${levelCap()}`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
     }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders and, now and then, the VVM. Beaten trainers sometimes leave a booster pack: it goes to your collection.</p>`
@@ -6263,8 +6334,8 @@ async function run(id) {
   }
   function bagTarget(k) {
     if (ITEMS[k].candy) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — give it to which Pokémon?</p>` +
-      party.map((m, i) => { const max = m.level >= LEVEL_CAP
-        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? 'already Lv 100' : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
+      party.map((m, i) => { const max = m.level >= levelCap()
+        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? (inHS() && m.level < LEVEL_CAP ? `at the Lv ${levelCap()} cap here` : 'already Lv 100') : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
     if (ITEMS[k].evo) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use it on which Pokémon?</p>` +
       party.map((m, i) => { const r = evoByItem(m, k, bag)
         return `<button class="prow tgt${r.rule ? '' : ' cant'}" data-target="${i}" ${r.rule ? '' : 'disabled'}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${r.rule ? `evolves into ${r.rule.to}` : r.why}</span></span>${hpBar(m)}</span></button>` }).join('')
@@ -6325,7 +6396,7 @@ async function run(id) {
    */
   function boxBody(pick = null) {
     const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${spr(m)}" alt=""><span class="mid">
-        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · IV ${ivTotal(m)}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
+        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · IV ${ivTotal(m)}${m.hp <= 0 ? ' · fainted' : ''}${overCap(m) ? ' · over the cap' : ''}</span></span>
         <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>${side}</div>`
     const inParty = party.map((m, i) => row(m, i, pick != null
       ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
@@ -6469,7 +6540,7 @@ async function run(id) {
       // Summon: spend it, close the sheet, and the leader turns up.
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
       // A rematch ticket: spent, and they turn up once the sheet closes.
-      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some((m) => m.hp > 0)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
+      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some(fit)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
       if (a.target != null && ITEMS[view.item].disc) {
         // A Move Disc: learned now, equipped if there's room, otherwise straight to the move editor.
         const m = party[a.target], n = ITEMS[view.item].disc, r = teach(m, n, true)
@@ -6480,7 +6551,7 @@ async function run(id) {
       } else if (a.target != null && ITEMS[view.item].candy) {
         // A Rare Candy: one level, as if from EXP. New moves are learned here; an evolution it brings plays once the sheet closes.
         const m = party[a.target]
-        if (m.level >= LEVEL_CAP) { toast = `${m.name} is already Lv 100.`; toastBad = true; draw(); return }
+        if (m.level >= levelCap()) { toast = m.level >= LEVEL_CAP ? `${m.name} is already Lv 100.` : `${m.name} is at the Lv ${levelCap()} cap here.`; toastBad = true; draw(); return }
         bag[view.item]--; const hpBefore = m.stats.hp
         m.level++; m.exp = 0; m.stats = statsAt(m, m.level); if (m.hp > 0) m.hp = Math.min(m.stats.hp, m.hp + (m.stats.hp - hpBefore))
         sfx('levelup'); renderTools()
@@ -6938,7 +7009,7 @@ async function run(id) {
    * Your trainer level. The full app would track it on its own; here your
    * best Pokémon's level stands in for it.
    */
-  const trainerLevel = () => Math.max(1, ...party.map((m) => m.level))
+  const trainerLevel = () => Math.max(1, ...party.filter((m) => !overCap(m)).map((m) => m.level))
   /**
    * A scalper's Pokémon for one battle, drawn from their pool: only ones they
    * can have at your trainer level, at about your level. How many they carry
@@ -6962,7 +7033,7 @@ async function run(id) {
    * doesn't pay as well, since their Pokémon stop growing and EXP follows
    * the foe's level.
    */
-  const leadLevel = () => (party.find((m) => m.hp > 0) ?? party[0])?.level ?? 5
+  const leadLevel = () => (party.find(fit) ?? party.find((m) => !overCap(m)) ?? party[0])?.level ?? 5
   // Balanced from Lv 10 (tests/rpg/sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
   const levelBand = (T, lv = leadLevel()) => (T === HERB || T === PAUL ? (lv < 10 ? [-1, 1] : [0, 2]) : (lv < 10 ? [-3, -2] : [-1, 0]))
   /**
@@ -6971,6 +7042,7 @@ async function run(id) {
    * upcoming gym (Falkner: Lv 10). No cap once there's no challenge left.
    */
   function trainerCap() {
+    if (inHS()) return hsCap() >= LEVEL_CAP ? LEVEL_CAP : Math.max(2, hsCap() - 3)
     const n = nextChallenge(badges, champion)
     const L = n === 'elite' ? ELITE[eliteStep] : n != null ? GYMS[n] : leagueNow() === 'kanto' ? KANTO_ELITE[kantoStep] : null
     return L ? L.min - L.gap : LEVEL_CAP
@@ -6987,7 +7059,8 @@ async function run(id) {
   function deckFor(T, lv, force, poolIx) {
     const tl = trainerLevel()
     // One of their pools: the main one or an alternate (POOL_ALTS), at random; the Watch demos keep the main one.
-    const pools = [POOLS[T.short], ...(POOL_ALTS[T.short] ?? [])], ix = force ? 0 : poolIx ?? (demo ? 0 : Math.floor(rand() * pools.length))
+    // In Hoenn and Sinnoh, their teams there (HS_POOLS).
+    const pools = inHS() && HS_POOLS[T.short] ? [HS_POOLS[T.short]] : [POOLS[T.short], ...(POOL_ALTS[T.short] ?? [])], ix = force ? 0 : poolIx ?? (demo ? 0 : Math.floor(rand() * pools.length))
     const names = force ?? (() => {
       // Two or three, then three from trainer level 30, then three or four from 45 (the late-game teams above).
       const size = tl >= 45 ? (rand() < 0.5 ? 3 : 4) : tl >= 30 ? 3 : rand() < 0.5 ? 2 : 3
@@ -7128,7 +7201,7 @@ async function run(id) {
    */
   async function shareExp(amount, fought) {
     if (!bag.expshare || !shareOn) return
-    const rest = party.filter((m) => m.hp > 0 && !fought.includes(m)); if (!rest.length) return
+    const rest = party.filter((m) => fit(m) && !fought.includes(m)); if (!rest.length) return
     const half = Math.max(1, Math.round(amount / 2))
     await say(`The rest of your party got ${half} EXP.`, 'thanks to the EXP. SHARE.', 300)
     for (const m of rest) { addBond(m, 4); await offFieldExp(m, half) }
@@ -7138,7 +7211,7 @@ async function run(id) {
   async function offFieldExp(m, amount) {
     m.exp ??= 0
     let left = amount
-    while (left > 0 && m.level < LEVEL_CAP) {
+    while (left > 0 && m.level < levelCap()) {
       const need = expToNext(m.level), take = Math.min(left, need - m.exp)
       m.exp += take; left -= take
       if (m.exp < need) break
@@ -7168,11 +7241,11 @@ async function run(id) {
   async function gainExp(m, amount, bar, onLevel) {
     m.exp ??= 0
     addBond(m, 10)   // fought in it
-    // Lv 100 is as far as it goes (LEVEL_CAP): no EXP past it, as off the field (offFieldExp) and with a Rare Candy.
-    if (m.level >= LEVEL_CAP) { m.exp = 0; renderTools(); return }
+    // Lv 100 is as far as it goes (LEVEL_CAP), or the region's cap in Hoenn and Sinnoh: no EXP past it, as off the field (offFieldExp) and with a Rare Candy.
+    if (m.level >= levelCap()) { m.exp = 0; renderTools(); return }
     await say(`${m.name} gained`, `${amount} EXP. Points!`, 180)
     let left = amount
-    while (left > 0 && m.level < LEVEL_CAP) {
+    while (left > 0 && m.level < levelCap()) {
       const need = expToNext(m.level), take = Math.min(left, need - m.exp)
       const a = m.exp / need * 100; m.exp += take; left -= take
       const b = m.exp / need * 100
@@ -7222,7 +7295,7 @@ async function run(id) {
    */
   async function duoBattle(o) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
-    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id)))
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter(fit).slice(0, 2).map((m) => m.id)))
     MOVE_LOG.reset(); let res = null
     try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result); Sound.musicReport() }
   }
@@ -7308,7 +7381,7 @@ async function run(id) {
     }
     const allyOf = (s) => sides[s.side].slots.find((x) => x && x !== s && x.mon.hp > 0)
     const other = (side) => (side === 'p' ? 'e' : 'p')
-    const bench = () => party.filter((m) => m.hp > 0 && !sides.p.slots.some((s) => s?.mon === m))
+    const bench = () => party.filter((m) => fit(m) && !sides.p.slots.some((s) => s?.mon === m))
 
     /* ── openers ── */
     $('msg').style.display = 'block'
@@ -7316,7 +7389,7 @@ async function run(id) {
     for (let i = 0; i < foes.length; i++) { await say(...sentOut(foes[i].owner, foes[i].mon), 60); await enter('e', i, foes[i].mon, foes[i].owner) }
     if (foes.length === 1) await say(`${foes[0].owner.short} only has`, 'one Pokémon ready. 2 on 1!', 300)
     // Yours fill the slots a partner isn't using.
-    const firstTwo = party.filter((m) => m.hp > 0).slice(0, 2 - allies.length)
+    const firstTwo = party.filter(fit).slice(0, 2 - allies.length)
     await say(`Go! ${firstTwo.map((m) => m.name).join(' and ')}!`, '', 80)
     for (let i = 0; i < firstTwo.length; i++) await enter('p', i, firstTwo[i])
     for (const [j, a] of allies.entries()) { await say(...sentOut(a.owner, a.mon), 80); await enter('p', firstTwo.length + j, a.mon, a.owner) }
@@ -8165,8 +8238,8 @@ async function run(id) {
   const trainerTheme = () => (demo || Math.random() < 0.5 ? 'battle' : 'battleB')
   async function duoEncounter(demoPlan, variant = 'tag', state = 'in') {
     toolsEnabled(false)
-    if (!party.some((m) => m.hp > 0)) { $('homeSub').textContent = 'heal your party first'; toolsEnabled(true); return }
-    const lead = party.filter((m) => m.hp > 0).slice(0, 2)
+    if (!party.some(fit)) { $('homeSub').textContent = noFighter('heal your party first'); toolsEnabled(true); return }
+    const lead = party.filter(fit).slice(0, 2)
     const lv = Math.round(lead.reduce((n, m) => n + m.level, 0) / lead.length)   // your first two, on average: deckFor() sets the band around it
     // A tag team is any two trainers; the demo's is Herb and Paul. Solo: one trainer with two out.
     const crew = demoPlan ? (variant === 'tag' ? [HERB, PAUL] : [pickOf(SCALPERS)]) : randomTrainers(variant === 'tag' ? 2 : 1)
@@ -8273,10 +8346,56 @@ async function run(id) {
     b.hidden = !show
     if (show) { const c = dailyChallenge(); b.innerHTML = `<b>DAILY CHALLENGE</b> · ${c.label} · <span>a pack and ${DAILY_TOKENS} tk</span>` }
   }
-  if (!demo) setInterval(() => { if (live()) paintDaily() }, 1000)
+  if (!demo) setInterval(() => { if (live()) { paintDaily(); paintTravel() } }, 1000)
+  /* ══════════ travel: Kanto & Johto ⇄ Hoenn & Sinnoh ══════════
+     Once Hoenn and Sinnoh are open (hsUnlocked), a bar under the machine takes
+     you from one region to the other. The machine, its packs and your tokens
+     stay the same; the wild pool, the trainers' teams, the badges and the level
+     cap are the region's. Hoenn and Sinnoh's machine is sapphire blue
+     (body.hs), Kanto and Johto's the usual red. The first trip there, Alex
+     has you pick a new partner (hsArrival). */
+  const travelOpen = () => MODE === 'play' && tutorialDone && hsUnlocked()
+  /** The machine and the wild pool in the colours and name of the region you're in. */
+  function paintRegion() {
+    document.body.classList.toggle('hs', inHS())
+    const h = $('poolPanel')?.querySelector('.phead b'); if (h) h.textContent = inHS() ? 'WILD POOL · HOENN & SINNOH' : 'WILD POOL'
+  }
+  function paintTravel() {
+    const b = $('travelBar'); if (!b) return
+    const show = travelOpen() && !busy && homeState === 'idle' && $('battleL').style.display !== 'block' && !$('sheet').classList.contains('open')
+    b.hidden = !show
+    if (show) b.innerHTML = inHS() ? '<b>TRAVEL</b> · back to Kanto &amp; Johto' : `<b>TRAVEL</b> · to Hoenn &amp; Sinnoh${hsStarted ? '' : ' · <span>NEW</span>'}`
+  }
+  async function travel() {
+    if (!travelOpen()) return
+    toolsEnabled(false); $('travelBar').hidden = true
+    const to = inHS() ? 'kj' : 'hs'
+    sfx('select')
+    await fadeThrough(async () => { region = to; paintRegion(); renderHome('idle') })
+    renderPool(true)
+    feed(`<b>You</b> travelled to ${to === 'hs' ? 'Hoenn and Sinnoh' : 'Kanto and Johto'}.`)
+    if (to === 'hs' && !hsStarted) await hsArrival()
+    else homePop(to === 'hs' ? `<b>Hoenn &amp; Sinnoh.</b> Level cap: Lv ${hsCap()}.` : '<b>Kanto &amp; Johto.</b> No level cap here.')
+    renderTools(); toolsEnabled(true); saveGame()
+  }
+  /** Your first trip to Hoenn and Sinnoh: Alex explains, and you pick a new partner (Hoenn's three first), who leads your party here. */
+  async function hsArrival() {
+    Sound.music('vs')
+    await wipeTrainer(async () => { setScene(SCALPER_SCENES, sceneRoll); showLayer('battle') })
+    await trainerOn(ALEX); await talk(ALEX, ALEX.hoenn); await trainerOff()
+    const me = await pickStarter(2)
+    party.unshift(me); if (party.length > 6) toBox(party.pop())
+    renderTools()
+    await summary(me, `A fresh start: Lv ${me.level}, under the Lv ${hsCap()} cap here.`, `${me.name} joined your party!`, 'It leads your party in Hoenn and Sinnoh.')
+    await trainerOn(ALEX); await talk(ALEX, ALEX.hoennPicked(me.name)); await trainerOff()
+    hsStarted = true
+    feed(`<b>You</b> picked ${me.name} for Hoenn and Sinnoh.`)
+    Sound.stopMusic(); await backToMachine('idle')
+  }
+  $('travelBar') && ($('travelBar').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !live()) return; guard(travel)() })
   async function dailyEncounter(state = 'in') {
     const c = dailyChallenge()
-    if (!dailyOpen() || !party.some((m) => m.hp > 0)) { if (!party.some((m) => m.hp > 0)) $('homeSub').textContent = 'heal your party to take on the daily challenge'; return }
+    if (!dailyOpen() || !party.some(fit)) { if (!party.some(fit)) $('homeSub').textContent = noFighter('heal your party to take on the daily challenge'); return }
     const T = { ...c.who, title: 'DAILY CHALLENGE', smart: true, blunder: 0, easy: false }
     toolsEnabled(false); $('dailyBar').hidden = true
     Sound.music('vs')
@@ -8722,7 +8841,13 @@ async function run(id) {
    * rare one is in about 1 machine's pool in 7. The demo keeps its old
    * even draw, so it plays out the same.
    */
-  function poolFor(code, week = thisWeek()) {
+  function poolFor(code, week = thisWeek(), where = region) {
+    // Each region draws its own: Kanto and Johto's from DATA.wild, Hoenn and Sinnoh's from theirs (HOENN_SINNOH_WILD).
+    if (where === 'hs' && !demo) {
+      const r = rng(hashStr(`${code}:hs:${week}`)), left = HS_WILD(), out = []
+      while (out.length < POOL_SIZE && left.length) out.push(left.splice(left.indexOf(weightedPick(left, rarityWeight, r)), 1)[0].name)
+      return out
+    }
     const r = rng(hashStr(`${code}:${week}`))
     if (demo) {
       const names = DATA.wild.map((w) => w.name)
@@ -8762,7 +8887,7 @@ async function run(id) {
   }
   /** A wild Pokémon from that trainer's pool: by rarity again, so a rare one in the pool is still a rare find. */
   const wildFrom = (who, roll = Math.random) => {
-    const pool = poolFor(seedOf(who).m.code).map((n) => DATA.wild.find((w) => w.name === n))
+    const pool = poolFor(seedOf(who).m.code).map(speciesByName)
     return demo ? pool[Math.floor(roll() * pool.length)] : weightedPick(pool, rarityWeight, roll)
   }
   let poolWeek = null   // the week the panel shows: when it turns (the game left open, or a phone bringing back a tab from last week), it's redrawn
@@ -8773,7 +8898,7 @@ async function run(id) {
     const { m, why } = seedOf(YOU), ms = nextRotation(), dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24
     $('poolWhere').innerHTML = `<b>${esc(m.code)}</b> · ${esc(m.venue)}${m.city ? `, ${esc(m.city)}` : ''}<small>${why === 'report' ? 'from your latest timer report' : `random machine this week (no timer reports yet) · report a timer${realSeed ? ' on the Timers tab' : ''} to choose`}</small>`
     $('poolWhen').textContent = demo ? 'changes every Monday' : weekShift ? `week +${weekShift}` : `changes in ${dd}d ${hh}h`
-    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt=""><b class="nm">${n.replace(/[♀♂]/, (g) => `<i class="sx ${g === '♀' ? 'f' : 'm'}">${g}</i>`)}</b>${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
+    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = speciesByName(n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt=""><b class="nm">${n.replace(/[♀♂]/, (g) => `<i class="sx ${g === '♀' ? 'f' : 'm'}">${g}</i>`)}</b>${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
     if (flash) anim($('poolPanel'), [{ boxShadow: '0 0 0 3px #facc15' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 900 })
   }
 
@@ -8867,10 +8992,10 @@ async function run(id) {
     // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
     // A rival battle that's due takes this tap: Alex is waiting at the machine (with trainer battles on, and a Pokémon that can fight).
-    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some((m) => m.hp > 0))) { enc = 'rival'; pity = false }
+    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some(fit))) { enc = 'rival'; pity = false }
     // If not, a glitcher battle that's due: Herb or Paul caught at the machine.
     let glitcher = force.enc === 'story' ? force.who ?? storyDue() : null
-    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some((m) => m.hp > 0)) glitcher = storyDue()
+    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some(fit)) glitcher = storyDue()
     if (glitcher) { enc = 'story'; pity = false }
     // Either way, the other story characters keep their distance for a while.
     if (!demo && (enc === 'rival' || glitcher)) storyGap = { taps: STORY_GAP + Math.floor(flavor() * 5), who: enc === 'rival' ? 'ALEX' : glitcher }
@@ -9396,12 +9521,12 @@ async function run(id) {
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     CRUMBS.phase('battle set up')
-    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter(fit).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
     try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
   }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
-    let me = party.find((m) => m.hp > 0)
+    let me = party.find(fit)
     const foeTeam = kind === 'trainer' ? [foe, ...roster] : null   // a wild Pokémon has no team to show
     watchBalls($('eBalls'), $('pBalls'), () => ({ enemy: foeTeam, enemyOut: [foe], mine: party, mineOut: [me] }), () => getComputedStyle($('battleL')).display !== 'none')
     // Stat stages for this battle (Howl, Growth). Switching out clears them, as in the games.
@@ -9593,9 +9718,9 @@ async function run(id) {
           sfx('shadow'); showTags(); await say('All Pokémon that heard the song', 'will faint in three turns!', 450); return true
         }
         case 'baton': {
-          const others = party.filter((m) => m.hp > 0 && m !== me); if (!others.length) return false
+          const others = party.filter((m) => fit(m) && m !== me); if (!others.length) return false
           let next = others[0]
-          if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Pass to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); if (p !== 'back' && party[+p.slice(1)]?.hp > 0 && party[+p.slice(1)] !== me) next = party[+p.slice(1)] }
+          if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Pass to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); if (p !== 'back' && fit(party[+p.slice(1)]) && party[+p.slice(1)] !== me) next = party[+p.slice(1)] }
           const keep = Object.fromEntries(['atk', 'spa', 'def', 'spd', 'spe', 'acc', 'eva'].map((k) => [k, t[k] ?? 0]))
           await switchTo(next); Object.assign(ST(me), keep); showTags(); await say(`${me.name} took over`, 'with the stat changes!', 300); return true
         }
@@ -9616,10 +9741,10 @@ async function run(id) {
           // A trainer battle: a flash that lowers the other side's accuracy, then it switches out.
           sfx('zap'); flash('#fff', .85, 280); await stage(other, 'acc', -1, other === foe)
           if (user === me) {
-            const others = party.filter((m) => m.hp > 0 && m !== me)
+            const others = party.filter((m) => fit(m) && m !== me)
             if (!others.length || t.trapped) return true
             let next = others[0]
-            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && c?.hp > 0 && c !== me) next = c }
+            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && fit(c) && c !== me) next = c }
             await switchTo(next)
           } else if (roster.length) await foeSwap()
           return true
@@ -9757,7 +9882,7 @@ async function run(id) {
       $('pParty').innerHTML = [...Array(n).keys()].map((i) => {
         const m = party[i]; if (!m) return `<button class="btn fm${i} t-empty" disabled>—</button>`
         const pct = m.hp / m.stats.hp * 100
-        return `<button class="btn fm${i} t-party pmon${m.hp <= 0 ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
+        return `<button class="btn fm${i} t-party pmon${!fit(m) ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${overCap(m) ? `Lv ${m.level} · over the Lv ${levelCap()} cap` : `${m.hp}/${m.stats.hp} HP`}</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
       }).join('') + (sending ? '' : `<button class="btn fback t-run" data-act="back">◀ BACK</button>`)
     }
     function choose(panelId, scripted) {
@@ -10392,7 +10517,7 @@ async function run(id) {
         await anim($('player'), [{ transform: 'translateY(0)', clipPath: 'inset(0 0 0 0)' }, { transform: 'translateY(120px)', clipPath: 'inset(0 0 120px 0)' }], { duration: 520 }).finished
         $('player').style.visibility = 'hidden'
         await say(`${me.name} fainted!`); addBond(me, -10)
-        const up = party.filter((m) => m.hp > 0)
+        const up = party.filter(fit)
         if (!up.length) { $('phud').style.visibility = 'hidden'; return { result: 'lost' } }
         // Your call who goes in next (the demo takes the first).
         let next = up[0]
@@ -10502,14 +10627,15 @@ async function run(id) {
   }
 
   async function wildEncounter(demoPlan, state = homeState, legend = false) {
-    if (!party.some((m) => m.hp > 0)) { renderHome(homeState); $('homeSub').textContent = 'your party has fainted. Heal them first!'; sfx('blocked'); return }
+    if (!party.some(fit)) { renderHome(homeState); $('homeSub').textContent = noFighter('your party has fainted. Heal them first!'); sfx('blocked'); return }
     toolsEnabled(false)
     // The machine shudders, and something leaps out from behind it.
     sfx('rustle')
     await anim($(state === 'maint' ? 'maint' : 'attractRows'), [0, -4, 4, -3, 3, 0].map((v) => ({ transform: `translateX(${v}px)` })), { duration: 360 }).finished
     const b = bangOn($('home'), 150, 160); await W(560); b.remove()
     // Now and then, one of the roaming legendaries instead: the shared one, HP and all.
-    const roamer = legend || (!demoPlan && flavor() < LEGEND_RATE) ? pickLegend() : null
+    // Johto's roaming legendaries stay in Kanto and Johto (they're far over Hoenn's caps).
+    const roamer = legend || (!demoPlan && !inHS() && flavor() < LEGEND_RATE) ? pickLegend() : null
     const species = demoPlan ? DATA.wild.find((w) => w.name === demoPlan.wild) : window.__forceWild ? speciesByName(window.__forceWild) : wildFrom(YOU)   // from your seed's pool this week (__forceWild: testing only)
     const foe = roamer ?? individual(species, demoPlan ? 4 : wildLevel(species), rand)
     if (!roamer && !demoPlan && SHINY_IDS.has(foe.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) foe.shiny = true   // __forceShiny: testing only
@@ -10720,7 +10846,7 @@ async function run(id) {
     await W(560)
     renderHome(state, true); $('homeLoiterer').style.display = 'block'
     sfx('blocked'); const b = bangOn($('home'), 214, 92); await W(700); b.remove()
-    if (!party.some((m) => m.hp > 0)) { $('homeSub').textContent = 'heal your party to take them on'; toolsEnabled(true); return }
+    if (!party.some(fit)) { $('homeSub').textContent = noFighter('heal your party to take them on'); toolsEnabled(true); return }
     Sound.music('vs')
     await wipeTrainer(async () => {
       setScene(SCALPER_SCENES, sceneRoll); showLayer('battle')
@@ -10760,9 +10886,9 @@ async function run(id) {
   }
 
   /* ══════════ starter pick ══════════ */
-  async function pickStarter() {
+  async function pickStarter(first = 0) {
     Sound.music('win')
-    let region = 0, sel = 1
+    let region = first, sel = 1
     const S = (r) => DATA.starters.filter((s) => s.region === r)
     $('showcase').style.display = 'block'
     // One region at a time: ◀ the name ▶, rather than nine three-letter tabs too small to read or tap.
@@ -10946,7 +11072,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue, region, hsStarted, hsBadges, hs }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -11024,6 +11150,10 @@ async function run(id) {
     storyGap = { taps: 0, who: null, ...s.storyGap }
     for (const [n, m] of Object.entries(s.roam ?? {})) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
+    // Hoenn and Sinnoh: where you were (Kanto and Johto, if the region isn't open to this save), and its progress.
+    hsStarted = !!s.hsStarted; hsBadges.splice(0, hsBadges.length, ...(Array.isArray(s.hsBadges) ? s.hsBadges : []))
+    Object.assign(hs, { hoenn: false, sinnoh: false, hoennStep: 0, sinnohStep: 0 }, s.hs ?? {})
+    region = s.region === 'hs' && hsStarted && hsUnlocked() ? 'hs' : 'kj'; paintRegion()
     tutorialDone = true
     { const moved = carrySummons(); if (moved) setTimeout(() => feed(moved), 0) }
     $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderRoamers?.(); renderPool?.(); renderTools()
@@ -11093,6 +11223,10 @@ async function run(id) {
     /** A strike ring as it's drawn with your accuracy `b` stages down and the target's evasion `v` up (left on screen; clear() removes it). */
     ringLook: (b, v, x = 160, y = 110) => { blind = b; veil = v; try { return ring(x, y, 60000, 'STRIKE') } finally { blind = 0; veil = 0 } }, setHeals: (h) => { heals = h }, FREE_HEALS, get healPrice() { return healPrice },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+  // Hoenn and Sinnoh, for the tests: the region, its progress and cap, and travelling.
+  // (getOwnPropertyDescriptors, so the getters stay live: Object.assign would copy their values once.)
+  Object.defineProperties(window.__vvm, Object.getOwnPropertyDescriptors({ get region() { return region }, setRegion: (v) => { region = v; paintRegion(); renderPool() }, get hsStarted() { return hsStarted }, setHsStarted: (v) => { hsStarted = v },
+    hsBadges, hs, hsCap, levelCap, fit, overCap, trainerCap, trainerLevel, travel: guard(travel), setFame: (v) => { fame = v }, paintTravel, saveData: () => readLocal() }))
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {
