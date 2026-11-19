@@ -239,6 +239,74 @@ test('battle rules', async () => {
   } finally { await g.close() }
 })
 
+test('Hoenn and Sinnoh: every Gen 3 and 4 Pokémon, their evolutions and their new moves', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(1200)
+    const r = await page.evaluate(() => {
+      const mon = (n, lv, more = {}) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; return Object.assign(m, more) }
+      const all = [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms], have = new Set(all.map((x) => x.id))
+      const evoReach = (names) => { const reach = new Set(names), q = [...names]
+        while (q.length) { const n = q.pop(); for (const e of [...(DATA.evos[n] ?? []), ...(EVO_HOW[n] ?? [])]) if (!reach.has(e.to)) { reach.add(e.to); q.push(e.to) } }
+        return [...reach] }
+      const region = evoReach(HOENN_SINNOH_WILD)
+      const night = (v) => { window.timeOfDay = () => (v ? 'night' : 'day') }
+      const clamperl = [(night(false), evoByItem(mon('CLAMPERL', 30), 'linkcable', {}).rule?.to), (night(true), evoByItem(mon('CLAMPERL', 30), 'linkcable', {}).rule?.to)]
+      const nincada = mon('NINCADA', 20), sh = shedinjaOf(nincada)
+      const pick = (n, lv) => new Set(Array.from({ length: 40 }, () => evoDue(mon(n, lv))?.to))
+      const mv = (n) => moveInfo(n)
+      return {
+        missing: Array.from({ length: 242 }, (_, i) => 252 + i).filter((i) => !have.has(i)),
+        art: Array.from({ length: 242 }, (_, i) => 252 + i).filter((i) => !ART[i] || !ART[i + 'b'] || !ART['cry:' + i]),
+        wild: { n: HOENN_SINNOH_WILD.length, bad: HOENN_SINNOH_WILD.filter((n) => { const s = speciesByName(n); return !s || HOENN_SINNOH_LEGENDS.includes(n) || DATA.starters.some((x) => x.name === n) || s.id < 252 || s.id > 493 }) },
+        legends: HOENN_SINNOH_LEGENDS.length,
+        // None of the new ones turns up in Kanto and Johto: no legendary anywhere in the wild, and only the natives that were already there.
+        kantoWild: DATA.wild.filter((w) => w.id >= 252 && w.id <= 493).map((w) => w.name).sort(),
+        shinyless: region.filter((n) => !SHINY_IDS.has(speciesByName(n).id)),
+        evos: [evoByItem(mon('KIRLIA', 30), 'dawnstone', {}).rule?.to, evoDue(mon('KIRLIA', 30))?.to, evoByItem(mon('SNORUNT', 42), 'dawnstone', {}).rule?.to,
+          evoByItem(mon('NOSEPASS', 30), 'thunderstone', {}).rule?.to, evoByItem(mon('LOMBRE', 30), 'waterstone', {}).rule?.to, evoByItem(mon('NUZLEAF', 30), 'leafstone', {}).rule?.to,
+          evoByItem(mon('DUSCLOPS', 40), 'linkcable', {}).rule?.to, evoDue(mon('FEEBAS', 20, { bond: 100 }))?.to, evoDue(mon('FEEBAS', 20)), evoDue(mon('YANMA', 33))?.to,
+          evoDue(mon('BAGON', 30))?.to, evoDue(mon('SHELGON', 50))?.to, evoDue(mon('BELDUM', 20))?.to],
+        sneasel: [(night(true), evoDue(mon('SNEASEL', 30, { bond: 100 }))?.to), (night(false), evoDue(mon('SNEASEL', 30, { bond: 100 })))],
+        clamperl, wurmple: [...pick('WURMPLE', 7)].sort(), burmy: [...pick('BURMY', 20)].sort(),
+        dawn: { name: ITEMS.dawnstone?.name, art: ART['item:dawnstone'], drops: EVO_DROPS.includes('dawnstone') },
+        shedinja: { name: sh.name, level: sh.level, ivs: JSON.stringify(sh.ivs) === JSON.stringify(nincada.ivs), nature: sh.nature === nincada.nature, full: sh.hp === sh.stats.hp,
+          guard: [wonderGuard(sh, mv('TACKLE')), wonderGuard(sh, mv('EMBER')), wonderGuard(mon('PIKACHU', 20), mv('TACKLE'))] },
+        spout: [spoutPower(mon('KYOGRE', 70)), spoutPower(Object.assign(mon('KYOGRE', 70), { hp: 1 }))],
+        moves: { closeCombat: mv('CLOSE COMBAT').selfDrop, overheat: mv('OVERHEAT').selfDrop, aquaJet: mv('AQUA JET').prio, extreme: mv('EXTREME SPEED').prio, flare: mv('FLARE BLITZ').recoil },
+        discs: { cc: DISC_POOL.includes('CLOSE COMBAT'), rot: DISC_POOL.includes('ROAR OF TIME'), dialga: canLearnDisc(mon('DIALGA', 50), 'ROAR OF TIME'), pikachu: canLearnDisc(mon('PIKACHU', 50), 'ROAR OF TIME'),
+          machamp: canLearnDisc(mon('MACHAMP', 50), 'CLOSE COMBAT'), blazeKick: canLearnDisc(mon('BLAZIKEN', 50), 'BLAZE KICK') },
+        blaziken: levelMoves(mon('BLAZIKEN', 70)).filter(([, n]) => ['BLAZE KICK', 'FLARE BLITZ', 'BLAST BURN'].includes(n)),
+        typhlosion: levelMoves(mon('TYPHLOSION', 70)).some(([lv, n]) => lv === 65 && n === 'BLAST BURN'),
+      }
+    })
+    assert.deepEqual(r.missing, [], 'every Pokémon from #252 to #493 is in')
+    assert.deepEqual(r.art, [], 'each with its sprites and cry')
+    assert.equal(r.wild.n, 95); assert.deepEqual(r.wild.bad, [], 'the region\'s wild list: Hoenn and Sinnoh first stages, no starters or legendaries')
+    assert.equal(r.legends, 24)
+    assert.deepEqual(r.kantoWild, ['BIDOOF', 'BUDEW', 'CROAGUNK', 'GIBLE', 'HAPPINY', 'HIPPOPOTAS', 'MIME JR.', 'MUNCHLAX', 'RIOLU', 'SKITTY', 'SLAKOTH'].sort(), 'Kanto and Johto\'s wild Pokémon are as they were')
+    assert.deepEqual(r.shinyless, [], 'every one you can meet in the new region, or evolve one into, has a shiny')
+    assert.deepEqual(r.evos, ['GALLADE', 'GARDEVOIR', 'FROSLASS', 'PROBOPASS', 'LUDICOLO', 'SHIFTRY', 'DUSKNOIR', 'MILOTIC', null, 'YANMEGA', 'SHELGON', 'SALAMENCE', 'METANG'])
+    assert.deepEqual(r.sneasel, ['WEAVILE', null], 'Weavile at full Bond, at night only')
+    assert.deepEqual(r.clamperl, ['HUNTAIL', 'GOREBYSS'], 'Clamperl\'s Linking Cord: Huntail by day, Gorebyss at night')
+    assert.deepEqual(r.wurmple, ['CASCOON', 'SILCOON']); assert.deepEqual(r.burmy, ['MOTHIM', 'WORMADAM'])
+    assert.deepEqual(r.dawn, { name: 'DAWN STONE', art: '/rpg/a/items/dawnstone.png', drops: true })
+    assert.deepEqual(r.shedinja, { name: 'SHEDINJA', level: 20, ivs: true, nature: true, full: true, guard: [0.25, 1, 1] }, 'Shedinja: as strong as the Nincada, and only a super-effective hit really hurts it')
+    assert.deepEqual(r.spout, [110, 20], 'Water Spout at full HP, and almost none')
+    assert.deepEqual(r.moves, { closeCombat: { def: -1, spd: -1 }, overheat: { spa: -2 }, aquaJet: 1, extreme: 2, flare: 1 / 3 })
+    assert.deepEqual(r.discs, { cc: true, rot: false, dialga: true, pikachu: false, machamp: true, blazeKick: true }, 'new moves are discs; a signature move only for its own')
+    assert.deepEqual(r.blaziken, [[36, 'BLAZE KICK'], [65, 'BLAST BURN'], [66, 'FLARE BLITZ']])
+    assert.ok(r.typhlosion, 'every starter\'s last form learns its ultimate move at 65')
+    // Nincada evolving, played: Ninjask, and a Shedinja in the empty shell.
+    await page.evaluate(() => { const v = window.__vvm, m = individual(speciesByName('NINCADA'), 20, Math.random); m.hp = m.stats.hp; v.party.splice(0, 9, m); window.__ivs = JSON.stringify(m.ivs); v.evolveNow(m) })
+    for (let i = 0; i < 120 && await page.evaluate(() => !!document.querySelector('.evostage') || window.__vvm.party.length < 2); i++) { await page.keyboard.press('x'); await page.waitForTimeout(200) }
+    const after = await page.evaluate(() => window.__vvm.party.map((m) => [m.name, m.level, JSON.stringify(m.ivs) === window.__ivs]))
+    assert.deepEqual(after, [['NINJASK', 20, true], ['SHEDINJA', 20, true]])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', async () => {
   const g = await openGame()
   try {
@@ -487,7 +555,7 @@ test('accuracy down (Flash, Sand Attack, Smokescreen, Kinesis, Mud-Slap): your s
         // A foe's Mud-Slap comes from its own move list, a copy without the flag: looked up by name.
         foeMudSlap: accDownOf(WILD_MOVES.ground.find((m) => m.name === 'MUD-SLAP')), tackle: accDownOf(WILD_MOVES.ground.find((m) => m.name === 'TACKLE')) }
     })
-    assert.deepEqual(r.lowering, ['FLASH', 'KINESIS', 'MUD-SLAP', 'SAND ATTACK', 'SMOKESCREEN'], 'every move that lowers accuracy')
+    assert.deepEqual(r.lowering, ['FLASH', 'KINESIS', 'MIRROR SHOT', 'MUD BOMB', 'MUD-SLAP', 'SAND ATTACK', 'SMOKESCREEN'], 'every move that lowers accuracy')
     assert.equal(r.looks[0].cls, 'ring', 'accuracy as normal: a plain ring')
     assert.deepEqual(r.looks.slice(1).map((x) => x.dz), ['1', '2', '3', '3'], 'one look per stage, the third the most (lower still looks like the third)')
     assert.ok(r.looks.slice(1, 4).every((x, i, a) => /dazzle/.test(x.cls) && (!i || (x.o < a[i - 1].o && x.b > a[i - 1].b))), `dimmer and blurrier each stage: ${JSON.stringify(r.looks)}`)
