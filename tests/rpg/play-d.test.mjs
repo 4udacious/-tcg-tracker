@@ -145,3 +145,31 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('Hoenn and Sinnoh\'s moves played: Close Combat lowers its user\'s own defenses once it lands, and a Shedinja shrugs off what isn\'t super effective', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      MOVEDEX['CLOSE COMBAT'].cost = 0
+      const m = individual(speciesByName('LUCARIO'), 60, Math.random); learnAtLevel(m)
+      m.moves = ['TACKLE', 'CLOSE COMBAT']; if (!m.learned.includes('CLOSE COMBAT')) m.learned.push('CLOSE COMBAT'); Object.assign(m.stats, { hp: 3000 }); m.hp = 3000
+      window.__vvm.party.splice(0, 9, m); window.__forceWild = 'SNORLAX'
+      const said = window.__said = [], msg = document.getElementById('msg')
+      new MutationObserver(() => { if (said.at(-1) !== msg.textContent) said.push(msg.textContent) }).observe(msg, { childList: true, subtree: true, characterData: true })
+    })
+    bot.want = ['CLOSE COMBAT']
+    assert.ok(await bot.encounter('wild'), 'a wild battle started')
+    const said = await page.evaluate(() => window.__said)
+    assert.ok(said.some((l) => /CLOSE COMBAT!/.test(l)), 'Close Combat was used')
+    assert.ok(said.some((l) => /LUCARIO's Defense.*fell!/.test(l)) && said.some((l) => /LUCARIO's Sp\. Def.*fell!/.test(l)), `its own Defense and Sp. Def fell: ${said.filter((l) => /fell|lower/.test(l)).slice(0, 4).join(' | ')}`)
+    // A Shedinja in battle: a Normal hit does a quarter of what it would.
+    const r = await page.evaluate(() => {
+      const sh = individual(speciesByName('SHEDINJA'), 40, () => 0.5), pika = individual(speciesByName('PIKACHU'), 40, () => 0.5)
+      return [wonderGuard(sh, moveInfo('BODY SLAM')), wonderGuard(sh, moveInfo('FLAMETHROWER')), wonderGuard(pika, moveInfo('BODY SLAM'))]
+    })
+    assert.deepEqual(r, [0.25, 1, 1])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
