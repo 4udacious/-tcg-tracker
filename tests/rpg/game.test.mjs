@@ -1084,8 +1084,36 @@ test('in the app: a roaming legendary met in a wild battle is reported for the h
     assert.equal(calls.length, 1, `one report for the feed (${JSON.stringify(calls)})`)
     const [kind, species, id, level] = calls[0]
     assert.ok(['legend_seen', 'legend_ko', 'legend_caught'].includes(kind), kind)
-    assert.ok(['RAIKOU', 'ENTEI', 'SUICUNE'].includes(species), species)
+    assert.ok(['ARTICUNO', 'ZAPDOS', 'MOLTRES'].includes(species), species)
     assert.ok(id > 0 && level > 0)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('the roaming legendaries are Articuno, Zapdos and Moltres, each with its art, cry and moves; a save from when the dogs roamed gives way to the birds', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    // A save from before: Raikou roaming, Zapdos worn down with three balls thrown, and a Suicune caught.
+    await page.evaluate(() => {
+      const mk = (n, lv) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; return m }
+      const raikou = { ...mk('RAIKOU', 40), roamer: true }, zapdos = { ...mk('ZAPDOS', 40), roamer: true, balls: 3, hp: 10 }
+      localStorage.setItem('vvm-save', JSON.stringify({ v: 1, at: Date.now(), party: [mk('CHARMANDER', 12)], box: [mk('SUICUNE', 40)], bag: {}, wallet: 10, badges: [], champion: false,
+        eliteStep: 0, gifted: true, roam: { RAIKOU: raikou, ZAPDOS: zapdos }, weekShift: 0, reports: {} }))
+    })
+    await page.click('#mPlay'); await page.waitForTimeout(1500)
+    const r = await page.evaluate(() => {
+      const v = window.__vvm
+      return { legends: LEGENDS, roam: Object.keys(v.ROAM).sort(), zapdos: [v.ROAM.ZAPDOS.hp, v.ROAM.ZAPDOS.balls, v.ROAM.ZAPDOS.roamer], fresh: v.ROAM.ARTICUNO.hp === v.ROAM.ARTICUNO.stats.hp,
+        levels: LEGENDS.map((n) => v.ROAM[n].level), box: v.box.map((m) => m.name),
+        kit: LEGENDS.filter((n) => { const sp = speciesByName(n); return !(sp && ART[sp.id] && ART[sp.id + 'b'] && ART['cry:' + sp.id] && LEGEND_MOVES[n]?.length === 3 && sp.capture === 3) }) }
+    })
+    assert.deepEqual(r.legends, ['ARTICUNO', 'ZAPDOS', 'MOLTRES'])
+    assert.deepEqual(r.roam, ['ARTICUNO', 'MOLTRES', 'ZAPDOS'], 'the birds roam; the saved Raikou no longer does')
+    assert.deepEqual(r.zapdos, [10, 3, true], 'Zapdos as the save left it: its HP and the balls thrown at it')
+    assert.ok(r.fresh); assert.deepEqual(r.levels, [40, 40, 40])
+    assert.deepEqual(r.box, ['SUICUNE'], 'a dog already caught is still yours')
+    assert.deepEqual(r.kit, [], 'each bird has its sprites, cry, three moves and a catch rate of 3')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -2041,7 +2069,7 @@ test('the daily challenge: one theme a day (a type, or a stat), the same all day
       const cs = days.map((d) => v.dailyChallenge(d))
       // A stat day's team: from the 16 fully evolved species with the most of that stat.
       const BASE = { atk: 'attack', def: 'defense', spa: 'special-attack', spd: 'special-defense', spe: 'speed', hp: 'hp' }
-      const top = (st) => { const all = [...new Set([...DATA.wild, ...DATA.trainer].map((x) => v.finalForm(x.name)))].map(speciesByName).filter((x) => x && ART[x.id] && !LEGENDS.includes(x.name) && x.name !== 'MEWTWO' && x.name !== 'ZAPDOS').map((x) => x.base[BASE[st]]).sort((a, b) => b - a); return all[15] }
+      const top = (st) => { const all = [...new Set([...DATA.wild, ...DATA.trainer].map((x) => v.finalForm(x.name)))].map(speciesByName).filter((x) => x && ART[x.id] && !LEGENDS.includes(x.name) && !['MEWTWO', 'RAIKOU', 'ENTEI', 'SUICUNE'].includes(x.name)).map((x) => x.base[BASE[st]]).sort((a, b) => b - a); return all[15] }
       const fits = (c, n) => { const sp = speciesByName(n); return sp && v.finalForm(n) === n && (c.kind === 'stat' ? sp.base[BASE[c.stat]] >= top(c.stat) : sp.types.includes(c.type)) }
       return { same: JSON.stringify(v.dailyChallenge('2026-11-02')) === JSON.stringify(v.dailyChallenge('2026-11-02')),
         types: [...new Set(cs.filter((c) => c.kind === 'type').map((c) => c.type))].length,
