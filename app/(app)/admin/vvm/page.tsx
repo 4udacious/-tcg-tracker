@@ -6,6 +6,7 @@ import VvmSuppliesClient, { type SupplyRow } from './VvmSuppliesClient'
 import { isRematch } from './supplies'
 import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
+import RestockTimeClient from './RestockTimeClient'
 import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
 import CrashReportsClient, { type CrashRow } from './CrashReportsClient'
 import MoveUsage, { type MoveRow } from './MoveUsage'
@@ -102,6 +103,9 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
   }
 
   const supplyRows = (supplies as SupplyRow[] | null) ?? []
+  // The restock time (v110), in seconds; null before it, which hides the slider.
+  const rs = settings as { restock_min_seconds?: number | null; restock_max_seconds?: number | null } | null
+  const restock = rs?.restock_min_seconds != null && rs?.restock_max_seconds != null ? { min: rs.restock_min_seconds, max: rs.restock_max_seconds } : null
   const crashRows = (crashes.data as unknown as CrashRow[] | null) ?? []
   // A count beside a tab's name, where one helps: rematch tickets on, and crash reports from the last day.
   const dayAgo = Date.now() - 86_400_000
@@ -131,6 +135,8 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
 
       {tab === 'packs' && (
         <div className="space-y-8">
+          {/* The restock slider (v110); hidden until the settings have its columns. */}
+          {restock && <RestockTimeClient minSeconds={restock.min} maxSeconds={restock.max} />}
           <VvmItemsClient sets={[...bySet.values()]} />
           <VvmBoxesClient boxes={((boxes as (Omit<BoxRow, 'image_url'> & { image_url?: string | null })[] | null) ?? []).map((b) => ({ ...b, image_url: b.image_url ?? bySet.get(b.set_code)?.image_url ?? null }))} />
         </div>
