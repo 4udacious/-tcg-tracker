@@ -2816,29 +2816,37 @@ function shakeOdds(foe, ball, throwMult) {
   return a >= 255 ? 1 : 1 / Math.pow(255 / a, 0.1875)
 }
 /*
- * The leaders parry back: a Gym Leader, an Elite Four member, Red or Alex
- * (`parry`, the chance a hit of yours is parried) can parry your strikes. A
- * parried hit does a fifth of its damage (DEFEND_TAKEN.parry) and nothing
- * else (no status, no flinch). A PERFECT strike can't be parried, and a MISS
- * isn't worth it; nor can a leader's Pokémon that's asleep, frozen or
- * paralyzed, and a confused one parries less (CONF_DEFEND). The simulator
- * uses this same rule.
+ * The leaders parry back: a Gym Leader, an Elite Four member, Red, Alex or a
+ * double battle's pair (`parry`, PARRY) can parry a strike of yours that
+ * isn't PERFECT, the likelier the worse your timing (PARRY_TIMING: a MISS
+ * most of all). Two kinds:
+ *  · most are plain parries: the hit does a fifth of its damage
+ *    (DEFEND_TAKEN.parry) and nothing else (no status, no flinch);
+ *  · some are PERFECT parries (PERFECT_PARRY, again more often the worse your
+ *    timing): no damage at all, and once your attack's done their Pokémon
+ *    counters, as yours does after PERFECT parries: a Tackle's worth at
+ *    LEADER_COUNTER, undefendable, that never knocks out (it leaves 1 HP).
+ * A leader's Pokémon that's asleep, frozen or paralyzed can't parry, and a
+ * confused one parries less (CONF_DEFEND). Returns null, 'parry' or
+ * 'perfect'. The simulator uses this same rule.
  */
-const leaderParries = (T, foe, label, confused, r) => !!T?.parry && label !== 'MISS' && !cantDefend(foe) && (globalThis.__forceParry === true || (label !== 'PERFECT' && r() < T.parry * (confused ? CONF_DEFEND : 1)))   // __forceParry: testing only
-/*
- * And they hit back: once an attack with a parried hit is done, the leader's
- * Pokémon counters, as yours does after PERFECT parries, for a Tackle's
- * worth at LEADER_COUNTER. It can't be defended, and it never knocks out (it
- * leaves 1 HP). The simulator uses it too.
- */
+const PARRY_TIMING = { GREAT: 0.5, GOOD: 1, OK: 1.5, MISS: 2 }
+const PERFECT_PARRY = { GREAT: 0.15, GOOD: 0.25, OK: 0.35, MISS: 0.45 }
+function leaderParries(T, foe, label, confused, r) {
+  if (!T?.parry || cantDefend(foe)) return null
+  const forced = globalThis.__forceParry   // testing only: 'parry' or 'perfect' on every strike, whatever its timing
+  if (forced === 'parry' || forced === 'perfect') return forced
+  if (!PARRY_TIMING[label] || r() >= T.parry * PARRY_TIMING[label] * (confused ? CONF_DEFEND : 1)) return null
+  return r() < PERFECT_PARRY[label] ? 'perfect' : 'parry'
+}
 const LEADER_COUNTER = 0.8
 /**
- * How often they parry: a small chance, since a parry now brings a counter.
- * Gym Leaders least, the Elite Fours more, Red and Cynthia most; Alex from
- * `alex`, a little more each battle (rivalTrainer); a double battle's pair at
- * least PAIR_TUNE.parry. Tuned in sim.mjs.
+ * How often they parry a GOOD strike (PARRY_TIMING scales it by your
+ * timing): Gym Leaders least, the Elite Fours more, Red and Cynthia most;
+ * Alex from `alex`, a little more each battle (rivalTrainer); a double
+ * battle's pair at least PAIR_TUNE.parry. Tuned in sim.mjs.
  */
-const PARRY = { gym: 0.09, elite: 0.12, top: 0.15, alex: 0.07 }
+const PARRY = { gym: 0.2, elite: 0.27, top: 0.34, alex: 0.16 }
 /*
  * CPU trainers carry Full Heals: leaders (Gym Leaders, the Elite Fours, Red,
  * Alex, Herb and Paul: trainer.hard) two a battle, regular trainers one. They
@@ -4431,7 +4439,7 @@ for (const id of [150, 145, 144, 146]) Object.assign(ART, { [id]: `/rpg/a/${id}.
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
-  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? PARRY.alex + n * 0.012,
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? PARRY.alex + n * 0.025,
     vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
@@ -5690,7 +5698,7 @@ function pairMilestone(ref) {
  * a leader's usual pace). A pair's own `lift` adds to `up` for all three:
  * some teams are stronger than others. Tuned in sim.mjs (PAIR_AIM).
  */
-const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.15, restores: 1, ringFast: 0.88 }
+const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.3, restores: 1, ringFast: 0.88 }
 /** A member as they battle in pair `P`: a leader's smarts and then some (see PAIR_TUNE). */
 function pairSide(T, P = {}) {
   return { ...T, hard: true, strong: true, smart: true, pair: true, restores: PAIR_TUNE.restores, parry: Math.max(T.parry ?? PARRY.gym, PAIR_TUNE.parry), duoFast: PAIR_TUNE.ringFast, lift: P.lift ?? 0, top: !!P.top }
@@ -8139,7 +8147,7 @@ async function run(id) {
       await hpTo(s, Math.min(s.mon.stats.hp, from + amt)); pop(`+${s.mon.hp - from}`, s.c.x + 30, s.c.y - 40, 'green')
       await say(`${s.mon.name} drained`, 'some HP!', 200)
     }
-    async function hitOnce(actor, T, mv, planned, label, approach, mult, whiffOnMiss, h = 0) {
+    async function hitOnce(actor, T, mv, planned, label, approach, mult, whiffOnMiss, h = 0, parriers = null) {
       if (S(T.mon).protect) { sfx('clang'); pop('PROTECTED', T.c.x, T.c.y - 70, 'blue'); await say(T.mon.name, 'protected itself!', 250); return null }
       let acc
       const sr = strikeRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); approach = Math.round(approach * sr.speed)
@@ -8154,11 +8162,12 @@ async function run(id) {
         panel(null)
       }
       if (whiffOnMiss && acc.label === 'MISS') { pop('MISSED', T.c.x, T.c.y - 70, 'red small'); sfx('dodge'); return null }
-      // A leader's Pokémon can parry it (not a PERFECT): a fifth of the damage, and nothing else.
+      // A leader's Pokémon can parry it (not a PERFECT): a fifth of the damage and nothing else, or, a PERFECT parry, none at all and a counter after (leaderParries).
       const parried = !demo && T.side !== 'p' && leaderParries(T.owner, T.mon, acc.label, !!S(T.mon).conf, chance)
-      pop(parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+      pop(parried === 'perfect' ? `${T.owner.short}'S PERFECT PARRY!` : parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
       sfx(parried ? 'parry' : mv.snd); await strikeFx(mv, actor.c, T.c, actor.el, approach < 820)
-      if (parried) { anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(T.c.x - 20, T.c.y - 20) }
+      if (parried) { anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(T.c.x - 20, T.c.y - 20, parried === 'perfect' ? '#fde047' : undefined, parried === 'perfect' ? 16 : 10) }
+      if (parried === 'perfect') { parriers?.add(T); return null }   // not a scratch on it: the counter comes once the attack's done
       const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult * (parried ? DEFEND_TAKEN.parry : 1))
       const from = T.mon.hp
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
@@ -8179,7 +8188,7 @@ async function run(id) {
     async function strike(act, step) {
       const { actor, move: mv } = act
       const planned = [].concat(act.planned ?? 'great')
-      const results = [], parriers = new Set()   // the leaders' Pokémon that parried a hit of it: each counters, after
+      const results = [], parriers = new Set()   // the leaders' Pokémon that PERFECT parried a hit of it: each counters, after
 
       if (mv.sleepOk && !act.snoring) { await announce(`${actor.mon.name} used`, `${mv.name}!`, 100); if (!actor.ally) setDPP(dpp - (mv.cost ?? 0)); await say('But it failed!', `${actor.mon.name} isn't asleep.`, 250); return }
       {
@@ -8205,8 +8214,7 @@ async function run(id) {
         const mult = foesUp.length > 1 ? 0.75 : 1
         for (const [k, F] of foesUp.entries()) {
           if (F.mon.hp <= 0) continue
-          const res = await hitOnce(actor, F, mv, planned[k] ?? planned.at(-1), foesUp.length > 1 ? `FOE ${k + 1}/${foesUp.length}` : 'STRIKE', k ? 620 : 820, mult, false)
-          results.push(res); if (res?.parried) parriers.add(F)
+          results.push(await hitOnce(actor, F, mv, planned[k] ?? planned.at(-1), foesUp.length > 1 ? `FOE ${k + 1}/${foesUp.length}` : 'STRIKE', k ? 620 : 820, mult, false, 0, parriers))
         }
         // Earthquake, Surf and the like roll on into your own partner. It can jump.
         const ally = mv.spread === 'all' ? allyOf(actor) : null
@@ -8221,8 +8229,7 @@ async function run(id) {
         if (!actor.ally) setDPP(dpp - (mv.cost ?? 0))   // a partner's moves don't spend your PP
         const hits = mv.hits ?? 1
         for (let h = 0; h < hits && T.mon.hp > 0; h++) {
-          const res = await hitOnce(actor, T, mv, planned[h] ?? planned.at(-1), hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', h ? 560 : 820, 1, hits > 1, h)
-          results.push(res); if (res?.parried) parriers.add(T)
+          results.push(await hitOnce(actor, T, mv, planned[h] ?? planned.at(-1), hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', h ? 560 : 820, 1, hits > 1, h, parriers))
         }
         if (hits > 1) { const n = results.filter(Boolean).length; await say(n === hits ? `Hit ${hits} times — full damage!` : `Hit ${n} of ${hits} times.`, '', 260) }
       }
@@ -8240,7 +8247,7 @@ async function run(id) {
       if (landed.some((r) => r.crit)) await say('A critical hit!')
       if (!mv.spread && landed.length && landed.at(-1).eff > 1) await say("It's super effective!")
       if (!mv.spread && landed.length && landed.at(-1).eff < 1) await say("It's not very effective...")
-      // Each that parried a hit of it counters (LEADER_COUNTER), never for the knockout.
+      // Each that PERFECT parried a hit of it counters (LEADER_COUNTER), never for the knockout.
       for (const P of parriers) {
         if (P.gone || P.mon.hp <= 0 || actor.mon.hp <= 1) continue
         sfx('counter'); pop(`${P.owner.short}'S COUNTER!`, actor.c.x, actor.c.y - 90, 'orange'); await W(120)
@@ -9751,7 +9758,11 @@ async function run(id) {
   /* ── effects ── */
   function pop(text, x, y, cls = '') {
     const el = document.createElement('div'); el.className = 'pop ' + cls
-    el.textContent = text; el.style.left = x + 'px'; el.style.top = y + 'px'; fx.appendChild(el)
+    el.textContent = text; el.style.top = Math.max(16, y) + 'px'; fx.appendChild(el)
+    // Centred on x, but kept on screen: a long one ("BROCK'S COUNTER!") beside a Pokémon at the edge used to run off
+    // it, and one over a foe at the top ("BROCK PARRIED!") off the top.
+    const half = el.offsetWidth / 2, wide = fx.clientWidth || 320
+    el.style.left = Math.max(half + 4, Math.min(wide - half - 4, x)) + 'px'
     anim(el, [{ transform: 'translate(-50%,8px) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,-4px) scale(1.15)', opacity: 1, offset: .25 },
       { transform: 'translate(-50%,-14px) scale(1)', opacity: 1, offset: .75 }, { transform: 'translate(-50%,-22px)', opacity: 0 }], { duration: 950 })
     setTimeout(() => el.remove(), 1000)
@@ -10528,7 +10539,7 @@ async function run(id) {
       if (mv.furyCutter) { t.fury = t.lastMove === name ? Math.min(2, (t.fury ?? 0) + 1) : 0; mv = { ...mv, power: mv.power * 2 ** t.fury } }
       if (mv.knockOff && kind === 'trainer') mv = { ...mv, power: Math.round(mv.power * 1.5) }
       t.lastMove = name
-      let landed = 0, crit = false, eff = 1, clean = false, parriedAny = false
+      let landed = 0, crit = false, eff = 1, clean = false, perfectParried = false
       const sr = strikeRing(ringNet(ST(me).acc, ST(foe).eva))
       if (ST(me).conf) sr.tight *= 0.85
       wobble = !!ST(me).conf   // confused: its rings wobble
@@ -10543,12 +10554,13 @@ async function run(id) {
           // One ring per hit. Miss a ring and that hit misses, so only landing
           // every ring deals the move's full damage.
           if (hits > 1 && acc.label === 'MISS') { pop('MISSED', C.e.x, C.e.y - 70, 'red small'); sfx('dodge'); continue }
-          // A leader can parry it (not a PERFECT): a fifth of the damage, and nothing else.
+          // A leader can parry it (not a PERFECT): a fifth of the damage and nothing else, or, a PERFECT parry, none at all and a counter after (leaderParries).
           const parried = !demo && leaderParries(trainer, foe, acc.label, !!ST(foe).conf, chance)
-          pop(parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+          pop(parried === 'perfect' ? `${trainer.short}'S PERFECT PARRY!` : parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
           sfx(parried ? 'parry' : mv.snd)
           await strikeFx(mv, C.p, C.e, $('player'), h > 0)
-          if (parried) { anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(C.e.x - 20, C.e.y - 20) }
+          if (parried) { anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(C.e.x - 20, C.e.y - 20, parried === 'perfect' ? '#fde047' : undefined, parried === 'perfect' ? 16 : 10) }
+          if (parried === 'perfect') { perfectParried = true; if (mv.furyCutter) t.fury = -1; continue }   // not a scratch on it, and the run starts over
           const r = damage(me, foe, mv, parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult)
           if (mv.furyCutter && acc.label === 'MISS') t.fury = -1   // a miss starts the run over
           const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
@@ -10563,7 +10575,7 @@ async function run(id) {
           if (mv.knockOff && restores > 0 && foe.hp > 0) { restores--; sfx('flinch'); await say(`${me.name} knocked away`, `${trainer.short}'s FULL RESTORE!`, 400) }
           if (acc.crit) addBond(me, 2)
           landed++; crit ||= acc.crit; eff = r.eff; if (acc.label !== 'MISS') clean = true
-          if (parried) { parriedAny = true; continue }
+          if (parried) continue
           if (foe.hp > 0 && foe.status === 'frz' && mv.type === 'fire') { foe.status = null; showTags(); await say(who(foe), STATUS_TEXT.thaw, 300) }
           if (foe.hp > 0) await afflict(foe, statusFromHit(foe, { ...mv, name }, rand))
           if (foe.hp > 0 && FLINCH[name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[name]) ST(foe).flinch = true
@@ -10579,8 +10591,8 @@ async function run(id) {
       if (crit) await say('A critical hit!')
       if (landed && eff > 1) await say("It's super effective!")
       if (landed && eff < 1) await say("It's not very effective...")
-      // A hit of it parried: the leader's Pokémon counters (LEADER_COUNTER), never for the knockout.
-      if (parriedAny && foe.hp > 0 && me.hp > 1) {
+      // A hit of it PERFECT parried: the leader's Pokémon counters (LEADER_COUNTER), never for the knockout.
+      if (perfectParried && foe.hp > 0 && me.hp > 1) {
         sfx('counter'); pop(`${trainer.short}'S COUNTER!`, C.p.x, C.p.y - 96, 'orange'); await W(120)
         anim($('enemy'), [{ transform: 'translate(0,0)' }, { transform: 'translate(-120px,110px)', offset: .45 }, { transform: 'translate(0,0)' }], { duration: 420 })
         await W(210)

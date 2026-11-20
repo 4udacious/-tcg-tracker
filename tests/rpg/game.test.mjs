@@ -163,10 +163,14 @@ test('battle rules', async () => {
         eeveeEvo: evoText(speciesByName('EEVEE')),
         cantDefend: ['slp', 'frz', 'par', 'brn', 'psn', 'tox', null].map((s) => cantDefend({ status: s })),
         // Who parries your strikes, and how often: a sure roll (0) and a never roll (1).
-        parries: (() => { const yes = () => 0, no = () => 1, mon = { status: null }, L = GYMS[0]
+        parries: (() => { const yes = () => 0, no = () => 1, mon = { status: null }, L = GYMS[0], seq = (...v) => () => v.shift()
           return { gym: leaderParries(L, mon, 'GOOD', false, yes), unlucky: leaderParries(L, mon, 'GOOD', false, no), perfect: leaderParries(L, mon, 'PERFECT', false, yes), miss: leaderParries(L, mon, 'MISS', false, yes),
+            kinds: [leaderParries(L, mon, 'GOOD', false, seq(0, 0.99)), leaderParries(L, mon, 'GOOD', false, seq(0, 0))],
+            // A roll just over a GREAT strike's chance still parries a GOOD, OK or MISS one: the worse the timing, the likelier.
+            byTiming: ['GREAT', 'GOOD', 'OK', 'MISS'].map((l) => leaderParries(L, mon, l, false, seq(L.parry * 0.6, 0.99))),
+            timing: [PARRY_TIMING, PERFECT_PARRY],
             asleep: leaderParries(L, { status: 'slp' }, 'GOOD', false, yes), paralyzed: leaderParries(L, { status: 'par' }, 'GOOD', false, yes), wild: leaderParries(null, mon, 'GOOD', false, yes),
-            confused: [leaderParries(L, mon, 'GOOD', true, () => L.parry * 0.9), leaderParries(L, mon, 'GOOD', false, () => L.parry * 0.9)],
+            confused: [!!leaderParries(L, mon, 'GOOD', true, () => L.parry * 0.9), !!leaderParries(L, mon, 'GOOD', false, () => L.parry * 0.9)],
             rates: { gyms: [...GYMS, ...HS_GYMS].every((x) => x.parry === PARRY.gym), elite: [...ELITE, ...HOENN_ELITE, ...SINNOH_ELITE.filter((x) => x.role !== 'CHAMPION')].every((x) => x.parry === PARRY.elite),
               top: [KANTO_ELITE.find((x) => x.red).parry, SINNOH_ELITE.find((x) => x.role === 'CHAMPION').parry], alex: [rivalTrainer(0).parry, rivalTrainer(6).parry], herb: storyTrainer('HERB', 3).parry ?? 0,
               most: Math.max(...[...GYMS, ...HS_GYMS, ...ELITE, ...KANTO_ELITE, ...HOENN_ELITE, ...SINNOH_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].map((x) => x.parry)), PARRY } } })(),
@@ -211,12 +215,16 @@ test('battle rules', async () => {
     assert.deepEqual(r.cantDefend, [true, true, true, false, false, false, false], 'asleep, frozen and paralyzed can\'t defend; burned or poisoned can')
     const p = r.parries
     assert.ok(p.gym && !p.unlucky, 'a Gym Leader parries a GOOD strike on its roll')
-    assert.ok(!p.perfect && !p.miss, 'never a PERFECT strike (or a MISS)')
+    assert.ok(!p.perfect, 'never a PERFECT strike'); assert.ok(p.miss, 'but a MISS, yes')
+    assert.deepEqual(p.kinds, ['parry', 'perfect'], 'a plain parry, or now and then a PERFECT one')
+    assert.deepEqual(p.byTiming, [null, 'parry', 'parry', 'parry'], 'the worse your timing, the likelier a parry')
+    const [pt, pp] = p.timing
+    assert.ok(pt.GREAT < pt.GOOD && pt.GOOD < pt.OK && pt.OK < pt.MISS && pp.GREAT < pp.GOOD && pp.GOOD < pp.OK && pp.OK < pp.MISS, 'and the likelier it\'s a PERFECT one')
     assert.ok(!p.asleep && !p.paralyzed, 'not while asleep or paralyzed')
     assert.ok(!p.wild, 'wild Pokémon and everyday trainers never parry')
     assert.deepEqual(p.confused, [false, true], 'a confused one parries less often')
     assert.ok(p.rates.gyms && p.rates.elite && p.rates.top.every((x) => x === p.rates.PARRY.top), `the gyms least, the Elite Fours more, Red and Cynthia most (${JSON.stringify(p.rates)})`)
-    assert.ok(p.rates.PARRY.gym < p.rates.PARRY.elite && p.rates.PARRY.elite < p.rates.PARRY.top && p.rates.most <= 0.15, `a small chance, since a parry brings a counter: at most 15% (${p.rates.most})`)
+    assert.ok(p.rates.PARRY.gym < p.rates.PARRY.elite && p.rates.PARRY.elite < p.rates.PARRY.top && p.rates.most < 0.35, `for a GOOD strike, under 35% (${p.rates.most})`)
     assert.ok(p.rates.alex[0] < p.rates.alex[1] && p.rates.herb === 0, 'Alex more with each battle; Herb and Paul don\'t parry')
     assert.deepEqual(r.confParry, ['parry', 'miss', 'miss'], 'confused: the parry and dodge windows are narrower')
     assert.ok(r.sing.perfect > 0.75 && r.sing.perfect < 0.87, `Sing on PERFECT: ${r.sing.perfect}`); assert.equal(r.sing.miss, 0); assert.ok(r.sing.good > 0.5 && r.sing.good < 0.7, `Sing on GOOD: ${r.sing.good}`)

@@ -201,28 +201,41 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
   } finally { await g.close() }
 })
 
-test('a leader who parries hits back: a counter after the attack, in 1v1 and 2v2, never for the knockout', { skip: quick }, async () => {
+test('a leader parries: a plain parry takes some of the damage, a PERFECT parry all of it and brings a counter (1v1 and 2v2)', { skip: quick }, async () => {
   const g = await openGame()
   try {
     const { page, bot } = g
     await bot.finishTutorial()
     await page.evaluate(() => {
-      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 80, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 4000, atk: 9000, spa: 9000, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp; return m }   // the test is about the counter, not the fight
+      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 80, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 4000, atk: 2500, spa: 2500, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp; return m }   // the test is about the parries, not the fight
       v.party.splice(0, 9, mk('CHARIZARD'), mk('BLASTOISE')); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
-      window.__forceParry = true   // every strike on a leader's Pokémon is parried
     })
+    // The foes' HP bars as they stand: the 1v1's, or each 2v2 slot's.
+    const bars = () => page.evaluate(() => [...document.querySelectorAll('#ehp, .hud.dh.e0 .hpb i, .hud.dh.e1 .hpb i')].filter((b) => b.offsetParent).map((b) => b.style.width).join(' '))
     for (const [id, duo] of [['gym_5', false], ['gym_2', true]]) {
-      // Strong enough to win, not so strong a parried hit knocks theirs out before it can counter.
-      await page.evaluate((duo) => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.stats.atk = m.stats.spa = duo ? 2500 : 9000 } }, duo)
-      const from = g.log.length
-      await page.evaluate(([id, duo]) => { window.__rm = false; window.__vvm.rematchBattle(id, duo).then(() => { window.__rm = true }) }, [id, duo])
+      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.stats.atk = m.stats.spa = 2500 } })
+      const from = g.log.length, said = () => g.log.slice(from).join(' | ')
+      const until = async (re, max = 300) => { for (let i = 0; i < max && !re.test(said()); i++) await bot.step(); return re.test(said()) }
+      await page.evaluate(([id, duo]) => { window.__rm = false; window.__forceParry = 'perfect'; window.__vvm.rematchBattle(id, duo).then(() => { window.__rm = true }) }, [id, duo])
+      // A PERFECT parry (testing: every strike): not a scratch on theirs, then the counter.
+      assert.ok(await until(/PERFECT PARRY!/), `${id} (${duo ? '2v2' : '1v1'}): a PERFECT parry`)
+      const before = await bars()
+      assert.ok(await until(/countered\s*for \d+ damage/), `${id}: and a counter, for damage`)
+      assert.equal(await bars(), before, `${id}: the PERFECT parried hit did no damage`)
+      assert.match(said(), /COUNTER!/)
+      // A plain parry: some of the damage gets through, and no counter.
+      const counters = (said().match(/COUNTER!/g) ?? []).length, plainFrom = g.log.length
+      await page.evaluate(() => { window.__forceParry = 'parry' })
+      for (let i = 0; i < 300 && !/ PARRIED!/.test(g.log.slice(plainFrom).join(' | ')); i++) await bot.step()
+      const atParry = await bars()
+      for (let i = 0; i < 40 && (await bars()) === atParry; i++) await bot.step()
+      assert.notEqual(await bars(), atParry, `${id}: a plain parry still lets some damage through`)
+      // Then the fight plays out, unforced (the counters seen so far don't grow from plain parries).
+      assert.equal((said().match(/COUNTER!/g) ?? []).length, counters, `${id}: no counter after a plain parry`)
+      await page.evaluate(() => { window.__forceParry = null; for (const m of window.__vvm.party) m.stats.atk = m.stats.spa = 9000 })
       for (let i = 0; i < 900 && !(await page.evaluate(() => window.__rm)); i++) await bot.step()
-      const lines = g.log.slice(from).join(' | ')
-      assert.match(lines, /PARRIED/, `${id} (${duo ? '2v2' : '1v1'}): they parry`)
-      assert.match(lines, /COUNTER!/, `${id}: and counter`)
-      assert.match(lines, /countered\s*for \d+ damage/, `${id}: for damage`)
       const hp = await page.evaluate(() => window.__vvm.party.map((m) => m.hp))
-      assert.ok(hp.some((h) => h < 4000), `${id}: yours took it (${hp})`)
+      assert.ok(hp.some((h) => h < 4000), `${id}: yours took the counter (${hp})`)
       assert.ok(hp.every((h) => h > 0), `${id}: never knocked out by it (${hp})`)
     }
     assert.deepEqual(g.errors, [])
