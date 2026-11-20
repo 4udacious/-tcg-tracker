@@ -5617,37 +5617,37 @@ function finalForm(name) {
  */
 const PAIRS = [
   // Johto's and Kanto's gyms, two neighbours at a time.
-  { id: 'falkner_bugsy', a: 'gym_0', b: 'gym_1', lift: 0.19 },
-  { id: 'whitney_morty', a: 'gym_2', b: 'gym_3', lift: 0.11 },
-  { id: 'chuck_jasmine', a: 'gym_4', b: 'gym_5', lift: 0.07 },
-  { id: 'pryce_clair', a: 'gym_6', b: 'gym_7', lift: -0.06 },
-  { id: 'brock_misty', a: 'gym_8', b: 'gym_9', lift: 0.09 },
-  { id: 'surge_erika', a: 'gym_10', b: 'gym_11', lift: 0.06 },
-  { id: 'janine_sabrina', a: 'gym_12', b: 'gym_13', lift: 0.1 },
+  { id: 'falkner_bugsy', a: 'gym_0', b: 'gym_1', lift: 0.13 },
+  { id: 'whitney_morty', a: 'gym_2', b: 'gym_3', lift: 0.09 },
+  { id: 'chuck_jasmine', a: 'gym_4', b: 'gym_5', lift: 0.06 },
+  { id: 'pryce_clair', a: 'gym_6', b: 'gym_7', lift: -0.09 },
+  { id: 'brock_misty', a: 'gym_8', b: 'gym_9', lift: 0.05 },
+  { id: 'surge_erika', a: 'gym_10', b: 'gym_11', lift: 0.05 },
+  { id: 'janine_sabrina', a: 'gym_12', b: 'gym_13', lift: 0.09 },
   { id: 'blaine_blue', a: 'gym_14', b: 'gym_15', lift: 0.03 },
   // The Elite Fours.
-  { id: 'will_karen', a: 'elite_will', b: 'elite_karen', lift: 0.08 },
-  { id: 'koga_bruno', a: 'elite_koga', b: 'elite_bruno', lift: 0.08 },
-  { id: 'lorelei_agatha', a: 'kanto_lorelei', b: 'kanto_agatha', lift: 0.06 },
+  { id: 'will_karen', a: 'elite_will', b: 'elite_karen', lift: 0.07 },
+  { id: 'koga_bruno', a: 'elite_koga', b: 'elite_bruno', lift: 0.09 },
+  { id: 'lorelei_agatha', a: 'kanto_lorelei', b: 'kanto_agatha', lift: 0.02 },
   { id: 'bruno_lance', a: 'kanto_bruno', b: 'kanto_lance', lift: -0.04 },
   // Family, and the last word.
-  { id: 'lance_clair', a: 'elite_lance', b: 'gym_7', top: true, lift: -0.14 },
-  { id: 'koga_janine', a: 'elite_koga', b: 'gym_12', lift: 0.14 },
+  { id: 'lance_clair', a: 'elite_lance', b: 'gym_7', top: true, lift: -0.18 },
+  { id: 'koga_janine', a: 'elite_koga', b: 'gym_12', lift: 0.17 },
   { id: 'alex_red', a: 'alex', b: 'kanto_red', top: true, lift: -0.02 },
   // Hoenn's and Sinnoh's gyms.
-  { id: 'roxanne_brawly', a: 'gym_16', b: 'gym_17', lift: 0.1 },
-  { id: 'wattson_flannery', a: 'gym_18', b: 'gym_19', lift: 0.1 },
-  { id: 'norman_winona', a: 'gym_20', b: 'gym_21', lift: 0.01 },
+  { id: 'roxanne_brawly', a: 'gym_16', b: 'gym_17', lift: 0.09 },
+  { id: 'wattson_flannery', a: 'gym_18', b: 'gym_19', lift: 0.09 },
+  { id: 'norman_winona', a: 'gym_20', b: 'gym_21', lift: 0.02 },
   { id: 'tateliza_juan', a: 'gym_22', b: 'gym_23', lift: 0.04 },
   { id: 'roark_gardenia', a: 'gym_24', b: 'gym_25', lift: 0.08 },
-  { id: 'maylene_wake', a: 'gym_26', b: 'gym_27', lift: 0.03 },
+  { id: 'maylene_wake', a: 'gym_26', b: 'gym_27', lift: 0.02 },
   { id: 'fantina_byron', a: 'gym_28', b: 'gym_29', lift: 0.04 },
   { id: 'candice_volkner', a: 'gym_30', b: 'gym_31' },
   // Their Elite Fours.
-  { id: 'sidney_phoebe', a: 'hoenn_sidney', b: 'hoenn_phoebe', lift: 0.08 },
-  { id: 'glacia_drake', a: 'hoenn_glacia', b: 'hoenn_drake', lift: -0.07 },
+  { id: 'sidney_phoebe', a: 'hoenn_sidney', b: 'hoenn_phoebe', lift: 0.1 },
+  { id: 'glacia_drake', a: 'hoenn_glacia', b: 'hoenn_drake', lift: -0.06 },
   { id: 'aaron_bertha', a: 'sinnoh_aaron', b: 'sinnoh_bertha', lift: 0.1 },
-  { id: 'flint_lucian', a: 'sinnoh_flint', b: 'sinnoh_lucian', lift: 0.04 },
+  { id: 'flint_lucian', a: 'sinnoh_flint', b: 'sinnoh_lucian', lift: 0.05 },
   // Father and son, best friends, and two Champions.
   { id: 'byron_roark', a: 'gym_29', b: 'gym_24', lift: 0.03 },
   { id: 'volkner_flint', a: 'gym_31', b: 'sinnoh_flint', lift: 0.03 },
@@ -5697,13 +5697,13 @@ const pairEarly = (lv) => { const P = PAIR_EARLY, j = P.findIndex(([l]) => l >= 
 const pairLevel = (T, lv, k) => Math.max(2, Math.round(lv * (1 + PAIR_TUNE.up[k] + (T.lift ?? 0) - pairEarly(lv))))
 const baseTotal = (sp) => Object.values(sp.base).reduce((a, b) => a + b, 0)
 /**
- * A member's three for a pair battle at `lv` (your best's level): their team
- * fully evolved, the three with the highest base stats, the strongest (their
- * ace) sent out last. Every IV 31.
+ * A member's three for a pair battle at `lv` (your best's level): every
+ * Pokémon on any of their teams, fully evolved, and of those the three with
+ * the highest base stats, the strongest (their ace) sent out last. Every IV 31.
  */
 function pairTeam(T, lv, r = Math.random) {
   const sp = (n) => DATA.trainer.find((t) => t.name === n) ?? speciesByName(n)
-  const names = [...new Set(teamFor(T, r).map(finalForm))].filter(sp)
+  const names = [...new Set([T.team, ...(T.alts ?? [])].flat().map(finalForm))].filter(sp)
   const top3 = names.map((n, i) => ({ n, i, s: baseTotal(sp(n)) })).sort((x, y) => y.s - x.s || y.i - x.i).slice(0, 3)
   const order = [top3[1], top3[2], top3[0]].filter(Boolean)
   return order.map((x, k) => {
