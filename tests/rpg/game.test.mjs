@@ -2148,6 +2148,7 @@ test('double battles: every pair is two you can beat, three each at their strong
         id: P.id, ok: !!(A && B), name: A && B && pairName(A, B), milestones: [P.a, P.b].map(pairMilestone),
         talk: !!words && ['intro', 'outro', 'gloat'].every((k) => words[k]?.length === 2 && words[k].every((l) => typeof l === 'string' && l.length)),
         art: [A, B].every((T) => T && ART[T.vs] && ART[T.face] && ART[T.down] && ART[T.faceDown]),
+        focus: [A, B].every((T) => VS_FOCUS[(ART[T.vs] ?? '').split('/').pop().replace(/^gym-|-vs\.jpg$/g, '')] != null),
         teams: teams.map((t) => t.map((m) => ({ name: m.name, level: m.level, sprite: !!ART[m.id], ivs: Object.values(m.ivs).every((v) => v === 31), bst: best(m.name) }))),
         // A member's ace (last) is their strongest; nothing still to evolve.
         final: teams.flat().every((m) => finalForm(m.name) === m.name),
@@ -2159,6 +2160,7 @@ test('double battles: every pair is two you can beat, three each at their strong
       assert.ok(p.ok, `${p.id}: both members are in the game`)
       assert.ok(p.talk, `${p.id}: an intro, an outro and a gloat for each`)
       assert.ok(p.art, `${p.id}: both have their VS, face and post-battle art`)
+      assert.ok(p.focus, `${p.id}: and where their heads are in it, so the VS centres them (VS_FOCUS)`)
       for (const t of p.teams) {
         assert.equal(t.length, 3, `${p.id}: three each (${t.map((m) => m.name)})`)
         assert.ok(t.every((m) => m.sprite && m.ivs), `${p.id}: real species, every IV 31`)
@@ -2170,9 +2172,10 @@ test('double battles: every pair is two you can beat, three each at their strong
     assert.ok(r.find((p) => p.id === 'tateliza_juan').name === 'TATE&LIZA AND JUAN' && r.find((p) => p.id === 'brock_misty').name === 'BROCK & MISTY')
     assert.ok(r.some((p) => p.id === 'alex_red'), 'Alex and Red, together')
     // The migration (v109) has a ticket for each pair, needing exactly these two battles.
-    const sql = readFileSync(new URL('../../supabase/migrations/v109_double_battles.sql', import.meta.url), 'utf8')
+    const sql = ['v109_double_battles.sql', 'v111_hoenn_sinnoh_double_battles.sql'].map((f) => readFileSync(new URL(`../../supabase/migrations/${f}`, import.meta.url), 'utf8')).join('\n')
+    // v111 lists every pair's milestones again (it redefines double_milestones): the last listing of each counts.
     const rows = Object.fromEntries([...sql.matchAll(/\('double_(\w+)', '([a-z]+:[A-Z0-9]+)', '([a-z]+:[A-Z0-9]+)'\)/g)].map((m) => [m[1], [m[2], m[3]]]))
-    const supplies = [...sql.matchAll(/\('double_(\w+)', 'item'/g)].map((m) => m[1])
+    const supplies = [...new Set([...sql.matchAll(/\('double_(\w+)', 'item'/g)].map((m) => m[1]))]
     assert.deepEqual(Object.keys(rows).sort(), r.map((p) => p.id).sort(), 'a milestone row for each pair')
     assert.deepEqual(supplies.sort(), r.map((p) => p.id).sort(), 'a supply for each pair')
     for (const p of r) assert.deepEqual(rows[p.id], p.milestones, `${p.id}: the server checks the same two battles`)

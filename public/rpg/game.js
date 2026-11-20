@@ -5170,6 +5170,15 @@ function art(L) {
   return { key: k, vs: `gymVs:${k}`, face: `gymFace:${k}`, body: `gymBody:${k}`, down: `gymBody:${k}`, faceDown: `gymFace:${k}` }
 }
 
+/** How far across each leader's VS portrait their head is (0-1), measured from the art: a two-trainer VS lines it up with the middle of its half (aimVs). */
+const VS_FOCUS = {
+  falkner: 0.615, bugsy: 0.58, whitney: 0.674, morty: 0.693, chuck: 0.649, jasmine: 0.745, pryce: 0.617, clair: 0.391, brock: 0.654, misty: 0.699, lt_surge: 0.687, erika: 0.627, janine: 0.374, sabrina: 0.537,
+  blaine: 0.63, blue: 0.672, will: 0.417, koga: 0.743, bruno: 0.751, karen: 0.625, lance: 0.694, lorelei: 0.503, agatha: 0.498, red: 0.493, 'rival-1': 0.441, 'rival-2': 0.511, 'rival-3': 0.439,
+  // Hoenn and Sinnoh.
+  roxanne: 0.488, brawly: 0.5, wattson: 0.554, flannery: 0.515, norman: 0.509, winona: 0.504, tateliza: 0.517, juan: 0.498, roark: 0.523, gardenia: 0.5, maylene: 0.499, crasherwake: 0.524, fantina: 0.48,
+  byron: 0.573, candice: 0.48, volkner: 0.5, sidney: 0.504, phoebe: 0.506, glacia: 0.496, drake: 0.494, wallace: 0.648, aaron: 0.5, bertha: 0.506, flint: 0.388, lucian: 0.502, cynthia: 0.498,
+}
+
 const LEVEL_CAP = 100
 /*
  * Hoenn and Sinnoh: the second region, a soft reset. It opens once Alex is
@@ -7605,6 +7614,7 @@ async function run(id) {
     if (crew[1]) {
       $('vsImg').src = ART[crew[1].vs]; $('vsName').textContent = pairName(crew[0], crew[1]); vs.classList.add('duo')   // whoever the pair is
       const two = $('vsImg').parentElement.cloneNode(true); two.classList.add('who2'); two.querySelector('img').removeAttribute('id'); two.querySelector('img').src = ART[crew[0].vs]; $('vsImg').parentElement.before(two)
+      aimVs(two.querySelector('img'), crew[0]); aimVs($('vsImg'), crew[1])
       vs.querySelector('.name span').textContent = label
       anim(two, [{ transform: 'translateX(-260px)' }, { transform: 'none' }], { duration: 420, delay: 520, fill: 'both', easing: 'cubic-bezier(.2,.8,.3,1)' })
     } else {
@@ -7619,8 +7629,19 @@ async function run(id) {
     $('vsImg').src = ART[T.vs]; $('vsName').textContent = T.full; vs.querySelector('.name span').textContent = sub; vs.querySelector('.big').textContent = 'ALLY'
     vsIn(vs)
   }
+  /**
+   * A portrait in half of a two-trainer VS: its head over the middle of the
+   * half you can see (60% across: the slant hides the left of it), by where
+   * the head is in that art (VS_FOCUS). Art not in the table keeps the
+   * stylesheet's place (the scalpers').
+   */
+  function aimVs(img, T) {
+    const f = VS_FOCUS[(ART[T.vs] ?? '').split('/').pop().replace(/^gym-|-vs\.jpg$/g, '')]
+    img.style.left = f == null ? '' : '60%'; img.style.transform = f == null ? '' : `translateX(-${(f * 100).toFixed(1)}%)`
+  }
   function vsHide() {
     const vs = $('vs'); vs.style.display = 'none'; vs.getAnimations({ subtree: true }).forEach((a) => a.cancel())
+    $('vsImg').style.left = ''; $('vsImg').style.transform = ''
     vs.querySelector('.who2')?.remove(); vs.querySelector('.name span').textContent = 'SCALPER'; vs.querySelector('.big').textContent = 'VS'
     vs.classList.remove('duo', 'ally', 'gym')
   }
