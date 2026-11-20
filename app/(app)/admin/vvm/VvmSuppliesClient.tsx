@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { isRematch } from './supplies'
+import { isDouble, isRematch } from './supplies'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SupplyIcon from '@/components/SupplyIcon'
@@ -80,13 +80,15 @@ export default function VvmSuppliesClient({ supplies, show = 'supplies' }: { sup
   }
 
   if (show === 'rematches') {
-    const on = rematches.filter((s) => s.is_active).length
+    const singles = rematches.filter((s) => !isDouble(s)), doubles = rematches.filter(isDouble)
+    const on = singles.filter((s) => s.is_active).length, doublesOn = doubles.filter((s) => s.is_active).length
     return (
+      <div className="space-y-6">
       <section className="space-y-2">
         <div className="space-y-1">
           <h2 className="font-display font-semibold text-base">Rematch tickets</h2>
           <p className="text-xs text-muted leading-snug">
-            One ticket per Gym Leader, Elite Four member, Red and Alex ({on} of {rematches.length} on).
+            One ticket per Gym Leader, Elite Four member, Red and Alex ({on} of {singles.length} on).
             On the shelf at random like any supply, and only for sale to members who have
             beaten that opponent. A won rematch pays its tokens even past the daily battle
             limit. <b>Appearance rate</b> applies from the next restock; purchase limits
@@ -94,12 +96,30 @@ export default function VvmSuppliesClient({ supplies, show = 'supplies' }: { sup
           </p>
         </div>
         <ul className="space-y-2">
-          {rematches.map((s) => (
+          {singles.map((s) => (
             <ItemCard key={`${s.key}-${s.updated_at}`} item={s} onToast={showToast} onSaved={refresh} />
           ))}
         </ul>
-        {!rematches.length && <p className="text-sm text-muted">No rematch tickets yet.</p>}
+        {!singles.length && <p className="text-sm text-muted">No rematch tickets yet.</p>}
       </section>
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h2 className="font-display font-semibold text-base">Double battle tickets</h2>
+          <p className="text-xs text-muted leading-snug">
+            One ticket per pair: two Gym Leaders, two Elite Four members, Alex &amp; Red, and the like
+            ({doublesOn} of {doubles.length} on). A 2v2 against the strongest three of each, above the
+            player&apos;s level, and much harder than a rematch. Only for sale to members who have beaten
+            both. A win pays 6 tokens even past the daily battle limit.
+          </p>
+        </div>
+        <ul className="space-y-2">
+          {doubles.map((s) => (
+            <ItemCard key={`${s.key}-${s.updated_at}`} item={s} onToast={showToast} onSaved={refresh} />
+          ))}
+        </ul>
+        {!doubles.length && <p className="text-sm text-muted">No double battle tickets yet (v109).</p>}
+      </section>
+      </div>
     )
   }
 
