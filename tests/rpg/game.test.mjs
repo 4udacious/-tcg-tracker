@@ -107,6 +107,43 @@ test('a tracking move (Aurora Beam, Flamethrower…): holding just while the dot
   } finally { await g.close() }
 })
 
+test('in a 2v2, a move\'s input against the foe on the right stays on screen: the charge meter (Shadow Ball), Stone Edge\'s stones, the track and the twin rings', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(async () => {
+      document.getElementById('home').style.display = 'none'; document.getElementById('battleL').style.display = 'block'   // the battle screen, where the inputs show
+      const v = window.__vvm, fx = document.getElementById('fx'), key = (type) => dispatchEvent(new KeyboardEvent(type, { key: 'x' }))
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+      /** Starts an input, reads where its pieces sit (in the screen's own pixels), then lets it finish. */
+      const span = async (sel, start, finish = async () => {}) => {
+        const done = start(); let box = null
+        for (let i = 0; i < 100 && !box; i++) {
+          const els = [...fx.querySelectorAll(sel)]
+          if (els.length) box = { left: Math.min(...els.map((e) => e.offsetLeft)), right: Math.max(...els.map((e) => e.offsetLeft + e.offsetWidth)) }
+          else await wait(20)
+        }
+        await finish(); await done; return box
+      }
+      const tap = async () => { key('keydown'); await wait(80); key('keyup') }
+      const { x, y } = v.DUO_AT.e[1]
+      return {
+        x, width: fx.clientWidth,
+        charge: await span('.meter', () => v.chargeTap(x, y), tap),
+        oneOnOne: await span('.meter', () => v.chargeTap(220, 74), tap),   // a 1v1 foe's spot: as it always was
+        stones: await span('.stone', () => v.pickStone(x, y)),
+        track: await span('.track', () => v.trackHold(x, y, 300)),
+        twin: await span('.ring', () => v.twinTap(x, y, 300, 1)),
+      }
+    })
+    for (const k of ['charge', 'stones', 'track', 'twin']) assert.ok(r[k] && r[k].left >= 2 && r[k].right <= r.width - 2, `${k}: ${JSON.stringify(r[k])} inside 0-${r.width}`)
+    assert.ok(r.charge.left > r.x, 'the meter still beside the foe, on its right')
+    assert.equal(r.oneOnOne.left, 266, 'against one foe, the meter where it always was')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('Lv 100 is the cap: no EXP past it on the field, a save from past it comes back to it, stats and all', async () => {
   const g = await openGame()
   try {
