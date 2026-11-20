@@ -171,9 +171,9 @@ test('battle rules', async () => {
             timing: [PARRY_TIMING, PERFECT_PARRY],
             asleep: leaderParries(L, { status: 'slp' }, 'GOOD', false, yes), paralyzed: leaderParries(L, { status: 'par' }, 'GOOD', false, yes), wild: leaderParries(null, mon, 'GOOD', false, yes),
             confused: [!!leaderParries(L, mon, 'GOOD', true, () => L.parry * 0.9), !!leaderParries(L, mon, 'GOOD', false, () => L.parry * 0.9)],
-            rates: { gyms: GYMS.every((x) => x.parry === PARRY.gym), elite: ELITE.every((x) => x.parry === PARRY.elite),
-              top: [KANTO_ELITE.find((x) => x.red).parry], alex: [rivalTrainer(0).parry, rivalTrainer(6).parry], herb: storyTrainer('HERB', 3).parry ?? 0,
-              most: Math.max(...[...GYMS, ...ELITE, ...KANTO_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].map((x) => x.parry)), PARRY } } })(),
+            rates: { gyms: [...GYMS, ...HS_GYMS].every((x) => x.parry === PARRY.gym), elite: [...ELITE, ...HOENN_ELITE, ...SINNOH_ELITE.filter((x) => x.role !== 'CHAMPION')].every((x) => x.parry === PARRY.elite),
+              top: [KANTO_ELITE.find((x) => x.red).parry, SINNOH_ELITE.find((x) => x.role === 'CHAMPION').parry], alex: [rivalTrainer(0).parry, rivalTrainer(6).parry], herb: storyTrainer('HERB', 3).parry ?? 0,
+              most: Math.max(...[...GYMS, ...HS_GYMS, ...ELITE, ...KANTO_ELITE, ...HOENN_ELITE, ...SINNOH_ELITE, ...RIVAL_BATTLES.map((B, n) => rivalTrainer(n))].map((x) => x.parry)), PARRY } } })(),
         // A confused Pokémon's windows: a parry 80 ms off lands (the window is 90), not once confused.
         confParry: [defendResult({ btn: 'a' }, 80, false, 1).r, defendResult({ btn: 'a' }, 80, false, CONF_DEFEND).r, defendResult({ btn: 'b' }, 150, false, CONF_DEFEND).r],
         abra15: evoDue(mon('ABRA', 15)), abra16: evoDue(mon('ABRA', 16))?.to,
@@ -223,7 +223,7 @@ test('battle rules', async () => {
     assert.ok(!p.asleep && !p.paralyzed, 'not while asleep or paralyzed')
     assert.ok(!p.wild, 'wild Pokémon and everyday trainers never parry')
     assert.deepEqual(p.confused, [false, true], 'a confused one parries less often')
-    assert.ok(p.rates.gyms && p.rates.elite && p.rates.top.every((x) => x === p.rates.PARRY.top), `the gyms least, the Elite Fours more, Red most (${JSON.stringify(p.rates)})`)
+    assert.ok(p.rates.gyms && p.rates.elite && p.rates.top.every((x) => x === p.rates.PARRY.top), `the gyms least, the Elite Fours more, Red and Cynthia most (${JSON.stringify(p.rates)})`)
     assert.ok(p.rates.PARRY.gym < p.rates.PARRY.elite && p.rates.PARRY.elite < p.rates.PARRY.top && p.rates.most < 0.35, `for a GOOD strike, under 35% (${p.rates.most})`)
     assert.ok(p.rates.alex[0] < p.rates.alex[1] && p.rates.herb === 0, 'Alex more with each battle; Herb and Paul don\'t parry')
     assert.deepEqual(r.confParry, ['parry', 'miss', 'miss'], 'confused: the parry and dodge windows are narrower')
@@ -247,6 +247,121 @@ test('battle rules', async () => {
     assert.equal(r.tangela[0], null); assert.equal(r.tangela[1], 'TANGROWTH')
     assert.deepEqual({ ...r.works, owlPick: undefined }, { singAsleep: false, singAwake: true, seedGrass: false, toxicSteel: false, swordsAt4: false, rainInRain: false, owlPick: undefined })
     assert.notEqual(r.works.owlPick, 'HYPNOSIS', 'Hoothoot doesn\'t try to put a sleeping Pokémon to sleep')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('Hoenn and Sinnoh: every Gen 3 and 4 Pokémon, their evolutions and their new moves', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(1200)
+    const r = await page.evaluate(() => {
+      const mon = (n, lv, more = {}) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; return Object.assign(m, more) }
+      const all = [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms], have = new Set(all.map((x) => x.id))
+      const evoReach = (names) => { const reach = new Set(names), q = [...names]
+        while (q.length) { const n = q.pop(); for (const e of [...(DATA.evos[n] ?? []), ...(EVO_HOW[n] ?? [])]) if (!reach.has(e.to)) { reach.add(e.to); q.push(e.to) } }
+        return [...reach] }
+      const region = evoReach(HOENN_SINNOH_WILD)
+      const night = (v) => { window.timeOfDay = () => (v ? 'night' : 'day') }
+      const clamperl = [(night(false), evoByItem(mon('CLAMPERL', 30), 'linkcable', {}).rule?.to), (night(true), evoByItem(mon('CLAMPERL', 30), 'linkcable', {}).rule?.to)]
+      const nincada = mon('NINCADA', 20), sh = shedinjaOf(nincada)
+      const pick = (n, lv) => new Set(Array.from({ length: 40 }, () => evoDue(mon(n, lv))?.to))
+      const mv = (n) => moveInfo(n)
+      return {
+        missing: Array.from({ length: 242 }, (_, i) => 252 + i).filter((i) => !have.has(i)),
+        art: Array.from({ length: 242 }, (_, i) => 252 + i).filter((i) => !ART[i] || !ART[i + 'b'] || !ART['cry:' + i]),
+        wild: { n: HOENN_SINNOH_WILD.length, bad: HOENN_SINNOH_WILD.filter((n) => { const s = speciesByName(n); return !s || HOENN_SINNOH_LEGENDS.includes(n) || DATA.starters.some((x) => x.name === n) || s.id < 252 || s.id > 493 }) },
+        legends: HOENN_SINNOH_LEGENDS.length,
+        // None of the new ones turns up in Kanto and Johto: no legendary anywhere in the wild, and only the natives that were already there.
+        kantoWild: DATA.wild.filter((w) => w.id >= 252 && w.id <= 493).map((w) => w.name).sort(),
+        shinyless: region.filter((n) => !SHINY_IDS.has(speciesByName(n).id)),
+        evos: [evoByItem(mon('KIRLIA', 30), 'dawnstone', {}).rule?.to, evoDue(mon('KIRLIA', 30))?.to, evoByItem(mon('SNORUNT', 42), 'dawnstone', {}).rule?.to,
+          evoByItem(mon('NOSEPASS', 30), 'thunderstone', {}).rule?.to, evoByItem(mon('LOMBRE', 30), 'waterstone', {}).rule?.to, evoByItem(mon('NUZLEAF', 30), 'leafstone', {}).rule?.to,
+          evoByItem(mon('DUSCLOPS', 40), 'linkcable', {}).rule?.to, evoDue(mon('FEEBAS', 20, { bond: 100 }))?.to, evoDue(mon('FEEBAS', 20)), evoDue(mon('YANMA', 33))?.to,
+          evoDue(mon('BAGON', 30))?.to, evoDue(mon('SHELGON', 50))?.to, evoDue(mon('BELDUM', 20))?.to],
+        sneasel: [(night(true), evoDue(mon('SNEASEL', 30, { bond: 100 }))?.to), (night(false), evoDue(mon('SNEASEL', 30, { bond: 100 })))],
+        clamperl, wurmple: [...pick('WURMPLE', 7)].sort(), burmy: [...pick('BURMY', 20)].sort(),
+        dawn: { name: ITEMS.dawnstone?.name, art: ART['item:dawnstone'], drops: EVO_DROPS.includes('dawnstone') },
+        shedinja: { name: sh.name, level: sh.level, ivs: JSON.stringify(sh.ivs) === JSON.stringify(nincada.ivs), nature: sh.nature === nincada.nature, full: sh.hp === sh.stats.hp,
+          guard: [wonderGuard(sh, mv('TACKLE')), wonderGuard(sh, mv('EMBER')), wonderGuard(mon('PIKACHU', 20), mv('TACKLE'))] },
+        spout: [spoutPower(mon('KYOGRE', 70)), spoutPower(Object.assign(mon('KYOGRE', 70), { hp: 1 }))],
+        moves: { closeCombat: mv('CLOSE COMBAT').selfDrop, overheat: mv('OVERHEAT').selfDrop, aquaJet: mv('AQUA JET').prio, extreme: mv('EXTREME SPEED').prio, flare: mv('FLARE BLITZ').recoil },
+        discs: { cc: DISC_POOL.includes('CLOSE COMBAT'), rot: DISC_POOL.includes('ROAR OF TIME'), dialga: canLearnDisc(mon('DIALGA', 50), 'ROAR OF TIME'), pikachu: canLearnDisc(mon('PIKACHU', 50), 'ROAR OF TIME'),
+          machamp: canLearnDisc(mon('MACHAMP', 50), 'CLOSE COMBAT'), blazeKick: canLearnDisc(mon('BLAZIKEN', 50), 'BLAZE KICK') },
+        blaziken: levelMoves(mon('BLAZIKEN', 70)).filter(([, n]) => ['BLAZE KICK', 'FLARE BLITZ', 'BLAST BURN'].includes(n)),
+        typhlosion: levelMoves(mon('TYPHLOSION', 70)).some(([lv, n]) => lv === 65 && n === 'BLAST BURN'),
+      }
+    })
+    assert.deepEqual(r.missing, [], 'every Pokémon from #252 to #493 is in')
+    assert.deepEqual(r.art, [], 'each with its sprites and cry')
+    assert.equal(r.wild.n, 95); assert.deepEqual(r.wild.bad, [], 'the region\'s wild list: Hoenn and Sinnoh first stages, no starters or legendaries')
+    assert.equal(r.legends, 24)
+    assert.deepEqual(r.kantoWild, ['BIDOOF', 'BUDEW', 'CROAGUNK', 'GIBLE', 'HAPPINY', 'HIPPOPOTAS', 'MIME JR.', 'MUNCHLAX', 'RIOLU', 'SKITTY', 'SLAKOTH'].sort(), 'Kanto and Johto\'s wild Pokémon are as they were')
+    assert.deepEqual(r.shinyless, [], 'every one you can meet in the new region, or evolve one into, has a shiny')
+    assert.deepEqual(r.evos, ['GALLADE', 'GARDEVOIR', 'FROSLASS', 'PROBOPASS', 'LUDICOLO', 'SHIFTRY', 'DUSKNOIR', 'MILOTIC', null, 'YANMEGA', 'SHELGON', 'SALAMENCE', 'METANG'])
+    assert.deepEqual(r.sneasel, ['WEAVILE', null], 'Weavile at full Bond, at night only')
+    assert.deepEqual(r.clamperl, ['HUNTAIL', 'GOREBYSS'], 'Clamperl\'s Linking Cord: Huntail by day, Gorebyss at night')
+    assert.deepEqual(r.wurmple, ['CASCOON', 'SILCOON']); assert.deepEqual(r.burmy, ['MOTHIM', 'WORMADAM'])
+    assert.deepEqual(r.dawn, { name: 'DAWN STONE', art: '/rpg/a/items/dawnstone.png', drops: true })
+    assert.deepEqual(r.shedinja, { name: 'SHEDINJA', level: 20, ivs: true, nature: true, full: true, guard: [0.25, 1, 1] }, 'Shedinja: as strong as the Nincada, and only a super-effective hit really hurts it')
+    assert.deepEqual(r.spout, [110, 20], 'Water Spout at full HP, and almost none')
+    assert.deepEqual(r.moves, { closeCombat: { def: -1, spd: -1 }, overheat: { spa: -2 }, aquaJet: 1, extreme: 2, flare: 1 / 3 })
+    assert.deepEqual(r.discs, { cc: true, rot: false, dialga: true, pikachu: false, machamp: true, blazeKick: true }, 'new moves are discs; a signature move only for its own')
+    assert.deepEqual(r.blaziken, [[36, 'BLAZE KICK'], [65, 'BLAST BURN'], [66, 'FLARE BLITZ']])
+    assert.ok(r.typhlosion, 'every starter\'s last form learns its ultimate move at 65')
+    // Nincada evolving, played: Ninjask, and a Shedinja in the empty shell.
+    await page.evaluate(() => { const v = window.__vvm, m = individual(speciesByName('NINCADA'), 20, Math.random); m.hp = m.stats.hp; v.party.splice(0, 9, m); window.__ivs = JSON.stringify(m.ivs); v.evolveNow(m) })
+    for (let i = 0; i < 120 && await page.evaluate(() => !!document.querySelector('.evostage') || window.__vvm.party.length < 2); i++) { await page.keyboard.press('x'); await page.waitForTimeout(200) }
+    const after = await page.evaluate(() => window.__vvm.party.map((m) => [m.name, m.level, JSON.stringify(m.ivs) === window.__ivs]))
+    assert.deepEqual(after, [['NINJASK', 20, true], ['SHEDINJA', 20, true]])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('Hoenn and Sinnoh\'s League: 16 gyms at the level caps, two Elite Fours and Champions, their art and badges, summons and tickets for the region you\'re in', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(1200)
+    const r = await page.evaluate(async () => {
+      const img = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i.naturalWidth > 0); i.onerror = () => ok(false); i.src = src })
+      const v = window.__vvm, H = LEAGUES.hoenn.members, S = LEAGUES.sinnoh.members, all = [...HS_GYMS, ...H, ...S], bad = []
+      for (const L of all) {
+        for (const k of [L.vs, L.face, L.body]) if (!(await img(ART[k]))) bad.push(`${L.short} ${k}`)
+        for (const n of L.team) { const sp = speciesByName(n); if (!sp || !ART[sp.id] || !ART[sp.id + 'b'] || !ART['cry:' + sp.id]) bad.push(`${L.short}: ${n}`) }
+        if (!(L.sig?.length >= 3)) bad.push(`${L.short} sig`)
+        if (L.badge && !(await img(badgeArt(L.badge)))) bad.push(`${L.short} badge`)
+      }
+      // Where you are decides which gym a summon is for, and which League a ticket is.
+      v.setFame({ at: 1, team: [] }); v.setHsStarted(true)
+      const kj = { next: v.leagueKey(), gym: (v.setRegion('kj'), v.leagueNow()) }
+      v.setRegion('hs')
+      const at0 = { summon: summonItem(16).name, open: v.leagueNow(), cap: v.hsCap() }
+      for (let n = 16; n < 24; n++) v.hsBadges.push(n)
+      const at8 = { league: v.leagueNow(), key: v.leagueKey(), cap: v.hsCap(), ticket: ITEMS[v.leagueKey()].name }
+      v.hs.hoenn = true
+      const champ = { league: v.leagueNow(), cap: v.hsCap(), next: summonItem(24).name }
+      for (let n = 24; n < 32; n++) v.hsBadges.push(n)
+      const at16 = { league: v.leagueNow(), key: v.leagueKey(), cap: v.hsCap() }
+      v.hs.sinnoh = true
+      const done = { league: v.leagueNow(), cap: v.hsCap() }
+      v.setRegion('kj')
+      const back = { league: v.leagueNow(), badges: v.badges.length }
+      return { n: [HS_GYMS.length, H.length, S.length], bad, aces: HS_GYMS.map((L) => leaderLevels(L).at(-1)), champs: [H.at(-1).min, S.at(-1).min], roles: [H.at(-1).role, S.at(-1).role],
+        regions: [...new Set(HS_GYMS.map((L) => L.region))], numbers: HS_GYMS.map((L) => L.gym).join(), badges: HS_GYMS.map((L) => L.badge).join(), at0, at8, champ, at16, done, back, kj }
+    })
+    assert.deepEqual(r.n, [16, 5, 5]); assert.deepEqual(r.bad, [], 'every leader: art, team (with sprites and cries), signature moves and badge')
+    assert.deepEqual(r.aces, [15, 19, 24, 29, 33, 38, 43, 47, 58, 61, 64, 67, 70, 72, 74, 76], "each gym's ace at the cap its badge lifts (HS_GYM_CAP)")
+    assert.deepEqual(r.champs, [55, 80]); assert.deepEqual(r.roles, ['CHAMPION', 'CHAMPION'])
+    assert.deepEqual(r.regions, ['hoenn', 'sinnoh']); assert.equal(r.numbers, Array.from({ length: 16 }, (_, i) => 16 + i).join())
+    assert.equal(r.badges, 'STONE,KNUCKLE,DYNAMO,HEAT,BALANCE,FEATHER,MIND,RAIN,COAL,FOREST,COBBLE,FEN,RELIC,MINE,ICICLE,BEACON')
+    assert.deepEqual(r.at0, { summon: 'STONE SUMMON', open: null, cap: 15 })
+    assert.deepEqual(r.at8, { league: 'hoenn', key: 'summon:hoenn', cap: 55, ticket: 'HOENN LEAGUE TICKET' }, 'eight badges: the Hoenn League, and its Champion\'s level is the cap')
+    assert.deepEqual(r.champ, { league: null, cap: 58, next: 'COAL SUMMON' }, "Hoenn's Champion: Sinnoh's gyms, from Roark")
+    assert.deepEqual(r.at16, { league: 'sinnoh', key: 'summon:sinnoh', cap: 80 })
+    assert.deepEqual(r.done, { league: null, cap: 100 }, "Sinnoh's Champion: no cap but Lv 100")
+    assert.deepEqual(r.back, { league: null, badges: 0 }, "Kanto and Johto's own progress, untouched")
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -499,7 +614,7 @@ test('accuracy down (Flash, Sand Attack, Smokescreen, Kinesis, Mud-Slap): your s
         // A foe's Mud-Slap comes from its own move list, a copy without the flag: looked up by name.
         foeMudSlap: accDownOf(WILD_MOVES.ground.find((m) => m.name === 'MUD-SLAP')), tackle: accDownOf(WILD_MOVES.ground.find((m) => m.name === 'TACKLE')) }
     })
-    assert.deepEqual(r.lowering, ['FLASH', 'KINESIS', 'MUD-SLAP', 'SAND ATTACK', 'SMOKESCREEN'], 'every move that lowers accuracy')
+    assert.deepEqual(r.lowering, ['FLASH', 'KINESIS', 'MIRROR SHOT', 'MUD BOMB', 'MUD-SLAP', 'SAND ATTACK', 'SMOKESCREEN'], 'every move that lowers accuracy')
     assert.equal(r.looks[0].cls, 'ring', 'accuracy as normal: a plain ring')
     assert.deepEqual(r.looks.slice(1).map((x) => x.dz), ['1', '2', '3', '3'], 'one look per stage, the third the most (lower still looks like the third)')
     assert.ok(r.looks.slice(1, 4).every((x, i, a) => /dazzle/.test(x.cls) && (!i || (x.o < a[i - 1].o && x.b > a[i - 1].b))), `dimmer and blurrier each stage: ${JSON.stringify(r.looks)}`)
@@ -519,14 +634,18 @@ test('attack effects: every move has its own look, and every one plays without e
       const A = { x: 100, y: 194 }, T = { x: 220, y: 114 }, el = document.getElementById('player'), recipes = {}
       const names = Object.keys(MOVEDEX)
       for (const name of names) recipes[name] = window.__fx.recipe(moveInfo(name))
+      // A thrown rock really flies: its pieces are on the layer mid-throw (they once went to a same-named function instead).
+      const layer = document.getElementById('fx'), thrown = window.__fx.strike(moveInfo('ROCK THROW'), A, T, el, true)
+      await new Promise((r) => setTimeout(r, 120)); const pieces = layer.childElementCount; await thrown
       // In batches, so the run is quick but the layer doesn't hold hundreds of particles at once.
       for (let i = 0; i < names.length; i += 12) await Promise.all(names.slice(i, i + 12).map(async (name) => {
         const mv = moveInfo(name); await window.__fx.strike(mv, A, T, el, true); window.__fx.impact(T, mv.type, true)
       }))
       const counts = {}; for (const R of Object.values(recipes)) counts[R] = (counts[R] ?? 0) + 1
-      return { recipes, counts, total: names.length }
+      return { recipes, counts, total: names.length, pieces }
     })
     for (const [name, R] of Object.entries(r.recipes)) assert.ok(typeof R === 'string' && R, `${name} has an effect`)
+    assert.ok(r.pieces >= 3, `Rock Throw's rocks are on screen mid-throw (${r.pieces})`)
     assert.ok(Object.keys(r.counts).length >= 25, `moves use many different effects (${Object.keys(r.counts).length})`)
     assert.ok(Math.max(...Object.values(r.counts)) < r.total * 0.25, `no one effect covers a quarter of the moves: ${JSON.stringify(r.counts)}`)
     assert.deepEqual(g.errors, [])
@@ -611,7 +730,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, rematch_gym_1: 1, double_falkner_bugsy: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, dawn_stone: 1, rematch_gym_1: 1, double_falkner_bugsy: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
@@ -654,7 +773,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(await frame.evaluate(() => window.__vvm.bag.fullheal), 1, 'a bought Full Heal is a FULL HEAL in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.hyper, window.__vvm.bag.maxrevive]), [2, 1], 'bought Hyper Potions and a Max Revive are in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag.ultra), 3, 'bought Ultra Balls are in the Bag')
-    assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale]), [1, 2, 1], 'bought evolution items are the game\'s own in the Bag')
+    assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale, window.__vvm.bag.dawnstone]), [1, 2, 1, 1], 'bought evolution items (the Dawn Stone too) are the game\'s own in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag['rematch:gym_1']), 1, 'a bought rematch ticket is in the Bag, for that leader')
     assert.equal(await frame.evaluate(() => window.__vvm.bag['double:falkner_bugsy']), 1, 'and a bought double battle ticket, for that pair')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
@@ -1819,7 +1938,7 @@ test('balance: every leader, Elite Four member, Red, Alex, Herb and Paul, and ev
   try {
     await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
     const rows = await g.page.evaluate(simulate, { N: 1000, SKILLS: { average: SKILLS.average }, ONLY: '', AIMS })
-    assert.ok(rows.length >= 56, `every fight simulated (${rows.length})`)
+    assert.ok(rows.length >= 71, `every fight simulated (${rows.length})`)
     const off = rows.filter((r) => Math.abs(r.average - r.aim) > 0.15).map((r) => `${r.group} ${r.name}: ${Math.round(r.average * 100)}% (aim ${Math.round(r.aim * 100)}%)`)
     assert.deepEqual(off, [], 'a fight drifted from its aim: re-tune it with `npm run sim:rpg`, or set its own aim in sim.mjs (AIMS)')
     assert.deepEqual(g.errors, [])
@@ -2035,8 +2154,8 @@ test('double battles: every pair is two you can beat, three each at their strong
         final: teams.flat().every((m) => finalForm(m.name) === m.name),
       }
     }))
-    assert.equal(r.length, 15, 'fifteen pairs')
-    assert.equal(new Set(r.map((p) => p.id)).size, 15, 'each once')
+    assert.equal(r.length, 30, 'thirty pairs')
+    assert.equal(new Set(r.map((p) => p.id)).size, 30, 'each once')
     for (const p of r) {
       assert.ok(p.ok, `${p.id}: both members are in the game`)
       assert.ok(p.talk, `${p.id}: an intro, an outro and a gloat for each`)
@@ -2050,12 +2169,13 @@ test('double battles: every pair is two you can beat, three each at their strong
       }
       assert.ok(p.final, `${p.id}: fully evolved`)
     }
-    assert.equal(r.find((p) => p.id === 'brock_misty').name, 'BROCK & MISTY')
+    assert.ok(r.find((p) => p.id === 'tateliza_juan').name === 'TATE&LIZA AND JUAN' && r.find((p) => p.id === 'brock_misty').name === 'BROCK & MISTY')
     assert.ok(r.some((p) => p.id === 'alex_red'), 'Alex and Red, together')
     // The migration (v109) has a ticket for each pair, needing exactly these two battles.
-    const sql = readFileSync(new URL('../../supabase/migrations/v109_double_battles.sql', import.meta.url), 'utf8')
+    const sql = ['v109_double_battles.sql', 'v111_hoenn_sinnoh_double_battles.sql'].map((f) => readFileSync(new URL(`../../supabase/migrations/${f}`, import.meta.url), 'utf8')).join('\n')
+    // v111 lists every pair's milestones again (it redefines double_milestones): the last listing of each counts.
     const rows = Object.fromEntries([...sql.matchAll(/\('double_(\w+)', '([a-z]+:[A-Z0-9]+)', '([a-z]+:[A-Z0-9]+)'\)/g)].map((m) => [m[1], [m[2], m[3]]]))
-    const supplies = [...sql.matchAll(/\('double_(\w+)', 'item'/g)].map((m) => m[1])
+    const supplies = [...new Set([...sql.matchAll(/\('double_(\w+)', 'item'/g)].map((m) => m[1]))]
     assert.deepEqual(Object.keys(rows).sort(), r.map((p) => p.id).sort(), 'a milestone row for each pair')
     assert.deepEqual(supplies.sort(), r.map((p) => p.id).sort(), 'a supply for each pair')
     for (const p of r) assert.deepEqual(rows[p.id], p.milestones, `${p.id}: the server checks the same two battles`)

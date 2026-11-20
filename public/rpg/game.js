@@ -552,6 +552,29 @@ DATA.forms.push(...[{"id":315,"name":"ROSELIA","types":["grass","poison"],"base"
 Object.assign(DATA.evos, {"FLABÉBÉ":[{"to":"FLOETTE","level":19}]})
 for (const id of [406,572,669,315,407,573,670,671,468]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
 ART['item:shinystone'] = '/rpg/a/items/shinystone.png'
+/*
+ * Hoenn and Sinnoh: every Gen 3 and 4 Pokémon is in the game. 77 first stages,
+ * 80 evolutions and the 24 legendary and mythical Pokémon, with the
+ * same PokéAPI Showdown sprites (shiny ones too) and cries as the rest. They're
+ * species the game knows (DATA.forms) but none of them turns up yet: the second
+ * region's wild pool is HOENN_SINNOH_WILD, every Hoenn and Sinnoh first stage
+ * (the ones already in the game too), apart from the starters and legendaries.
+ * Evolutions as the games have them: by level, stone (and the new DAWN STONE for
+ * Gallade and Froslass), the Linking Cord for trades (Clamperl: Huntail by day,
+ * Gorebyss at night), Bond for friendship and the rest (Feebas, Mantyke, Bonsly,
+ * Sneasel and Gligar at night), Thunder Stone for Probopass. Nincada leaves a
+ * Shedinja behind when it evolves (runEvolutions).
+ */
+DATA.forms.push(...[{"id":261,"name":"POOCHYENA","types":["dark"],"base":{"hp":35,"attack":55,"defense":35,"special-attack":30,"special-defense":30,"speed":35},"capture":255},{"id":263,"name":"ZIGZAGOON","types":["normal"],"base":{"hp":38,"attack":30,"defense":41,"special-attack":30,"special-defense":41,"speed":60},"capture":255},{"id":265,"name":"WURMPLE","types":["bug"],"base":{"hp":45,"attack":45,"defense":35,"special-attack":20,"special-defense":30,"speed":20},"capture":255},{"id":270,"name":"LOTAD","types":["water","grass"],"base":{"hp":40,"attack":30,"defense":30,"special-attack":40,"special-defense":50,"speed":30},"capture":255},{"id":273,"name":"SEEDOT","types":["grass"],"base":{"hp":40,"attack":40,"defense":50,"special-attack":30,"special-defense":30,"speed":30},"capture":255},{"id":276,"name":"TAILLOW","types":["normal","flying"],"base":{"hp":40,"attack":55,"defense":30,"special-attack":30,"special-defense":30,"speed":85},"capture":200},{"id":278,"name":"WINGULL","types":["water","flying"],"base":{"hp":40,"attack":30,"defense":30,"special-attack":55,"special-defense":30,"speed":85},"capture":190},{"id":280,"name":"RALTS","types":["psychic","fairy"],"base":{"hp":28,"attack":25,"defense":25,"special-attack":45,"special-defense":35,"speed":40},"capture":235},{"id":283,"name":"SURSKIT","types":["bug","water"],"base":{"hp":40,"attack":30,"defense":32,"special-attack":50,"special-defense":52,"speed":65},"capture":200},{"id":285,"name":"SHROOMISH","types":["grass"],"base":{"hp":60,"attack":40,"defense":60,"special-attack":40,"special-defense":60,"speed":35},"capture":255},{"id":290,"name":"NINCADA","types":["bug","ground"],"base":{"hp":31,"attack":45,"defense":90,"special-attack":30,"special-defense":30,"speed":40},"capture":255},{"id":293,"name":"WHISMUR","types":["normal"],"base":{"hp":64,"attack":51,"defense":23,"special-attack":51,"special-defense":23,"speed":28},"capture":190},{"id":296,"name":"MAKUHITA","types":["fighting"],"base":{"hp":72,"attack":60,"defense":30,"special-attack":20,"special-defense":30,"speed":25},"capture":180},{"id":298,"name":"AZURILL","types":["normal","fairy"],"base":{"hp":50,"attack":20,"defense":40,"special-attack":20,"special-defense":40,"speed":20},"capture":150},{"id":299,"name":"NOSEPASS","types":["rock"],"base":{"hp":30,"attack":45,"defense":135,"special-attack":45,"special-defense":90,"speed":30},"capture":255},{"id":304,"name":"ARON","types":["steel","rock"],"base":{"hp":50,"attack":70,"defense":100,"special-attack":40,"special-defense":40,"speed":30},"capture":180},{"id":307,"name":"MEDITITE","types":["fighting","psychic"],"base":{"hp":30,"attack":40,"defense":55,"special-attack":40,"special-defense":55,"speed":60},"capture":180},{"id":309,"name":"ELECTRIKE","types":["electric"],"base":{"hp":40,"attack":45,"defense":40,"special-attack":65,"special-defense":40,"speed":65},"capture":120},{"id":313,"name":"VOLBEAT","types":["bug"],"base":{"hp":65,"attack":73,"defense":75,"special-attack":47,"special-defense":85,"speed":85},"capture":150},{"id":314,"name":"ILLUMISE","types":["bug"],"base":{"hp":65,"attack":47,"defense":75,"special-attack":73,"special-defense":85,"speed":85},"capture":150},{"id":316,"name":"GULPIN","types":["poison"],"base":{"hp":70,"attack":43,"defense":53,"special-attack":43,"special-defense":53,"speed":40},"capture":225},{"id":318,"name":"CARVANHA","types":["water","dark"],"base":{"hp":45,"attack":90,"defense":20,"special-attack":65,"special-defense":20,"speed":65},"capture":225},{"id":320,"name":"WAILMER","types":["water"],"base":{"hp":130,"attack":70,"defense":35,"special-attack":70,"special-defense":35,"speed":60},"capture":125},{"id":322,"name":"NUMEL","types":["fire","ground"],"base":{"hp":60,"attack":60,"defense":40,"special-attack":65,"special-defense":45,"speed":35},"capture":255},{"id":324,"name":"TORKOAL","types":["fire"],"base":{"hp":70,"attack":85,"defense":140,"special-attack":85,"special-defense":70,"speed":20},"capture":90},{"id":325,"name":"SPOINK","types":["psychic"],"base":{"hp":60,"attack":25,"defense":35,"special-attack":70,"special-defense":80,"speed":60},"capture":255},{"id":327,"name":"SPINDA","types":["normal"],"base":{"hp":60,"attack":60,"defense":60,"special-attack":60,"special-defense":60,"speed":60},"capture":255},{"id":328,"name":"TRAPINCH","types":["ground"],"base":{"hp":45,"attack":100,"defense":45,"special-attack":45,"special-defense":45,"speed":10},"capture":255},{"id":331,"name":"CACNEA","types":["grass"],"base":{"hp":50,"attack":85,"defense":40,"special-attack":85,"special-defense":40,"speed":35},"capture":190},{"id":333,"name":"SWABLU","types":["normal","flying"],"base":{"hp":45,"attack":40,"defense":60,"special-attack":40,"special-defense":75,"speed":50},"capture":255},{"id":335,"name":"ZANGOOSE","types":["normal"],"base":{"hp":73,"attack":115,"defense":60,"special-attack":60,"special-defense":60,"speed":90},"capture":90},{"id":336,"name":"SEVIPER","types":["poison"],"base":{"hp":73,"attack":100,"defense":60,"special-attack":100,"special-defense":60,"speed":65},"capture":90},{"id":337,"name":"LUNATONE","types":["rock","psychic"],"base":{"hp":90,"attack":55,"defense":65,"special-attack":95,"special-defense":85,"speed":70},"capture":45},{"id":338,"name":"SOLROCK","types":["rock","psychic"],"base":{"hp":90,"attack":95,"defense":85,"special-attack":55,"special-defense":65,"speed":70},"capture":45},{"id":339,"name":"BARBOACH","types":["water","ground"],"base":{"hp":50,"attack":48,"defense":43,"special-attack":46,"special-defense":41,"speed":60},"capture":190},{"id":341,"name":"CORPHISH","types":["water"],"base":{"hp":43,"attack":80,"defense":65,"special-attack":50,"special-defense":35,"speed":35},"capture":205},{"id":343,"name":"BALTOY","types":["ground","psychic"],"base":{"hp":40,"attack":40,"defense":55,"special-attack":40,"special-defense":70,"speed":55},"capture":255},{"id":345,"name":"LILEEP","types":["rock","grass"],"base":{"hp":66,"attack":41,"defense":77,"special-attack":61,"special-defense":87,"speed":23},"capture":45},{"id":347,"name":"ANORITH","types":["rock","bug"],"base":{"hp":45,"attack":95,"defense":50,"special-attack":40,"special-defense":50,"speed":75},"capture":45},{"id":349,"name":"FEEBAS","types":["water"],"base":{"hp":20,"attack":15,"defense":20,"special-attack":10,"special-defense":55,"speed":80},"capture":255},{"id":351,"name":"CASTFORM","types":["normal"],"base":{"hp":70,"attack":70,"defense":70,"special-attack":70,"special-defense":70,"speed":70},"capture":45},{"id":352,"name":"KECLEON","types":["normal"],"base":{"hp":60,"attack":90,"defense":70,"special-attack":60,"special-defense":120,"speed":40},"capture":200},{"id":353,"name":"SHUPPET","types":["ghost"],"base":{"hp":44,"attack":75,"defense":35,"special-attack":63,"special-defense":33,"speed":45},"capture":225},{"id":355,"name":"DUSKULL","types":["ghost"],"base":{"hp":20,"attack":40,"defense":90,"special-attack":30,"special-defense":90,"speed":25},"capture":190},{"id":359,"name":"ABSOL","types":["dark"],"base":{"hp":65,"attack":130,"defense":60,"special-attack":75,"special-defense":60,"speed":75},"capture":30},{"id":360,"name":"WYNAUT","types":["psychic"],"base":{"hp":95,"attack":23,"defense":48,"special-attack":23,"special-defense":48,"speed":23},"capture":125},{"id":361,"name":"SNORUNT","types":["ice"],"base":{"hp":50,"attack":50,"defense":50,"special-attack":50,"special-defense":50,"speed":50},"capture":190},{"id":363,"name":"SPHEAL","types":["ice","water"],"base":{"hp":70,"attack":40,"defense":50,"special-attack":55,"special-defense":50,"speed":25},"capture":255},{"id":366,"name":"CLAMPERL","types":["water"],"base":{"hp":35,"attack":64,"defense":85,"special-attack":74,"special-defense":55,"speed":32},"capture":255},{"id":369,"name":"RELICANTH","types":["water","rock"],"base":{"hp":100,"attack":90,"defense":130,"special-attack":45,"special-defense":65,"speed":55},"capture":25},{"id":370,"name":"LUVDISC","types":["water"],"base":{"hp":43,"attack":30,"defense":55,"special-attack":40,"special-defense":65,"speed":97},"capture":225},{"id":371,"name":"BAGON","types":["dragon"],"base":{"hp":45,"attack":75,"defense":60,"special-attack":40,"special-defense":30,"speed":50},"capture":45},{"id":374,"name":"BELDUM","types":["steel","psychic"],"base":{"hp":40,"attack":55,"defense":80,"special-attack":35,"special-defense":60,"speed":30},"capture":3},{"id":396,"name":"STARLY","types":["normal","flying"],"base":{"hp":40,"attack":55,"defense":30,"special-attack":30,"special-defense":30,"speed":60},"capture":255},{"id":401,"name":"KRICKETOT","types":["bug"],"base":{"hp":37,"attack":25,"defense":41,"special-attack":25,"special-defense":41,"speed":25},"capture":255},{"id":403,"name":"SHINX","types":["electric"],"base":{"hp":45,"attack":65,"defense":34,"special-attack":40,"special-defense":34,"speed":45},"capture":235},{"id":408,"name":"CRANIDOS","types":["rock"],"base":{"hp":67,"attack":125,"defense":40,"special-attack":30,"special-defense":30,"speed":58},"capture":45},{"id":410,"name":"SHIELDON","types":["rock","steel"],"base":{"hp":30,"attack":42,"defense":118,"special-attack":42,"special-defense":88,"speed":30},"capture":45},{"id":412,"name":"BURMY","types":["bug"],"base":{"hp":40,"attack":29,"defense":45,"special-attack":29,"special-defense":45,"speed":36},"capture":120},{"id":415,"name":"COMBEE","types":["bug","flying"],"base":{"hp":30,"attack":30,"defense":42,"special-attack":30,"special-defense":42,"speed":70},"capture":120},{"id":417,"name":"PACHIRISU","types":["electric"],"base":{"hp":60,"attack":45,"defense":70,"special-attack":45,"special-defense":90,"speed":95},"capture":200},{"id":418,"name":"BUIZEL","types":["water"],"base":{"hp":55,"attack":65,"defense":35,"special-attack":60,"special-defense":30,"speed":85},"capture":190},{"id":420,"name":"CHERUBI","types":["grass"],"base":{"hp":45,"attack":35,"defense":45,"special-attack":62,"special-defense":53,"speed":35},"capture":190},{"id":422,"name":"SHELLOS","types":["water"],"base":{"hp":76,"attack":48,"defense":48,"special-attack":57,"special-defense":62,"speed":34},"capture":190},{"id":425,"name":"DRIFLOON","types":["ghost","flying"],"base":{"hp":90,"attack":50,"defense":34,"special-attack":60,"special-defense":44,"speed":70},"capture":125},{"id":427,"name":"BUNEARY","types":["normal"],"base":{"hp":55,"attack":66,"defense":44,"special-attack":44,"special-defense":56,"speed":85},"capture":190},{"id":431,"name":"GLAMEOW","types":["normal"],"base":{"hp":49,"attack":55,"defense":42,"special-attack":42,"special-defense":37,"speed":85},"capture":190},{"id":433,"name":"CHINGLING","types":["psychic"],"base":{"hp":45,"attack":30,"defense":50,"special-attack":65,"special-defense":50,"speed":45},"capture":120},{"id":434,"name":"STUNKY","types":["poison","dark"],"base":{"hp":63,"attack":63,"defense":47,"special-attack":41,"special-defense":41,"speed":74},"capture":225},{"id":436,"name":"BRONZOR","types":["steel","psychic"],"base":{"hp":57,"attack":24,"defense":86,"special-attack":24,"special-defense":86,"speed":23},"capture":255},{"id":438,"name":"BONSLY","types":["rock"],"base":{"hp":50,"attack":80,"defense":95,"special-attack":10,"special-defense":45,"speed":10},"capture":255},{"id":442,"name":"SPIRITOMB","types":["ghost","dark"],"base":{"hp":50,"attack":92,"defense":108,"special-attack":92,"special-defense":108,"speed":35},"capture":100},{"id":451,"name":"SKORUPI","types":["poison","bug"],"base":{"hp":40,"attack":50,"defense":90,"special-attack":30,"special-defense":55,"speed":65},"capture":120},{"id":455,"name":"CARNIVINE","types":["grass"],"base":{"hp":74,"attack":100,"defense":72,"special-attack":90,"special-defense":72,"speed":46},"capture":200},{"id":456,"name":"FINNEON","types":["water"],"base":{"hp":49,"attack":49,"defense":56,"special-attack":49,"special-defense":61,"speed":66},"capture":190},{"id":458,"name":"MANTYKE","types":["water","flying"],"base":{"hp":45,"attack":20,"defense":50,"special-attack":60,"special-defense":120,"speed":50},"capture":25},{"id":459,"name":"SNOVER","types":["grass","ice"],"base":{"hp":60,"attack":62,"defense":50,"special-attack":62,"special-defense":60,"speed":40},"capture":120}],
+  ...[{"id":262,"name":"MIGHTYENA","types":["dark"],"base":{"hp":70,"attack":90,"defense":70,"special-attack":60,"special-defense":60,"speed":70},"capture":127},{"id":264,"name":"LINOONE","types":["normal"],"base":{"hp":78,"attack":70,"defense":61,"special-attack":50,"special-defense":61,"speed":100},"capture":90},{"id":266,"name":"SILCOON","types":["bug"],"base":{"hp":50,"attack":35,"defense":55,"special-attack":25,"special-defense":25,"speed":15},"capture":120},{"id":267,"name":"BEAUTIFLY","types":["bug","flying"],"base":{"hp":60,"attack":70,"defense":50,"special-attack":100,"special-defense":50,"speed":65},"capture":45},{"id":268,"name":"CASCOON","types":["bug"],"base":{"hp":50,"attack":35,"defense":55,"special-attack":25,"special-defense":25,"speed":15},"capture":120},{"id":269,"name":"DUSTOX","types":["bug","poison"],"base":{"hp":60,"attack":50,"defense":70,"special-attack":50,"special-defense":90,"speed":65},"capture":45},{"id":271,"name":"LOMBRE","types":["water","grass"],"base":{"hp":60,"attack":50,"defense":50,"special-attack":60,"special-defense":70,"speed":50},"capture":120},{"id":272,"name":"LUDICOLO","types":["water","grass"],"base":{"hp":80,"attack":70,"defense":70,"special-attack":90,"special-defense":100,"speed":70},"capture":45},{"id":274,"name":"NUZLEAF","types":["grass","dark"],"base":{"hp":70,"attack":70,"defense":40,"special-attack":60,"special-defense":40,"speed":60},"capture":120},{"id":275,"name":"SHIFTRY","types":["grass","dark"],"base":{"hp":90,"attack":100,"defense":60,"special-attack":90,"special-defense":60,"speed":80},"capture":45},{"id":277,"name":"SWELLOW","types":["normal","flying"],"base":{"hp":60,"attack":85,"defense":60,"special-attack":75,"special-defense":50,"speed":125},"capture":45},{"id":279,"name":"PELIPPER","types":["water","flying"],"base":{"hp":60,"attack":50,"defense":100,"special-attack":95,"special-defense":70,"speed":65},"capture":45},{"id":281,"name":"KIRLIA","types":["psychic","fairy"],"base":{"hp":38,"attack":35,"defense":35,"special-attack":65,"special-defense":55,"speed":50},"capture":120},{"id":282,"name":"GARDEVOIR","types":["psychic","fairy"],"base":{"hp":68,"attack":65,"defense":65,"special-attack":125,"special-defense":115,"speed":80},"capture":45},{"id":284,"name":"MASQUERAIN","types":["bug","flying"],"base":{"hp":70,"attack":60,"defense":62,"special-attack":100,"special-defense":82,"speed":80},"capture":75},{"id":286,"name":"BRELOOM","types":["grass","fighting"],"base":{"hp":60,"attack":130,"defense":80,"special-attack":60,"special-defense":60,"speed":70},"capture":90},{"id":291,"name":"NINJASK","types":["bug","flying"],"base":{"hp":61,"attack":90,"defense":45,"special-attack":50,"special-defense":50,"speed":160},"capture":120},{"id":292,"name":"SHEDINJA","types":["bug","ghost"],"base":{"hp":1,"attack":90,"defense":45,"special-attack":30,"special-defense":30,"speed":40},"capture":45},{"id":294,"name":"LOUDRED","types":["normal"],"base":{"hp":84,"attack":71,"defense":43,"special-attack":71,"special-defense":43,"speed":48},"capture":120},{"id":295,"name":"EXPLOUD","types":["normal"],"base":{"hp":104,"attack":91,"defense":63,"special-attack":91,"special-defense":73,"speed":68},"capture":45},{"id":297,"name":"HARIYAMA","types":["fighting"],"base":{"hp":144,"attack":120,"defense":60,"special-attack":40,"special-defense":60,"speed":50},"capture":200},{"id":305,"name":"LAIRON","types":["steel","rock"],"base":{"hp":60,"attack":90,"defense":140,"special-attack":50,"special-defense":50,"speed":40},"capture":90},{"id":306,"name":"AGGRON","types":["steel","rock"],"base":{"hp":70,"attack":110,"defense":180,"special-attack":60,"special-defense":60,"speed":50},"capture":45},{"id":308,"name":"MEDICHAM","types":["fighting","psychic"],"base":{"hp":60,"attack":60,"defense":75,"special-attack":60,"special-defense":75,"speed":80},"capture":90},{"id":310,"name":"MANECTRIC","types":["electric"],"base":{"hp":70,"attack":75,"defense":60,"special-attack":105,"special-defense":60,"speed":105},"capture":45},{"id":317,"name":"SWALOT","types":["poison"],"base":{"hp":100,"attack":73,"defense":83,"special-attack":73,"special-defense":83,"speed":55},"capture":75},{"id":319,"name":"SHARPEDO","types":["water","dark"],"base":{"hp":70,"attack":120,"defense":40,"special-attack":95,"special-defense":40,"speed":95},"capture":60},{"id":321,"name":"WAILORD","types":["water"],"base":{"hp":170,"attack":90,"defense":45,"special-attack":90,"special-defense":45,"speed":60},"capture":60},{"id":323,"name":"CAMERUPT","types":["fire","ground"],"base":{"hp":70,"attack":100,"defense":70,"special-attack":105,"special-defense":75,"speed":40},"capture":150},{"id":326,"name":"GRUMPIG","types":["psychic"],"base":{"hp":80,"attack":45,"defense":65,"special-attack":90,"special-defense":110,"speed":80},"capture":60},{"id":329,"name":"VIBRAVA","types":["ground","dragon"],"base":{"hp":50,"attack":70,"defense":50,"special-attack":50,"special-defense":50,"speed":70},"capture":120},{"id":330,"name":"FLYGON","types":["ground","dragon"],"base":{"hp":80,"attack":100,"defense":80,"special-attack":80,"special-defense":80,"speed":100},"capture":45},{"id":332,"name":"CACTURNE","types":["grass","dark"],"base":{"hp":70,"attack":115,"defense":60,"special-attack":115,"special-defense":60,"speed":55},"capture":60},{"id":334,"name":"ALTARIA","types":["dragon","flying"],"base":{"hp":75,"attack":70,"defense":90,"special-attack":70,"special-defense":105,"speed":80},"capture":45},{"id":340,"name":"WHISCASH","types":["water","ground"],"base":{"hp":110,"attack":78,"defense":73,"special-attack":76,"special-defense":71,"speed":60},"capture":75},{"id":342,"name":"CRAWDAUNT","types":["water","dark"],"base":{"hp":63,"attack":120,"defense":85,"special-attack":90,"special-defense":55,"speed":55},"capture":155},{"id":344,"name":"CLAYDOL","types":["ground","psychic"],"base":{"hp":60,"attack":70,"defense":105,"special-attack":70,"special-defense":120,"speed":75},"capture":90},{"id":346,"name":"CRADILY","types":["rock","grass"],"base":{"hp":86,"attack":81,"defense":97,"special-attack":81,"special-defense":107,"speed":43},"capture":45},{"id":348,"name":"ARMALDO","types":["rock","bug"],"base":{"hp":75,"attack":125,"defense":100,"special-attack":70,"special-defense":80,"speed":45},"capture":45},{"id":350,"name":"MILOTIC","types":["water"],"base":{"hp":95,"attack":60,"defense":79,"special-attack":100,"special-defense":125,"speed":81},"capture":60},{"id":354,"name":"BANETTE","types":["ghost"],"base":{"hp":64,"attack":115,"defense":65,"special-attack":83,"special-defense":63,"speed":65},"capture":45},{"id":356,"name":"DUSCLOPS","types":["ghost"],"base":{"hp":40,"attack":70,"defense":130,"special-attack":60,"special-defense":130,"speed":25},"capture":90},{"id":358,"name":"CHIMECHO","types":["psychic"],"base":{"hp":75,"attack":50,"defense":80,"special-attack":95,"special-defense":90,"speed":65},"capture":45},{"id":362,"name":"GLALIE","types":["ice"],"base":{"hp":80,"attack":80,"defense":80,"special-attack":80,"special-defense":80,"speed":80},"capture":75},{"id":364,"name":"SEALEO","types":["ice","water"],"base":{"hp":90,"attack":60,"defense":70,"special-attack":75,"special-defense":70,"speed":45},"capture":120},{"id":365,"name":"WALREIN","types":["ice","water"],"base":{"hp":110,"attack":80,"defense":90,"special-attack":95,"special-defense":90,"speed":65},"capture":45},{"id":367,"name":"HUNTAIL","types":["water"],"base":{"hp":55,"attack":104,"defense":105,"special-attack":94,"special-defense":75,"speed":52},"capture":60},{"id":368,"name":"GOREBYSS","types":["water"],"base":{"hp":55,"attack":84,"defense":105,"special-attack":114,"special-defense":75,"speed":52},"capture":60},{"id":372,"name":"SHELGON","types":["dragon"],"base":{"hp":65,"attack":95,"defense":100,"special-attack":60,"special-defense":50,"speed":50},"capture":45},{"id":373,"name":"SALAMENCE","types":["dragon","flying"],"base":{"hp":95,"attack":135,"defense":80,"special-attack":110,"special-defense":80,"speed":100},"capture":45},{"id":375,"name":"METANG","types":["steel","psychic"],"base":{"hp":60,"attack":75,"defense":100,"special-attack":55,"special-defense":80,"speed":50},"capture":3},{"id":376,"name":"METAGROSS","types":["steel","psychic"],"base":{"hp":80,"attack":135,"defense":130,"special-attack":95,"special-defense":90,"speed":70},"capture":3},{"id":397,"name":"STARAVIA","types":["normal","flying"],"base":{"hp":55,"attack":75,"defense":50,"special-attack":40,"special-defense":40,"speed":80},"capture":120},{"id":398,"name":"STARAPTOR","types":["normal","flying"],"base":{"hp":85,"attack":120,"defense":70,"special-attack":50,"special-defense":60,"speed":100},"capture":45},{"id":402,"name":"KRICKETUNE","types":["bug"],"base":{"hp":77,"attack":85,"defense":51,"special-attack":55,"special-defense":51,"speed":65},"capture":45},{"id":404,"name":"LUXIO","types":["electric"],"base":{"hp":60,"attack":85,"defense":49,"special-attack":60,"special-defense":49,"speed":60},"capture":120},{"id":405,"name":"LUXRAY","types":["electric"],"base":{"hp":80,"attack":120,"defense":79,"special-attack":95,"special-defense":79,"speed":70},"capture":45},{"id":409,"name":"RAMPARDOS","types":["rock"],"base":{"hp":97,"attack":165,"defense":60,"special-attack":65,"special-defense":50,"speed":58},"capture":45},{"id":411,"name":"BASTIODON","types":["rock","steel"],"base":{"hp":60,"attack":52,"defense":168,"special-attack":47,"special-defense":138,"speed":30},"capture":45},{"id":413,"name":"WORMADAM","types":["bug","grass"],"base":{"hp":60,"attack":59,"defense":85,"special-attack":79,"special-defense":105,"speed":36},"capture":45},{"id":414,"name":"MOTHIM","types":["bug","flying"],"base":{"hp":70,"attack":94,"defense":50,"special-attack":94,"special-defense":50,"speed":66},"capture":45},{"id":416,"name":"VESPIQUEN","types":["bug","flying"],"base":{"hp":70,"attack":80,"defense":102,"special-attack":80,"special-defense":102,"speed":40},"capture":45},{"id":419,"name":"FLOATZEL","types":["water"],"base":{"hp":85,"attack":105,"defense":55,"special-attack":85,"special-defense":50,"speed":115},"capture":75},{"id":421,"name":"CHERRIM","types":["grass"],"base":{"hp":70,"attack":60,"defense":70,"special-attack":87,"special-defense":78,"speed":85},"capture":75},{"id":423,"name":"GASTRODON","types":["water","ground"],"base":{"hp":111,"attack":83,"defense":68,"special-attack":92,"special-defense":82,"speed":39},"capture":75},{"id":426,"name":"DRIFBLIM","types":["ghost","flying"],"base":{"hp":150,"attack":80,"defense":44,"special-attack":90,"special-defense":54,"speed":80},"capture":60},{"id":428,"name":"LOPUNNY","types":["normal"],"base":{"hp":65,"attack":76,"defense":84,"special-attack":54,"special-defense":96,"speed":105},"capture":60},{"id":432,"name":"PURUGLY","types":["normal"],"base":{"hp":71,"attack":82,"defense":64,"special-attack":64,"special-defense":59,"speed":112},"capture":75},{"id":435,"name":"SKUNTANK","types":["poison","dark"],"base":{"hp":103,"attack":93,"defense":67,"special-attack":71,"special-defense":61,"speed":84},"capture":60},{"id":437,"name":"BRONZONG","types":["steel","psychic"],"base":{"hp":67,"attack":89,"defense":116,"special-attack":79,"special-defense":116,"speed":33},"capture":90},{"id":452,"name":"DRAPION","types":["poison","dark"],"base":{"hp":70,"attack":90,"defense":110,"special-attack":60,"special-defense":75,"speed":95},"capture":45},{"id":457,"name":"LUMINEON","types":["water"],"base":{"hp":69,"attack":69,"defense":76,"special-attack":69,"special-defense":86,"speed":91},"capture":75},{"id":460,"name":"ABOMASNOW","types":["grass","ice"],"base":{"hp":90,"attack":92,"defense":75,"special-attack":92,"special-defense":85,"speed":60},"capture":60},{"id":461,"name":"WEAVILE","types":["dark","ice"],"base":{"hp":70,"attack":120,"defense":65,"special-attack":45,"special-defense":85,"speed":125},"capture":45},{"id":469,"name":"YANMEGA","types":["bug","flying"],"base":{"hp":86,"attack":76,"defense":86,"special-attack":116,"special-defense":56,"speed":95},"capture":30},{"id":472,"name":"GLISCOR","types":["ground","flying"],"base":{"hp":75,"attack":95,"defense":125,"special-attack":45,"special-defense":75,"speed":95},"capture":30},{"id":475,"name":"GALLADE","types":["psychic","fighting"],"base":{"hp":68,"attack":125,"defense":65,"special-attack":65,"special-defense":115,"speed":80},"capture":45},{"id":476,"name":"PROBOPASS","types":["rock","steel"],"base":{"hp":60,"attack":55,"defense":145,"special-attack":75,"special-defense":150,"speed":40},"capture":60},{"id":477,"name":"DUSKNOIR","types":["ghost"],"base":{"hp":45,"attack":100,"defense":135,"special-attack":65,"special-defense":135,"speed":45},"capture":45},{"id":478,"name":"FROSLASS","types":["ice","ghost"],"base":{"hp":70,"attack":80,"defense":70,"special-attack":80,"special-defense":70,"speed":110},"capture":75}],
+  ...[{"id":377,"name":"REGIROCK","types":["rock"],"base":{"hp":80,"attack":100,"defense":200,"special-attack":50,"special-defense":100,"speed":50},"capture":3},{"id":378,"name":"REGICE","types":["ice"],"base":{"hp":80,"attack":50,"defense":100,"special-attack":100,"special-defense":200,"speed":50},"capture":3},{"id":379,"name":"REGISTEEL","types":["steel"],"base":{"hp":80,"attack":75,"defense":150,"special-attack":75,"special-defense":150,"speed":50},"capture":3},{"id":380,"name":"LATIAS","types":["dragon","psychic"],"base":{"hp":80,"attack":80,"defense":90,"special-attack":110,"special-defense":130,"speed":110},"capture":3},{"id":381,"name":"LATIOS","types":["dragon","psychic"],"base":{"hp":80,"attack":90,"defense":80,"special-attack":130,"special-defense":110,"speed":110},"capture":3},{"id":382,"name":"KYOGRE","types":["water"],"base":{"hp":100,"attack":100,"defense":90,"special-attack":150,"special-defense":140,"speed":90},"capture":3},{"id":383,"name":"GROUDON","types":["ground"],"base":{"hp":100,"attack":150,"defense":140,"special-attack":100,"special-defense":90,"speed":90},"capture":3},{"id":384,"name":"RAYQUAZA","types":["dragon","flying"],"base":{"hp":105,"attack":150,"defense":90,"special-attack":150,"special-defense":90,"speed":95},"capture":45},{"id":385,"name":"JIRACHI","types":["steel","psychic"],"base":{"hp":100,"attack":100,"defense":100,"special-attack":100,"special-defense":100,"speed":100},"capture":3},{"id":386,"name":"DEOXYS","types":["psychic"],"base":{"hp":50,"attack":150,"defense":50,"special-attack":150,"special-defense":50,"speed":150},"capture":3},{"id":480,"name":"UXIE","types":["psychic"],"base":{"hp":75,"attack":75,"defense":130,"special-attack":75,"special-defense":130,"speed":95},"capture":3},{"id":481,"name":"MESPRIT","types":["psychic"],"base":{"hp":80,"attack":105,"defense":105,"special-attack":105,"special-defense":105,"speed":80},"capture":3},{"id":482,"name":"AZELF","types":["psychic"],"base":{"hp":75,"attack":125,"defense":70,"special-attack":125,"special-defense":70,"speed":115},"capture":3},{"id":483,"name":"DIALGA","types":["steel","dragon"],"base":{"hp":100,"attack":120,"defense":120,"special-attack":150,"special-defense":100,"speed":90},"capture":3},{"id":484,"name":"PALKIA","types":["water","dragon"],"base":{"hp":90,"attack":120,"defense":100,"special-attack":150,"special-defense":120,"speed":100},"capture":3},{"id":485,"name":"HEATRAN","types":["fire","steel"],"base":{"hp":91,"attack":90,"defense":106,"special-attack":130,"special-defense":106,"speed":77},"capture":3},{"id":486,"name":"REGIGIGAS","types":["normal"],"base":{"hp":110,"attack":160,"defense":110,"special-attack":80,"special-defense":110,"speed":100},"capture":3},{"id":487,"name":"GIRATINA","types":["ghost","dragon"],"base":{"hp":150,"attack":100,"defense":120,"special-attack":100,"special-defense":120,"speed":90},"capture":3},{"id":488,"name":"CRESSELIA","types":["psychic"],"base":{"hp":120,"attack":70,"defense":110,"special-attack":75,"special-defense":120,"speed":85},"capture":3},{"id":489,"name":"PHIONE","types":["water"],"base":{"hp":80,"attack":80,"defense":80,"special-attack":80,"special-defense":80,"speed":80},"capture":30},{"id":490,"name":"MANAPHY","types":["water"],"base":{"hp":100,"attack":100,"defense":100,"special-attack":100,"special-defense":100,"speed":100},"capture":3},{"id":491,"name":"DARKRAI","types":["dark"],"base":{"hp":70,"attack":90,"defense":90,"special-attack":135,"special-defense":90,"speed":125},"capture":3},{"id":492,"name":"SHAYMIN","types":["grass"],"base":{"hp":100,"attack":100,"defense":100,"special-attack":100,"special-defense":100,"speed":100},"capture":45},{"id":493,"name":"ARCEUS","types":["normal"],"base":{"hp":120,"attack":120,"defense":120,"special-attack":120,"special-defense":120,"speed":120},"capture":3}])
+Object.assign(DATA.evos, {"WYNAUT":[{"to":"WOBBUFFET","level":15}],"POOCHYENA":[{"to":"MIGHTYENA","level":18}],"ZIGZAGOON":[{"to":"LINOONE","level":20}],"WURMPLE":[{"to":"SILCOON","level":7},{"to":"CASCOON","level":7}],"SILCOON":[{"to":"BEAUTIFLY","level":10}],"CASCOON":[{"to":"DUSTOX","level":10}],"LOTAD":[{"to":"LOMBRE","level":14}],"SEEDOT":[{"to":"NUZLEAF","level":14}],"TAILLOW":[{"to":"SWELLOW","level":22}],"WINGULL":[{"to":"PELIPPER","level":25}],"RALTS":[{"to":"KIRLIA","level":20}],"KIRLIA":[{"to":"GARDEVOIR","level":30}],"SURSKIT":[{"to":"MASQUERAIN","level":22}],"SHROOMISH":[{"to":"BRELOOM","level":23}],"NINCADA":[{"to":"NINJASK","level":20}],"WHISMUR":[{"to":"LOUDRED","level":20}],"LOUDRED":[{"to":"EXPLOUD","level":40}],"MAKUHITA":[{"to":"HARIYAMA","level":24}],"ARON":[{"to":"LAIRON","level":32}],"LAIRON":[{"to":"AGGRON","level":42}],"MEDITITE":[{"to":"MEDICHAM","level":37}],"ELECTRIKE":[{"to":"MANECTRIC","level":26}],"GULPIN":[{"to":"SWALOT","level":26}],"CARVANHA":[{"to":"SHARPEDO","level":30}],"WAILMER":[{"to":"WAILORD","level":40}],"NUMEL":[{"to":"CAMERUPT","level":33}],"SPOINK":[{"to":"GRUMPIG","level":32}],"TRAPINCH":[{"to":"VIBRAVA","level":35}],"VIBRAVA":[{"to":"FLYGON","level":45}],"CACNEA":[{"to":"CACTURNE","level":32}],"SWABLU":[{"to":"ALTARIA","level":35}],"BARBOACH":[{"to":"WHISCASH","level":30}],"CORPHISH":[{"to":"CRAWDAUNT","level":30}],"BALTOY":[{"to":"CLAYDOL","level":36}],"LILEEP":[{"to":"CRADILY","level":40}],"ANORITH":[{"to":"ARMALDO","level":40}],"SHUPPET":[{"to":"BANETTE","level":37}],"DUSKULL":[{"to":"DUSCLOPS","level":37}],"SNORUNT":[{"to":"GLALIE","level":42}],"SPHEAL":[{"to":"SEALEO","level":32}],"SEALEO":[{"to":"WALREIN","level":44}],"BAGON":[{"to":"SHELGON","level":30}],"SHELGON":[{"to":"SALAMENCE","level":50}],"BELDUM":[{"to":"METANG","level":20}],"METANG":[{"to":"METAGROSS","level":45}],"STARLY":[{"to":"STARAVIA","level":14}],"STARAVIA":[{"to":"STARAPTOR","level":34}],"KRICKETOT":[{"to":"KRICKETUNE","level":10}],"SHINX":[{"to":"LUXIO","level":15}],"LUXIO":[{"to":"LUXRAY","level":30}],"CRANIDOS":[{"to":"RAMPARDOS","level":30}],"SHIELDON":[{"to":"BASTIODON","level":30}],"BURMY":[{"to":"WORMADAM","level":20},{"to":"MOTHIM","level":20}],"COMBEE":[{"to":"VESPIQUEN","level":21}],"BUIZEL":[{"to":"FLOATZEL","level":26}],"CHERUBI":[{"to":"CHERRIM","level":25}],"SHELLOS":[{"to":"GASTRODON","level":30}],"DRIFLOON":[{"to":"DRIFBLIM","level":28}],"GLAMEOW":[{"to":"PURUGLY","level":38}],"STUNKY":[{"to":"SKUNTANK","level":34}],"BRONZOR":[{"to":"BRONZONG","level":33}],"SKORUPI":[{"to":"DRAPION","level":40}],"FINNEON":[{"to":"LUMINEON","level":31}],"SNOVER":[{"to":"ABOMASNOW","level":40}]})
+const HOENN_SINNOH_WILD = ["POOCHYENA","ZIGZAGOON","WURMPLE","LOTAD","SEEDOT","TAILLOW","WINGULL","RALTS","SURSKIT","SHROOMISH","SLAKOTH","NINCADA","WHISMUR","MAKUHITA","AZURILL","NOSEPASS","SKITTY","SABLEYE","MAWILE","ARON","MEDITITE","ELECTRIKE","PLUSLE","MINUN","VOLBEAT","ILLUMISE","GULPIN","CARVANHA","WAILMER","NUMEL","TORKOAL","SPOINK","SPINDA","TRAPINCH","CACNEA","SWABLU","ZANGOOSE","SEVIPER","LUNATONE","SOLROCK","BARBOACH","CORPHISH","BALTOY","LILEEP","ANORITH","FEEBAS","CASTFORM","KECLEON","SHUPPET","DUSKULL","TROPIUS","ABSOL","WYNAUT","SNORUNT","SPHEAL","CLAMPERL","RELICANTH","LUVDISC","BAGON","BELDUM","STARLY","BIDOOF","KRICKETOT","SHINX","BUDEW","CRANIDOS","SHIELDON","BURMY","COMBEE","PACHIRISU","BUIZEL","CHERUBI","SHELLOS","DRIFLOON","BUNEARY","GLAMEOW","CHINGLING","STUNKY","BRONZOR","BONSLY","MIME JR.","HAPPINY","CHATOT","SPIRITOMB","GIBLE","MUNCHLAX","RIOLU","HIPPOPOTAS","SKORUPI","CROAGUNK","CARNIVINE","FINNEON","MANTYKE","SNOVER","ROTOM"]
+const HOENN_SINNOH_LEGENDS = ["REGIROCK","REGICE","REGISTEEL","LATIAS","LATIOS","KYOGRE","GROUDON","RAYQUAZA","JIRACHI","DEOXYS","UXIE","MESPRIT","AZELF","DIALGA","PALKIA","HEATRAN","REGIGIGAS","GIRATINA","CRESSELIA","PHIONE","MANAPHY","DARKRAI","SHAYMIN","ARCEUS"]
+for (const id of [261,263,265,270,273,276,278,280,283,285,290,293,296,298,299,304,307,309,313,314,316,318,320,322,324,325,327,328,331,333,335,336,337,338,339,341,343,345,347,349,351,352,353,355,359,360,361,363,366,369,370,371,374,396,401,403,408,410,412,415,417,418,420,422,425,427,431,433,434,436,438,442,451,455,456,458,459,262,264,266,267,268,269,271,272,274,275,277,279,281,282,284,286,291,292,294,295,297,305,306,308,310,317,319,321,323,326,329,330,332,334,340,342,344,346,348,350,354,356,358,362,364,365,367,368,372,373,375,376,397,398,402,404,405,409,411,413,414,416,419,421,423,426,428,432,435,437,452,457,460,461,469,472,475,476,477,478,377,378,379,380,381,382,383,384,385,386,480,481,482,483,484,485,486,487,488,489,490,491,492,493]) Object.assign(ART, { [id]: `/rpg/a/${id}.gif`, [id + 'b']: `/rpg/a/${id}-back.gif`, ['cry:' + id]: `/rpg/a/cries/${id}.ogg` })
+for (const id of [...[261,263,265,270,273,276,278,280,283,285,290,293,296,298,299,304,307,309,313,314,316,318,320,322,324,325,327,328,331,333,335,336,337,338,339,341,343,345,347,349,351,352,353,355,359,360,361,363,366,369,370,371,374,396,401,403,408,410,412,415,417,418,420,422,425,427,431,433,434,436,438,442,451,455,456,458,459,262,264,266,267,268,269,271,272,274,275,277,279,281,282,284,286,291,292,294,295,297,305,306,308,310,317,319,321,323,326,329,330,332,334,340,342,344,346,348,350,354,356,358,362,364,365,367,368,372,373,375,376,397,398,402,404,405,409,411,413,414,416,419,421,423,426,428,432,435,437,452,457,460,461,469,472,475,476,477,478,377,378,379,380,381,382,383,384,385,386,480,481,482,483,484,485,486,487,488,489,490,491,492,493], ...[113,122,143,242,301,302,303,311,312,315,357,407,441,479]]) { SHINY_IDS.add(id); Object.assign(ART, { ['s' + id]: `/rpg/a/shiny/${id}.gif`, ['s' + id + 'b']: `/rpg/a/shiny/${id}-back.gif` }) }
+ART['item:dawnstone'] = '/rpg/a/items/dawnstone.png'
+for (const n of ["BAGON","BELDUM","LILEEP","ANORITH","CRANIDOS","SHIELDON","FEEBAS","RELICANTH","SPIRITOMB"]) RARITY_SET[n] = 'rare'
 // Every species has its cry (a few of the trainers' evolved Pokémon didn't, so they came out silent).
 for (const s of [...DATA.starters, ...DATA.wild, ...DATA.trainer, ...DATA.forms]) ART['cry:' + s.id] ??= `/rpg/a/cries/${s.id}.ogg`
 
@@ -2819,7 +2842,7 @@ function leaderParries(T, foe, label, confused, r) {
 const LEADER_COUNTER = 0.8
 /**
  * How often they parry a GOOD strike (PARRY_TIMING scales it by your
- * timing): Gym Leaders least, the Elite Fours more, Red most;
+ * timing): Gym Leaders least, the Elite Fours more, Red and Cynthia most;
  * Alex from `alex`, a little more each battle (rivalTrainer); a double
  * battle's pair at least PAIR_TUNE.parry. Tuned in sim.mjs.
  */
@@ -3178,6 +3201,13 @@ function evoText(m) {
   const when = m.evoWait && m.evoWait > lv ? `Lv ${m.evoWait} (it was stopped)` : `Lv ${lv}${opts[0].standIn ? ' (stand-in)' : ''}`
   return `${names.length > 1 ? names.join(', ') : names[0]} at ${when}`
 }
+/** The Shedinja a Nincada leaves when it becomes Ninjask: its level, IVs, nature and shininess, at full HP. */
+function shedinjaOf(m) {
+  const sh = individual(speciesByName('SHEDINJA'), m.level, Math.random)
+  Object.assign(sh, { ivs: { ...m.ivs }, nature: m.nature, ...(m.shiny ? { shiny: true } : {}) })
+  sh.stats = statsAt(sh, sh.level); sh.hp = sh.stats.hp
+  return sh
+}
 /** Becomes the new form: same level, IVs, nature, moves; new species, types and stats; the HP it was missing stays missing. */
 function evolveInto(m, to) {
   const sp = speciesByName(to), missing = m.stats.hp - m.hp
@@ -3234,12 +3264,14 @@ EVO_HOW.GLOOM.push({ to: 'BELLOSSOM', item: 'sunstone' })
 // Gen 1-2's stone, Linking Cord and Bond evolutions, added to any a species already has (Poliwhirl: Water Stone for Poliwrath, Linking Cord for Politoed).
 for (const [n, rules] of Object.entries({"BUDEW":[{"to":"ROSELIA","bond":true,"time":"day"}],"ROSELIA":[{"to":"ROSERADE","item":"shinystone"}],"MINCCINO":[{"to":"CINCCINO","item":"shinystone"}],"FLOETTE":[{"to":"FLORGES","item":"shinystone"}],"TOGETIC":[{"to":"TOGEKISS","item":"shinystone"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
 for (const [n, rules] of Object.entries({"NIDORINA":[{"to":"NIDOQUEEN","item":"moonstone"}],"NIDORINO":[{"to":"NIDOKING","item":"moonstone"}],"SHELLDER":[{"to":"CLOYSTER","item":"waterstone"}],"TOGEPI":[{"to":"TOGETIC","bond":true}],"POLIWHIRL":[{"to":"POLITOED","item":"linkcable"}],"SLOWPOKE":[{"to":"SLOWKING","item":"linkcable"}],"GROWLITHE":[{"to":"ARCANINE","item":"firestone"}],"ONIX":[{"to":"STEELIX","item":"linkcable"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
+// Hoenn and Sinnoh's evolutions that don't go by level (see DATA.forms' Gen 3 and 4 batch), added to any a species already has.
+for (const [n, rules] of Object.entries({"AZURILL":[{"to":"MARILL","bond":true}],"BONSLY":[{"to":"SUDOWOODO","bond":true}],"MANTYKE":[{"to":"MANTINE","bond":true}],"LOMBRE":[{"to":"LUDICOLO","item":"waterstone"}],"NUZLEAF":[{"to":"SHIFTRY","item":"leafstone"}],"FEEBAS":[{"to":"MILOTIC","bond":true}],"CHINGLING":[{"to":"CHIMECHO","bond":true,"time":"night"}],"CLAMPERL":[{"to":"HUNTAIL","item":"linkcable","time":"day"},{"to":"GOREBYSS","item":"linkcable","time":"night"}],"BUNEARY":[{"to":"LOPUNNY","bond":true}],"SNEASEL":[{"to":"WEAVILE","bond":true,"time":"night"}],"YANMA":[{"to":"YANMEGA","move":"ANCIENT POWER"}],"GLIGAR":[{"to":"GLISCOR","bond":true,"time":"night"}],"KIRLIA":[{"to":"GALLADE","item":"dawnstone"}],"NOSEPASS":[{"to":"PROBOPASS","item":"thunderstone"}],"DUSCLOPS":[{"to":"DUSKNOIR","item":"linkcable"}],"SNORUNT":[{"to":"FROSLASS","item":"dawnstone"}]})) EVO_HOW[n] = [...(EVO_HOW[n] ?? []), ...rules]
 const cap1 = (s) => s[0] + s.slice(1).toLowerCase()
-const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', moonstone: 'MOON STONE', sunstone: 'SUN STONE', duskstone: 'DUSK STONE', shinystone: 'SHINY STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
+const EVO_ITEM_NAME = { thunderstone: 'THUNDER STONE', waterstone: 'WATER STONE', firestone: 'FIRE STONE', leafstone: 'LEAF STONE', icestone: 'ICE STONE', moonstone: 'MOON STONE', sunstone: 'SUN STONE', duskstone: 'DUSK STONE', shinystone: 'SHINY STONE', dawnstone: 'DAWN STONE', linkcable: 'LINKING CORD', dragonscale: 'DRAGON SCALE' }
 /** "with a THUNDER STONE", "at full Bond, by day", "levelling up knowing ROLLOUT". */
 /** "a THUNDER STONE", "an ICE STONE". */
 const aOrAn = (w) => `${/^[AEIOU]/i.test(w) ? 'an' : 'a'} ${w}`
-const howText = (r) => (r.item ? `with ${aOrAn(EVO_ITEM_NAME[r.item])}${r.needs ? ` (and ${aOrAn(EVO_ITEM_NAME[r.needs])})` : ''}`
+const howText = (r) => (r.item ? `with ${aOrAn(EVO_ITEM_NAME[r.item])}${r.needs ? ` (and ${aOrAn(EVO_ITEM_NAME[r.needs])})` : ''}${r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
   : r.bond ? `at full Bond${r.fairy ? ', with a Fairy move equipped' : r.time === 'day' ? ', by day' : r.time === 'night' ? ', at night' : ''}`
   : `levelling up knowing ${r.move}`)
 
@@ -3261,7 +3293,8 @@ function bondReady(m, r) {
 const bondEvolves = (m) => !!EVO_HOW[m.name]?.some((r) => r.bond)
 /** The rule an item would use on `m`, or a reason it won't work. */
 function evoByItem(m, key, bag) {
-  const r = EVO_HOW[m.name]?.find((x) => x.item === key)
+  const night = (typeof timeOfDay === 'function' ? timeOfDay() : 'day') === 'night'
+  const r = EVO_HOW[m.name]?.find((x) => x.item === key && (!x.time || (x.time === 'night') === night))
   if (!r) return { why: `${m.name} won't react to it` }
   if (m.hp <= 0) return { why: `${m.name} has fainted` }
   if (r.needs && !bag[r.needs]) return { why: `needs a ${EVO_ITEM_NAME[r.needs]} too` }
@@ -3415,7 +3448,7 @@ DISC_POOL.push('DOUBLE HIT', 'ROLLOUT', 'ANCIENT POWER', 'FAIRY WIND')
  * level-up move (an older save picks up the ones it has passed), and their discs work for that species too.
  * Players' Pokemon only: foes fight with their own move sets.
  */
-const COVERAGE_MOVES = {"ABRA":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DYNAMIC PUNCH"]],"AERODACTYL":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"FLAMETHROWER"]],"AIPOM":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"GUNK SHOT"]],"ALAKAZAM":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DIG"]],"AMBIPOM":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"GUNK SHOT"]],"AMPHAROS":[[35,"DRAGON PULSE"],[42,"POWER GEM"],[49,"DIG"]],"ARBOK":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"DIG"]],"ARCANINE":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"ARIADOS":[[35,"HEX"],[42,"DIG"],[49,"PSYCHIC"]],"AZUMARILL":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"BAYLEEF":[[35,"ANCIENT POWER"]],"BEEDRILL":[[35,"BRICK BREAK"],[42,"GIGA DRAIN"]],"BELLOSSOM":[[35,"SLUDGE BOMB"],[42,"MOONBLAST"]],"BIBAREL":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"BIDOOF":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"BLASTOISE":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"DARK PULSE"]],"BLAZIKEN":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"BLISSEY":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"BRAIXEN":[[35,"PSYCHIC"]],"BRIONNE":[[35,"ICE BEAM"],[42,"MOONBLAST"]],"BUDEW":[[35,"SHADOW BALL"]],"BUTTERFREE":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"CHANSEY":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CHARIZARD":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"CHARMANDER":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"CHARMELEON":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"CHATOT":[[35,"PLAY ROUGH"]],"CHESNAUGHT":[[35,"CRUNCH"],[42,"DIG"],[49,"STONE EDGE"]],"CHESPIN":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"CHIKORITA":[[35,"ANCIENT POWER"]],"CHIMCHAR":[[35,"POISON JAB"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"CHINCHOU":[[35,"ICE BEAM"]],"CINCCINO":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"CINDERACE":[[35,"IRON HEAD"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]],"CLEFABLE":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CLEFAIRY":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CLEFFA":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"CLOYSTER":[[35,"POISON JAB"]],"COMBUSKEN":[[35,"POISON JAB"],[42,"DIG"]],"CORSOLA":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"EARTH POWER"]],"CROAGUNK":[[35,"X-SCISSOR"],[42,"SHADOW BALL"],[49,"EARTH POWER"]],"CROBAT":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"CROCALOR":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"CROCONAW":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"CUBONE":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"ICE BEAM"]],"CYNDAQUIL":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"DECIDUEYE":[[35,"BRICK BREAK"],[42,"BRAVE BIRD"]],"DELCATTY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"DELIBIRD":[[35,"WATER PULSE"],[42,"BRICK BREAK"],[49,"GUNK SHOT"]],"DELPHOX":[[35,"SHADOW BALL"]],"DEWGONG":[[35,"PLAY ROUGH"],[42,"MEGAHORN"]],"DEWOTT":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DIG"]],"DIGLETT":[[35,"SLUDGE BOMB"],[42,"STONE EDGE"]],"DONPHAN":[[35,"IRON HEAD"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"DRAGAPULT":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"HYDRO PUMP"]],"DRAGONAIR":[[35,"IRON HEAD"],[42,"WATERFALL"],[49,"THUNDERBOLT"]],"DRAGONITE":[[35,"IRON HEAD"],[42,"WATERFALL"],[49,"STONE EDGE"]],"DRAKLOAK":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"HYDRO PUMP"]],"DRATINI":[[35,"IRON HEAD"],[42,"WATERFALL"],[49,"THUNDERBOLT"]],"DROWZEE":[[35,"BRICK BREAK"],[42,"SHADOW BALL"]],"DUGTRIO":[[35,"SLUDGE BOMB"],[42,"STONE EDGE"]],"DUNSPARCE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"EEVEE":[[35,"DIG"],[42,"SHADOW BALL"]],"EKANS":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"DIG"]],"ELECTABUZZ":[[35,"BRICK BREAK"],[42,"PSYCHIC"]],"ELECTIVIRE":[[35,"BRICK BREAK"],[42,"DIG"],[49,"FLAMETHROWER"]],"ELEKID":[[35,"BRICK BREAK"],[42,"PSYCHIC"]],"EMBOAR":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"EMPOLEON":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DIG"]],"ENTEI":[[35,"CRUNCH"],[42,"DIG"],[49,"STONE EDGE"]],"ESPEON":[[35,"SHADOW BALL"],[42,"POWER GEM"],[49,"DIG"]],"EXEGGCUTE":[[35,"ANCIENT POWER"],[42,"SLUDGE BOMB"]],"EXEGGUTOR":[[35,"ANCIENT POWER"],[42,"SLUDGE BOMB"]],"FARFETCH'D":[[35,"POISON JAB"]],"FENNEKIN":[[35,"PSYCHIC"]],"FERALIGATR":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"FLAAFFY":[[35,"BRICK BREAK"],[42,"POWER GEM"],[49,"DIG"]],"FLAB\u00c9B\u00c9":[[35,"PSYCHIC"],[42,"ENERGY BALL"]],"FLAREON":[[35,"DIG"],[42,"SHADOW BALL"]],"FLOETTE":[[35,"PSYCHIC"],[42,"ENERGY BALL"]],"FLORAGATO":[[35,"PLAY ROUGH"]],"FLORGES":[[35,"PSYCHIC"],[42,"ENERGY BALL"]],"FORRETRESS":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"FROAKIE":[[35,"ICE BEAM"],[42,"DIG"]],"FROGADIER":[[35,"ICE BEAM"],[42,"DIG"],[49,"DARK PULSE"]],"FUECOCO":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"FURRET":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"GABITE":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GARBODOR":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"GARCHOMP":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GASTLY":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"GENGAR":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"GEODUDE":[[35,"BRICK BREAK"],[42,"FLAMETHROWER"]],"GHOLDENGO":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"POWER GEM"]],"GIBLE":[[35,"IRON HEAD"],[42,"FLAMETHROWER"],[49,"STONE EDGE"]],"GIMMIGHOUL":[[35,"POWER GEM"]],"GIRAFARIG":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"GLACEON":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"DIG"]],"GLIGAR":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GLOOM":[[35,"MOONBLAST"]],"GOLBAT":[[35,"CRUNCH"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]],"GOLDEEN":[[35,"POISON JAB"],[42,"ICE BEAM"],[49,"MEGAHORN"]],"GOLDUCK":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"POWER GEM"]],"GOLEM":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"FLAMETHROWER"]],"GRANBULL":[[35,"CRUNCH"],[42,"DIG"],[49,"STONE EDGE"]],"GRAVELER":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"FLAMETHROWER"]],"GREEDENT":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"DIG"]],"GRENINJA":[[35,"EXTRASENSORY"],[42,"ICE BEAM"],[49,"DIG"]],"GRIMER":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"GROTLE":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"GROVYLE":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"DIG"]],"GROWLITHE":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"GYARADOS":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"HAPPINY":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"HAUNTER":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"HERACROSS":[[35,"DIG"],[42,"STONE EDGE"]],"HIPPOPOTAS":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"STONE EDGE"]],"HIPPOWDON":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"HITMONCHAN":[[35,"POISON JAB"],[42,"STONE EDGE"]],"HITMONLEE":[[35,"POISON JAB"],[42,"STONE EDGE"]],"HITMONTOP":[[35,"DIG"],[42,"STONE EDGE"]],"HONCHKROW":[[35,"PSYCHIC"],[42,"SHADOW BALL"]],"HOOTHOOT":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"MOONBLAST"]],"HORSEA":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"FLASH CANNON"]],"HOUNDOOM":[[35,"SHADOW BALL"],[42,"SLUDGE BOMB"]],"HOUNDOUR":[[35,"SHADOW BALL"],[42,"SLUDGE BOMB"]],"HYPNO":[[35,"BRICK BREAK"],[42,"SHADOW BALL"]],"IGGLYBUFF":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"INCINEROAR":[[35,"BRICK BREAK"],[42,"IRON HEAD"]],"INFERNAPE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"INTELEON":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"DARK PULSE"]],"JIGGLYPUFF":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"JOLTEON":[[35,"SHADOW BALL"],[42,"DIG"]],"JYNX":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"KABUTO":[[35,"DIG"],[42,"ICE BEAM"],[49,"GIGA DRAIN"]],"KABUTOPS":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"KADABRA":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DIG"]],"KANGASKHAN":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"KINGDRA":[[35,"ICE BEAM"],[42,"FLASH CANNON"]],"KINGLER":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"KOFFING":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"KRABBY":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"LANTURN":[[35,"ICE BEAM"]],"LAPRAS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DRAGON PULSE"]],"LARVITAR":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"CRUNCH"]],"LEAFEON":[[35,"X-SCISSOR"],[42,"DIG"],[49,"SHADOW BALL"]],"LEDIAN":[[35,"BRICK BREAK"],[42,"DIG"],[49,"GIGA DRAIN"]],"LEDYBA":[[35,"BRICK BREAK"],[42,"DIG"],[49,"GIGA DRAIN"]],"LICKILICKY":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"LICKITUNG":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"LIEPARD":[[35,"SHADOW BALL"],[42,"PLAY ROUGH"],[49,"GUNK SHOT"]],"LITTEN":[[35,"CRUNCH"]],"LUCARIO":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"DARK PULSE"]],"MACHAMP":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"MACHOKE":[[35,"POISON JAB"],[42,"DIG"],[49,"FLAMETHROWER"]],"MACHOP":[[35,"POISON JAB"],[42,"DIG"],[49,"FLAMETHROWER"]],"MAGBY":[[35,"BRICK BREAK"],[42,"POISON JAB"],[49,"PSYCHIC"]],"MAGCARGO":[[35,"EARTH POWER"]],"MAGMAR":[[35,"BRICK BREAK"],[42,"POISON JAB"],[49,"PSYCHIC"]],"MAGMORTAR":[[35,"POISON JAB"],[42,"THUNDERBOLT"],[49,"PSYCHIC"]],"MAMOSWINE":[[35,"IRON HEAD"],[42,"STONE EDGE"]],"MANKEY":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"MANTINE":[[35,"IRON HEAD"],[42,"ICE BEAM"],[49,"GUNK SHOT"]],"MAREEP":[[35,"POWER GEM"],[42,"DIG"]],"MARILL":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"MAROWAK":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"STONE EDGE"]],"MARSHTOMP":[[35,"BRICK BREAK"],[42,"ANCIENT POWER"],[49,"ICE BEAM"]],"MAWILE":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"STONE EDGE"]],"MEGANIUM":[[35,"ANCIENT POWER"],[42,"ZEN HEADBUTT"]],"MEOWSCARADA":[[35,"BRICK BREAK"],[42,"PLAY ROUGH"],[49,"SHADOW BALL"]],"MEOWTH":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"MEWTWO":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"MILTANK":[[35,"IRON HEAD"],[42,"PLAY ROUGH"],[49,"ZEN HEADBUTT"]],"MIME JR.":[[35,"BRICK BREAK"],[42,"THUNDERBOLT"],[49,"SHADOW BALL"]],"MIMIKYU":[[35,"X-SCISSOR"],[42,"THUNDERBOLT"],[49,"PSYCHIC"]],"MINCCINO":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"MINUN":[[35,"PLAY ROUGH"],[42,"DYNAMIC PUNCH"]],"MISDREAVUS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"MISMAGIUS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"MONFERNO":[[35,"POISON JAB"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"MR. MIME":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"MUDKIP":[[35,"ANCIENT POWER"],[42,"DIG"],[49,"ICE BEAM"]],"MUK":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"MUNCHLAX":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"MURKROW":[[35,"PSYCHIC"],[42,"SHADOW BALL"]],"NATU":[[35,"SHADOW BALL"],[42,"GIGA DRAIN"]],"NIDOKING":[[35,"BRICK BREAK"],[42,"THUNDERBOLT"],[49,"STONE EDGE"]],"NIDOQUEEN":[[35,"CRUNCH"],[42,"THUNDERBOLT"],[49,"STONE EDGE"]],"NIDORAN\u2640":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"NIDORAN\u2642":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ICE BEAM"]],"NIDORINA":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"NIDORINO":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ICE BEAM"]],"NINETALES":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DARK PULSE"]],"NOCTOWL":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"MOONBLAST"]],"OCTILLERY":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"PSYCHIC"]],"ODDISH":[[35,"MOONBLAST"]],"OMANYTE":[[35,"ICE BEAM"],[42,"EARTH POWER"]],"OMASTAR":[[35,"ICE BEAM"],[42,"CRUNCH"],[49,"EARTH POWER"]],"ONIX":[[35,"IRON HEAD"],[42,"DRAGON PULSE"]],"OSHAWOTT":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DIG"]],"PARAS":[[35,"BRICK BREAK"],[42,"DIG"],[49,"SLUDGE BOMB"]],"PARASECT":[[35,"BRICK BREAK"],[42,"DIG"],[49,"SLUDGE BOMB"]],"PATRAT":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"PERSIAN":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"PHANPY":[[35,"IRON HEAD"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"PICHU":[[35,"PLAY ROUGH"]],"PIGNITE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"PIKACHU":[[35,"BRICK BREAK"],[42,"PLAY ROUGH"],[49,"DIG"]],"PILOSWINE":[[35,"STONE EDGE"]],"PINECO":[[35,"SEED BOMB"],[42,"POISON JAB"],[49,"DIG"]],"PINSIR":[[35,"BRICK BREAK"],[42,"DIG"],[49,"STONE EDGE"]],"PIPLUP":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"PLUSLE":[[35,"PLAY ROUGH"],[42,"DYNAMIC PUNCH"]],"POLITOED":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"EARTH POWER"]],"POLIWAG":[[35,"DIG"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"POLIWHIRL":[[35,"BRICK BREAK"],[42,"DIG"],[49,"ICE BEAM"]],"POLIWRATH":[[35,"POISON JAB"],[42,"DIG"],[49,"ICE BEAM"]],"PONYTA":[[35,"PLAY ROUGH"]],"POPPLIO":[[35,"ICE BEAM"],[42,"MOONBLAST"]],"PORYGON":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"PORYGON-Z":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"DARK PULSE"]],"PORYGON2":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"PRIMARINA":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"PRIMEAPE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"PRINPLUP":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"PSYDUCK":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"DIG"]],"PUPITAR":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"CRUNCH"]],"PURRLOIN":[[35,"SHADOW BALL"],[42,"PLAY ROUGH"],[49,"GUNK SHOT"]],"QUAGSIRE":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"STONE EDGE"]],"QUAQUAVAL":[[35,"BRAVE BIRD"]],"QUAXLY":[[35,"BRAVE BIRD"]],"QUAXWELL":[[35,"BRAVE BIRD"]],"QUILAVA":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"QUILLADIN":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"QWILFISH":[[35,"CRUNCH"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"RABOOT":[[35,"GUNK SHOT"]],"RAICHU":[[35,"BRICK BREAK"],[42,"PLAY ROUGH"],[49,"DIG"]],"RAIKOU":[[35,"EXTRASENSORY"],[42,"SHADOW BALL"],[49,"CRUNCH"]],"RAPIDASH":[[35,"POISON JAB"],[42,"PLAY ROUGH"],[49,"MEGAHORN"]],"RATICATE":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"RATTATA":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"REMORAID":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"PSYCHIC"]],"RHYDON":[[35,"POISON JAB"],[42,"CRUNCH"],[49,"MEGAHORN"]],"RHYHORN":[[35,"POISON JAB"],[42,"CRUNCH"],[49,"MEGAHORN"]],"RHYPERIOR":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"MEGAHORN"]],"RILLABOOM":[[35,"BRICK BREAK"],[42,"EARTH POWER"]],"RIOLU":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"ROSELIA":[[35,"SHADOW BALL"]],"ROSERADE":[[35,"SHADOW BALL"]],"ROTOM":[[35,"DARK PULSE"]],"SABLEYE":[[35,"X-SCISSOR"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SAMUROTT":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DARK PULSE"]],"SANDSHREW":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"STONE EDGE"]],"SANDSLASH":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"STONE EDGE"]],"SCEPTILE":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"SCIZOR":[[35,"BRICK BREAK"],[42,"AIR SLASH"]],"SCORBUNNY":[[35,"GUNK SHOT"]],"SCYTHER":[[35,"BRICK BREAK"]],"SEADRA":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"FLASH CANNON"]],"SEAKING":[[35,"POISON JAB"],[42,"ICE BEAM"],[49,"MEGAHORN"]],"SEEL":[[35,"ICE BEAM"],[42,"MEGAHORN"]],"SENTRET":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"THUNDERBOLT"]],"SERPERIOR":[[35,"DRAGON PULSE"]],"SHELLDER":[[35,"ICE BEAM"]],"SHUCKLE":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"SKARMORY":[[35,"X-SCISSOR"],[42,"DARK PULSE"]],"SKELEDIRGE":[[35,"SEED BOMB"],[42,"CRUNCH"],[49,"EARTH POWER"]],"SKITTY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SKWOVET":[[35,"SEED BOMB"],[42,"CRUNCH"],[49,"DIG"]],"SLAKING":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SLAKOTH":[[35,"X-SCISSOR"],[42,"PLAY ROUGH"],[49,"ZEN HEADBUTT"]],"SLOWBRO":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"SLOWKING":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"SLOWPOKE":[[35,"DIG"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"SLUGMA":[[35,"POWER GEM"],[42,"EARTH POWER"]],"SMOOCHUM":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"DYNAMIC PUNCH"]],"SNEASEL":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"DIG"]],"SNORLAX":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SNUBBULL":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"SPINARAK":[[35,"HEX"],[42,"DIG"],[49,"PSYCHIC"]],"SPRIGATITO":[[35,"PLAY ROUGH"]],"SQUIRTLE":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"DIG"]],"STANTLER":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"STARMIE":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLASH CANNON"]],"STARYU":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"STEELIX":[[35,"CRUNCH"],[42,"DRAGON PULSE"],[49,"STONE EDGE"]],"SUDOWOODO":[[35,"BRICK BREAK"],[42,"DIG"]],"SUICUNE":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"AIR SLASH"]],"SUNFLORA":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"SUNKERN":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"SWAMPERT":[[35,"BRICK BREAK"],[42,"POISON JAB"],[49,"STONE EDGE"]],"SWINUB":[[35,"STONE EDGE"]],"SYLVEON":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"DIG"]],"TANGELA":[[35,"ANCIENT POWER"],[42,"SLUDGE BOMB"]],"TANGROWTH":[[35,"ANCIENT POWER"],[42,"BRICK BREAK"],[49,"SLUDGE BOMB"]],"TAUROS":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"TEDDIURSA":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"TENTACOOL":[[35,"HEX"],[42,"ICE BEAM"],[49,"GIGA DRAIN"]],"TENTACRUEL":[[35,"HEX"],[42,"ICE BEAM"],[49,"GIGA DRAIN"]],"TEPIG":[[35,"DIG"],[42,"ZEN HEADBUTT"]],"TOGEKISS":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"TOGEPI":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"TOGETIC":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"TORCHIC":[[35,"DIG"]],"TORRACAT":[[35,"CRUNCH"]],"TORTERRA":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"TOTODILE":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"TOXICROAK":[[35,"X-SCISSOR"],[42,"DIG"],[49,"STONE EDGE"]],"TREECKO":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"TROPIUS":[[35,"DRAGON PULSE"],[42,"ZEN HEADBUTT"]],"TRUBBISH":[[35,"SEED BOMB"],[42,"DARK PULSE"]],"TURTWIG":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"TYPHLOSION":[[35,"SHADOW BALL"],[42,"PLAY ROUGH"],[49,"DIG"]],"TYRANITAR":[[35,"IRON HEAD"],[42,"DIG"],[49,"THUNDERBOLT"]],"UMBREON":[[35,"DIG"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"URSARING":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"VAPOREON":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"DIG"]],"VENOMOTH":[[35,"PSYCHIC"],[42,"ENERGY BALL"],[49,"AIR SLASH"]],"VENONAT":[[35,"ENERGY BALL"],[42,"ZEN HEADBUTT"]],"VENUSAUR":[[35,"EARTH POWER"]],"VIGOROTH":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"VILEPLUME":[[35,"MOONBLAST"]],"VULPIX":[[35,"HEX"],[42,"ENERGY BALL"],[49,"DARK PULSE"]],"WARTORTLE":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"DIG"]],"WATCHOG":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"WEEZING":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"WIGGLYTUFF":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"WOOPER":[[35,"ICE BEAM"],[42,"SLUDGE BOMB"],[49,"STONE EDGE"]],"XATU":[[35,"SHADOW BALL"],[42,"GIGA DRAIN"]],"YANMA":[[35,"ANCIENT POWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"ZAPDOS":[[35,"ANCIENT POWER"]],"ZUBAT":[[35,"CRUNCH"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]]}
+const COVERAGE_MOVES = {"ABOMASNOW":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"EARTH POWER"]],"ABRA":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DYNAMIC PUNCH"]],"ABSOL":[[35,"X-SCISSOR"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"AERODACTYL":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"FLAMETHROWER"]],"AGGRON":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"AIPOM":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"GUNK SHOT"]],"ALAKAZAM":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DIG"]],"ALTARIA":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"MOONBLAST"]],"AMBIPOM":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"GUNK SHOT"]],"AMPHAROS":[[35,"DRAGON PULSE"],[42,"POWER GEM"],[49,"DIG"]],"ANORITH":[[35,"BRICK BREAK"],[42,"CROSS POISON"],[49,"DIG"]],"ARBOK":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"DIG"]],"ARCANINE":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"ARCEUS":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"ARIADOS":[[35,"HEX"],[42,"DIG"],[49,"PSYCHIC"]],"ARMALDO":[[35,"BRICK BREAK"],[42,"DIG"],[49,"FLASH CANNON"]],"ARON":[[35,"SHADOW CLAW"],[42,"DIG"],[49,"SUPERPOWER"]],"AZELF":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"AZUMARILL":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"AZURILL":[[35,"ICE BEAM"],[42,"WATERFALL"]],"BAGON":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"BALTOY":[[35,"ANCIENT POWER"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"BANETTE":[[35,"SUCKER PUNCH"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"BARBOACH":[[35,"ICE BEAM"],[42,"STONE EDGE"]],"BASTIODON":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ICE BEAM"]],"BAYLEEF":[[35,"ANCIENT POWER"]],"BEAUTIFLY":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"BEEDRILL":[[35,"BRICK BREAK"],[42,"GIGA DRAIN"]],"BELLOSSOM":[[35,"SLUDGE BOMB"],[42,"MOONBLAST"]],"BIBAREL":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"BIDOOF":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"BLASTOISE":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"DARK PULSE"]],"BLAZIKEN":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"BLISSEY":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"BONSLY":[[35,"BRICK BREAK"],[42,"SUCKER PUNCH"],[49,"DIG"]],"BRAIXEN":[[35,"PSYCHIC"]],"BRELOOM":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"BRIONNE":[[35,"ICE BEAM"],[42,"MOONBLAST"]],"BRONZONG":[[35,"SHADOW BALL"],[42,"POWER GEM"],[49,"SIGNAL BEAM"]],"BRONZOR":[[35,"SHADOW BALL"],[42,"POWER GEM"],[49,"SIGNAL BEAM"]],"BUDEW":[[35,"SHADOW BALL"]],"BUIZEL":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"BUNEARY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"THUNDERBOLT"]],"BUTTERFREE":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"CACNEA":[[35,"POISON JAB"],[42,"DIG"],[49,"DARK PULSE"]],"CACTURNE":[[35,"SHADOW BALL"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"CAMERUPT":[[35,"FLASH CANNON"],[42,"STONE EDGE"]],"CARNIVINE":[[35,"CRUNCH"],[42,"SLUDGE BOMB"]],"CARVANHA":[[35,"ANCIENT POWER"],[42,"ICE BEAM"],[49,"ZEN HEADBUTT"]],"CASTFORM":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CHANSEY":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CHARIZARD":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"CHARMANDER":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"CHARMELEON":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"CHATOT":[[35,"PLAY ROUGH"]],"CHERRIM":[[35,"PLAY ROUGH"]],"CHESNAUGHT":[[35,"CRUNCH"],[42,"DIG"],[49,"STONE EDGE"]],"CHESPIN":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"CHIKORITA":[[35,"ANCIENT POWER"]],"CHIMCHAR":[[35,"POISON JAB"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"CHIMECHO":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"FLASH CANNON"]],"CHINCHOU":[[35,"ICE BEAM"]],"CHINGLING":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"CINCCINO":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"CINDERACE":[[35,"IRON HEAD"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]],"CLAMPERL":[[35,"ICE BEAM"]],"CLAYDOL":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"STONE EDGE"]],"CLEFABLE":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CLEFAIRY":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"CLEFFA":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"CLOYSTER":[[35,"POISON JAB"]],"COMBEE":[[35,"OMINOUS WIND"]],"COMBUSKEN":[[35,"POISON JAB"],[42,"DIG"]],"CORPHISH":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"DIG"]],"CORSOLA":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"EARTH POWER"]],"CRADILY":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"CRANIDOS":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"CRAWDAUNT":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"CRESSELIA":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"CROAGUNK":[[35,"X-SCISSOR"],[42,"SHADOW BALL"],[49,"EARTH POWER"]],"CROBAT":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"CROCALOR":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"CROCONAW":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"CUBONE":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"ICE BEAM"]],"CYNDAQUIL":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"DARKRAI":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"DECIDUEYE":[[35,"BRICK BREAK"],[42,"BRAVE BIRD"]],"DELCATTY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"DELIBIRD":[[35,"WATER PULSE"],[42,"BRICK BREAK"],[49,"GUNK SHOT"]],"DELPHOX":[[35,"SHADOW BALL"]],"DEOXYS":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"DARK PULSE"]],"DEWGONG":[[35,"PLAY ROUGH"],[42,"MEGAHORN"]],"DEWOTT":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DIG"]],"DIALGA":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"DIGLETT":[[35,"SLUDGE BOMB"],[42,"STONE EDGE"]],"DONPHAN":[[35,"IRON HEAD"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"DRAGAPULT":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"HYDRO PUMP"]],"DRAGONAIR":[[35,"IRON HEAD"],[42,"WATERFALL"],[49,"THUNDERBOLT"]],"DRAGONITE":[[35,"IRON HEAD"],[42,"WATERFALL"],[49,"STONE EDGE"]],"DRAKLOAK":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"HYDRO PUMP"]],"DRAPION":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"DRATINI":[[35,"IRON HEAD"],[42,"WATERFALL"],[49,"THUNDERBOLT"]],"DRIFBLIM":[[35,"SILVER WIND"],[42,"THUNDERBOLT"],[49,"PSYCHIC"]],"DRIFLOON":[[35,"SILVER WIND"],[42,"THUNDERBOLT"],[49,"PSYCHIC"]],"DROWZEE":[[35,"BRICK BREAK"],[42,"SHADOW BALL"]],"DUGTRIO":[[35,"SLUDGE BOMB"],[42,"STONE EDGE"]],"DUNSPARCE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"DUSCLOPS":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"DUSKNOIR":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"DUSKULL":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"DUSTOX":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"EEVEE":[[35,"DIG"],[42,"SHADOW BALL"]],"EKANS":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"DIG"]],"ELECTABUZZ":[[35,"BRICK BREAK"],[42,"PSYCHIC"]],"ELECTIVIRE":[[35,"BRICK BREAK"],[42,"DIG"],[49,"FLAMETHROWER"]],"ELECTRIKE":[[35,"FLAMETHROWER"],[42,"CRUNCH"],[49,"SIGNAL BEAM"]],"ELEKID":[[35,"BRICK BREAK"],[42,"PSYCHIC"]],"EMBOAR":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"EMPOLEON":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DIG"]],"ENTEI":[[35,"CRUNCH"],[42,"DIG"],[49,"STONE EDGE"]],"ESPEON":[[35,"SHADOW BALL"],[42,"POWER GEM"],[49,"DIG"]],"EXEGGCUTE":[[35,"ANCIENT POWER"],[42,"SLUDGE BOMB"]],"EXEGGUTOR":[[35,"ANCIENT POWER"],[42,"SLUDGE BOMB"]],"EXPLOUD":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"FARFETCH'D":[[35,"POISON JAB"]],"FEEBAS":[[35,"ICE BEAM"],[42,"DRAGON PULSE"]],"FENNEKIN":[[35,"PSYCHIC"]],"FERALIGATR":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"FINNEON":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"SIGNAL BEAM"]],"FLAAFFY":[[35,"BRICK BREAK"],[42,"POWER GEM"],[49,"DIG"]],"FLABÉBÉ":[[35,"PSYCHIC"],[42,"ENERGY BALL"]],"FLAREON":[[35,"DIG"],[42,"SHADOW BALL"]],"FLOATZEL":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"FLOETTE":[[35,"PSYCHIC"],[42,"ENERGY BALL"]],"FLORAGATO":[[35,"PLAY ROUGH"]],"FLORGES":[[35,"PSYCHIC"],[42,"ENERGY BALL"]],"FLYGON":[[35,"CRUNCH"],[42,"FLAMETHROWER"],[49,"STONE EDGE"]],"FORRETRESS":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"FROAKIE":[[35,"ICE BEAM"],[42,"DIG"]],"FROGADIER":[[35,"ICE BEAM"],[42,"DIG"],[49,"DARK PULSE"]],"FROSLASS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"CRUNCH"]],"FUECOCO":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"FURRET":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"GABITE":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GALLADE":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"STONE EDGE"]],"GARBODOR":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"GARCHOMP":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GARDEVOIR":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"GASTLY":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"GASTRODON":[[35,"ICE BEAM"],[42,"SLUDGE BOMB"],[49,"STONE EDGE"]],"GENGAR":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"GEODUDE":[[35,"BRICK BREAK"],[42,"FLAMETHROWER"]],"GHOLDENGO":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"POWER GEM"]],"GIBLE":[[35,"IRON HEAD"],[42,"FLAMETHROWER"],[49,"STONE EDGE"]],"GIMMIGHOUL":[[35,"POWER GEM"]],"GIRAFARIG":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"GIRATINA":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"EARTH POWER"]],"GLACEON":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"DIG"]],"GLALIE":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"DARK PULSE"]],"GLAMEOW":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"THUNDERBOLT"]],"GLIGAR":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GLISCOR":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GLOOM":[[35,"MOONBLAST"]],"GOLBAT":[[35,"CRUNCH"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]],"GOLDEEN":[[35,"POISON JAB"],[42,"ICE BEAM"],[49,"MEGAHORN"]],"GOLDUCK":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"POWER GEM"]],"GOLEM":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"FLAMETHROWER"]],"GOREBYSS":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"GRANBULL":[[35,"CRUNCH"],[42,"DIG"],[49,"STONE EDGE"]],"GRAVELER":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"FLAMETHROWER"]],"GREEDENT":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"DIG"]],"GRENINJA":[[35,"EXTRASENSORY"],[42,"ICE BEAM"],[49,"DIG"]],"GRIMER":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"GROTLE":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"GROUDON":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"GROVYLE":[[35,"X-SCISSOR"],[42,"CRUNCH"],[49,"DIG"]],"GROWLITHE":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"GRUMPIG":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"EARTH POWER"]],"GULPIN":[[35,"WATER PULSE"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"GYARADOS":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"HAPPINY":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"HARIYAMA":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"HAUNTER":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"HEATRAN":[[35,"DRAGON PULSE"],[42,"POWER GEM"],[49,"EARTH POWER"]],"HERACROSS":[[35,"DIG"],[42,"STONE EDGE"]],"HIPPOPOTAS":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"STONE EDGE"]],"HIPPOWDON":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"HITMONCHAN":[[35,"POISON JAB"],[42,"STONE EDGE"]],"HITMONLEE":[[35,"POISON JAB"],[42,"STONE EDGE"]],"HITMONTOP":[[35,"DIG"],[42,"STONE EDGE"]],"HONCHKROW":[[35,"PSYCHIC"],[42,"SHADOW BALL"]],"HOOTHOOT":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"MOONBLAST"]],"HORSEA":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"FLASH CANNON"]],"HOUNDOOM":[[35,"SHADOW BALL"],[42,"SLUDGE BOMB"]],"HOUNDOUR":[[35,"SHADOW BALL"],[42,"SLUDGE BOMB"]],"HUNTAIL":[[35,"CRUNCH"],[42,"ICE BEAM"]],"HYPNO":[[35,"BRICK BREAK"],[42,"SHADOW BALL"]],"IGGLYBUFF":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"ILLUMISE":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"AIR SLASH"]],"INCINEROAR":[[35,"BRICK BREAK"],[42,"IRON HEAD"]],"INFERNAPE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"INTELEON":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"DARK PULSE"]],"JIGGLYPUFF":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"JIRACHI":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"JOLTEON":[[35,"SHADOW BALL"],[42,"DIG"]],"JYNX":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"KABUTO":[[35,"DIG"],[42,"ICE BEAM"],[49,"GIGA DRAIN"]],"KABUTOPS":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"KADABRA":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DIG"]],"KANGASKHAN":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"KECLEON":[[35,"BRICK BREAK"],[42,"DIG"],[49,"THUNDERBOLT"]],"KINGDRA":[[35,"ICE BEAM"],[42,"FLASH CANNON"]],"KINGLER":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"KIRLIA":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"KOFFING":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"KRABBY":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"KRICKETUNE":[[35,"BRICK BREAK"],[42,"AERIAL ACE"],[49,"NIGHT SLASH"]],"KYOGRE":[[35,"ANCIENT POWER"],[42,"THUNDERBOLT"],[49,"ICE BEAM"]],"LAIRON":[[35,"SHADOW CLAW"],[42,"DIG"],[49,"SUPERPOWER"]],"LANTURN":[[35,"ICE BEAM"]],"LAPRAS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DRAGON PULSE"]],"LARVITAR":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"CRUNCH"]],"LATIAS":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"LATIOS":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"LEAFEON":[[35,"X-SCISSOR"],[42,"DIG"],[49,"SHADOW BALL"]],"LEDIAN":[[35,"BRICK BREAK"],[42,"DIG"],[49,"GIGA DRAIN"]],"LEDYBA":[[35,"BRICK BREAK"],[42,"DIG"],[49,"GIGA DRAIN"]],"LICKILICKY":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"LICKITUNG":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"LIEPARD":[[35,"SHADOW BALL"],[42,"PLAY ROUGH"],[49,"GUNK SHOT"]],"LILEEP":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"LINOONE":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"LITTEN":[[35,"CRUNCH"]],"LOMBRE":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"ZEN HEADBUTT"]],"LOPUNNY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"THUNDERBOLT"]],"LOTAD":[[35,"ICE BEAM"],[42,"ZEN HEADBUTT"]],"LOUDRED":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"LUCARIO":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"DARK PULSE"]],"LUDICOLO":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"ZEN HEADBUTT"]],"LUMINEON":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"SIGNAL BEAM"]],"LUNATONE":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"EARTH POWER"]],"LUVDISC":[[35,"ICE BEAM"]],"LUXIO":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"PLAY ROUGH"]],"LUXRAY":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"SUPERPOWER"]],"MACHAMP":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"MACHOKE":[[35,"POISON JAB"],[42,"DIG"],[49,"FLAMETHROWER"]],"MACHOP":[[35,"POISON JAB"],[42,"DIG"],[49,"FLAMETHROWER"]],"MAGBY":[[35,"BRICK BREAK"],[42,"POISON JAB"],[49,"PSYCHIC"]],"MAGCARGO":[[35,"EARTH POWER"]],"MAGMAR":[[35,"BRICK BREAK"],[42,"POISON JAB"],[49,"PSYCHIC"]],"MAGMORTAR":[[35,"POISON JAB"],[42,"THUNDERBOLT"],[49,"PSYCHIC"]],"MAGNEZONE":[[35,"SIGNAL BEAM"]],"MAKUHITA":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"MAMOSWINE":[[35,"IRON HEAD"],[42,"STONE EDGE"]],"MANAPHY":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"MANECTRIC":[[35,"FLAMETHROWER"],[42,"CRUNCH"],[49,"SIGNAL BEAM"]],"MANKEY":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"MANTINE":[[35,"IRON HEAD"],[42,"ICE BEAM"],[49,"GUNK SHOT"]],"MANTYKE":[[35,"ICE BEAM"],[42,"SIGNAL BEAM"]],"MAREEP":[[35,"POWER GEM"],[42,"DIG"]],"MARILL":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"MAROWAK":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"STONE EDGE"]],"MARSHTOMP":[[35,"BRICK BREAK"],[42,"ANCIENT POWER"],[49,"ICE BEAM"]],"MASQUERAIN":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"MAWILE":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"STONE EDGE"]],"MEDICHAM":[[35,"POISON JAB"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"MEDITITE":[[35,"POISON JAB"],[42,"SHADOW BALL"],[49,"SIGNAL BEAM"]],"MEGANIUM":[[35,"ANCIENT POWER"],[42,"ZEN HEADBUTT"]],"MEOWSCARADA":[[35,"BRICK BREAK"],[42,"PLAY ROUGH"],[49,"SHADOW BALL"]],"MEOWTH":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"MESPRIT":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"METAGROSS":[[35,"BRICK BREAK"],[42,"SHADOW BALL"],[49,"STONE EDGE"]],"METANG":[[35,"BRICK BREAK"],[42,"SHADOW BALL"],[49,"SLUDGE BOMB"]],"MEWTWO":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"MIGHTYENA":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"SHADOW BALL"]],"MILOTIC":[[35,"IRON HEAD"],[42,"ICE BEAM"],[49,"DRAGON PULSE"]],"MILTANK":[[35,"IRON HEAD"],[42,"PLAY ROUGH"],[49,"ZEN HEADBUTT"]],"MIME JR.":[[35,"BRICK BREAK"],[42,"THUNDERBOLT"],[49,"SHADOW BALL"]],"MIMIKYU":[[35,"X-SCISSOR"],[42,"THUNDERBOLT"],[49,"PSYCHIC"]],"MINCCINO":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"MINUN":[[35,"PLAY ROUGH"],[42,"DYNAMIC PUNCH"]],"MISDREAVUS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"MISMAGIUS":[[35,"THUNDERBOLT"],[42,"PSYCHIC"],[49,"DARK PULSE"]],"MONFERNO":[[35,"POISON JAB"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"MOTHIM":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"MR. MIME":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"MUDKIP":[[35,"ANCIENT POWER"],[42,"DIG"],[49,"ICE BEAM"]],"MUK":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"MUNCHLAX":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"MURKROW":[[35,"PSYCHIC"],[42,"SHADOW BALL"]],"NATU":[[35,"SHADOW BALL"],[42,"GIGA DRAIN"]],"NIDOKING":[[35,"BRICK BREAK"],[42,"THUNDERBOLT"],[49,"STONE EDGE"]],"NIDOQUEEN":[[35,"CRUNCH"],[42,"THUNDERBOLT"],[49,"STONE EDGE"]],"NIDORAN♀":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"NIDORAN♂":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ICE BEAM"]],"NIDORINA":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"NIDORINO":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ICE BEAM"]],"NINCADA":[[35,"AERIAL ACE"],[42,"SHADOW BALL"],[49,"GIGA DRAIN"]],"NINETALES":[[35,"SHADOW BALL"],[42,"ENERGY BALL"],[49,"DARK PULSE"]],"NINJASK":[[35,"DIG"],[42,"SHADOW BALL"],[49,"GIGA DRAIN"]],"NOCTOWL":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"MOONBLAST"]],"NOSEPASS":[[35,"THUNDERBOLT"],[42,"FLASH CANNON"],[49,"EARTH POWER"]],"NUMEL":[[35,"FLASH CANNON"],[42,"STONE EDGE"]],"NUZLEAF":[[35,"BRICK BREAK"],[42,"DIG"],[49,"SHADOW BALL"]],"OCTILLERY":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"PSYCHIC"]],"ODDISH":[[35,"MOONBLAST"]],"OMANYTE":[[35,"ICE BEAM"],[42,"EARTH POWER"]],"OMASTAR":[[35,"ICE BEAM"],[42,"CRUNCH"],[49,"EARTH POWER"]],"ONIX":[[35,"IRON HEAD"],[42,"DRAGON PULSE"]],"OSHAWOTT":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DIG"]],"PACHIRISU":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"PALKIA":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"PARAS":[[35,"BRICK BREAK"],[42,"DIG"],[49,"SLUDGE BOMB"]],"PARASECT":[[35,"BRICK BREAK"],[42,"DIG"],[49,"SLUDGE BOMB"]],"PATRAT":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"PELIPPER":[[35,"SEED BOMB"],[42,"ICE BEAM"],[49,"GUNK SHOT"]],"PERSIAN":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"GUNK SHOT"]],"PHANPY":[[35,"IRON HEAD"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"PHIONE":[[35,"ANCIENT POWER"],[42,"ICE BEAM"],[49,"MOONBLAST"]],"PICHU":[[35,"PLAY ROUGH"]],"PIGNITE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"PIKACHU":[[35,"BRICK BREAK"],[42,"PLAY ROUGH"],[49,"DIG"]],"PILOSWINE":[[35,"STONE EDGE"]],"PINECO":[[35,"SEED BOMB"],[42,"POISON JAB"],[49,"DIG"]],"PINSIR":[[35,"BRICK BREAK"],[42,"DIG"],[49,"STONE EDGE"]],"PIPLUP":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"PLUSLE":[[35,"PLAY ROUGH"],[42,"DYNAMIC PUNCH"]],"POLITOED":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"EARTH POWER"]],"POLIWAG":[[35,"DIG"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"POLIWHIRL":[[35,"BRICK BREAK"],[42,"DIG"],[49,"ICE BEAM"]],"POLIWRATH":[[35,"POISON JAB"],[42,"DIG"],[49,"ICE BEAM"]],"PONYTA":[[35,"PLAY ROUGH"]],"POOCHYENA":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"SHADOW BALL"]],"POPPLIO":[[35,"ICE BEAM"],[42,"MOONBLAST"]],"PORYGON":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"PORYGON-Z":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"DARK PULSE"]],"PORYGON2":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"PRIMARINA":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"PRIMEAPE":[[35,"POISON JAB"],[42,"DIG"],[49,"STONE EDGE"]],"PRINPLUP":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"DIG"]],"PROBOPASS":[[35,"THUNDERBOLT"],[42,"ICE PUNCH"],[49,"EARTH POWER"]],"PSYDUCK":[[35,"ICE BEAM"],[42,"PSYCHIC"],[49,"DIG"]],"PUPITAR":[[35,"BRICK BREAK"],[42,"IRON HEAD"],[49,"CRUNCH"]],"PURRLOIN":[[35,"SHADOW BALL"],[42,"PLAY ROUGH"],[49,"GUNK SHOT"]],"PURUGLY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"THUNDERBOLT"]],"QUAGSIRE":[[35,"BRICK BREAK"],[42,"ICE BEAM"],[49,"STONE EDGE"]],"QUAQUAVAL":[[35,"BRAVE BIRD"]],"QUAXLY":[[35,"BRAVE BIRD"]],"QUAXWELL":[[35,"BRAVE BIRD"]],"QUILAVA":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"QUILLADIN":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"QWILFISH":[[35,"CRUNCH"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"RABOOT":[[35,"GUNK SHOT"]],"RAICHU":[[35,"BRICK BREAK"],[42,"PLAY ROUGH"],[49,"DIG"]],"RAIKOU":[[35,"EXTRASENSORY"],[42,"SHADOW BALL"],[49,"CRUNCH"]],"RALTS":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"RAMPARDOS":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"RAPIDASH":[[35,"POISON JAB"],[42,"PLAY ROUGH"],[49,"MEGAHORN"]],"RATICATE":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"RATTATA":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"RAYQUAZA":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"REGICE":[[35,"ANCIENT POWER"],[42,"THUNDERBOLT"],[49,"FLASH CANNON"]],"REGIGIGAS":[[35,"IRON HEAD"],[42,"THUNDERBOLT"],[49,"STONE EDGE"]],"REGIROCK":[[35,"IRON HEAD"],[42,"DIG"],[49,"THUNDERBOLT"]],"REGISTEEL":[[35,"ANCIENT POWER"],[42,"BRICK BREAK"],[49,"THUNDERBOLT"]],"RELICANTH":[[35,"ICE BEAM"],[42,"ZEN HEADBUTT"]],"REMORAID":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"PSYCHIC"]],"RHYDON":[[35,"POISON JAB"],[42,"CRUNCH"],[49,"MEGAHORN"]],"RHYHORN":[[35,"POISON JAB"],[42,"CRUNCH"],[49,"MEGAHORN"]],"RHYPERIOR":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"MEGAHORN"]],"RILLABOOM":[[35,"BRICK BREAK"],[42,"EARTH POWER"]],"RIOLU":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"ROSELIA":[[35,"SHADOW BALL"]],"ROSERADE":[[35,"SHADOW BALL"]],"ROTOM":[[35,"DARK PULSE"]],"SABLEYE":[[35,"X-SCISSOR"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SALAMENCE":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"SAMUROTT":[[35,"ICE BEAM"],[42,"AIR SLASH"],[49,"DARK PULSE"]],"SANDSHREW":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"STONE EDGE"]],"SANDSLASH":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"STONE EDGE"]],"SCEPTILE":[[35,"DRAGON PULSE"],[42,"CRUNCH"],[49,"DIG"]],"SCIZOR":[[35,"BRICK BREAK"],[42,"AIR SLASH"]],"SCORBUNNY":[[35,"GUNK SHOT"]],"SCYTHER":[[35,"BRICK BREAK"]],"SEADRA":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"FLASH CANNON"]],"SEAKING":[[35,"POISON JAB"],[42,"ICE BEAM"],[49,"MEGAHORN"]],"SEALEO":[[35,"SIGNAL BEAM"]],"SEEDOT":[[35,"SUCKER PUNCH"],[42,"DIG"],[49,"SHADOW BALL"]],"SEEL":[[35,"ICE BEAM"],[42,"MEGAHORN"]],"SENTRET":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"THUNDERBOLT"]],"SERPERIOR":[[35,"DRAGON PULSE"]],"SEVIPER":[[35,"FLAMETHROWER"],[42,"DRAGON PULSE"],[49,"DARK PULSE"]],"SHARPEDO":[[35,"POISON JAB"],[42,"ICE BEAM"],[49,"ZEN HEADBUTT"]],"SHAYMIN":[[35,"PSYCHIC"],[42,"AIR SLASH"],[49,"EARTH POWER"]],"SHEDINJA":[[35,"SUCKER PUNCH"],[42,"AERIAL ACE"],[49,"DIG"]],"SHELGON":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"SHELLDER":[[35,"ICE BEAM"]],"SHELLOS":[[35,"ANCIENT POWER"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"SHIELDON":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"EARTH POWER"]],"SHIFTRY":[[35,"BRICK BREAK"],[42,"X-SCISSOR"],[49,"DIG"]],"SHINX":[[35,"FIRE FANG"],[42,"CRUNCH"],[49,"PLAY ROUGH"]],"SHROOMISH":[[35,"SLUDGE BOMB"],[42,"DRAIN PUNCH"],[49,"ZEN HEADBUTT"]],"SHUCKLE":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"SHUPPET":[[35,"SUCKER PUNCH"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"SKARMORY":[[35,"X-SCISSOR"],[42,"DARK PULSE"]],"SKELEDIRGE":[[35,"SEED BOMB"],[42,"CRUNCH"],[49,"EARTH POWER"]],"SKITTY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SKORUPI":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"SKUNTANK":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"FLAMETHROWER"]],"SKWOVET":[[35,"SEED BOMB"],[42,"CRUNCH"],[49,"DIG"]],"SLAKING":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SLAKOTH":[[35,"X-SCISSOR"],[42,"PLAY ROUGH"],[49,"ZEN HEADBUTT"]],"SLOWBRO":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"SLOWKING":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"SLOWPOKE":[[35,"DIG"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"SLUGMA":[[35,"POWER GEM"],[42,"EARTH POWER"]],"SMOOCHUM":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"DYNAMIC PUNCH"]],"SNEASEL":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"DIG"]],"SNORLAX":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"SNORUNT":[[35,"WATER PULSE"],[42,"SHADOW BALL"],[49,"CRUNCH"]],"SNOVER":[[35,"WATER PULSE"],[42,"SHADOW BALL"]],"SNUBBULL":[[35,"CRUNCH"],[42,"DIG"],[49,"THUNDERBOLT"]],"SOLROCK":[[35,"IRON HEAD"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"SPHEAL":[[35,"SIGNAL BEAM"]],"SPINARAK":[[35,"HEX"],[42,"DIG"],[49,"PSYCHIC"]],"SPINDA":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"DIG"]],"SPIRITOMB":[[35,"WATER PULSE"],[42,"SILVER WIND"],[49,"PSYCHIC"]],"SPOINK":[[35,"SHADOW BALL"],[42,"FLASH CANNON"],[49,"POWER GEM"]],"SPRIGATITO":[[35,"PLAY ROUGH"]],"SQUIRTLE":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"DIG"]],"STANTLER":[[35,"DIG"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"STARAPTOR":[[35,"BRICK BREAK"],[42,"OMINOUS WIND"],[49,"BLAZE KICK"]],"STARAVIA":[[35,"OMINOUS WIND"]],"STARLY":[[35,"OMINOUS WIND"]],"STARMIE":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLASH CANNON"]],"STARYU":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"PSYCHIC"]],"STEELIX":[[35,"CRUNCH"],[42,"DRAGON PULSE"],[49,"STONE EDGE"]],"STUNKY":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"FLAMETHROWER"]],"SUDOWOODO":[[35,"BRICK BREAK"],[42,"DIG"]],"SUICUNE":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"AIR SLASH"]],"SUNFLORA":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"SUNKERN":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"SURSKIT":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"GIGA DRAIN"]],"SWABLU":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"MOONBLAST"]],"SWALOT":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]],"SWAMPERT":[[35,"BRICK BREAK"],[42,"POISON JAB"],[49,"STONE EDGE"]],"SWELLOW":[[35,"OMINOUS WIND"]],"SWINUB":[[35,"STONE EDGE"]],"SYLVEON":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"DIG"]],"TAILLOW":[[35,"OMINOUS WIND"]],"TANGELA":[[35,"ANCIENT POWER"],[42,"SLUDGE BOMB"]],"TANGROWTH":[[35,"ANCIENT POWER"],[42,"BRICK BREAK"],[49,"SLUDGE BOMB"]],"TAUROS":[[35,"IRON HEAD"],[42,"DIG"],[49,"STONE EDGE"]],"TEDDIURSA":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"DIG"]],"TENTACOOL":[[35,"HEX"],[42,"ICE BEAM"],[49,"GIGA DRAIN"]],"TENTACRUEL":[[35,"HEX"],[42,"ICE BEAM"],[49,"GIGA DRAIN"]],"TEPIG":[[35,"DIG"],[42,"ZEN HEADBUTT"]],"TOGEKISS":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"TOGEPI":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"TOGETIC":[[35,"FLAMETHROWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"TORCHIC":[[35,"DIG"]],"TORKOAL":[[35,"SLUDGE BOMB"],[42,"EARTH POWER"]],"TORRACAT":[[35,"CRUNCH"]],"TORTERRA":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"STONE EDGE"]],"TOTODILE":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"TOXICROAK":[[35,"X-SCISSOR"],[42,"DIG"],[49,"STONE EDGE"]],"TRAPINCH":[[35,"CRUNCH"],[42,"SIGNAL BEAM"],[49,"STONE EDGE"]],"TREECKO":[[35,"BRICK BREAK"],[42,"CRUNCH"],[49,"DIG"]],"TROPIUS":[[35,"DRAGON PULSE"],[42,"ZEN HEADBUTT"]],"TRUBBISH":[[35,"SEED BOMB"],[42,"DARK PULSE"]],"TURTWIG":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"ZEN HEADBUTT"]],"TYPHLOSION":[[35,"SHADOW BALL"],[42,"PLAY ROUGH"],[49,"DIG"]],"TYRANITAR":[[35,"IRON HEAD"],[42,"DIG"],[49,"THUNDERBOLT"]],"UMBREON":[[35,"DIG"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"URSARING":[[35,"CRUNCH"],[42,"PLAY ROUGH"],[49,"STONE EDGE"]],"UXIE":[[35,"THUNDERBOLT"],[42,"SHADOW BALL"],[49,"ENERGY BALL"]],"VAPOREON":[[35,"ICE BEAM"],[42,"SHADOW BALL"],[49,"DIG"]],"VENOMOTH":[[35,"PSYCHIC"],[42,"ENERGY BALL"],[49,"AIR SLASH"]],"VENONAT":[[35,"ENERGY BALL"],[42,"ZEN HEADBUTT"]],"VENUSAUR":[[35,"EARTH POWER"]],"VESPIQUEN":[[35,"HEX"],[42,"SLUDGE BOMB"],[49,"POWER GEM"]],"VIBRAVA":[[35,"CRUNCH"],[42,"AIR SLASH"],[49,"STONE EDGE"]],"VIGOROTH":[[35,"PLAY ROUGH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"VILEPLUME":[[35,"MOONBLAST"]],"VOLBEAT":[[35,"PLAY ROUGH"],[42,"THUNDERBOLT"],[49,"ZEN HEADBUTT"]],"VULPIX":[[35,"HEX"],[42,"ENERGY BALL"],[49,"DARK PULSE"]],"WAILMER":[[35,"ICE BEAM"],[42,"ZEN HEADBUTT"]],"WAILORD":[[35,"IRON HEAD"],[42,"ICE BEAM"],[49,"ZEN HEADBUTT"]],"WALREIN":[[35,"IRON HEAD"],[42,"CRUNCH"],[49,"SIGNAL BEAM"]],"WARTORTLE":[[35,"ICE BEAM"],[42,"DRAGON PULSE"],[49,"DIG"]],"WATCHOG":[[35,"CRUNCH"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"WEAVILE":[[35,"X-SCISSOR"],[42,"POISON JAB"],[49,"DIG"]],"WEEZING":[[35,"THUNDERBOLT"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"WHISCASH":[[35,"AERIAL ACE"],[42,"ICE BEAM"],[49,"STONE EDGE"]],"WHISMUR":[[35,"ICE BEAM"],[42,"FLAMETHROWER"],[49,"SHADOW BALL"]],"WIGGLYTUFF":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"FLAMETHROWER"]],"WINGULL":[[35,"OMINOUS WIND"],[42,"ICE BEAM"]],"WOOPER":[[35,"ICE BEAM"],[42,"SLUDGE BOMB"],[49,"STONE EDGE"]],"WORMADAM":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"DIG"]],"XATU":[[35,"SHADOW BALL"],[42,"GIGA DRAIN"]],"YANMA":[[35,"ANCIENT POWER"],[42,"PSYCHIC"],[49,"SHADOW BALL"]],"YANMEGA":[[35,"PSYCHIC"],[42,"SHADOW BALL"],[49,"CRUNCH"]],"ZANGOOSE":[[35,"X-SCISSOR"],[42,"DIG"],[49,"ZEN HEADBUTT"]],"ZAPDOS":[[35,"ANCIENT POWER"]],"ZIGZAGOON":[[35,"THUNDERBOLT"],[42,"ICE BEAM"],[49,"SHADOW BALL"]],"ZUBAT":[[35,"CRUNCH"],[42,"SHADOW BALL"],[49,"ZEN HEADBUTT"]]}
 function coverageMoves(m) {
   const own = new Set(m.types)
   return (COVERAGE_MOVES[m.name] ?? []).filter(([, n]) => MOVEDEX[n] && !own.has(MOVEDEX[n].type))
@@ -3428,6 +3461,156 @@ for (const [name, list] of Object.entries(COVERAGE_MOVES)) for (const [, n] of l
     return add.length ? [...l, ...add].sort((a, b) => a[0] - b[0]) : l
   }
 }
+
+/*
+ * Hoenn and Sinnoh's moves. The same rules as the rest: PP by power (up to 50:
+ * 1, 55-75: 2, 80 and up: 3), and a drawback buys power (105 for a move that
+ * hurts or weakens its user, 120 for one that costs the next turn).
+ *   prio      goes first (Aqua Jet, Mach Punch, Bullet Punch, Ice Shard,
+ *             Shadow Sneak, Vacuum Wave; Sucker Punch; Extreme Speed first of all)
+ *   selfDrop  the user's own stats fall after it lands (Close Combat,
+ *             Superpower, Overheat, Draco Meteor, Leaf Storm, Psycho Boost)
+ *   spout     strongest at full HP, weaker as the user's HP falls (Eruption,
+ *             Water Spout): spoutPower
+ * The Gen 3 and 4 Pokémon learn their own by level (SPECIES_MOVES, from the
+ * main games' level-up learnsets), and every one is also a Move Disc for its
+ * type, so the rest can learn them too.
+ */
+const HS_ATTACKS = {
+  'AQUA JET':       { type: 'water', power: 40, cat: 'phys', cost: 1, prio: 1, fx: 'water', snd: 'whoosh', sub: 'goes first' },
+  'MACH PUNCH':     { type: 'fighting', power: 40, cat: 'phys', cost: 1, prio: 1, fx: 'dash', snd: 'thud', sub: 'goes first' },
+  'BULLET PUNCH':   { type: 'steel', power: 40, cat: 'phys', cost: 1, prio: 1, fx: 'dash', snd: 'crunch', sub: 'goes first' },
+  'ICE SHARD':      { type: 'ice', power: 40, cat: 'phys', cost: 1, prio: 1, fx: 'icicle', snd: 'whoosh', sub: 'goes first' },
+  'SHADOW SNEAK':   { type: 'ghost', power: 40, cat: 'phys', cost: 1, prio: 1, fx: 'dash', snd: 'shadow', sub: 'goes first' },
+  'VACUUM WAVE':    { type: 'fighting', power: 40, cat: 'spec', cost: 1, prio: 1, fx: 'spray', snd: 'whoosh', sub: 'goes first' },
+  'SUCKER PUNCH':   { type: 'dark', power: 60, cat: 'phys', cost: 2, prio: 1, fx: 'dash', snd: 'crunch', sub: 'goes first' },
+  'EXTREME SPEED':  { type: 'normal', power: 70, cat: 'phys', cost: 2, prio: 2, fx: 'dash', snd: 'whoosh', sub: 'goes first of all' },
+  'THUNDER FANG':   { type: 'electric', power: 65, cat: 'phys', cost: 2, fx: 'dash', snd: 'zap' },
+  'ICE FANG':       { type: 'ice', power: 65, cat: 'phys', cost: 2, fx: 'dash', snd: 'crunch' },
+  'POISON FANG':    { type: 'poison', power: 50, cat: 'phys', cost: 1, fx: 'dash', snd: 'crunch' },
+  'FIRE PUNCH':     { type: 'fire', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
+  'ICE PUNCH':      { type: 'ice', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud' },
+  'THUNDER PUNCH':  { type: 'electric', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'zap' },
+  'DRAIN PUNCH':    { type: 'fighting', power: 75, cat: 'phys', cost: 2, fx: 'dash', snd: 'thud', drain: 0.5 },
+  'BLAZE KICK':     { type: 'fire', power: 85, cat: 'phys', cost: 3, fx: 'ember', snd: 'thud', input: 'swipe' },
+  'SKY UPPERCUT':   { type: 'fighting', power: 85, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'swipe' },
+  'NIGHT SLASH':    { type: 'dark', power: 70, cat: 'phys', cost: 2, fx: 'slash', snd: 'crunch', input: 'swipe' },
+  'SHADOW CLAW':    { type: 'ghost', power: 70, cat: 'phys', cost: 2, fx: 'slash', snd: 'shadow', input: 'swipe' },
+  'PSYCHO CUT':     { type: 'psychic', power: 70, cat: 'phys', cost: 2, fx: 'slash', snd: 'shadow', input: 'swipe' },
+  'CROSS POISON':   { type: 'poison', power: 70, cat: 'phys', cost: 2, fx: 'slash', snd: 'whoosh', input: 'swipe' },
+  'AERIAL ACE':     { type: 'flying', power: 60, cat: 'phys', cost: 2, fx: 'slash', snd: 'whoosh' },
+  'LEAF BLADE':     { type: 'grass', power: 90, cat: 'phys', cost: 3, fx: 'slash', snd: 'whoosh', input: 'swipe' },
+  'AQUA TAIL':      { type: 'water', power: 90, cat: 'phys', cost: 3, fx: 'water', snd: 'thud', input: 'swipe' },
+  'DRAGON RUSH':    { type: 'dragon', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'mash' },
+  'METEOR MASH':    { type: 'steel', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'crunch', input: 'charge' },
+  'POWER WHIP':     { type: 'grass', power: 90, cat: 'phys', cost: 3, fx: 'slash', snd: 'thud', input: 'swipe' },
+  'AURA SPHERE':    { type: 'fighting', power: 80, cat: 'spec', cost: 3, fx: 'spray', snd: 'whoosh', input: 'track' },
+  'FOCUS BLAST':    { type: 'fighting', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'thud', input: 'charge' },
+  'SIGNAL BEAM':    { type: 'bug', power: 75, cat: 'spec', cost: 2, fx: 'spray', snd: 'zap', input: 'track' },
+  'SILVER WIND':    { type: 'bug', power: 60, cat: 'spec', cost: 2, fx: 'spray', snd: 'whoosh' },
+  'MAGICAL LEAF':   { type: 'grass', power: 60, cat: 'spec', cost: 2, fx: 'seed', snd: 'whoosh' },
+  'OMINOUS WIND':   { type: 'ghost', power: 60, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  SLUDGE:           { type: 'poison', power: 65, cat: 'spec', cost: 2, fx: 'spray', snd: 'whoosh' },
+  'MUD BOMB':       { type: 'ground', power: 65, cat: 'spec', cost: 2, fx: 'spray', snd: 'thud', accDown: 1, sub: "ACC ▼ on a hit" },
+  'MIRROR SHOT':    { type: 'steel', power: 65, cat: 'spec', cost: 2, fx: 'spray', snd: 'zap', accDown: 1, sub: "ACC ▼ on a hit" },
+  'LAVA PLUME':     { type: 'fire', power: 45, cat: 'spec', cost: 1, spread: 'all', fx: 'ember', snd: 'whoosh' },
+  'MUDDY WATER':    { type: 'water', power: 45, cat: 'spec', cost: 1, spread: 'foes', fx: 'water', snd: 'whoosh' },
+  'CLOSE COMBAT':   { type: 'fighting', power: 105, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'mash', selfDrop: { def: -1, spd: -1 }, sub: 'own DEF/SP.D ▼' },
+  SUPERPOWER:       { type: 'fighting', power: 105, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'mash', selfDrop: { atk: -1, def: -1 }, sub: 'own ATK/DEF ▼' },
+  OVERHEAT:         { type: 'fire', power: 105, cat: 'spec', cost: 3, fx: 'ember', snd: 'whoosh', input: 'charge', selfDrop: { spa: -2 }, sub: 'own SP.A ▼2' },
+  'DRACO METEOR':   { type: 'dragon', power: 105, cat: 'spec', cost: 3, fx: 'rock', snd: 'thud', input: 'charge', selfDrop: { spa: -2 }, sub: 'own SP.A ▼2' },
+  'LEAF STORM':     { type: 'grass', power: 105, cat: 'spec', cost: 3, fx: 'seed', snd: 'whoosh', input: 'charge', selfDrop: { spa: -2 }, sub: 'own SP.A ▼2' },
+  'PSYCHO BOOST':   { type: 'psychic', power: 105, cat: 'spec', cost: 3, fx: 'spray', snd: 'shadow', input: 'charge', selfDrop: { spa: -2 }, sub: 'own SP.A ▼2' },
+  'FLARE BLITZ':    { type: 'fire', power: 105, cat: 'phys', cost: 3, fx: 'ember', snd: 'thud', input: 'mash', recoil: 1 / 3, sub: '⅓ recoil' },
+  'WOOD HAMMER':    { type: 'grass', power: 105, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'mash', recoil: 1 / 3, sub: '⅓ recoil' },
+  'HEAD SMASH':     { type: 'rock', power: 105, cat: 'phys', cost: 3, fx: 'rock', snd: 'thud', input: 'mash', recoil: 1 / 3, sub: '⅓ recoil' },
+  'DOUBLE-EDGE':    { type: 'normal', power: 105, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'mash', recoil: 1 / 3, sub: '⅓ recoil' },
+  'GIGA IMPACT':    { type: 'normal', power: 120, cat: 'phys', cost: 3, fx: 'dash', snd: 'thud', input: 'charge', recharge: true, sub: 'recharges next turn' },
+  'ROCK WRECKER':   { type: 'rock', power: 120, cat: 'phys', cost: 3, fx: 'rock', snd: 'thud', input: 'charge', recharge: true, sub: 'recharges next turn' },
+  'BLAST BURN':     { type: 'fire', power: 120, cat: 'spec', cost: 3, fx: 'ember', snd: 'whoosh', input: 'charge', recharge: true, sub: 'recharges next turn' },
+  'HYDRO CANNON':   { type: 'water', power: 120, cat: 'spec', cost: 3, fx: 'water', snd: 'whoosh', input: 'charge', recharge: true, sub: 'recharges next turn' },
+  'FRENZY PLANT':   { type: 'grass', power: 120, cat: 'spec', cost: 3, fx: 'seed', snd: 'thud', input: 'charge', recharge: true, sub: 'recharges next turn' },
+  'ROAR OF TIME':   { type: 'dragon', power: 120, cat: 'spec', cost: 3, fx: 'spray', snd: 'shadow', input: 'charge', recharge: true, sub: 'recharges next turn' },
+  ERUPTION:         { type: 'fire', power: 110, cat: 'spec', cost: 3, fx: 'ember', snd: 'quake', input: 'charge', spout: true, sub: 'weaker as HP falls' },
+  'WATER SPOUT':    { type: 'water', power: 110, cat: 'spec', cost: 3, fx: 'water', snd: 'whoosh', input: 'charge', spout: true, sub: 'weaker as HP falls' },
+  'SPACIAL REND':   { type: 'dragon', power: 90, cat: 'spec', cost: 3, fx: 'slash', snd: 'shadow', input: 'pick' },
+  'SHADOW FORCE':   { type: 'ghost', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'shadow', input: 'vanish' },
+  'DOOM DESIRE':    { type: 'steel', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'zap', input: 'charge' },
+  'MAGMA STORM':    { type: 'fire', power: 90, cat: 'spec', cost: 3, fx: 'ember', snd: 'whoosh', input: 'track' },
+  'SEED FLARE':     { type: 'grass', power: 90, cat: 'spec', cost: 3, fx: 'seed', snd: 'zap', input: 'charge' },
+  JUDGMENT:         { type: 'normal', power: 90, cat: 'spec', cost: 3, fx: 'spray', snd: 'zap', input: 'charge' },
+  'CRUSH GRIP':     { type: 'normal', power: 90, cat: 'phys', cost: 3, fx: 'dash', snd: 'crunch', input: 'mash' },
+  'MIST BALL':      { type: 'psychic', power: 70, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+  'LUSTER PURGE':   { type: 'psychic', power: 70, cat: 'spec', cost: 2, fx: 'spray', snd: 'shadow' },
+}
+Object.assign(MOVEDEX, HS_ATTACKS)
+Object.assign(STATUS_ON_HIT, {
+  'THUNDER FANG': ['par', 0.1], 'THUNDER PUNCH': ['par', 0.1], 'ICE FANG': ['frz', 0.1], 'ICE PUNCH': ['frz', 0.1], 'POISON FANG': ['tox', 0.5],
+  'FIRE PUNCH': ['brn', 0.1], 'BLAZE KICK': ['brn', 0.1], 'FLARE BLITZ': ['brn', 0.1], SLUDGE: ['psn', 0.3], 'MAGMA STORM': ['brn', 0.2],
+})
+Object.assign(FLINCH, { 'THUNDER FANG': 0.1, 'ICE FANG': 0.1, 'DRAGON RUSH': 0.2, 'EXTREME SPEED': 0.1 })
+/** Shedinja's WONDER GUARD: only super-effective moves really hurt it (anything else does a quarter). */
+const wonderGuard = (def, mv) => (def.name === 'SHEDINJA' && gameMult(mv.type, def.types) < 2 ? 0.25 : 1)
+/** Eruption and Water Spout: full power at full HP, down to 20 as it runs out. */
+const spoutPower = (m) => Math.max(20, Math.round(110 * Math.max(0, m.hp) / m.stats.hp))
+/* Their support moves: heals, and stat moves of their own. */
+const HS_SUPPORT = {
+  ROOST:          { type: 'flying', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 1, sub: 'heals self 50%', solo: 'heal 50%' },
+  MOONLIGHT:      { type: 'fairy', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 1, sub: 'heals self 50%', solo: 'heal 50%' },
+  'MORNING SUN':  { type: 'normal', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 1, sub: 'heals self 50%', solo: 'heal 50%' },
+  SYNTHESIS:      { type: 'grass', target: 'self', effect: 'heal', amount: 0.5, prio: 0, cost: 1, sub: 'heals self 50%', solo: 'heal 50%' },
+  'ROCK POLISH':  { type: 'rock', target: 'self', effect: 'stat', stages: { spe: 2 }, prio: 0, cost: 1, sub: 'SPE ▲2 self', solo: 'SPE ▲2' },
+  'ACID ARMOR':   { type: 'poison', target: 'self', effect: 'stat', stages: { def: 2 }, prio: 0, cost: 1, sub: 'DEF ▲2 self', solo: 'DEF ▲2' },
+  'COSMIC POWER': { type: 'psychic', target: 'self', effect: 'stat', stages: { def: 1, spd: 1 }, prio: 0, cost: 1, sub: 'DEF/SP.D ▲ self', solo: 'DEF/SP.D ▲' },
+  'TAIL GLOW':    { type: 'bug', target: 'self', effect: 'stat', stages: { spa: 2 }, prio: 0, cost: 1, sub: 'SP.A ▲2 self', solo: 'SP.A ▲2' },
+  CHARM:          { type: 'fairy', target: 'foe', effect: 'stat', stages: { atk: -2 }, prio: 0, cost: 1, sub: "foe's ATK ▼2", solo: "foe's ATK ▼2" },
+  'FAKE TEARS':   { type: 'dark', target: 'foe', effect: 'stat', stages: { spd: -2 }, prio: 0, cost: 1, sub: "foe's SP.D ▼2", solo: "foe's SP.D ▼2" },
+  'METAL SOUND':  { type: 'steel', target: 'foe', effect: 'stat', stages: { spd: -2 }, prio: 0, cost: 1, sub: "foe's SP.D ▼2", solo: "foe's SP.D ▼2" },
+  'DARK VOID':    { type: 'dark', target: 'foe', effect: 'status', status: 'slp', chance: 0.6, prio: 0, cost: 2, sub: 'puts the foe to sleep', solo: 'sleep' },
+}
+Object.assign(SUPPORT, HS_SUPPORT)
+/*
+ * Who can learn each as a disc: its own type, plus whichever species learn it
+ * by level in the games (SPECIES_MOVES adds them below). The starters' ultimate
+ * moves and the legendaries' own are theirs alone.
+ */
+{
+  const OWN = ['BLAST BURN', 'HYDRO CANNON', 'FRENZY PLANT', 'ROAR OF TIME', 'SPACIAL REND', 'SHADOW FORCE', 'DOOM DESIRE', 'MAGMA STORM', 'SEED FLARE', 'JUDGMENT',
+    'CRUSH GRIP', 'MIST BALL', 'LUSTER PURGE', 'PSYCHO BOOST', 'DARK VOID', 'TAIL GLOW']
+  const EXTRA = {
+    'FIRE PUNCH': ['fighting', 'normal', 'psychic', 'ghost', 'dark'], 'ICE PUNCH': ['fighting', 'normal', 'psychic', 'ghost', 'dark', 'water'],
+    'THUNDER PUNCH': ['fighting', 'normal', 'psychic', 'ghost', 'dark'], 'DRAIN PUNCH': ['normal', 'grass'], 'THUNDER FANG': ['dark', 'normal', 'dragon'],
+    'ICE FANG': ['dark', 'water', 'dragon', 'normal'], 'POISON FANG': ['dark', 'ground'], 'AERIAL ACE': ['normal', 'bug', 'dragon', 'fighting'],
+    'SHADOW CLAW': ['dark', 'dragon', 'normal', 'ground'], 'NIGHT SLASH': ['bug', 'ghost'], 'GIGA IMPACT': ['dragon', 'fighting', 'ground', 'rock'],
+    'DOUBLE-EDGE': ['fighting'], 'FOCUS BLAST': ['psychic', 'normal', 'fire', 'water', 'electric', 'ghost'], 'SIGNAL BEAM': ['water', 'psychic', 'electric'],
+    'EXTREME SPEED': [], 'SUCKER PUNCH': ['ghost', 'poison', 'fighting'], 'AQUA TAIL': ['dragon', 'normal', 'ground'], 'DRAGON RUSH': [],
+    'ROOST': [], CHARM: ['normal'], 'FAKE TEARS': ['normal', 'fairy'], 'METAL SOUND': ['electric'], MOONLIGHT: ['dark', 'psychic'],
+    'MORNING SUN': ['fire', 'psychic'], SYNTHESIS: [], 'ROCK POLISH': ['steel', 'ground'], 'COSMIC POWER': ['fairy'], 'ACID ARMOR': ['water'],
+  }
+  for (const n of [...Object.keys(HS_ATTACKS), ...Object.keys(HS_SUPPORT)]) {
+    if (OWN.includes(n)) { DISC_RULES[n] = { types: [], species: [] }; continue }
+    DISC_RULES[n] = { types: [...new Set([moveInfo(n).type, ...(EXTRA[n] ?? [])])] }
+    DISC_POOL.push(n)
+  }
+}
+/*
+ * The Gen 3 and 4 Pokémon's own moves by level: the main games' level-up
+ * learnsets (Gen 4's, else Gen 3's), the moves of theirs this game has, up to
+ * five, signature and new moves first. A move learned on evolving is learned
+ * at the level it evolves. Built by a script from PokéAPI's learnsets.
+ */
+const HS_LEARNSETS = {"TREECKO":[[21,"SCREECH"],[31,"AGILITY"],[41,"DETECT"]],"GROVYLE":[[23,"SCREECH"],[29,"LEAF BLADE"],[35,"AGILITY"],[47,"DETECT"],[59,"LEAF STORM"]],"SCEPTILE":[[36,"NIGHT SLASH"],[36,"SCREECH"],[36,"LEAF BLADE"],[36,"AGILITY"],[67,"LEAF STORM"]],"TORCHIC":[[19,"SAND ATTACK"]],"COMBUSKEN":[[21,"SAND ATTACK"],[28,"BULK UP"],[50,"SKY UPPERCUT"],[54,"FLARE BLITZ"]],"BLAZIKEN":[[36,"FIRE PUNCH"],[36,"SAND ATTACK"],[36,"BLAZE KICK"],[59,"SKY UPPERCUT"],[66,"FLARE BLITZ"]],"MARSHTOMP":[[25,"MUD BOMB"],[37,"MUDDY WATER"]],"SWAMPERT":[[36,"MUD BOMB"],[39,"MUDDY WATER"]],"POOCHYENA":[[5,"HOWL"],[9,"SAND ATTACK"],[25,"SWAGGER"],[37,"TAUNT"],[49,"SUCKER PUNCH"]],"MIGHTYENA":[[18,"SAND ATTACK"],[18,"HOWL"],[27,"SWAGGER"],[42,"TAUNT"],[62,"SUCKER PUNCH"]],"ZIGZAGOON":[[13,"SAND ATTACK"],[37,"REST"]],"LINOONE":[[20,"SAND ATTACK"],[47,"REST"]],"BEAUTIFLY":[[20,"MORNING SUN"],[34,"SILVER WIND"]],"DUSTOX":[[20,"MOONLIGHT"],[31,"LIGHT SCREEN"],[34,"SILVER WIND"],[38,"TOXIC"]],"LOTAD":[[37,"RAIN DANCE"]],"SEEDOT":[[7,"GROWTH"],[21,"SYNTHESIS"],[31,"SUNNY DAY"]],"NUZLEAF":[[14,"GROWTH"],[43,"SWAGGER"]],"SHIFTRY":[[15,"GROWTH"],[15,"NASTY PLOT"],[49,"LEAF STORM"]],"TAILLOW":[[34,"AERIAL ACE"],[43,"AGILITY"]],"SWELLOW":[[38,"AERIAL ACE"],[49,"AGILITY"]],"WINGULL":[[6,"SUPERSONIC"],[29,"ROOST"],[37,"AGILITY"],[42,"AERIAL ACE"]],"PELIPPER":[[25,"SUPERSONIC"],[31,"ROOST"],[50,"TAILWIND"]],"RALTS":[[21,"MAGICAL LEAF"],[23,"CALM MIND"],[39,"CHARM"],[43,"HYPNOSIS"]],"KIRLIA":[[22,"MAGICAL LEAF"],[25,"CALM MIND"],[45,"CHARM"],[50,"HYPNOSIS"]],"GARDEVOIR":[[30,"WISH"],[30,"MAGICAL LEAF"],[30,"CALM MIND"],[60,"HYPNOSIS"]],"SURSKIT":[[31,"AGILITY"]],"MASQUERAIN":[[22,"OMINOUS WIND"],[40,"SILVER WIND"]],"SHROOMISH":[[13,"LEECH SEED"],[25,"POISON POWDER"],[33,"GROWTH"]],"BRELOOM":[[23,"LEECH SEED"],[23,"MACH PUNCH"],[25,"COUNTER"],[33,"SKY UPPERCUT"]],"SLAKOTH":[[2,"YAWN"],[13,"SLACK OFF"],[25,"AMNESIA"],[37,"COUNTER"]],"VIGOROTH":[[37,"COUNTER"]],"SLAKING":[[36,"YAWN"],[36,"SLACK OFF"],[36,"AMNESIA"],[36,"SWAGGER"],[37,"COUNTER"]],"NINCADA":[[9,"SAND ATTACK"]],"NINJASK":[[20,"SAND ATTACK"],[20,"SCREECH"],[25,"SWORDS DANCE"],[38,"AGILITY"]],"SHEDINJA":[[9,"SAND ATTACK"],[31,"CONFUSE RAY"],[38,"SHADOW SNEAK"]],"WHISMUR":[[15,"HOWL"],[21,"SUPERSONIC"],[31,"SCREECH"],[41,"REST"]],"LOUDRED":[[20,"HOWL"],[23,"SUPERSONIC"],[37,"SCREECH"],[51,"REST"]],"EXPLOUD":[[40,"THUNDER FANG"],[40,"ICE FANG"],[40,"HOWL"],[40,"SUPERSONIC"],[40,"SCREECH"]],"MAKUHITA":[[4,"SAND ATTACK"],[40,"CLOSE COMBAT"]],"HARIYAMA":[[24,"SAND ATTACK"],[52,"CLOSE COMBAT"]],"AZURILL":[[2,"CHARM"]],"NOSEPASS":[[25,"THUNDER WAVE"],[43,"REST"]],"SKITTY":[[11,"SING"],[25,"CHARM"],[39,"HEAL BELL"],[42,"DOUBLE-EDGE"]],"DELCATTY":[[2,"SING"]],"SABLEYE":[[22,"DETECT"],[25,"SHADOW SNEAK"],[39,"SHADOW CLAW"],[46,"CONFUSE RAY"]],"MAWILE":[[6,"FAKE TEARS"],[41,"IRON DEFENSE"],[46,"SUCKER PUNCH"]],"ARON":[[18,"IRON DEFENSE"],[36,"METAL SOUND"],[43,"DOUBLE-EDGE"]],"LAIRON":[[32,"IRON DEFENSE"],[40,"METAL SOUND"],[51,"DOUBLE-EDGE"]],"AGGRON":[[42,"IRON DEFENSE"],[42,"METAL SOUND"],[57,"DOUBLE-EDGE"]],"MEDITITE":[[11,"DETECT"],[20,"SWAGGER"],[25,"CALM MIND"],[46,"RECOVER"]],"MEDICHAM":[[37,"FIRE PUNCH"],[37,"ICE PUNCH"],[37,"THUNDER PUNCH"],[37,"DETECT"],[37,"SWAGGER"]],"ELECTRIKE":[[4,"THUNDER WAVE"],[12,"HOWL"],[33,"THUNDER FANG"]],"MANECTRIC":[[26,"THUNDER WAVE"],[26,"HOWL"],[37,"THUNDER FANG"]],"PLUSLE":[[3,"THUNDER WAVE"],[21,"FAKE TEARS"],[44,"AGILITY"],[51,"NASTY PLOT"]],"MINUN":[[3,"THUNDER WAVE"],[21,"CHARM"],[31,"FAKE TEARS"],[44,"AGILITY"],[51,"NASTY PLOT"]],"VOLBEAT":[[2,"FLASH"],[13,"MOONLIGHT"],[21,"TAIL GLOW"],[25,"SIGNAL BEAM"],[45,"DOUBLE-EDGE"]],"ILLUMISE":[[9,"CHARM"],[13,"MOONLIGHT"],[21,"WISH"]],"ROSELIA":[[4,"GROWTH"],[16,"LEECH SEED"],[19,"MAGICAL LEAF"],[37,"TOXIC"],[46,"SYNTHESIS"]],"GULPIN":[[6,"YAWN"],[14,"SLUDGE"],[17,"AMNESIA"],[28,"TOXIC"]],"SWALOT":[[26,"SLUDGE"],[26,"YAWN"],[26,"AMNESIA"],[30,"TOXIC"]],"CARVANHA":[[16,"ICE FANG"],[18,"SCREECH"],[21,"SWAGGER"],[31,"AQUA JET"],[36,"AGILITY"]],"SHARPEDO":[[30,"ICE FANG"],[30,"SCREECH"],[30,"SWAGGER"],[34,"AQUA JET"],[56,"NIGHT SLASH"]],"WAILMER":[[27,"REST"],[34,"WATER SPOUT"],[37,"AMNESIA"]],"WAILORD":[[40,"REST"],[40,"WATER SPOUT"],[40,"AMNESIA"]],"NUMEL":[[25,"AMNESIA"],[31,"LAVA PLUME"],[51,"DOUBLE-EDGE"]],"CAMERUPT":[[33,"AMNESIA"],[33,"LAVA PLUME"],[57,"ERUPTION"]],"TORKOAL":[[12,"CURSE"],[20,"SMOKESCREEN"],[39,"LAVA PLUME"],[44,"IRON DEFENSE"],[49,"AMNESIA"]],"SPOINK":[[18,"CONFUSE RAY"],[29,"REST"]],"GRUMPIG":[[32,"CONFUSE RAY"],[32,"REST"]],"SPINDA":[[23,"HYPNOSIS"],[32,"SUCKER PUNCH"],[46,"DOUBLE-EDGE"]],"TRAPINCH":[[9,"SAND ATTACK"]],"VIBRAVA":[[35,"SAND ATTACK"],[35,"SUPERSONIC"],[41,"SCREECH"]],"FLYGON":[[45,"SAND ATTACK"],[45,"SUPERSONIC"],[45,"SCREECH"]],"CACNEA":[[9,"GROWTH"],[13,"LEECH SEED"],[17,"SAND ATTACK"],[37,"SUCKER PUNCH"]],"CACTURNE":[[32,"GROWTH"],[32,"LEECH SEED"],[32,"SAND ATTACK"],[41,"SUCKER PUNCH"]],"SWABLU":[[9,"SING"]],"ALTARIA":[[35,"SING"],[39,"DRAGON DANCE"]],"ZANGOOSE":[[9,"SWORDS DANCE"],[35,"TAUNT"],[40,"DETECT"],[53,"CLOSE COMBAT"]],"SEVIPER":[[19,"SCREECH"],[34,"POISON FANG"],[37,"SWAGGER"],[46,"NIGHT SLASH"]],"LUNATONE":[[12,"HYPNOSIS"],[20,"ROCK POLISH"],[34,"COSMIC POWER"]],"SOLROCK":[[20,"ROCK POLISH"],[34,"COSMIC POWER"]],"BARBOACH":[[14,"MUD BOMB"],[18,"AMNESIA"],[31,"REST"],[35,"AQUA TAIL"]],"WHISCASH":[[30,"MUD BOMB"],[30,"AMNESIA"],[33,"REST"],[39,"AQUA TAIL"]],"CORPHISH":[[32,"TAUNT"],[35,"NIGHT SLASH"],[44,"SWORDS DANCE"]],"CRAWDAUNT":[[34,"TAUNT"],[39,"NIGHT SLASH"],[52,"SWORDS DANCE"]],"BALTOY":[[45,"COSMIC POWER"]],"CLAYDOL":[[51,"COSMIC POWER"]],"LILEEP":[[22,"CONFUSE RAY"],[29,"AMNESIA"]],"CRADILY":[[40,"CONFUSE RAY"],[40,"AMNESIA"]],"MILOTIC":[[21,"RECOVER"],[29,"AQUA TAIL"],[33,"RAIN DANCE"]],"CASTFORM":[[20,"RAIN DANCE"],[20,"SUNNY DAY"]],"KECLEON":[[22,"SHADOW SNEAK"],[32,"SCREECH"],[43,"SUCKER PUNCH"],[49,"SHADOW CLAW"]],"SHUPPET":[[5,"SCREECH"],[13,"CURSE"],[20,"SHADOW SNEAK"],[23,"WILL-O-WISP"],[35,"SUCKER PUNCH"]],"BANETTE":[[37,"SCREECH"],[37,"CURSE"],[37,"SHADOW SNEAK"],[37,"WILL-O-WISP"],[37,"SUCKER PUNCH"]],"DUSKULL":[[6,"DISABLE"],[17,"CONFUSE RAY"],[22,"SHADOW SNEAK"],[30,"CURSE"],[33,"WILL-O-WISP"]],"DUSCLOPS":[[37,"FIRE PUNCH"],[37,"ICE PUNCH"],[37,"THUNDER PUNCH"],[37,"DISABLE"],[37,"SHADOW SNEAK"]],"TROPIUS":[[7,"GROWTH"],[31,"MAGICAL LEAF"],[41,"SYNTHESIS"],[61,"LEAF STORM"]],"CHIMECHO":[[25,"YAWN"],[33,"DOUBLE-EDGE"],[38,"HEAL BELL"]],"ABSOL":[[9,"TAUNT"],[25,"SWORDS DANCE"],[44,"SUCKER PUNCH"],[52,"NIGHT SLASH"],[60,"PSYCHO CUT"]],"WYNAUT":[[2,"CHARM"],[15,"COUNTER"],[15,"MIRROR COAT"]],"SNORUNT":[[28,"ICE FANG"],[37,"ICE SHARD"]],"GLALIE":[[42,"ICE FANG"]],"SPHEAL":[[37,"REST"]],"SEALEO":[[32,"SWAGGER"],[39,"REST"]],"WALREIN":[[44,"SWAGGER"],[44,"REST"],[44,"ICE FANG"]],"CLAMPERL":[[2,"IRON DEFENSE"]],"HUNTAIL":[[10,"SCREECH"],[24,"ICE FANG"],[46,"AQUA TAIL"]],"GOREBYSS":[[10,"AGILITY"],[19,"AMNESIA"],[46,"AQUA TAIL"]],"RELICANTH":[[22,"YAWN"],[50,"DOUBLE-EDGE"],[64,"REST"],[78,"HEAD SMASH"]],"LUVDISC":[[4,"CHARM"],[9,"AGILITY"],[27,"SWEET KISS"]],"BAGON":[[55,"DOUBLE-EDGE"]],"SHELGON":[[61,"DOUBLE-EDGE"]],"SALAMENCE":[[50,"THUNDER FANG"],[70,"DOUBLE-EDGE"]],"METANG":[[32,"BULLET PUNCH"],[40,"IRON DEFENSE"],[44,"AGILITY"],[48,"METEOR MASH"]],"METAGROSS":[[45,"BULLET PUNCH"],[45,"IRON DEFENSE"],[45,"AGILITY"],[53,"METEOR MASH"]],"REGIROCK":[[17,"CURSE"],[25,"SUPERPOWER"],[41,"IRON DEFENSE"]],"REGICE":[[17,"CURSE"],[25,"SUPERPOWER"],[41,"AMNESIA"]],"REGISTEEL":[[17,"CURSE"],[25,"SUPERPOWER"],[41,"AMNESIA"],[41,"IRON DEFENSE"]],"LATIAS":[[5,"WISH"],[35,"MIST BALL"],[45,"RECOVER"],[55,"CHARM"]],"LATIOS":[[35,"LUSTER PURGE"],[45,"RECOVER"],[55,"DRAGON DANCE"]],"KYOGRE":[[20,"MUDDY WATER"],[30,"CALM MIND"],[65,"DOUBLE-EDGE"],[75,"AQUA TAIL"],[80,"WATER SPOUT"]],"GROUDON":[[15,"LAVA PLUME"],[30,"BULK UP"],[50,"REST"],[80,"ERUPTION"]],"RAYQUAZA":[[30,"DRAGON DANCE"],[50,"REST"],[60,"EXTREME SPEED"]],"JIRACHI":[[2,"WISH"],[5,"REST"],[40,"DOUBLE-EDGE"],[60,"COSMIC POWER"],[70,"DOOM DESIRE"]],"DEOXYS":[[73,"COSMIC POWER"],[80,"RECOVER"],[80,"PSYCHO BOOST"]],"TURTWIG":[[17,"CURSE"],[29,"LEECH SEED"],[33,"SYNTHESIS"],[45,"LEAF STORM"]],"GROTLE":[[18,"CURSE"],[32,"LEECH SEED"],[37,"SYNTHESIS"],[52,"LEAF STORM"]],"TORTERRA":[[32,"WOOD HAMMER"],[32,"CURSE"],[33,"LEECH SEED"],[39,"SYNTHESIS"],[57,"LEAF STORM"]],"CHIMCHAR":[[9,"TAUNT"],[23,"NASTY PLOT"],[39,"SLACK OFF"]],"MONFERNO":[[14,"TAUNT"],[14,"MACH PUNCH"],[36,"CLOSE COMBAT"],[46,"SLACK OFF"],[49,"FLARE BLITZ"]],"INFERNAPE":[[36,"TAUNT"],[36,"MACH PUNCH"],[41,"CLOSE COMBAT"],[53,"CALM MIND"],[57,"FLARE BLITZ"]],"EMPOLEON":[[36,"SWORDS DANCE"],[36,"SWAGGER"],[36,"AQUA JET"]],"STARLY":[[25,"AERIAL ACE"],[33,"AGILITY"]],"STARAVIA":[[28,"AERIAL ACE"],[38,"AGILITY"]],"STARAPTOR":[[34,"AERIAL ACE"],[34,"CLOSE COMBAT"],[41,"AGILITY"]],"BIDOOF":[[25,"YAWN"],[29,"AMNESIA"],[41,"SUPERPOWER"],[45,"CURSE"]],"BIBAREL":[[28,"YAWN"],[33,"AMNESIA"],[48,"SUPERPOWER"],[53,"CURSE"]],"KRICKETUNE":[[18,"SING"],[34,"SCREECH"],[38,"TAUNT"],[42,"NIGHT SLASH"]],"SHINX":[[25,"SWAGGER"],[29,"THUNDER FANG"]],"LUXIO":[[28,"SWAGGER"],[33,"THUNDER FANG"]],"LUXRAY":[[30,"SWAGGER"],[35,"THUNDER FANG"]],"BUDEW":[[4,"GROWTH"]],"ROSERADE":[[3,"MAGICAL LEAF"]],"CRANIDOS":[[37,"SCREECH"],[43,"HEAD SMASH"]],"RAMPARDOS":[[43,"SCREECH"],[52,"HEAD SMASH"]],"SHIELDON":[[6,"TAUNT"],[10,"METAL SOUND"],[19,"IRON DEFENSE"],[24,"SWAGGER"]],"BASTIODON":[[30,"METAL SOUND"],[30,"TAUNT"],[30,"IRON DEFENSE"],[30,"SWAGGER"]],"WORMADAM":[[29,"GROWTH"],[47,"LEAF STORM"]],"MOTHIM":[[29,"POISON POWDER"],[38,"SILVER WIND"]],"VESPIQUEN":[[21,"CONFUSE RAY"],[27,"TOXIC"],[39,"SWAGGER"]],"PACHIRISU":[[9,"CHARM"],[25,"SWEET KISS"]],"BUIZEL":[[21,"AQUA JET"],[28,"AGILITY"]],"FLOATZEL":[[26,"ICE FANG"],[26,"AQUA JET"],[29,"AGILITY"]],"CHERUBI":[[7,"GROWTH"],[10,"LEECH SEED"],[19,"MAGICAL LEAF"],[22,"SUNNY DAY"]],"CHERRIM":[[25,"GROWTH"],[25,"LEECH SEED"],[25,"MAGICAL LEAF"],[25,"SUNNY DAY"]],"SHELLOS":[[11,"MUD BOMB"],[22,"RAIN DANCE"],[37,"MUDDY WATER"],[46,"RECOVER"]],"GASTRODON":[[30,"MUD BOMB"],[30,"RAIN DANCE"],[41,"MUDDY WATER"],[54,"RECOVER"]],"AMBIPOM":[[2,"SAND ATTACK"],[25,"SCREECH"],[29,"AGILITY"],[39,"NASTY PLOT"]],"DRIFLOON":[[30,"OMINOUS WIND"]],"DRIFBLIM":[[32,"OMINOUS WIND"]],"BUNEARY":[[33,"AGILITY"],[43,"CHARM"]],"LOPUNNY":[[2,"MIRROR COAT"],[33,"AGILITY"],[43,"CHARM"]],"MISMAGIUS":[[2,"MAGICAL LEAF"]],"HONCHKROW":[[25,"SWAGGER"],[35,"NASTY PLOT"],[45,"NIGHT SLASH"]],"GLAMEOW":[[13,"HYPNOSIS"],[25,"CHARM"],[41,"SUCKER PUNCH"]],"PURUGLY":[[38,"HYPNOSIS"],[38,"CHARM"],[38,"SWAGGER"]],"STUNKY":[[7,"SCREECH"],[14,"SMOKESCREEN"],[27,"TOXIC"],[32,"NIGHT SLASH"]],"SKUNTANK":[[34,"SCREECH"],[34,"SMOKESCREEN"],[34,"TOXIC"],[34,"NIGHT SLASH"]],"BRONZOR":[[7,"HYPNOSIS"],[14,"CONFUSE RAY"],[26,"IRON DEFENSE"]],"BRONZONG":[[33,"HYPNOSIS"],[33,"RAIN DANCE"],[33,"SUNNY DAY"],[33,"CONFUSE RAY"],[33,"IRON DEFENSE"]],"BONSLY":[[2,"FAKE TEARS"],[41,"SUCKER PUNCH"],[46,"DOUBLE-EDGE"]],"MIME JR.":[[22,"LIGHT SCREEN"],[22,"REFLECT"]],"HAPPINY":[[2,"CHARM"],[12,"SWEET KISS"]],"CHATOT":[[13,"SING"],[25,"TAUNT"],[33,"ROOST"],[41,"FEATHER DANCE"]],"SPIRITOMB":[[2,"SHADOW SNEAK"],[2,"CONFUSE RAY"],[2,"CURSE"],[25,"OMINOUS WIND"],[31,"SUCKER PUNCH"]],"GIBLE":[[3,"SAND ATTACK"],[37,"DRAGON RUSH"]],"GABITE":[[24,"SAND ATTACK"],[49,"DRAGON RUSH"]],"GARCHOMP":[[48,"SAND ATTACK"],[55,"DRAGON RUSH"]],"MUNCHLAX":[[9,"AMNESIA"],[20,"SCREECH"]],"RIOLU":[[6,"COUNTER"],[24,"SCREECH"]],"LUCARIO":[[2,"DETECT"],[24,"METAL SOUND"],[37,"AURA SPHERE"],[42,"CLOSE COMBAT"],[51,"EXTREME SPEED"]],"HIPPOPOTAS":[[2,"SAND ATTACK"],[13,"YAWN"],[44,"DOUBLE-EDGE"]],"HIPPOWDON":[[34,"THUNDER FANG"],[34,"ICE FANG"],[34,"SAND ATTACK"],[34,"YAWN"],[50,"DOUBLE-EDGE"]],"SKORUPI":[[39,"POISON FANG"],[50,"CROSS POISON"]],"DRAPION":[[40,"THUNDER FANG"],[40,"ICE FANG"],[40,"POISON FANG"],[58,"CROSS POISON"]],"CROAGUNK":[[10,"TAUNT"],[24,"SWAGGER"],[29,"MUD BOMB"],[31,"SUCKER PUNCH"],[36,"NASTY PLOT"]],"TOXICROAK":[[37,"TAUNT"],[37,"SWAGGER"],[37,"MUD BOMB"],[37,"SUCKER PUNCH"],[37,"NASTY PLOT"]],"CARNIVINE":[[2,"GROWTH"],[47,"POWER WHIP"]],"FINNEON":[[13,"RAIN DANCE"],[49,"SILVER WIND"]],"LUMINEON":[[31,"RAIN DANCE"],[59,"SILVER WIND"]],"MANTYKE":[[4,"SUPERSONIC"],[19,"AGILITY"],[37,"CONFUSE RAY"]],"SNOVER":[[17,"SWAGGER"],[26,"ICE SHARD"],[36,"WOOD HAMMER"]],"ABOMASNOW":[[40,"ICE PUNCH"],[40,"SWAGGER"],[40,"ICE SHARD"],[40,"WOOD HAMMER"]],"WEAVILE":[[2,"TAUNT"],[10,"SCREECH"],[24,"NASTY PLOT"],[35,"NIGHT SLASH"]],"MAGNEZONE":[[31,"METAL SOUND"],[31,"SUPERSONIC"],[31,"MIRROR COAT"],[31,"THUNDER WAVE"],[46,"MIRROR SHOT"]],"LICKILICKY":[[5,"SUPERSONIC"],[25,"DISABLE"],[45,"SCREECH"],[49,"POWER WHIP"]],"RHYPERIOR":[[61,"ROCK WRECKER"]],"TANGROWTH":[[5,"SLEEP POWDER"],[12,"GROWTH"],[15,"POISON POWDER"],[54,"POWER WHIP"]],"ELECTIVIRE":[[31,"FIRE PUNCH"],[31,"LIGHT SCREEN"],[31,"THUNDER PUNCH"],[52,"SCREECH"],[67,"GIGA IMPACT"]],"MAGMORTAR":[[31,"THUNDER PUNCH"],[31,"SMOKESCREEN"],[31,"CONFUSE RAY"],[31,"FIRE PUNCH"],[37,"LAVA PLUME"]],"TOGEKISS":[[3,"EXTREME SPEED"],[3,"AURA SPHERE"]],"YANMEGA":[[2,"NIGHT SLASH"],[17,"DETECT"],[22,"SUPERSONIC"],[46,"SCREECH"]],"LEAFEON":[[8,"SAND ATTACK"],[29,"SYNTHESIS"],[36,"MAGICAL LEAF"],[64,"SUNNY DAY"],[71,"LEAF BLADE"]],"GLACEON":[[8,"SAND ATTACK"],[36,"ICE SHARD"],[43,"ICE FANG"],[57,"MIRROR COAT"]],"GLISCOR":[[2,"THUNDER FANG"],[2,"ICE FANG"],[2,"SAND ATTACK"],[27,"SCREECH"],[31,"NIGHT SLASH"]],"MAMOSWINE":[[34,"MUD BOMB"],[34,"ICE FANG"]],"PORYGON-Z":[[3,"NASTY PLOT"],[12,"AGILITY"],[18,"RECOVER"],[29,"SIGNAL BEAM"]],"GALLADE":[[21,"LEAF BLADE"],[21,"NIGHT SLASH"],[25,"SWORDS DANCE"],[31,"PSYCHO CUT"],[53,"CLOSE COMBAT"]],"PROBOPASS":[[2,"IRON DEFENSE"],[25,"THUNDER WAVE"],[43,"REST"]],"DUSKNOIR":[[38,"FIRE PUNCH"],[38,"ICE PUNCH"],[38,"THUNDER PUNCH"],[38,"DISABLE"],[38,"SHADOW SNEAK"]],"FROSLASS":[[19,"CONFUSE RAY"],[22,"OMINOUS WIND"],[37,"ICE SHARD"]],"ROTOM":[[2,"THUNDER WAVE"],[2,"CONFUSE RAY"],[29,"OMINOUS WIND"]],"UXIE":[[2,"REST"],[31,"YAWN"],[46,"AMNESIA"]],"MESPRIT":[[2,"REST"],[46,"CHARM"]],"AZELF":[[2,"REST"],[16,"DETECT"],[46,"NASTY PLOT"]],"DIALGA":[[40,"ROAR OF TIME"],[80,"AURA SPHERE"]],"PALKIA":[[40,"SPACIAL REND"],[80,"AQUA TAIL"],[80,"AURA SPHERE"]],"HEATRAN":[[25,"METAL SOUND"],[49,"LAVA PLUME"],[80,"MAGMA STORM"]],"REGIGIGAS":[[2,"FIRE PUNCH"],[2,"ICE PUNCH"],[2,"THUNDER PUNCH"],[25,"SUPERPOWER"],[75,"CRUSH GRIP"]],"GIRATINA":[[10,"OMINOUS WIND"],[19,"SHADOW SNEAK"],[40,"SHADOW FORCE"],[80,"SHADOW CLAW"],[80,"AURA SPHERE"]],"CRESSELIA":[[57,"MOONLIGHT"],[66,"PSYCHO CUT"]],"PHIONE":[[9,"CHARM"],[16,"SUPERSONIC"],[31,"ACID ARMOR"],[69,"RAIN DANCE"]],"MANAPHY":[[2,"TAIL GLOW"],[9,"CHARM"],[16,"SUPERSONIC"],[31,"ACID ARMOR"],[69,"RAIN DANCE"]],"DARKRAI":[[2,"OMINOUS WIND"],[2,"DISABLE"],[20,"HYPNOSIS"],[66,"DARK VOID"],[75,"NASTY PLOT"]],"SHAYMIN":[[2,"GROWTH"],[10,"MAGICAL LEAF"],[19,"LEECH SEED"],[28,"SYNTHESIS"],[80,"SEED FLARE"]],"ARCEUS":[[2,"COSMIC POWER"],[40,"EXTREME SPEED"],[70,"RECOVER"],[80,"JUDGMENT"]]}
+for (const [n, list] of Object.entries(HS_LEARNSETS)) { const had = SPECIES_MOVES[n] ?? []; SPECIES_MOVES[n] = [...had, ...list.filter(([, m]) => !had.some(([, x]) => x === m))] }
+// Yanma learns ANCIENT POWER at 33, as in the games, so it can become Yanmega (as Piloswine does Mamoswine).
+EVO_MOVES.YANMA = [33, 'ANCIENT POWER']
+/* Every starter's last form learns its type's ultimate move at Lv 65. */
+for (const [move, names] of Object.entries({
+  'BLAST BURN': ['CHARIZARD', 'TYPHLOSION', 'BLAZIKEN', 'INFERNAPE', 'EMBOAR', 'DELPHOX', 'INCINEROAR', 'CINDERACE', 'SKELEDIRGE'],
+  'HYDRO CANNON': ['BLASTOISE', 'FERALIGATR', 'SWAMPERT', 'EMPOLEON', 'SAMUROTT', 'GRENINJA', 'PRIMARINA', 'INTELEON', 'QUAQUAVAL'],
+  'FRENZY PLANT': ['VENUSAUR', 'MEGANIUM', 'SCEPTILE', 'TORTERRA', 'SERPERIOR', 'CHESNAUGHT', 'DECIDUEYE', 'RILLABOOM', 'MEOWSCARADA'],
+})) for (const n of names) (SPECIES_MOVES[n] ??= []).push([65, move])
+/* A species that learns a move by level can learn it from its disc too (the signature moves only so). */
+for (const [n, list] of Object.entries(SPECIES_MOVES)) for (const [, mv] of list) { const r = DISC_RULES[mv]; if (r && !r.all) r.species = [...new Set([...(r.species ?? []), n])] }
 
 const TRAINER_MOVES = {
   GHOLDENGO: [
@@ -4019,6 +4202,28 @@ Object.assign(SOLO_DOUBLE, {
   MIKA: [['Two at once! A matching set!', 'Collectors always buy two.'], ['One to battle,', 'and one to keep mint in the box.']],
 })
 /* What each says teaming up with someone in a 2v2 (Herb and Paul have their own double act: TAG_BANTER). */
+/*
+ * The same trainers in Hoenn and Sinnoh, with new teams: Hoenn and Sinnoh
+ * Pokémon in the spirit of their old ones (Rose's cute ones, Derek's
+ * electric ones, Kyle's dark and poison ones...). The late-game list's form:
+ * [name, from trainer level, retired after]. Their levels follow the same
+ * band (levelBand), under the region's cap.
+ */
+const HS_POOLS = Object.fromEntries(Object.entries({
+  HERB: [['SABLEYE', 1], ['MAWILE', 1], ['DUSKULL', 6, 36], ['ARON', 8, 32], ['LAIRON', 32, 42], ['DUSCLOPS', 37], ['AGGRON', 42], ['DUSKNOIR', 48]],
+  PAUL: [['HIPPOPOTAS', 1, 34], ['ZIGZAGOON', 1, 20], ['TRAPINCH', 6, 35], ['WAILMER', 12, 40], ['LINOONE', 20], ['HIPPOWDON', 34], ['VIBRAVA', 35, 45], ['WAILORD', 40], ['FLYGON', 45]],
+  BRIAN: [['WURMPLE', 1, 14], ['BIDOOF', 1, 26], ['KRICKETOT', 1, 20], ['MAGIKARP', 1, 30], ['KRICKETUNE', 20], ['BIBAREL', 22], ['LINOONE', 24], ['GYARADOS', 32]],
+  ROSE: [['AZURILL', 1, 20], ['SKITTY', 1, 26], ['BUNEARY', 6, 30], ['MARILL', 12, 34], ['DELCATTY', 22], ['LOPUNNY', 28], ['AZUMARILL', 34], ['MILOTIC', 44]],
+  DEREK: [['ELECTRIKE', 1, 26], ['MINUN', 1, 30], ['MAGNEMITE', 4, 28], ['BRONZOR', 10, 36], ['MANECTRIC', 26], ['MAGNETON', 28, 46], ['BRONZONG', 36], ['MAGNEZONE', 46]],
+  NATE: [['SLAKOTH', 1, 24], ['WHISMUR', 1, 24], ['SPOINK', 6, 32], ['VIGOROTH', 18, 44], ['LOUDRED', 20, 40], ['GRUMPIG', 32], ['EXPLOUD', 40], ['SLAKING', 46]],
+  HANA: [['PLUSLE', 1], ['MINUN', 1], ['PACHIRISU', 4], ['SWABLU', 8, 36], ['CHINGLING', 1, 24], ['CHIMECHO', 24], ['ALTARIA', 35], ['TOGEKISS', 46]],
+  TYLER: [['PACHIRISU', 1], ['CHATOT', 1], ['SHINX', 4, 26], ['LUXIO', 16, 34], ['ROTOM', 20], ['LUXRAY', 34], ['ELECTIVIRE', 46]],
+  DANA: [['SEEDOT', 1, 22], ['LOTAD', 1, 22], ['CHERUBI', 4, 30], ['NUZLEAF', 14, 36], ['LOMBRE', 14, 36], ['TROPIUS', 20], ['CHERRIM', 25], ['SHIFTRY', 36], ['LUDICOLO', 36], ['ABOMASNOW', 46]],
+  MARCUS: [['MAKUHITA', 1, 28], ['MEDITITE', 1, 32], ['NUMEL', 4, 30], ['HARIYAMA', 24], ['TORKOAL', 28], ['CAMERUPT', 33], ['MEDICHAM', 37]],
+  GRANT: [['RALTS', 1, 22], ['SPOINK', 1, 28], ['BALTOY', 6, 34], ['KIRLIA', 20, 40], ['GRUMPIG', 32], ['CLAYDOL', 36], ['BRONZONG', 38], ['GARDEVOIR', 40]],
+  KYLE: [['POOCHYENA', 1, 24], ['STUNKY', 1, 30], ['CARVANHA', 8, 30], ['SKORUPI', 6, 36], ['MIGHTYENA', 18], ['SHARPEDO', 30], ['SKUNTANK', 34], ['DRAPION', 40]],
+  MIKA: [['SPINDA', 1], ['KECLEON', 1], ['CASTFORM', 6], ['SHUPPET', 8, 36], ['SPIRITOMB', 30], ['BANETTE', 37]],
+}).map(([who, list]) => [who, list.map(([name, min, max]) => ({ name, min, ...(max ? { max } : {}) }))]))
 const TEAM_UP = {
   HERB: ["Fine, we team up. But I get first pick, chief.", "New partner? Cool. Don't slow me down."],
   PAUL: ['Tag team! I brought backups.', 'We split it evenly. Mostly. I get the boxes.'],
@@ -4119,6 +4324,10 @@ const ALEX = {
   again: ['Ready for round two?', "Same plan: you take yours, I'll take Porygon."],
   won: ["That's how it's done! You're a natural.", "They'll be back. They always are. Now you know how to send them packing."],
   lost: ['Ah, they got us this time.', "Heal up and we'll go again. I'm not going anywhere."],
+  // Your first trip to Hoenn and Sinnoh.
+  hoenn: ["Hoenn! And Sinnoh's just past it. I wondered when you'd turn up.", 'Heads up: levels start over here. A Pokémon above the level cap sits out until you earn badges.',
+    "So you'll want a new partner. Pick one!"],
+  hoennPicked: (name) => [`${name}! Good pick.`, "Your old team's still with you. Every badge here raises the cap, and they'll be back in it before you know it."],
 }
 /*
  * ══════════ Alex, the rival ══════════
@@ -4363,6 +4572,7 @@ const SHOP_DEFAULT = {
   sunstone: { on: true, price: 1, rate: 5 },
   duskstone: { on: true, price: 1, rate: 5 },
   shinystone: { on: true, price: 1, rate: 4 },
+  dawnstone: { on: true, price: 1, rate: 4 },
   linkcable: { on: true, price: 1.5, rate: 8 },
   dragonscale: { on: true, price: 1, rate: 5 },
   disc: { on: true, price: 1.5, rate: 12 },   // a Move Disc: a different random one each time it's stocked   // a key item: off until switched on in the admin panel   // the Elite Four ticket: once you have all 8 Johto badges, until you're Champion
@@ -4402,15 +4612,16 @@ const ITEMS = {
   burnheal: { name: 'BURN HEAL', sub: 'cures a burn', cls: 't-cure', cure: ['brn'] },
   iceheal:  { name: 'ICE HEAL', sub: 'thaws it out', cls: 't-cure', cure: ['frz'] },
   fullheal: { name: 'FULL HEAL', sub: 'cures any status', cls: 't-cure', cure: ['psn', 'tox', 'par', 'brn', 'frz', 'slp'] },
-  thunderstone: { name: 'THUNDER STONE', sub: 'evolves Pikachu, Magneton, Eevee', cls: 't-evo', evo: true },
-  waterstone: { name: 'WATER STONE', sub: 'evolves Eevee, Poliwhirl, Staryu', cls: 't-evo', evo: true },
+  thunderstone: { name: 'THUNDER STONE', sub: 'evolves Pikachu, Magneton, Nosepass, Eevee', cls: 't-evo', evo: true },
+  waterstone: { name: 'WATER STONE', sub: 'evolves Eevee, Poliwhirl, Staryu, Lombre', cls: 't-evo', evo: true },
   firestone: { name: 'FIRE STONE', sub: 'evolves Eevee, Vulpix', cls: 't-evo', evo: true },
-  leafstone: { name: 'LEAF STONE', sub: 'evolves Eevee, Gloom, Weepinbell, Exeggcute', cls: 't-evo', evo: true },
+  leafstone: { name: 'LEAF STONE', sub: 'evolves Eevee, Gloom, Weepinbell, Exeggcute, Nuzleaf', cls: 't-evo', evo: true },
   icestone: { name: 'ICE STONE', sub: 'evolves Eevee into Glaceon', cls: 't-evo', evo: true },
   moonstone: { name: 'MOON STONE', sub: 'evolves Clefairy, Jigglypuff, Skitty', cls: 't-evo', evo: true },
   sunstone: { name: 'SUN STONE', sub: 'evolves Sunkern, Gloom (Bellossom)', cls: 't-evo', evo: true },
   duskstone: { name: 'DUSK STONE', sub: 'evolves Murkrow, Misdreavus', cls: 't-evo', evo: true },
   shinystone: { name: 'SHINY STONE', sub: 'evolves Togetic, Roselia, Minccino, Floette', cls: 't-evo', evo: true },
+  dawnstone: { name: 'DAWN STONE', sub: 'evolves Kirlia (Gallade), Snorunt (Froslass)', cls: 't-evo', evo: true },
   linkcable: { name: 'LINKING CORD', sub: 'trade evolutions: Kadabra, Scyther, Porygon…', cls: 't-evo', evo: true },
   dragonscale: { name: 'DRAGON SCALE', sub: 'Seadra needs it with a LINKING CORD', cls: 't-evo', held: true },
   ball: { name: 'POKé BALL', sub: 'catch ×1', cls: 't-ball' },
@@ -4425,10 +4636,10 @@ const ITEMS = {
   disc: { name: 'MOVE DISC', sub: 'a random move each restock', cls: 't-disc' },   // the shelf slot; what's bought is a 'disc:NAME'
 }
 /* The evolution items a scalper (or a pack's rare slot) can turn up. */
-const EVO_DROPS = ['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale']
+const EVO_DROPS = ['thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'dawnstone', 'linkcable', 'dragonscale']
 /* Item icons: the Scarlet/Violet Bag art, wherever an item is drawn. */
 ;(() => {
-  const css = ['ball', 'great', 'ultra', 'potion', 'super', 'hyper', 'revive', 'maxrevive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'linkcable', 'dragonscale'].map((k) => {
+  const css = ['ball', 'great', 'ultra', 'potion', 'super', 'hyper', 'revive', 'maxrevive', 'expshare', 'antidote', 'parlyz', 'burnheal', 'iceheal', 'fullheal', 'thunderstone', 'waterstone', 'firestone', 'leafstone', 'icestone', 'moonstone', 'sunstone', 'duskstone', 'shinystone', 'dawnstone', 'linkcable', 'dragonscale'].map((k) => {
     const u = `url("${ART['item:' + k]}")`
     return `.supic.${k}, .ic.${k} { background: ${u} center / contain no-repeat !important; border: 0 !important; border-radius: 0 !important; transform: none !important; box-shadow: none !important; }
 .supic.${k}::after, .ic.${k}::after { display: none !important; }
@@ -4963,9 +5174,240 @@ function art(L) {
 const VS_FOCUS = {
   falkner: 0.615, bugsy: 0.58, whitney: 0.674, morty: 0.693, chuck: 0.649, jasmine: 0.745, pryce: 0.617, clair: 0.391, brock: 0.654, misty: 0.699, lt_surge: 0.687, erika: 0.627, janine: 0.374, sabrina: 0.537,
   blaine: 0.63, blue: 0.672, will: 0.417, koga: 0.743, bruno: 0.751, karen: 0.625, lance: 0.694, lorelei: 0.503, agatha: 0.498, red: 0.493, 'rival-1': 0.441, 'rival-2': 0.511, 'rival-3': 0.439,
+  // Hoenn and Sinnoh.
+  roxanne: 0.488, brawly: 0.5, wattson: 0.554, flannery: 0.515, norman: 0.509, winona: 0.504, tateliza: 0.517, juan: 0.498, roark: 0.523, gardenia: 0.5, maylene: 0.499, crasherwake: 0.524, fantina: 0.48,
+  byron: 0.573, candice: 0.48, volkner: 0.5, sidney: 0.504, phoebe: 0.506, glacia: 0.496, drake: 0.494, wallace: 0.648, aaron: 0.5, bertha: 0.506, flint: 0.388, lucian: 0.502, cynthia: 0.498,
 }
 
 const LEVEL_CAP = 100
+/*
+ * Hoenn and Sinnoh: the second region, a soft reset. It opens once Alex is
+ * beaten for the last time (the Hall of Fame), and you travel between the two
+ * from under the machine (Travel): the same machines and packs, but each
+ * region has its own wild Pokémon, trainers' teams, badges and League.
+ * Levels start over there. Your Pokémon come with you, but one above the
+ * region's level cap sits out (it can't battle, and nothing gains EXP past the
+ * cap) until badges raise it: the cap is always the next challenge's ace.
+ *   HS_GYM_CAP      the cap with 0-7 Hoenn badges, then 8-15 with Sinnoh's too
+ *   HS_LEAGUE_CAP   with all eight of a region's badges, until its Champion falls
+ * After Sinnoh's Champion there's no cap but Lv 100.
+ */
+const HS_GYM_CAP = [15, 19, 24, 29, 33, 38, 43, 47, 58, 61, 64, 67, 70, 72, 74, 76]
+const HS_LEAGUE_CAP = { hoenn: 55, sinnoh: 80 }
+/** The Hoenn and Sinnoh gym leaders (the League part fills them in); the region stays closed until they're here. */
+const HS_GYMS = []
+const REGION_NAME = { kj: 'KANTO & JOHTO', hs: 'HOENN & SINNOH' }
+/** Hoenn and Sinnoh's wild species (fresh copies of the list, for drawing a pool from). */
+const HS_WILD = () => HOENN_SINNOH_WILD.map((n) => speciesByName(n))
+/* ══════════════ Hoenn and Sinnoh's League ══════════════
+   The second region's eight Hoenn gyms (HS gyms 16-23), the Hoenn Elite Four
+   and Champion Wallace, then Sinnoh's eight gyms (24-31), its Elite Four and
+   Champion Cynthia: summoned like Johto's and Kanto's, one at a time, in
+   order, with the same Gym Summons and League tickets (each for the region
+   you're in). Each gym's ace is at the level cap that badge lifts (HS_GYM_CAP),
+   each League's Champion at its League cap (HS_LEAGUE_CAP). Their art is a
+   placeholder until the real portraits are in (public/rpg/a/gym-<key>-*). */
+const HS_GYM_LIST = [
+  { short: 'ROXANNE', full: 'GYM LEADER ROXANNE', city: 'RUSTBORO CITY', type: 'rock', badge: 'STONE', color: '#d6b98c', scene: 'cave_1', low: 11, min: 15,
+    team: ['GRAVELER', 'LAIRON', 'PROBOPASS'],
+    sig: [S_('ROCK TOMB', 'rock', 55, 'phys', 'thud', { ranged: true }), S_('TACKLE', 'normal', 40, 'phys', 'thud'), L_('ROLLOUT', 'rock', 30, 'phys', 'roll', 'thud', { hits: 2 })],
+    intro: ["I'm Roxanne, Rustboro City's Gym Leader. I'd usually be teaching at the Trainers' School.", 'Lesson one: the basics of rock types. Shall we put what you know to the test?'],
+    outro: ['...I see. I still have much to learn.', 'Please take the STONE BADGE. You earned it.'],
+    gloat: ['That was a fine lesson in defense.', 'Study your type matchups and try again.'] },
+  { short: 'BRAWLY', full: 'GYM LEADER BRAWLY', city: 'DEWFORD TOWN', type: 'fighting', badge: 'KNUCKLE', color: '#fb923c', scene: 'beach', low: 15, min: 19,
+    team: ['BRELOOM', 'MEDICHAM', 'HARIYAMA'],
+    sig: [S_('ARM THRUST', 'fighting', 15, 'phys', 'thud', { hits: 4 }), L_('LOW SWEEP', 'fighting', 45, 'phys', 'sweep', 'thud'), S_('KNOCK OFF', 'dark', 45, 'phys', 'crunch')],
+    intro: ["Brawly here! I was out riding the big waves. Now I'm riding yours!", "Let's see if you can handle the surge!"],
+    outro: ['Whoa, you wiped me out!', 'The KNUCKLE BADGE is yours. Hang loose!'],
+    gloat: ['Wiped out! Better luck next set.', 'Paddle back out when you\'re ready.'] },
+  { short: 'WATTSON', full: 'GYM LEADER WATTSON', city: 'MAUVILLE CITY', type: 'electric', badge: 'DYNAMO', color: '#fde047', scene: 'factory', low: 22, min: 24,
+    team: ['MAGNETON', 'ELECTRODE', 'AMPHAROS', 'MANECTRIC'],
+    sig: [S_('SHOCK WAVE', 'electric', 60, 'spec', 'zap', { ranged: true }), S_('QUICK ATTACK', 'normal', 40, 'phys', 'whoosh', { fast: true }), S_('BITE', 'dark', 45, 'phys', 'crunch')],
+    intro: ['Wahahahah! Wattson, Mauville City! A vending machine, eh? Plenty of current in one of those!', "I'll give you a jolt you won't forget!"],
+    outro: ['Wahahahah! Fine, I lost! What a shock!', "Here's the DYNAMO BADGE!"],
+    gloat: ['Wahahahah! Too much voltage for you!', 'Come back once you\'re grounded.'] },
+  { short: 'FLANNERY', full: 'GYM LEADER FLANNERY', city: 'LAVARIDGE TOWN', type: 'fire', badge: 'HEAT', color: '#f97316', scene: 'flint', low: 25, min: 29,
+    team: ['MAGCARGO', 'CAMERUPT', 'NINETALES', 'HOUNDOOM', 'TORKOAL'],
+    sig: [S_('OVERHEAT', 'fire', 80, 'spec', 'whoosh', { ranged: true }), L_('LAVA PLUME', 'fire', 55, 'spec', 'wave', 'whoosh'), S_('BODY SLAM', 'normal', 60, 'phys', 'thud')],
+    intro: ["I'm Flannery! I only just became Lavaridge's Gym Leader, but don't you dare go easy on me!", "My fire types will show you how hot it can get!"],
+    outro: ['Oh... I guess I tried too hard.', 'Here, the HEAT BADGE. You earned it fair and square.'],
+    gloat: ['Hah! Too hot to handle?', 'Cool off, then come back.'] },
+  { short: 'NORMAN', full: 'GYM LEADER NORMAN', city: 'PETALBURG CITY', type: 'normal', badge: 'BALANCE', color: '#e5e7eb', scene: 'hall', low: 29, min: 33,
+    team: ['VIGOROTH', 'LINOONE', 'EXPLOUD', 'KANGASKHAN', 'SLAKING'],
+    sig: [S_('FACADE', 'normal', 70, 'phys', 'thud'), S_('SHADOW CLAW', 'ghost', 60, 'phys', 'whoosh'), L_('EARTHQUAKE', 'ground', 55, 'phys', 'quake', 'quake')],
+    intro: ["I'm Norman, Petalburg's Gym Leader. I've heard a lot about you from the machine's regulars.", "Let's see what you're made of. I won't hold back."],
+    outro: ['...I lost? You fought well.', 'Take the BALANCE BADGE. Wear it with pride.'],
+    gloat: ['Strength and patience. Remember that.', 'Come back when you\'re steadier.'] },
+  { short: 'WINONA', full: 'GYM LEADER WINONA', city: 'FORTREE CITY', type: 'flying', badge: 'FEATHER', color: '#7dd3fc', scene: 'tower', low: 34, min: 38,
+    team: ['SWELLOW', 'PELIPPER', 'SKARMORY', 'STARAPTOR', 'TROPIUS', 'ALTARIA'],
+    sig: [S_('DRAGON PULSE', 'dragon', 70, 'spec', 'shadow', { ranged: true }), S_('AERIAL ACE', 'flying', 60, 'phys', 'whoosh'), S_('EARTHQUAKE', 'ground', 60, 'phys', 'thud')],
+    intro: ["I'm Winona. My bird Pokémon and I have soared through every storm Fortree has seen.", 'Witness the elegant choreography of my birds!'],
+    outro: ['Never before have I seen a trainer command Pokémon so gracefully.', 'In recognition of your prowess, the FEATHER BADGE.'],
+    gloat: ['My birds dance on the wind. Yours fell.', 'Try again when you can fly with us.'] },
+  { short: 'TATE&LIZA', full: 'LEADERS TATE & LIZA', key: 'tateliza', city: 'MOSSDEEP CITY', type: 'psychic', badge: 'MIND', color: '#f9a8d4', scene: 'lucian', low: 41, min: 43,
+    team: ['XATU', 'CLAYDOL', 'GRUMPIG', 'GARDEVOIR', 'LUNATONE', 'SOLROCK'],
+    sig: [S_('SOLAR BEAM', 'grass', 80, 'spec', 'zap', { ranged: true }), S_('PSYCHIC', 'psychic', 70, 'spec', 'shadow', { ranged: true }), S_('ROCK SLIDE', 'rock', 60, 'phys', 'thud', { ranged: true })],
+    intro: ['"Hehehe... We\'re Tate and Liza, the twin Leaders of Mossdeep!"', '"We know what you\'re thinking: two minds against one. Shall we begin?"'],
+    outro: ['"We... lost? Our minds were in perfect sync..."', '"The MIND BADGE. Take it, from both of us."'],
+    gloat: ['"Two minds beat one. We told you."', '"Come back when you can read us."'] },
+  { short: 'JUAN', full: 'GYM LEADER JUAN', city: 'SOOTOPOLIS CITY', type: 'water', badge: 'RAIN', color: '#60a5fa', scene: 'water', low: 45, min: 47,
+    team: ['WHISCASH', 'CRAWDAUNT', 'WALREIN', 'LUDICOLO', 'MILOTIC', 'KINGDRA'],
+    sig: [S_('WATER PULSE', 'water', 65, 'spec', 'whoosh', { ranged: true }), S_('DRAGON PULSE', 'dragon', 70, 'spec', 'shadow', { ranged: true }), S_('ICE BEAM', 'ice', 65, 'spec', 'whoosh', { ranged: true })],
+    intro: ["Ah, so you've come. I am Juan, Sootopolis's Gym Leader, and Wallace's mentor.", 'Behold the elegance of my water Pokémon, and their illusions!'],
+    outro: ['Ahahaha, excellent! You are a true artist.', 'Take the RAIN BADGE. The Hoenn League awaits.'],
+    gloat: ['A splendid performance, but not yet a winning one.', 'Polish your art and return.'] },
+  { short: 'ROARK', full: 'GYM LEADER ROARK', city: 'OREBURGH CITY', type: 'rock', badge: 'COAL', color: '#a8a29e', scene: 'cave_2', low: 56, min: 58,
+    team: ['GOLEM', 'PROBOPASS', 'BASTIODON', 'AERODACTYL', 'RHYPERIOR', 'RAMPARDOS'],
+    sig: [S_('HEAD SMASH', 'rock', 85, 'phys', 'thud'), S_('ZEN HEADBUTT', 'psychic', 65, 'phys', 'thud'), L_('EARTHQUAKE', 'ground', 65, 'phys', 'quake', 'quake')],
+    intro: ["I'm Roark, Oreburgh's Gym Leader. I came straight up from the mine for this!", "Rock types dug out of the deepest seams. Let's see you crack them."],
+    outro: ["Well, I'll be. You dug deeper than me.", 'The COAL BADGE. Sinnoh\'s first, and yours.'],
+    gloat: ['Solid as bedrock. Told you.', 'Back to the mine with you. Try again.'] },
+  { short: 'GARDENIA', full: 'GYM LEADER GARDENIA', city: 'ETERNA CITY', type: 'grass', badge: 'FOREST', color: '#86efac', scene: 'forest', low: 59, min: 61,
+    team: ['CHERRIM', 'TANGROWTH', 'LEAFEON', 'ABOMASNOW', 'TORTERRA', 'ROSERADE'],
+    sig: [S_('ENERGY BALL', 'grass', 70, 'spec', 'whoosh', { ranged: true }), S_('SLUDGE BOMB', 'poison', 70, 'spec', 'whoosh', { ranged: true }), S_('SHADOW BALL', 'ghost', 60, 'spec', 'shadow', { ranged: true, fx: 'orb' })],
+    intro: ["Gardenia, Eterna City! Grass types are my thing. Love 'em!", "My Pokémon are as tough as old trees. Let's go!"],
+    outro: ['Wow, you\'re strong! My grass types got trimmed.', 'Take the FOREST BADGE. You earned it!'],
+    gloat: ['Ha! Nature always finds a way.', 'Grow a little more and come back.'] },
+  { short: 'MAYLENE', full: 'GYM LEADER MAYLENE', city: 'VEILSTONE CITY', type: 'fighting', badge: 'COBBLE', color: '#fdba74', scene: 'hall', low: 62, min: 64,
+    team: ['MEDICHAM', 'BRELOOM', 'HERACROSS', 'HITMONTOP', 'MACHAMP', 'LUCARIO'],
+    sig: [S_('AURA SPHERE', 'fighting', 75, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('CLOSE COMBAT', 'fighting', 85, 'phys', 'thud'), S_('BULLET PUNCH', 'steel', 45, 'phys', 'crunch', { fast: true })],
+    intro: ["I'm Maylene. I wasn't sure I was right to lead Veilstone's gym... until I trained harder.", "Now I'm sure. Fight me with everything you have!"],
+    outro: ['...I lost. But I learned something.', 'Please, take the COBBLE BADGE.'],
+    gloat: ['Training never lies.', 'Toughen up, and come back.'] },
+  { short: 'CRASHER WAKE', full: 'GYM LEADER CRASHER WAKE', key: 'crasherwake', city: 'PASTORIA CITY', type: 'water', badge: 'FEN', color: '#38bdf8', scene: 'marsh', low: 65, min: 67,
+    team: ['QUAGSIRE', 'GASTRODON', 'HUNTAIL', 'LUDICOLO', 'GYARADOS', 'FLOATZEL'],
+    sig: [S_('AQUA JET', 'water', 45, 'phys', 'whoosh', { fast: true }), S_('WATERFALL', 'water', 75, 'phys', 'whoosh'), S_('CRUNCH', 'dark', 65, 'phys', 'crunch')],
+    intro: ['Hahahaha! The masked wrestler of the waves, CRASHER WAKE, is here!', "I'll flatten you like a tidal wave!"],
+    outro: ['Hah! That was one awesome match!', 'The FEN BADGE is yours! Wear it proudly!'],
+    gloat: ['Swept away by the wave! Hahaha!', 'Come back with sturdier legs!'] },
+  { short: 'FANTINA', full: 'GYM LEADER FANTINA', city: 'HEARTHOME CITY', type: 'ghost', badge: 'RELIC', color: '#c4b5fd', scene: 'distortion', low: 65, min: 70,
+    team: ['DRIFBLIM', 'FROSLASS', 'GENGAR', 'DUSKNOIR', 'SPIRITOMB', 'MISMAGIUS'],
+    sig: [S_('SHADOW BALL', 'ghost', 75, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('MYSTICAL FIRE', 'fire', 65, 'spec', 'whoosh', { ranged: true }), S_('DAZZLING GLEAM', 'fairy', 65, 'spec', 'whoosh', { ranged: true })],
+    intro: ['Bonjour! I am Fantina, of Hearthome. You have summoned me, oui?', 'My ghosts will dance circles around you!'],
+    outro: ['Magnifique! You are very strong.', 'This RELIC BADGE, it is yours.'],
+    gloat: ['Ah, the ghosts, they win the dance!', 'Come back, and we dance again, oui?'] },
+  { short: 'BYRON', full: 'GYM LEADER BYRON', city: 'CANALAVE CITY', type: 'steel', badge: 'MINE', color: '#cbd5e1', scene: 'factory', low: 67, min: 72,
+    team: ['SKARMORY', 'STEELIX', 'BRONZONG', 'MAGNEZONE', 'METAGROSS', 'BASTIODON'],
+    sig: [S_('FLASH CANNON', 'steel', 75, 'spec', 'zap', { ranged: true }), S_('IRON HEAD', 'steel', 70, 'phys', 'crunch'), L_('EARTHQUAKE', 'ground', 65, 'phys', 'quake', 'quake')],
+    intro: ["Bwahahaha! I'm Byron, Roark's father, and Canalave's Gym Leader!", 'My steel types are harder than any rock. Bring it on!'],
+    outro: ['Bwahahaha! You beat me fair and square!', 'Here, the MINE BADGE!'],
+    gloat: ['Steel always holds! Bwahaha!', 'Forge yourself harder and return.'] },
+  { short: 'CANDICE', full: 'GYM LEADER CANDICE', city: 'SNOWPOINT CITY', type: 'ice', badge: 'ICICLE', color: '#bae6fd', scene: 'snow', low: 72, min: 74,
+    team: ['FROSLASS', 'GLACEON', 'WALREIN', 'ABOMASNOW', 'MAMOSWINE', 'WEAVILE'],
+    sig: [S_('ICE SHARD', 'ice', 45, 'phys', 'whoosh', { fast: true, ranged: true }), S_('NIGHT SLASH', 'dark', 70, 'phys', 'whoosh'), S_('ICE PUNCH', 'ice', 75, 'phys', 'thud')],
+    intro: ["I'm Candice, Snowpoint's Gym Leader! I'm all about diamond dust and focus!", "Let's see if your focus holds up in a blizzard!"],
+    outro: ["Wow! You're amazing! Totally focused!", 'The ICICLE BADGE is yours!'],
+    gloat: ['Brrr! You lost focus, didn\'t you?', 'Warm up and try again!'] },
+  { short: 'VOLKNER', full: 'GYM LEADER VOLKNER', city: 'SUNYSHORE CITY', type: 'electric', badge: 'BEACON', color: '#facc15', scene: 'city', low: 74, min: 76, tokens: '20.00',
+    team: ['ROTOM', 'JOLTEON', 'RAICHU', 'LUXRAY', 'MAGNEZONE', 'ELECTIVIRE'],
+    sig: [S_('THUNDER PUNCH', 'electric', 75, 'phys', 'zap'), S_('FIRE PUNCH', 'fire', 65, 'phys', 'thud'), S_('ICE PUNCH', 'ice', 65, 'phys', 'thud')],
+    intro: ["I'm Volkner. I'd almost given up on finding a challenger worth the trouble.", 'Show me a battle that makes my blood run hot.'],
+    outro: ["...Now that's a battle. Thanks.", "The BEACON BADGE. That's all eight of Sinnoh's. The Sinnoh League is next."],
+    gloat: ['Hm. Another one who couldn\'t keep up.', 'Come back when you can make me sweat.'] },
+]
+HS_GYM_LIST.forEach((L, i) => Object.assign(L, { gym: 16 + i, region: i < 8 ? 'hoenn' : 'sinnoh', hs: true, role: L.role ?? 'GYM LEADER', hard: true, tokens: L.tokens ?? (i < 8 ? '8.00' : '10.00'),
+  title: `${L.city} GYM · ${L.type.toUpperCase()} TYPE`, summonName: `${L.badge} SUMMON`, gap: 3, parry: PARRY.gym, strong: i >= 3 }, art(L)))
+HS_GYMS.push(...HS_GYM_LIST)
+
+const HOENN_ELITE = [
+  { short: 'SIDNEY', full: 'ELITE FOUR SIDNEY', type: 'dark', color: '#a1a1aa', scene: 'castle', low: 49, min: 51, tokens: '6.00',
+    team: ['MIGHTYENA', 'SKUNTANK', 'HONCHKROW', 'DRAPION', 'SPIRITOMB', 'ABSOL'],
+    sig: [S_('NIGHT SLASH', 'dark', 70, 'phys', 'whoosh'), S_('PSYCHO CUT', 'psychic', 65, 'phys', 'shadow'), S_('SUCKER PUNCH', 'dark', 50, 'phys', 'crunch', { fast: true })],
+    intro: ["I'm Sidney of the Elite Four. I like that look you're giving me.", "I guess you'll give me a good match. Let's get to it!"],
+    outro: ["Well, how do you like that? I lost!", 'Go on. Phoebe is next, and she\'s spooky.'],
+    gloat: ['Hah! Better luck next time, kid.', 'Start again from me.'] },
+  { short: 'PHOEBE', full: 'ELITE FOUR PHOEBE', type: 'ghost', color: '#c4b5fd', scene: 'distortion', low: 50, min: 52, tokens: '6.00',
+    team: ['BANETTE', 'SABLEYE', 'MISMAGIUS', 'SPIRITOMB', 'DUSCLOPS', 'DUSKNOIR'],
+    sig: [S_('SHADOW BALL', 'ghost', 75, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('ICE BEAM', 'ice', 60, 'spec', 'whoosh', { ranged: true }), L_('EARTHQUAKE', 'ground', 60, 'phys', 'quake', 'quake')],
+    intro: ['Ahahaha! I\'m Phoebe of the Elite Four. I trained on Mt. Pyre, with the spirits.', "Let's see if your Pokémon can see what mine can!"],
+    outro: ["Oh, darn. I've gone and lost.", 'Glacia is next. Bundle up!'],
+    gloat: ['The spirits were with me today!', 'Back to the start for you.'] },
+  { short: 'GLACIA', full: 'ELITE FOUR GLACIA', type: 'ice', color: '#bae6fd', scene: 'ice', low: 51, min: 53, tokens: '6.00',
+    team: ['GLALIE', 'FROSLASS', 'ABOMASNOW', 'LAPRAS', 'WEAVILE', 'WALREIN'],
+    sig: [S_('BLIZZARD', 'ice', 80, 'spec', 'whoosh', { ranged: true }), S_('SURF', 'water', 65, 'spec', 'whoosh', { ranged: true }), S_('EARTHQUAKE', 'ground', 60, 'phys', 'thud')],
+    intro: ["Welcome. I'm Glacia of the Elite Four. I came all the way to Hoenn for a battle worth having.", 'Let me test you with my ice, cold as it is.'],
+    outro: ['You and your Pokémon... how hot your spirits burn.', 'Drake awaits. He will not be so polite.'],
+    gloat: ['Frozen solid. As expected.', 'Thaw out and start again.'] },
+  { short: 'DRAKE', full: 'ELITE FOUR DRAKE', type: 'dragon', color: '#a5b4fc', scene: 'mountain', low: 50, min: 54, tokens: '6.00',
+    team: ['ALTARIA', 'SHELGON', 'FLYGON', 'KINGDRA', 'FLYGON', 'SALAMENCE'],
+    sig: [S_('DRAGON CLAW', 'dragon', 75, 'phys', 'whoosh'), S_('FLAMETHROWER', 'fire', 65, 'spec', 'whoosh', { ranged: true }), S_('AERIAL ACE', 'flying', 60, 'phys', 'whoosh')],
+    intro: ['I am Drake, last of the Elite Four. Do you know what dragons need?', "Then let me show you!"],
+    outro: ['Superb. You have what it takes.', 'Go. The Champion is waiting.'],
+    gloat: ['Dragons are not tamed so easily.', 'Begin again from Sidney.'] },
+  { short: 'WALLACE', full: 'CHAMPION WALLACE', role: 'CHAMPION', type: 'water', color: '#22d3ee', scene: 'water', low: 53, min: 55, tokens: '20.00', switches: 3, switchSure: true, restores: 2,
+    team: ['GYARADOS', 'LUDICOLO', 'WALREIN', 'KINGDRA', 'STARMIE', 'MILOTIC'],
+    sig: [S_('SURF', 'water', 80, 'spec', 'whoosh', { ranged: true }), S_('ICE BEAM', 'ice', 65, 'spec', 'whoosh', { ranged: true }), S_('DRAGON PULSE', 'dragon', 65, 'spec', 'shadow', { ranged: true })],
+    intro: ["Welcome. I'm Wallace, the Champion of the Hoenn League.", 'Let me show you the beauty of water Pokémon, and of a real battle.'],
+    outro: ["...I, the Champion, fall in defeat. You're the Champion of Hoenn now.", "Sinnoh's Gym Leaders will want to meet you. Go show them."],
+    gloat: ['A beautiful battle, but mine is the victory.', 'Start again from Sidney.'] },
+]
+const SINNOH_ELITE = [
+  { short: 'AARON', full: 'ELITE FOUR AARON', type: 'bug', color: '#bef264', scene: 'aaron', low: 74, min: 76, tokens: '10.00',
+    team: ['YANMEGA', 'HERACROSS', 'VESPIQUEN', 'ARMALDO', 'SCIZOR', 'DRAPION'],
+    sig: [S_('X-SCISSOR', 'bug', 75, 'phys', 'whoosh'), S_('CROSS POISON', 'poison', 70, 'phys', 'whoosh'), S_('CRUNCH', 'dark', 65, 'phys', 'crunch')],
+    intro: ["I'm Aaron of the Elite Four. I love bug Pokémon. They're as strong as any.", "Let's see if you can handle them!"],
+    outro: ['I lost with the most beautiful and toughest of the bug Pokémon...', 'Bertha is next.'],
+    gloat: ['Bugs win again!', 'Start again from me.'] },
+  { short: 'BERTHA', full: 'ELITE FOUR BERTHA', type: 'ground', color: '#d6b98c', scene: 'bertha', low: 73, min: 77, tokens: '10.00',
+    team: ['WHISCASH', 'GLISCOR', 'GOLEM', 'MAMOSWINE', 'RHYPERIOR', 'HIPPOWDON'],
+    sig: [L_('EARTHQUAKE', 'ground', 75, 'phys', 'quake', 'quake'), S_('CRUNCH', 'dark', 65, 'phys', 'crunch'), S_('STONE EDGE', 'rock', 70, 'phys', 'thud')],
+    intro: ["Well, would you look at that. I'm Bertha, of the Elite Four.", 'Ground types for you, dearie. They\'re sturdier than they look.'],
+    outro: ["You're quite something, youngster.", 'Flint is next. He runs hot.'],
+    gloat: ['Hohoho. Back to the start, dearie.', 'Come see me again.'] },
+  { short: 'FLINT', full: 'ELITE FOUR FLINT', type: 'fire', color: '#fb923c', scene: 'flint', low: 76, min: 78, tokens: '10.00',
+    team: ['HOUNDOOM', 'RAPIDASH', 'ARCANINE', 'CAMERUPT', 'MAGMORTAR', 'INFERNAPE'],
+    sig: [S_('FLARE BLITZ', 'fire', 85, 'phys', 'whoosh'), S_('CLOSE COMBAT', 'fighting', 80, 'phys', 'thud'), S_('MACH PUNCH', 'fighting', 45, 'phys', 'thud', { fast: true })],
+    intro: ["I'm Flint of the Elite Four! My fire burns hotter than anything you've seen!", "Let's light it up!"],
+    outro: ["You've got a fire of your own, I'll give you that.", '...Keep going. Lucian is next.'],
+    gloat: ['Burned out already?', 'Rekindle that fire and try again.'] },
+  { short: 'LUCIAN', full: 'ELITE FOUR LUCIAN', type: 'psychic', color: '#f0abfc', scene: 'lucian', low: 77, min: 79, tokens: '10.00',
+    team: ['MR. MIME', 'GIRAFARIG', 'MEDICHAM', 'GALLADE', 'METAGROSS', 'BRONZONG'],
+    sig: [S_('PSYCHIC', 'psychic', 80, 'spec', 'shadow', { ranged: true, fx: 'orb' }), S_('FLASH CANNON', 'steel', 75, 'spec', 'zap', { ranged: true }), L_('EARTHQUAKE', 'ground', 65, 'phys', 'quake', 'quake')],
+    intro: ['Just a moment, please. I\'m at a good part of my book.', "...I'm Lucian of the Elite Four. Shall we?"],
+    outro: ['...The Champion awaits beyond this door.', 'Cynthia is stronger than anyone. Be ready.'],
+    gloat: ['Psychic power, in the end, prevails.', 'Return to the start, please.'] },
+  { short: 'CYNTHIA', full: 'CHAMPION CYNTHIA', role: 'CHAMPION', type: 'dragon', color: '#fde68a', scene: 'cynthia', low: 78, min: 80, tokens: '30.00', switches: 2, restores: 3,
+    team: ['SPIRITOMB', 'ROSERADE', 'GASTRODON', 'LUCARIO', 'MILOTIC', 'GARCHOMP'],
+    sig: [S_('DRAGON RUSH', 'dragon', 85, 'phys', 'whoosh'), L_('EARTHQUAKE', 'ground', 75, 'phys', 'quake', 'quake'), S_('STONE EDGE', 'rock', 70, 'phys', 'thud'), S_('FLAMETHROWER', 'fire', 65, 'spec', 'whoosh', { ranged: true })],
+    intro: ["I'm Cynthia, Champion of the Sinnoh League. I've heard so much about you.", 'Pokémon battles bring out the best in us. Shall we find out who\'s better?'],
+    outro: ['...Just a moment ago, you were the most powerful challenger. Now you\'re the Champion.', "Hoenn and Sinnoh's Hall of Fame is yours."],
+    gloat: ["That was a wonderful battle. I'm sorry it had to end.", 'Start again from Aaron.'] },
+]
+HOENN_ELITE.forEach((L) => Object.assign(L, { elite: true, hs: true, region: 'hoenn', city: L.city ?? 'EVER GRANDE CITY', role: L.role ?? 'ELITE FOUR', hard: true, gap: 3, parry: PARRY.elite, strong: true,
+  title: `${L.role === 'CHAMPION' ? 'HOENN CHAMPION' : 'HOENN ELITE FOUR'} · ${L.type.toUpperCase()} TYPE` }, art(L)))
+SINNOH_ELITE.forEach((L) => Object.assign(L, { elite: true, hs: true, region: 'sinnoh', city: L.city ?? 'POKéMON LEAGUE', role: L.role ?? 'ELITE FOUR', hard: true, gap: 3, parry: L.role === 'CHAMPION' ? PARRY.top : PARRY.elite, strong: true,
+  title: `${L.role === 'CHAMPION' ? 'SINNOH CHAMPION' : 'SINNOH ELITE FOUR'} · ${L.type.toUpperCase()} TYPE` }, art(L)))
+const HOENN_CARD = { short: 'THE HOENN LEAGUE', city: 'EVER GRANDE CITY', summonName: 'HOENN LEAGUE TICKET', face: 'gymFace:wallace', color: '#22d3ee', tag: 'LEAGUE' }
+const SINNOH_CARD = { short: 'THE SINNOH LEAGUE', city: 'POKéMON LEAGUE', summonName: 'SINNOH LEAGUE TICKET', face: 'gymFace:cynthia', color: '#fde68a', tag: 'LEAGUE' }
+Object.assign(LEAGUES, {
+  hoenn: { members: HOENN_ELITE, card: HOENN_CARD, sub: 'the Hoenn Elite Four and Champion Wallace, one at a time', battle: (L) => (L.role === 'CHAMPION' ? 'champion' : 'elite') },
+  sinnoh: { members: SINNOH_ELITE, card: SINNOH_CARD, sub: 'the Sinnoh Elite Four and Champion Cynthia, one at a time', battle: (L) => (L.role === 'CHAMPION' ? 'champion' : 'kantoElite') },
+})
+// The aces fight with their signature moves.
+;[...HS_GYM_LIST, ...HOENN_ELITE, ...SINNOH_ELITE].forEach((L) => { if (L.sig) TRAINER_MOVES[L.team.at(-1)] ??= L.sig })
+// Placeholder portraits until the real art is in: the same three files every leader has (art()), in their colour.
+for (const L of [...HS_GYM_LIST, ...HOENN_ELITE, ...SINNOH_ELITE]) Object.assign(ART, { [L.vs]: `/rpg/a/gym-${L.key ?? L.short.toLowerCase()}-vs.jpg`, [L.face]: `/rpg/a/gym-${L.key ?? L.short.toLowerCase()}-face.jpg`, [L.body]: `/rpg/a/gym-${L.key ?? L.short.toLowerCase()}-body.png` })
+for (const L of HS_GYM_LIST) ART['badge:' + L.badge.toLowerCase()] = `/rpg/a/badges/${L.badge.toLowerCase()}.png`
+// Tells and ring speeds (tests/rpg/sim.mjs): Hoenn like Johto, Sinnoh like Kanto.
+const HS_TELL = [0.12, 0.3, 0.32, 0.25, 0.35, 0.2, 0.45, 0.35, 0.62, 0.6, 0.65, 0.66, 0.68, 0.66, 0.68, 0.64]
+const HS_RING = [0.92, 0.9, 0.94, 0.9, 0.95, 0.92, 0.8, 0.9, 0.75, 0.72, 0.7, 0.68, 0.66, 0.7, 0.64, 0.75]
+HS_GYM_LIST.forEach((L, i) => Object.assign(L, { tellRate: HS_TELL[i], ringFast: HS_RING[i] }))
+// Each one's tells, ring speed, IV floor and Full Restores, tuned with tests/rpg/sim.mjs to about 2 wins in 3
+// for an average player (each Champion about 1 in 3). [tellRate, ringFast, ivs, restores]
+const HS_TUNE = {
+  ROXANNE: [0.35, 0.82], WATTSON: [0.6, 0.66, 25], NORMAN: [0.45, 0.85], WINONA: [0.55, 0.76, 31], 'TATE&LIZA': [0.66, 0.58, 31, 2], JUAN: [0.6, 0.68, 31],
+  SIDNEY: [0.7, 0.52, 31, 3], PHOEBE: [0.7, 0.66, 31, 2], GLACIA: [0.7, 0.62, 31, 2], DRAKE: [0.45, 0.9], WALLACE: [0.7, 0.46, 31, 5],
+  ROARK: [0.7, 0.68, 31], GARDENIA: [0.7, 0.5, 31, 3], MAYLENE: [0.7, 0.5, 31, 3], 'CRASHER WAKE': [0.7, 0.5, 31, 2], FANTINA: [0.68, 0.66, 31], BYRON: [0.66, 0.74, 31],
+  CANDICE: [0.7, 0.55, 31, 2], VOLKNER: [0.7, 0.55, 31, 2], AARON: [0.7, 0.56, 31, 2], BERTHA: [0.7, 0.68, 31], FLINT: [0.7, 0.5, 31, 3], LUCIAN: [0.7, 0.52, 31, 3], CYNTHIA: [0.7, 0.66, 31, 3],
+}
+for (const L of [...HS_GYM_LIST, ...HOENN_ELITE, ...SINNOH_ELITE]) {
+  const [tellRate, ringFast, ivs, restores] = HS_TUNE[L.short] ?? []
+  Object.assign(L, tellRate != null ? { tellRate } : {}, ringFast != null ? { ringFast } : {}, ivs != null ? { ivs } : {}, restores != null ? { restores } : {})
+}
+HOENN_ELITE.forEach((L) => Object.assign(L, L.role === 'CHAMPION' ? { tellRate: 0.65, ringFast: 0.88 } : { tellRate: 0.62, ringFast: 0.8 }))
+SINNOH_ELITE.forEach((L) => Object.assign(L, L.role === 'CHAMPION' ? { tellRate: 0.6, ringFast: 0.78 } : { tellRate: 0.7, ringFast: 0.68 }))
+/** A gym by its number: Johto 0-7, Kanto 8-15, Hoenn 16-23, Sinnoh 24-31. */
+const gymAt = (n) => (n >= 16 ? HS_GYMS[n - 16] : GYMS[n])
 
 /**
  * Whether a leader who switches (`switches`: Lance, Red, Alex's last battle)
@@ -5011,7 +5453,7 @@ function nextChallenge(badges, champion) {
   return badges.length < GYMS.length ? badges.length : null
 }
 /** The leader, or the Elite Four's card, that a challenge refers to. */
-const challengeCard = (n) => LEAGUES[n]?.card ?? GYMS[n]
+const challengeCard = (n) => LEAGUES[n]?.card ?? gymAt(n)
 
 /* The aces' signature moves; the rest of a leader's team fights with its type's moves. */
 Object.assign(TRAINER_MOVES, {
@@ -5030,7 +5472,7 @@ const summonKey = (n) => 'summon:' + n
 /** A challenge's summon as a Bag item, registered the first time one turns up. */
 const summonItem = (n) => (ITEMS[summonKey(n)] ??= LEAGUES[n]
   ? { name: LEAGUES[n].card.summonName, sub: LEAGUES[n].sub, cls: 't-summon', summon: n, league: true }
-  : { name: GYMS[n].summonName, sub: `summons ${GYMS[n].short} of ${GYMS[n].city}`, cls: 't-summon', summon: n })
+  : { name: gymAt(n).summonName, sub: `summons ${gymAt(n).short} of ${gymAt(n).city}`, cls: 't-summon', summon: n })
 
 /*
  * The Elite Four's aces fight with their signature moves (the rest with their type's).
@@ -5201,7 +5643,8 @@ function finalForm(name) {
  * Disc from each of them.
  *
  * Members are named as the rematch tickets name them (gym_N, elite_will,
- * kanto_red, alex).
+ * kanto_red, alex), plus hoenn_* and sinnoh_* for the second region's
+ * Leagues.
  */
 const PAIRS = [
   // Johto's and Kanto's gyms, two neighbours at a time.
@@ -5222,6 +5665,24 @@ const PAIRS = [
   { id: 'lance_clair', a: 'elite_lance', b: 'gym_7', top: true, lift: -0.18 },
   { id: 'koga_janine', a: 'elite_koga', b: 'gym_12', lift: 0.17 },
   { id: 'alex_red', a: 'alex', b: 'kanto_red', top: true, lift: -0.02 },
+  // Hoenn's and Sinnoh's gyms.
+  { id: 'roxanne_brawly', a: 'gym_16', b: 'gym_17', lift: 0.09 },
+  { id: 'wattson_flannery', a: 'gym_18', b: 'gym_19', lift: 0.09 },
+  { id: 'norman_winona', a: 'gym_20', b: 'gym_21', lift: 0.02 },
+  { id: 'tateliza_juan', a: 'gym_22', b: 'gym_23', lift: 0.04 },
+  { id: 'roark_gardenia', a: 'gym_24', b: 'gym_25', lift: 0.08 },
+  { id: 'maylene_wake', a: 'gym_26', b: 'gym_27', lift: 0.02 },
+  { id: 'fantina_byron', a: 'gym_28', b: 'gym_29', lift: 0.04 },
+  { id: 'candice_volkner', a: 'gym_30', b: 'gym_31' },
+  // Their Elite Fours.
+  { id: 'sidney_phoebe', a: 'hoenn_sidney', b: 'hoenn_phoebe', lift: 0.1 },
+  { id: 'glacia_drake', a: 'hoenn_glacia', b: 'hoenn_drake', lift: -0.06 },
+  { id: 'aaron_bertha', a: 'sinnoh_aaron', b: 'sinnoh_bertha', lift: 0.1 },
+  { id: 'flint_lucian', a: 'sinnoh_flint', b: 'sinnoh_lucian', lift: 0.05 },
+  // Father and son, best friends, and two Champions.
+  { id: 'byron_roark', a: 'gym_29', b: 'gym_24', lift: 0.03 },
+  { id: 'volkner_flint', a: 'gym_31', b: 'sinnoh_flint', lift: 0.03 },
+  { id: 'wallace_cynthia', a: 'hoenn_wallace', b: 'sinnoh_cynthia', top: true, lift: -0.02 },
 ]
 /** "BROCK & MISTY"; "TATE&LIZA AND JUAN" where a name has an & already. */
 const pairName = (A, B) => [A.short, B.short].join(A.short.includes('&') || B.short.includes('&') ? ' AND ' : ' & ')
@@ -5229,8 +5690,8 @@ const pairName = (A, B) => [A.short, B.short].join(A.short.includes('&') || B.sh
 function pairMember(ref, alexStep = RIVAL_BATTLES.length - 1) {
   if (ref === 'alex') return rivalTrainer(Math.max(0, Math.min(alexStep, RIVAL_BATTLES.length - 1)))
   const i = ref.indexOf('_'), kind = ref.slice(0, i), arg = ref.slice(i + 1)
-  if (kind === 'gym') return GYMS[+arg] ?? null
-  return { elite: ELITE, kanto: KANTO_ELITE }[kind]?.find((L) => L.short.toLowerCase() === arg) ?? null
+  if (kind === 'gym') return gymAt(+arg) ?? null
+  return { elite: ELITE, kanto: KANTO_ELITE, hoenn: HOENN_ELITE, sinnoh: SINNOH_ELITE }[kind]?.find((L) => L.short.toLowerCase() === arg) ?? null
 }
 /** The battle a member's milestone is paid for (battle_milestones): what the server checks before it sells the ticket. */
 function pairMilestone(ref) {
@@ -5402,7 +5863,7 @@ async function run(id) {
   const bag = { ball: 0, great: 0, potion: 0, super: 0, revive: 0 }   // empty: Alex hands you the first Potions and Balls
   // Move Discs bought at the real machine, by move, until they're collected (the shelf said which move each restock's is).
   const discDue = []
-  const badges = [], nextGym = () => badges.length   // gyms beaten, in order
+  const badges = [], nextGym = () => (inHS() ? 16 + hsBadges.length : badges.length)   // Johto and Kanto's gyms beaten, in order; the next one is the region's you're in
   let champion = false   // beat the Elite Four and Lance: opens Kanto (and its row in the badge case)
   /*
    * The Elite Four ladder. One ticket covers all five battles, fought one at
@@ -5415,12 +5876,43 @@ async function run(id) {
   let shareOn = true   // the EXP. SHARE's switch, in the Bag
   let fame = null   // the Hall of Fame, after Alex's last battle: { at, team: [{ id, name, level }] }
   let emblemSent = false   // app: the Champion's Emblem (v87) has been claimed for the Hall of Fame team
+  // Hoenn and Sinnoh (see HS_GYM_CAP): where you are, whether you've picked your partner there, and the region's own progress.
+  let region = 'kj', hsStarted = false
+  const hsBadges = []   // Hoenn's gyms (16-23) then Sinnoh's (24-31) beaten, in order: gym numbers (gymAt)
+  /** There's a gym to summon here: the region's next, if its League doesn't stand in the way (Kanto after Johto's Champion, Sinnoh after Hoenn's). */
+  const gymOpen = () => (inHS() ? hsBadges.length < 16 && (hsBadges.length < 8 || hs.hoenn) : badges.length < GYMS.length && (badges.length < 8 || champion))
+  /** The leader a summon here is for: your next gym, or the region's last once they're all beaten. */
+  const nextGymCard = () => gymAt(nextGym()) && (inHS() ? nextGym() < 32 : nextGym() < 16) ? gymAt(nextGym()) : (inHS() ? HS_GYMS.at(-1) : GYMS.at(-1))
+  /** The League ticket's League where you are, once there's none open now: the one ahead of you. */
+  const leagueAhead = () => (inHS() ? (hs.hoenn ? 'sinnoh' : 'hoenn') : champion ? 'kanto' : 'elite')
+  const hs = { hoenn: false, sinnoh: false, hoennStep: 0, sinnohStep: 0 }   // each League's Champion beaten, and who's next on its ladder
+  const inHS = () => region === 'hs'
+  /** Hoenn and Sinnoh are open to you: Alex beaten for the last time (and the region's gyms are in the game). */
+  const hsUnlocked = () => !!fame && (HS_GYMS.length > 0 || !!window.__hsOpen)   // __hsOpen: testing only
+  /** The level cap in Hoenn and Sinnoh: the next challenge's ace. */
+  function hsCap() {
+    const n = hsBadges.length
+    if (n < 8) return HS_GYM_CAP[n]
+    if (!hs.hoenn) return HS_LEAGUE_CAP.hoenn
+    if (n < 16) return HS_GYM_CAP[n]
+    if (!hs.sinnoh) return HS_LEAGUE_CAP.sinnoh
+    return LEVEL_CAP
+  }
+  /** The highest level that battles (and gains EXP) where you are. */
+  const levelCap = () => (inHS() ? hsCap() : LEVEL_CAP)
+  /** Above the cap where you are: it sits out until badges raise it. */
+  const overCap = (m) => !!m && m.level > levelCap()
+  /** Can fight here: not fainted, and not above the cap. */
+  const canFight = (m) => !!m && m.hp > 0 && !overCap(m)
+  /** Why nobody can fight: `fainted` (your usual line), unless it's that the healthy ones are all over the cap here. */
+  const noFighter = (fainted) => (party.some((m) => m.hp > 0) ? `your Pokémon are over the Lv ${levelCap()} cap here · swap one in from the Box` : fainted)
   /** The League whose ticket you can use now: Johto's ('elite') with all 8 Johto badges, Kanto's ('kanto') as Champion with all 16; or null. */
-  const leagueNow = () => (!champion ? (badges.length >= 8 ? 'elite' : null) : badges.length >= GYMS.length && !redBeaten ? 'kanto' : null)
+  const leagueNow = () => (inHS() ? (!hs.hoenn ? (hsBadges.length >= 8 ? 'hoenn' : null) : hsBadges.length >= 16 && !hs.sinnoh ? 'sinnoh' : null)
+    : !champion ? (badges.length >= 8 ? 'elite' : null) : badges.length >= GYMS.length && !redBeaten ? 'kanto' : null)
   /** Where you are on a League's ladder. */
-  const leagueStep = (id) => (id === 'kanto' ? kantoStep : eliteStep)
+  const leagueStep = (id) => (id === 'kanto' ? kantoStep : id === 'hoenn' ? hs.hoennStep : id === 'sinnoh' ? hs.sinnohStep : eliteStep)
   /** A League ticket's Bag key for the League that's open now (Johto's until you're Champion). */
-  const leagueKey = () => { const id = leagueNow() ?? (champion ? 'kanto' : 'elite'); summonItem(id); return summonKey(id) }
+  const leagueKey = () => { const id = leagueNow() ?? leagueAhead(); summonItem(id); return summonKey(id) }
   // Alex: the next rival battle (0-6; 7 when all are won), taps until a rematch, and whether you lost this one already.
   let rivalStep = 0, rivalWait = 0, rivalLost = false
   /*
@@ -5666,7 +6158,7 @@ async function run(id) {
   const BAG_OF = { potion: 'potion', super_potion: 'super', hyper_potion: 'hyper', revive: 'revive', max_revive: 'maxrevive', poke_ball: 'ball', great_ball: 'great', ultra_ball: 'ultra', rare_candy: 'rarecandy', full_heal: 'fullheal',
     // Evolution items (v88).
     thunder_stone: 'thunderstone', water_stone: 'waterstone', fire_stone: 'firestone', leaf_stone: 'leafstone', ice_stone: 'icestone', moon_stone: 'moonstone',
-    sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }
+    sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', dawn_stone: 'dawnstone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }   // Dawn Stone: v107
   /** Can this Bag item be sold back to the VVM (v103)? Anything but Gym Summons, League, rematch and double battle tickets and key items. */
   const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && ITEMS[k].summon == null && !ITEMS[k].rematch && !ITEMS[k].pair && !['summon', 'elite', 'disc'].includes(k)
   async function syncMachine() {
@@ -5725,7 +6217,7 @@ async function run(id) {
   function supLocked(key) {
     if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r || !r.beaten() }
     if (key.startsWith('double_')) { const p = pairOf(key.slice(7)); return !p || !p.beaten() }
-    if (key === 'gym_summon') return !(nextGym() < GYMS.length && (nextGym() < 8 || champion))
+    if (key === 'gym_summon') return !gymOpen()
     if (key === 'elite_ticket') return !leagueNow()
     return false
   }
@@ -5733,8 +6225,8 @@ async function run(id) {
     if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r ? 'not in this game' : !r.beaten() ? 'beat them first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
     if (key.startsWith('double_')) { const p = pairOf(key.slice(7)); return !p ? 'not in this game' : !p.beaten() ? 'beat them both first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
-    if (key === 'gym_summon') return heldSummon() ? 'you have one' : nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
-    if (key === 'elite_ticket') { const lg = leagueNow(); return !lg ? (redBeaten ? "you've beaten Red" : champion ? 'needs all 16 badges' : 'needs all 8 Johto badges') : bag[summonKey(lg)] ? 'you have one' : '' }
+    if (key === 'gym_summon') return heldSummon() ? 'you have one' : gymOpen() ? '' : 'no gym to summon'
+    if (key === 'elite_ticket') { const lg = leagueNow(); return !lg ? (inHS() ? (hs.sinnoh ? "you're Sinnoh's Champion" : hs.hoenn ? 'needs all 8 Sinnoh badges' : 'needs all 8 Hoenn badges') : redBeaten ? "you've beaten Red" : champion ? 'needs all 16 badges' : 'needs all 8 Johto badges') : bag[summonKey(lg)] ? 'you have one' : '' }
     return ''
   }
   function realTiles() {
@@ -5746,12 +6238,12 @@ async function run(id) {
     const sup = (x) => {
       const no = supNot(x.key) || (x.max === 0 ? (x.left_today === 0 ? "today's limit is bought" : 'none left') : ''), off = no ? ' disabled' : '', meta = (sub) => `<span class="meta">${x.price.toFixed(2)} tk · ${esc(no || (x.left_today != null ? `${x.left_today} left today` : sub))}</span>`
       if (x.kind === 'bundle') return `<button class="tile bundle" data-buy="sup:${esc(x.key)}"><span class="art">${(x.contents ?? []).map((c) => `<span class="brow"><span class="supic ${BAG_OF[c.key] ?? ''}"></span>×${c.qty}</span>`).join('')}</span><i class="kind">BUNDLE</i><b>${esc(x.name.toUpperCase())}</b>${meta(`${(x.contents ?? []).reduce((a, c) => a + c.qty, 0)} items`)}</button>`
-      if (x.key === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
+      if (x.key === 'gym_summon') { const L = nextGymCard(); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
       if (x.key.startsWith('rematch_')) { const r = rematchOf(x.key.slice(8)); if (!r) return ''
         return `<button class="tile summon" data-buy="sup:${esc(x.key)}"${off}><span class="art"><img src="${ART[r.T.face]}" alt=""></span><i class="kind">REMATCH</i><b>${esc(r.T.short)}</b>${meta('1v1 or 2v2')}</button>` }
       if (x.key.startsWith('double_')) { const p = pairOf(x.key.slice(7)); if (!p) return ''
         return `<button class="tile summon pair" data-buy="sup:${esc(x.key)}"${off}><span class="art">${pairFaces(p)}</span><i class="kind">DOUBLE</i><b>${esc(pairName(p.A, p.B))}</b>${meta('2v2 · 3 each')}</button>` }
-      if (x.key === 'elite_ticket') { const c = LEAGUES[leagueNow() ?? (champion ? 'kanto' : 'elite')].card; return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b>${meta('all 5 battles')}</button>` }
+      if (x.key === 'elite_ticket') { const c = LEAGUES[leagueNow() ?? leagueAhead()].card; return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b>${meta('all 5 battles')}</button>` }
       if (x.key === 'move_disc') { const n = discOfCycle(t.cycle_no ?? 0), m = moveInfo(n)
         return `<button class="tile item" data-buy="sup:move_disc"${off}><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${n}</b>${meta(m.type.toUpperCase())}</button>` }
       const ic = BAG_OF[x.key] ?? ''
@@ -5875,7 +6367,7 @@ async function run(id) {
       return `<button class="tile bundle" data-buy="${k}"><span class="art">${BUNDLE_ITEMS.filter((i) => b.items[i] > 0).map((i) => `<span class="brow"><span class="supic ${i}"></span>×${b.items[i]}</span>`).join('')}</span><i class="kind">BUNDLE</i><b>${esc(b.name)}</b><span class="meta">${b.price.toFixed(2)} tk · ${n} items</span></button>`
     }
     if (k === 'elite') { const c = LEAGUES[leagueNow() ?? 'elite'].card; return `<button class="tile summon" data-buy="elite"><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b><span class="meta">${SHOP.elite.price.toFixed(2)} tk · all 5 battles</span></button>` }
-    if (k === 'summon') { const L = GYMS[nextGym()]; return `<button class="tile summon" data-buy="summon"><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b><span class="meta">${SHOP.summon.price.toFixed(2)} tk · ${L.short}</span></button>` }
+    if (k === 'summon') { const L = nextGymCard(); return `<button class="tile summon" data-buy="summon"><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b><span class="meta">${SHOP.summon.price.toFixed(2)} tk · ${L.short}</span></button>` }
     if (k.startsWith('disc:')) return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${ITEMS[k].name}</b><span class="meta">${shopOf(k).price.toFixed(2)} tk · ${moveInfo(ITEMS[k].disc).type.toUpperCase()} · ${moveInfo(ITEMS[k].disc).kind === 'support' ? moveInfo(ITEMS[k].disc).sub : `${moveInfo(ITEMS[k].disc).power} power`}</span></button>`
     return `<button class="tile item" data-buy="${k}"><span class="art"><span class="supic ${k}"></span></span><i class="kind">${ITEMS[k].key ? 'KEY ITEM' : 'ITEM'}</i><b>${ITEMS[k].name}</b><span class="meta">${SHOP[k].price.toFixed(2)} tk · ${ITEMS[k].sub}</span></button>`
   }
@@ -5924,7 +6416,7 @@ async function run(id) {
   function itemInfo(bk) {   // a Bag item: what it does, and who it's for
     const it = ITEMS[bk]; if (!it) return ''
     if (it.evo || it.held) { const n = party.filter((m) => evoByItem(m, bk, bag).rule).length; return `<p>${esc(it.sub)}.</p><p>${n ? `${n === 1 ? '1 of your party' : `${n} of your party`} can evolve with it now.` : 'Nobody in your party can use it right now.'}</p>` }
-    if (it.candy) return `<p>${esc(it.sub)}: up to Lv ${LEVEL_CAP}.</p>`
+    if (it.candy) return `<p>${esc(it.sub)}: up to Lv ${levelCap()}${inHS() && levelCap() < LEVEL_CAP ? ', the cap here' : ''}.</p>`
     if (isBall(bk)) return `<p>A ball for wild Pokémon: ${esc(it.sub)}. A better throw, a lower HP and a status all help.</p>`
     return `<p>${esc(it.sub)}${it.cure ? '' : '. Use it from the Bag, in battle or out'}.</p>`
   }
@@ -5938,8 +6430,8 @@ async function run(id) {
       const left = r.left_today != null ? `${r.left_today} left today` : ''
       if (id === 'move_disc') { const n = discOfCycle(realShelf?.cycle_no ?? 0); return { title: n, kind: 'MOVE DISC', art: '<span class="supic disc"></span>', left, disc: n, desc: `<p>Teaches ${n} to one Pokémon that can learn it, then it's used up. Every restock the disc is a different move. ${learners(n)}</p>` } }
       if (r.kind === 'bundle') return { title: r.name, kind: 'BUNDLE', art: '<span class="supic summon"></span>', left, desc: `${para(r.description)}<ul>${(r.contents ?? []).map((c) => `<li>${c.qty} × ${esc(ITEMS[BAG_OF[c.key]]?.name ?? c.key)}</li>`).join('')}</ul><p>Each lands in your Bag on its own.</p>` }
-      if (id === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, left, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Win and you get the ${esc(L.badge)} BADGE and ${L.tokens} tokens. Used up when they arrive, win or lose.</p>` } }
-      if (id === 'elite_ticket') { const lg = leagueNow() ?? (champion ? 'kanto' : 'elite'), c = LEAGUES[lg].card; return { title: c.summonName, kind: 'LEAGUE TICKET', art: `<img src="${ART[c.face]}" alt="">`, left, desc: `<p>All five League battles: ${esc(LEAGUES[lg].sub)}. Win and the ticket carries you to the next; lose and it's gone.</p>` } }
+      if (id === 'gym_summon') { const L = nextGymCard(); return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, left, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Win and you get the ${esc(L.badge)} BADGE and ${L.tokens} tokens. Used up when they arrive, win or lose.</p>` } }
+      if (id === 'elite_ticket') { const lg = leagueNow() ?? leagueAhead(), c = LEAGUES[lg].card; return { title: c.summonName, kind: 'LEAGUE TICKET', art: `<img src="${ART[c.face]}" alt="">`, left, desc: `<p>All five League battles: ${esc(LEAGUES[lg].sub)}. Win and the ticket carries you to the next; lose and it's gone.</p>` } }
       if (id.startsWith('rematch_')) { const re = rematchOf(id.slice(8)); return { title: re ? `${re.T.short} REMATCH` : r.name, kind: 'REMATCH', art: re ? `<img src="${ART[re.T.face]}" alt="">` : '', left, desc: `<p>A rematch with ${esc(re?.T.full ?? r.name)}, 1v1 or 2v2, at your level. A win pays ${REMATCH_TOKENS} tokens and a Move Disc of their type.</p>` } }
       if (id.startsWith('double_')) { const p = pairOf(id.slice(7)); return { title: p ? pairName(p.A, p.B) : r.name, kind: 'DOUBLE BATTLE', art: p ? `<span class="pairart">${pairFaces(p)}</span>` : '', left,
         desc: `<p>${p ? `${esc(p.A.full)} and ${esc(p.B.full)}` : esc(r.name)}, together: a 2v2 against the three strongest of each of their teams, above your level, every one at its best. Harder than any rematch. A win pays ${DOUBLE_TOKENS} tokens and a Move Disc from each of them.</p>` } }
@@ -5948,7 +6440,7 @@ async function run(id) {
     }
     // The machine in Play without the app: its own catalog.
     if (k.startsWith('bundle:')) { const b = bundleById(k.slice(7)); return { title: b?.name ?? 'BUNDLE', kind: 'BUNDLE', art: '<span class="supic summon"></span>', desc: `<ul>${BUNDLE_ITEMS.filter((i) => b?.items[i] > 0).map((i) => `<li>${b.items[i]} × ${ITEMS[i].name}</li>`).join('')}</ul>` } }
-    if (k === 'summon') { const L = GYMS[nextGym()]; return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Used up when they arrive, win or lose.</p>` } }
+    if (k === 'summon') { const L = nextGymCard(); return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Used up when they arrive, win or lose.</p>` } }
     if (k === 'elite') { const c = LEAGUES[leagueNow() ?? 'elite'].card; return { title: c.summonName, kind: 'LEAGUE TICKET', art: `<img src="${ART[c.face]}" alt="">`, desc: `<p>All five League battles, one at a time.</p>` } }
     if (k.startsWith('disc:')) { const n = ITEMS[k].disc; return { title: n, kind: 'MOVE DISC', art: '<span class="supic disc"></span>', disc: n, desc: `<p>Teaches ${n} to one Pokémon that can learn it, then it's used up. ${learners(n)}</p>` } }
     return { title: ITEMS[k]?.name ?? k, kind: ITEMS[k]?.key ? 'KEY ITEM' : 'ITEM', art: `<span class="supic ${k}"></span>`, desc: itemInfo(k) }
@@ -6182,17 +6674,21 @@ async function run(id) {
 
   function partyList() {
     const hurt = party.some((m) => m.hp < m.stats.hp || m.status)
-    const caseFor = (region, label) => { const gs = GYMS.filter((g) => g.region === region), got = gs.filter((g) => badges.includes(g.gym)).length
-      return `<div class="badgecase"><b>${label} ${got}/${gs.length}</b><span>${gs.map((g) => `<img class="${badges.includes(g.gym) ? 'on' : ''}" src="${badgeArt(g.badge)}" alt="${g.badge} BADGE" title="${g.badge} BADGE (${g.short})">`).join('')}</span></div>` }
+    const has = (g) => (g.gym >= 16 ? hsBadges : badges).includes(g.gym)
+    const caseFor = (region, label) => { const gs = [...GYMS, ...HS_GYMS].filter((g) => g.region === region), got = gs.filter(has).length
+      return `<div class="badgecase"><b>${label} ${got}/${gs.length}</b><span>${gs.map((g) => `<img class="${has(g) ? 'on' : ''}" src="${badgeArt(g.badge)}" alt="${g.badge} BADGE" title="${g.badge} BADGE (${g.short})">`).join('')}</span></div>` }
     const caseRow = caseFor('johto', 'JOHTO') + (champion ? caseFor('kanto', 'KANTO') : '') +   // Kanto shows once it's unlocked
+      (hsStarted ? caseFor('hoenn', 'HOENN') : '') + (hs.hoenn ? caseFor('sinnoh', 'SINNOH') : '') +   // and Hoenn and Sinnoh as you get there
       (fame ? `<div class="badgecase champ fame"><b>HALL OF FAME</b><span>${fame.team.map((m) => `<img class="on" src="${spr(m)}" alt="${m.name}" title="${m.name} Lv ${m.level}">`).join('')}</span></div>` : '')
     const free = freeHealsLeft(), canPay = wallet + 1e-9 >= healPrice, price = `${healPrice.toFixed(2)} tk`
     const healSub = !hurt ? `Everyone is at full HP${free ? ` · ${free} free heal${free === 1 ? '' : 's'} left today` : ''}`
       : free ? `Heal the whole party, free — ${free} left today` : canPay ? `Heal the whole party for ${price} · today's ${FREE_HEALS} free heals are used` : `${price} a heal after ${FREE_HEALS} free a day · not enough tokens. Potions still work.`
-    return caseRow + `<button class="heal" data-heal ${hurt && (free || canPay) ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${healSub}</small></span></button>` +
-      party.map((m, i) => `<div class="prow${m.hp <= 0 ? ' fainted' : ''}">
+    // In Hoenn and Sinnoh: the level cap, and how it rises.
+    const capRow = inHS() ? `<p class="note capnote"><b>LEVEL CAP · Lv ${hsCap()}</b> in Hoenn &amp; Sinnoh. Pokémon above it sit out; each badge raises it.</p>` : ''
+    return caseRow + capRow + `<button class="heal" data-heal ${hurt && (free || canPay) ? '' : 'disabled'}><span class="cross"></span><span>POKéMON CENTER<small>${healSub}</small></span></button>` +
+      party.map((m, i) => `<div class="prow${m.hp <= 0 || overCap(m) ? ' fainted' : ''}">
         <button class="pmain" data-stat="${i}" aria-label="${m.name}'s stats"><img src="${spr(m)}" alt=""><span class="mid">
-          <span class="nm"><b>${i + 1}. ${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}</span></span>
+          <span class="nm"><b>${i + 1}. ${m.name}${m.shiny ? '<span class="shiny" title="Shiny">★</span>' : ''}${i === 0 ? '<span class="lead">LEAD</span>' : ''}${m.status ? `<span class="tags">${statusChip(m)}</span>` : ''}</b><span>Lv ${m.level}${overCap(m) ? ' · over the cap' : ''}</span></span>
           ${hpBar(m)}<span class="sub">${m.nature[0]} · IV ${ivTotal(m)}/186 · tap for stats</span></span></button>
         <span class="ord">
           <button data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${m.name} up">▲</button>
@@ -6255,7 +6751,10 @@ async function run(id) {
       if (it.key) return `<button class="irow key" data-share="1" aria-pressed="${shareOn}"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · ${shareOn ? 'Pokémon that sit out a battle get half its EXP' : 'off: only the Pokémon that battle get EXP'} · tap to switch</span></span><span class="onoff ${shareOn ? 'on' : ''}">${shareOn ? 'ON' : 'OFF'}</span></button>`
       if (LEAGUES[it.summon]) {
         const id = it.summon, st = leagueStep(id), L = LEAGUES[id].members[st], ok = leagueNow() === id
-        const why = id === 'elite' ? (champion ? "you're already Champion" : 'needs all 8 Johto badges') : redBeaten ? "you've beaten Red" : 'needs all 16 badges'
+        const away = (id === 'hoenn' || id === 'sinnoh') !== inHS()
+        const why = away ? `a ${inHS() ? 'Kanto & Johto' : 'Hoenn & Sinnoh'} ticket: travel there to use it` : id === 'elite' ? (champion ? "you're already Champion" : 'needs all 8 Johto badges')
+          : id === 'kanto' ? (redBeaten ? "you've beaten Red" : 'needs all 16 badges') : id === 'hoenn' ? (hs.hoenn ? "you're already Hoenn's Champion" : 'needs all 8 Hoenn badges')
+          : hs.sinnoh ? "you're already Sinnoh's Champion" : 'needs all 8 Sinnoh badges'
         return `<button class="irow" data-item="${k}"${ok ? '' : ' disabled'}><img class="ic face" src="${ART[L.face]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${!ok ? why : `next: ${L.short} (${st + 1} of 5) · tap`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
       if (it.rematch) {
@@ -6267,8 +6766,9 @@ async function run(id) {
         return `<button class="irow" data-pair="${it.pair}"${ok ? '' : ' disabled'}><span class="ic pairic">${p ? pairFaces(p) : ''}</span><span class="mid"><b>${it.name}</b><span class="sub">${ok ? 'double battle, 3 each: take them on now · tap' : 'trainer battles are off'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
       if (it.summon != null) {
-        const n = it.summon, L = GYMS[n], done = badges.includes(n), ready = n === nextGym() && (n < 8 || champion)
-        const sub = done ? `you already have the ${L.badge} BADGE` : ready ? `challenge ${L.short} of ${L.city} · tap` : n === 8 && !champion ? 'become Champion first' : `beat ${GYMS[n - 1].short} first`
+        const n = it.summon, L = gymAt(n), far = (n >= 16) !== inHS(), done = (n >= 16 ? hsBadges : badges).includes(n), ready = !far && n === nextGym() && gymOpen()
+        const sub = done ? `you already have the ${L.badge} BADGE` : far ? `a ${n >= 16 ? 'Hoenn & Sinnoh' : 'Kanto & Johto'} summon: travel there to use it` : ready ? `challenge ${L.short} of ${L.city} · tap`
+          : n === 8 && !champion ? 'become Champion first' : n === 24 && !hs.hoenn ? "become Hoenn's Champion first" : `beat ${gymAt(n - 1).short} first`
         return `<button class="irow" data-item="${k}"${ready ? '' : ' disabled'}><img class="ic face" src="${ART[L.face]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${sub}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
       if (it.disc) { const n = party.filter((m) => canLearnDisc(m, it.disc) && !learn(m).learned.includes(it.disc)).length
@@ -6277,8 +6777,8 @@ async function run(id) {
         return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.held ? it.sub : n ? `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} can evolve with it · tap to use` : `${it.sub} · nobody in your party can use it`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       if (it.cure) { const n = party.filter((m) => m.status && it.cure.includes(m.status)).length
         return `<button class="irow" data-item="${k}"${n && bag[k] ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${it.sub} · ${n ? `${n === 1 ? '1 Pokémon needs' : `${n} Pokémon need`} it · tap to use` : 'nobody needs it right now'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
-      if (it.candy) { const n = party.filter((m) => m.level < LEVEL_CAP).length
-        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${n ? `${it.sub} · tap to use` : 'your whole party is at Lv 100'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
+      if (it.candy) { const n = party.filter((m) => m.level < levelCap()).length
+        return `<button class="irow" data-item="${k}"${n ? '' : ' disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${n ? `${it.sub} · tap to use` : `your whole party is at Lv ${levelCap()}`}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>` }
       const usable = HEALS.includes(k)
       return `<button class="irow" data-item="${k}" ${usable && bag[k] ? '' : 'disabled'}><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">${usable ? it.sub + ' · tap to use' : 'throw these in wild battles'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
     }).join('') + `<p class="note">Balls, potions, revives and bundles are bought from the VVM, alongside the packs; a bundle's items land here separately. Move Discs come from Gym Leaders and, now and then, the VVM. Beaten trainers sometimes leave a booster pack: it goes to your collection.</p>`
@@ -6310,12 +6810,12 @@ async function run(id) {
   }
   /** A summon's challenge page: who, how many, how strong; then the button. */
   function summonPage(k) {
-    const n = ITEMS[k].summon, L = GYMS[n], ace = leaderLevels(L).at(-1)
+    const n = ITEMS[k].summon, L = gymAt(n), ace = leaderLevels(L).at(-1)
     return `<button class="back" data-back>◀ Bag</button>
       <div class="gymcard" style="--c:${L.color}"><img src="${ART[L.face]}" alt=""><div>
         <b>${L.full}</b><span>${L.city} GYM · ${L.type.toUpperCase()} TYPE</span>
         <span>${L.team.length} Pokémon · Lv ${L.low}–${ace} · uses a Full Restore</span></div></div>
-      <p class="note">${L.region === 'kanto' ? 'Kanto' : 'Johto'} gym ${(n % 8) + 1} of 8. Win and you get the ${L.badge} BADGE and ${L.tokens} tokens. The summon is used up when ${L.short} arrives, win or lose.</p>
+      <p class="note">${{ johto: 'Johto', kanto: 'Kanto', hoenn: 'Hoenn', sinnoh: 'Sinnoh' }[L.region]} gym ${(n % 8) + 1} of 8. Win and you get the ${L.badge} BADGE and ${L.tokens} tokens. The summon is used up when ${L.short} arrives, win or lose.</p>
       <div class="lbl">Your party</div>
       <div class="mvchips" style="margin-bottom:10px">${party.map((m) => `<i style="background:${TYPE_COL[m.types[0]]}">${m.name} Lv ${m.level}</i>`).join('')}</div>
       <button class="challenge" data-challenge="${n}" style="--c:${L.color}">SUMMON ${L.short}</button>`
@@ -6335,8 +6835,8 @@ async function run(id) {
   }
   function bagTarget(k) {
     if (ITEMS[k].candy) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — give it to which Pokémon?</p>` +
-      party.map((m, i) => { const max = m.level >= LEVEL_CAP
-        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? 'already Lv 100' : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
+      party.map((m, i) => { const max = m.level >= levelCap()
+        return `<button class="prow tgt${max ? ' cant' : ''}" data-target="${i}" ${max ? 'disabled' : ''}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${max ? (inHS() && m.level < LEVEL_CAP ? `at the Lv ${levelCap()} cap here` : 'already Lv 100') : `Lv ${m.level} → ${m.level + 1}`}</span></span>${hpBar(m)}</span></button>` }).join('')
     if (ITEMS[k].evo) return `<button class="back" data-back>◀ Bag</button><p class="note" style="margin:0 2px 8px"><b>${ITEMS[k].name}</b> ×${bag[k]} — use it on which Pokémon?</p>` +
       party.map((m, i) => { const r = evoByItem(m, k, bag)
         return `<button class="prow tgt${r.rule ? '' : ' cant'}" data-target="${i}" ${r.rule ? '' : 'disabled'}><img src="${spr(m)}" alt=""><span class="mid"><span class="nm"><b>${m.name}</b><span>${r.rule ? `evolves into ${r.rule.to}` : r.why}</span></span>${hpBar(m)}</span></button>` }).join('')
@@ -6397,7 +6897,7 @@ async function run(id) {
    */
   function boxBody(pick = null) {
     const row = (m, i, side) => `<div class="prow boxrow${pick === i ? ' picked' : ''}"><button class="pmain boxmon" data-mon="${i}"><img src="${spr(m)}" alt=""><span class="mid">
-        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · IV ${ivTotal(m)}${m.hp <= 0 ? ' · fainted' : ''}</span></span>
+        <span class="nm"><b>${m.name}</b><span>Lv ${m.level} · IV ${ivTotal(m)}${m.hp <= 0 ? ' · fainted' : ''}${overCap(m) ? ' · over the cap' : ''}</span></span>
         <span class="mvchips">${movesOf(m).map((n) => `<i style="background:${TYPE_COL[moveInfo(n).type]}">${n}</i>`).join('')}</span></span></button>${side}</div>`
     const inParty = party.map((m, i) => row(m, i, pick != null
       ? `<button class="pbtn swap" data-swapat="${i}" aria-label="Swap ${m.name} out">⇄ SWAP<small>to Box</small></button>`
@@ -6541,10 +7041,10 @@ async function run(id) {
       // Summon: spend it, close the sheet, and the leader turns up.
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
       // A rematch ticket: spent, and they turn up once the sheet closes.
-      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some((m) => m.hp > 0)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
+      if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some(canFight)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
       // A double battle ticket: two of yours have to be able to fight.
       if (a.pair != null) {
-        if (!(bag[pairKey(a.pair)] > 0) || party.filter(((m) => m.hp > 0)).length < 2) { toast = party.some(((m) => m.hp > 0)) ? 'A double battle needs two Pokémon ready to fight.' : 'Heal your party first.'; toastBad = true; draw(); return }
+        if (!(bag[pairKey(a.pair)] > 0) || party.filter(canFight).length < 2) { toast = party.some(canFight) ? 'A double battle needs two Pokémon ready to fight.' : 'Heal your party first.'; toastBad = true; draw(); return }
         bag[pairKey(a.pair)]--; pendingPair = a.pair; renderTools(); sfx('select'); sheetCloser?.(); return
       }
       if (a.target != null && ITEMS[view.item].disc) {
@@ -6557,7 +7057,7 @@ async function run(id) {
       } else if (a.target != null && ITEMS[view.item].candy) {
         // A Rare Candy: one level, as if from EXP. New moves are learned here; an evolution it brings plays once the sheet closes.
         const m = party[a.target]
-        if (m.level >= LEVEL_CAP) { toast = `${m.name} is already Lv 100.`; toastBad = true; draw(); return }
+        if (m.level >= levelCap()) { toast = m.level >= LEVEL_CAP ? `${m.name} is already Lv 100.` : `${m.name} is at the Lv ${levelCap()} cap here.`; toastBad = true; draw(); return }
         bag[view.item]--; const hpBefore = m.stats.hp
         m.level++; m.exp = 0; m.stats = statsAt(m, m.level); if (m.hp > 0) m.hp = Math.min(m.stats.hp, m.hp + (m.stats.hp - hpBefore))
         sfx('levelup'); renderTools()
@@ -6721,6 +7221,17 @@ async function run(id) {
     DIG: 'dig', ROLLOUT: 'roll', 'PLAY ROUGH': 'rough', 'DOUBLE KICK': 'strike', 'DYNAMIC PUNCH': 'strike', 'BRAVE BIRD': 'strike', 'ZEN HEADBUTT': 'strike', 'IRON HEAD': 'strike', HEADBUTT: 'strike', 'BODY SLAM': 'strike',
     'X-SCISSOR': 'xslash', 'VINE WHIP': 'whip', 'KARATE CHOP': 'chop', 'BRICK BREAK': 'chop', 'CROSS CHOP': 'chop', 'DUAL CHOP': 'chop', 'IRON TAIL': 'chop',
   }
+  // Hoenn and Sinnoh's moves.
+  Object.assign(FX_BY_NAME, {
+    'AQUA JET': 'quick', 'MACH PUNCH': 'quick', 'BULLET PUNCH': 'quick', 'ICE SHARD': 'icicle', 'SHADOW SNEAK': 'phantom', 'VACUUM WAVE': 'waves', 'SUCKER PUNCH': 'quick', 'EXTREME SPEED': 'quick',
+    'THUNDER FANG': 'bite', 'ICE FANG': 'bite', 'POISON FANG': 'bite', 'FIRE PUNCH': 'strike', 'ICE PUNCH': 'strike', 'THUNDER PUNCH': 'volt', 'DRAIN PUNCH': 'strike', 'BLAZE KICK': 'roll',
+    'SKY UPPERCUT': 'chop', 'NIGHT SLASH': 'claws', 'SHADOW CLAW': 'claws', 'PSYCHO CUT': 'blades', 'CROSS POISON': 'xslash', 'AERIAL ACE': 'blades', 'LEAF BLADE': 'xslash', 'AQUA TAIL': 'whip',
+    'DRAGON RUSH': 'rough', 'METEOR MASH': 'blast', 'POWER WHIP': 'whip', 'AURA SPHERE': 'orb', 'FOCUS BLAST': 'blast', 'SIGNAL BEAM': 'beam', 'SILVER WIND': 'gust', 'MAGICAL LEAF': 'leaves',
+    'OMINOUS WIND': 'gust', SLUDGE: 'lob', 'MUD BOMB': 'lob', 'MIRROR SHOT': 'beam', 'LAVA PLUME': 'erupt', 'MUDDY WATER': 'waves', 'CLOSE COMBAT': 'rough', SUPERPOWER: 'strike', OVERHEAT: 'blast',
+    'DRACO METEOR': 'rock', 'LEAF STORM': 'petals', 'PSYCHO BOOST': 'psy', 'FLARE BLITZ': 'roll', 'WOOD HAMMER': 'chop', 'HEAD SMASH': 'strike', 'DOUBLE-EDGE': 'strike', 'GIGA IMPACT': 'blast',
+    'ROCK WRECKER': 'rock', 'BLAST BURN': 'erupt', 'HYDRO CANNON': 'jet', 'FRENZY PLANT': 'whip', 'ROAR OF TIME': 'beam', ERUPTION: 'erupt', 'WATER SPOUT': 'jet', 'SPACIAL REND': 'xslash',
+    'SHADOW FORCE': 'phantom', 'DOOM DESIRE': 'beam', 'MAGMA STORM': 'jet', 'SEED FLARE': 'gleam', JUDGMENT: 'gleam', 'CRUSH GRIP': 'bite', 'MIST BALL': 'orb', 'LUSTER PURGE': 'orb',
+  })
   /** Which look a move has: its own by name, else by what it is (fx) and its type. */
   function fxRecipe(mv) {
     if (FX_BY_NAME[mv.name]) return FX_BY_NAME[mv.name]
@@ -7004,7 +7515,7 @@ async function run(id) {
    * Your trainer level. The full app would track it on its own; here your
    * best Pokémon's level stands in for it.
    */
-  const trainerLevel = () => Math.max(1, ...party.map((m) => m.level))
+  const trainerLevel = () => Math.max(1, ...party.filter((m) => !overCap(m)).map((m) => m.level))
   /**
    * A scalper's Pokémon for one battle, drawn from their pool: only ones they
    * can have at your trainer level, at about your level. How many they carry
@@ -7028,7 +7539,7 @@ async function run(id) {
    * doesn't pay as well, since their Pokémon stop growing and EXP follows
    * the foe's level.
    */
-  const leadLevel = () => (party.find((m) => m.hp > 0) ?? party[0])?.level ?? 5
+  const leadLevel = () => (party.find(canFight) ?? party.find((m) => !overCap(m)) ?? party[0])?.level ?? 5
   // Balanced from Lv 10 (tests/rpg/sim.mjs): Herb and Paul at your level to 2 above, everyone else 1 below to even; gentler before that.
   const levelBand = (T, lv = leadLevel()) => (T === HERB || T === PAUL ? (lv < 10 ? [-1, 1] : [0, 2]) : (lv < 10 ? [-3, -2] : [-1, 0]))
   /**
@@ -7037,6 +7548,7 @@ async function run(id) {
    * upcoming gym (Falkner: Lv 10). No cap once there's no challenge left.
    */
   function trainerCap() {
+    if (inHS()) return hsCap() >= LEVEL_CAP ? LEVEL_CAP : Math.max(2, hsCap() - 3)
     const n = nextChallenge(badges, champion)
     const L = n === 'elite' ? ELITE[eliteStep] : n != null ? GYMS[n] : leagueNow() === 'kanto' ? KANTO_ELITE[kantoStep] : null
     return L ? L.min - L.gap : LEVEL_CAP
@@ -7053,7 +7565,8 @@ async function run(id) {
   function deckFor(T, lv, force, poolIx) {
     const tl = trainerLevel()
     // One of their pools: the main one or an alternate (POOL_ALTS), at random; the Watch demos keep the main one.
-    const pools = [POOLS[T.short], ...(POOL_ALTS[T.short] ?? [])], ix = force ? 0 : poolIx ?? (demo ? 0 : Math.floor(rand() * pools.length))
+    // In Hoenn and Sinnoh, their teams there (HS_POOLS).
+    const pools = inHS() && HS_POOLS[T.short] ? [HS_POOLS[T.short]] : [POOLS[T.short], ...(POOL_ALTS[T.short] ?? [])], ix = force ? 0 : poolIx ?? (demo ? 0 : Math.floor(rand() * pools.length))
     const names = force ?? (() => {
       // Two or three, then three from trainer level 30, then three or four from 45 (the late-game teams above).
       const size = tl >= 45 ? (rand() < 0.5 ? 3 : 4) : tl >= 30 ? 3 : rand() < 0.5 ? 2 : 3
@@ -7206,7 +7719,7 @@ async function run(id) {
    */
   async function shareExp(amount, fought) {
     if (!bag.expshare || !shareOn) return
-    const rest = party.filter((m) => m.hp > 0 && !fought.includes(m)); if (!rest.length) return
+    const rest = party.filter((m) => canFight(m) && !fought.includes(m)); if (!rest.length) return
     const half = Math.max(1, Math.round(amount / 2))
     await say(`The rest of your party got ${half} EXP.`, 'thanks to the EXP. SHARE.', 300)
     for (const m of rest) { addBond(m, 4); await offFieldExp(m, half) }
@@ -7216,7 +7729,7 @@ async function run(id) {
   async function offFieldExp(m, amount) {
     m.exp ??= 0
     let left = amount
-    while (left > 0 && m.level < LEVEL_CAP) {
+    while (left > 0 && m.level < levelCap()) {
       const need = expToNext(m.level), take = Math.min(left, need - m.exp)
       m.exp += take; left -= take
       if (m.exp < need) break
@@ -7246,11 +7759,11 @@ async function run(id) {
   async function gainExp(m, amount, bar, onLevel) {
     m.exp ??= 0
     addBond(m, 10)   // fought in it
-    // Lv 100 is as far as it goes (LEVEL_CAP): no EXP past it, as off the field (offFieldExp) and with a Rare Candy.
-    if (m.level >= LEVEL_CAP) { m.exp = 0; renderTools(); return }
+    // Lv 100 is as far as it goes (LEVEL_CAP), or the region's cap in Hoenn and Sinnoh: no EXP past it, as off the field (offFieldExp) and with a Rare Candy.
+    if (m.level >= levelCap()) { m.exp = 0; renderTools(); return }
     await say(`${m.name} gained`, `${amount} EXP. Points!`, 180)
     let left = amount
-    while (left > 0 && m.level < LEVEL_CAP) {
+    while (left > 0 && m.level < levelCap()) {
       const need = expToNext(m.level), take = Math.min(left, need - m.exp)
       const a = m.exp / need * 100; m.exp += take; left -= take
       const b = m.exp / need * 100
@@ -7300,7 +7813,7 @@ async function run(id) {
    */
   async function duoBattle(o) {
     CRUMBS.phase('2v2 set up'); CRUMBS.set({ kind: 'duo', who: (o.trainers ?? []).map((T) => T.short).join(' + '), party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
-    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id)))
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([...(o.foes ?? []), ...(o.bench ?? [])].map((x) => x.mon?.id).concat(party.filter(canFight).slice(0, 2).map((m) => m.id)))
     MOVE_LOG.reset(); let res = null
     try { res = await duoBattleCore(o); return res } finally { restoreForms(); MOVE_LOG.send('duo', res?.result); Sound.musicReport() }
   }
@@ -7386,7 +7899,7 @@ async function run(id) {
     }
     const allyOf = (s) => sides[s.side].slots.find((x) => x && x !== s && x.mon.hp > 0)
     const other = (side) => (side === 'p' ? 'e' : 'p')
-    const bench = () => party.filter((m) => m.hp > 0 && !sides.p.slots.some((s) => s?.mon === m))
+    const bench = () => party.filter((m) => canFight(m) && !sides.p.slots.some((s) => s?.mon === m))
 
     /* ── openers ── */
     $('msg').style.display = 'block'
@@ -7394,7 +7907,7 @@ async function run(id) {
     for (let i = 0; i < foes.length; i++) { await say(...sentOut(foes[i].owner, foes[i].mon), 60); await enter('e', i, foes[i].mon, foes[i].owner) }
     if (foes.length === 1) await say(`${foes[0].owner.short} only has`, 'one Pokémon ready. 2 on 1!', 300)
     // Yours fill the slots a partner isn't using.
-    const firstTwo = party.filter((m) => m.hp > 0).slice(0, 2 - allies.length)
+    const firstTwo = party.filter(canFight).slice(0, 2 - allies.length)
     await say(`Go! ${firstTwo.map((m) => m.name).join(' and ')}!`, '', 80)
     for (let i = 0; i < firstTwo.length; i++) await enter('p', i, firstTwo[i])
     for (const [j, a] of allies.entries()) { await say(...sentOut(a.owner, a.mon), 80); await enter('p', firstTwo.length + j, a.mon, a.owner) }
@@ -7414,7 +7927,7 @@ async function run(id) {
       const base = Math.floor(Math.floor(Math.floor(2 * att.level / 5 + 2) * mv.power * A / D) / 50) + 2
       const stab = att.types.includes(mv.type) ? 1.5 : 1, eff = soften(gameMult(mv.type, def.types))
       const burn = att.status === 'brn' && mv.cat !== 'spec' ? 0.5 : 1
-      return { dmg: Math.max(1, Math.round(base * stab * eff * mult * S(att).boost * burn)), eff }
+      return { dmg: Math.max(1, Math.round(base * stab * eff * mult * S(att).boost * burn * wonderGuard(def, mv))), eff }
     }
     const speed = (s) => s.mon.stats.spe * stageMult(S(s.mon).spe) * (sides[s.side].tailwind ? 2 : 1) * (s.mon.status === 'par' ? 0.5 : 1)
     const slotOf = (m) => [...sides.p.slots, ...sides.e.slots].find((x) => x && x.mon === m && !x.gone)
@@ -7703,10 +8216,11 @@ async function run(id) {
         // Power worked out now (the flags are cleared on the copy, so this runs once).
         const t = S(actor.mon); let m2 = mv
         if (mv.flail) m2 = { ...m2, power: flailPower(actor.mon) }
+        if (mv.spout) m2 = { ...m2, power: spoutPower(actor.mon) }
         if (mv.furyCutter) { t.fury = t.lastMove === mv.name ? Math.min(2, (t.fury ?? 0) + 1) : 0; m2 = { ...m2, power: mv.power * 2 ** t.fury } }
         if (mv.knockOff) m2 = { ...m2, power: Math.round(mv.power * 1.5) }   // a 2v2 is always against trainers
         t.lastMove = mv.name
-        if (m2 !== mv) return strike({ ...act, move: { ...m2, flail: false, furyCutter: false, knockOff: false } }, step)
+        if (m2 !== mv) return strike({ ...act, move: { ...m2, flail: false, spout: false, furyCutter: false, knockOff: false } }, step)
       }
       if (mv.firstTurn && actor.turns) {
         await announce(`${actor.mon.name} used`, `${mv.name}!`, 100); if (!actor.ally) setDPP(dpp - (mv.cost ?? 0))
@@ -7742,6 +8256,10 @@ async function run(id) {
       }
       S(actor.mon).boost = 1; if (actor.mon.hp > 0) tags(actor)
       if (mv.recharge) S(actor.mon).recharge = true
+      if (mv.selfDrop && actor.mon.hp > 0 && results.some((r) => r && r.label !== 'MISS')) for (const [k, by] of Object.entries(mv.selfDrop)) {
+        const t = S(actor.mon), from = t[k] ?? 0; t[k] = Math.max(-6, from + by); tags(actor); sfx('flinch')
+        await say(`${actor.mon.name}'s ${STAGE_WORD[k]}`, t[k] === from ? "won't go any lower!" : `fell${from - t[k] > 1 ? ' sharply' : ''}!`, 250)
+      }
       if (mv.rampage && actor.mon.hp > 0 && !results.some((r) => r?.crit) && !S(actor.mon).conf) { S(actor.mon).conf = 2 + Math.floor(rand() * 2); tags(actor); await say(actor.mon.name, 'became confused from fatigue!', 300) }
       const landed = results.filter(Boolean)
       if (actor.side === 'p' && !actor.ally) { MOVE_LOG.use(mv.name); for (const r of results) MOVE_LOG.hit(mv.name, r?.label ?? 'MISS') }   // usage, for balancing
@@ -8269,8 +8787,8 @@ async function run(id) {
   const trainerTheme = () => (demo || Math.random() < 0.5 ? 'battle' : 'battleB')
   async function duoEncounter(demoPlan, variant = 'tag', state = 'in') {
     toolsEnabled(false)
-    if (!party.some((m) => m.hp > 0)) { $('homeSub').textContent = 'heal your party first'; toolsEnabled(true); return }
-    const lead = party.filter((m) => m.hp > 0).slice(0, 2)
+    if (!party.some(canFight)) { $('homeSub').textContent = noFighter('heal your party first'); toolsEnabled(true); return }
+    const lead = party.filter(canFight).slice(0, 2)
     const lv = Math.round(lead.reduce((n, m) => n + m.level, 0) / lead.length)   // your first two, on average: deckFor() sets the band around it
     // A tag team is any two trainers; the demo's is Herb and Paul. Solo: one trainer with two out.
     const crew = demoPlan ? (variant === 'tag' ? [HERB, PAUL] : [pickOf(SCALPERS)]) : randomTrainers(variant === 'tag' ? 2 : 1)
@@ -8377,10 +8895,74 @@ async function run(id) {
     b.hidden = !show
     if (show) { const c = dailyChallenge(); b.innerHTML = `<b>DAILY CHALLENGE</b> · ${c.label} · <span>a pack and ${DAILY_TOKENS} tk</span>` }
   }
-  if (!demo) setInterval(() => { if (live()) paintDaily() }, 1000)
+  if (!demo) setInterval(() => { if (live()) { paintDaily(); paintTravel() } }, 1000)
+  /* ══════════ travel: Kanto & Johto ⇄ Hoenn & Sinnoh ══════════
+     Once Hoenn and Sinnoh are open (hsUnlocked), a bar under the machine takes
+     you from one region to the other. The machine, its packs and your tokens
+     stay the same; the wild pool, the trainers' teams, the badges and the level
+     cap are the region's. Hoenn and Sinnoh's machine is sapphire blue
+     (body.hs), Kanto and Johto's the usual red. The first trip there, Alex
+     has you pick a new partner (hsArrival). */
+  const travelOpen = () => MODE === 'play' && tutorialDone && hsUnlocked()
+  /** The machine and the wild pool in the colours and name of the region you're in. */
+  function paintRegion() {
+    document.body.classList.toggle('hs', inHS())
+    const h = $('poolPanel')?.querySelector('.phead b'); if (h) h.textContent = inHS() ? 'WILD POOL · HOENN & SINNOH' : 'WILD POOL'
+  }
+  function paintTravel() {
+    const b = $('travelBar'); if (!b) return
+    const show = travelOpen() && !busy && homeState === 'idle' && $('battleL').style.display !== 'block' && !$('sheet').classList.contains('open')
+    b.hidden = !show
+    if (show) b.innerHTML = inHS() ? '<b>TRAVEL</b> · back to Kanto &amp; Johto' : `<b>TRAVEL</b> · to Hoenn &amp; Sinnoh${hsStarted ? '' : ' · <span>NEW</span>'}`
+  }
+  /**
+   * Arriving in Hoenn and Sinnoh: the party Pokémon over the cap go to the Box,
+   * and stay there (back in Kanto and Johto too) until you move them. Should
+   * that leave nobody, the strongest under the cap come out of the Box instead
+   * (and if there's none, one stays). Returns how many went.
+   */
+  function boxOverCap() {
+    const out = party.filter(overCap)
+    for (const m of out) { party.splice(party.indexOf(m), 1); toBox(m) }
+    if (!party.length) for (const m of box.filter((x) => !overCap(x)).sort((a, b) => b.level - a.level).slice(0, 6)) { box.splice(box.indexOf(m), 1); party.push(m) }
+    if (!party.length && out.length) { const m = out[0]; box.splice(box.indexOf(m), 1); party.push(m) }
+    return out.length - (out.some((m) => party.includes(m)) ? 1 : 0)
+  }
+  const boxedLine = (n) => `${n === 1 ? '1 Pokémon' : `${n} Pokémon`} over the Lv ${hsCap()} cap went to the Box.`
+  // (Not `travel`: that's the attack effects' particle mover, in this same scope.)
+  async function regionTrip() {
+    if (!travelOpen()) return
+    toolsEnabled(false); $('travelBar').hidden = true
+    const to = inHS() ? 'kj' : 'hs'
+    sfx('select')
+    await fadeThrough(async () => { region = to; paintRegion(); renderHome('idle') })
+    renderPool(true)
+    feed(`<b>You</b> travelled to ${to === 'hs' ? 'Hoenn and Sinnoh' : 'Kanto and Johto'}.`)
+    if (to === 'hs' && !hsStarted) await hsArrival()
+    else if (to === 'hs') { const n = boxOverCap(); homePop(`<b>Hoenn &amp; Sinnoh.</b> Level cap: Lv ${hsCap()}.${n ? ` ${boxedLine(n)}` : ''}`); if (n) feed(`<b>You</b>: ${boxedLine(n)}`) }
+    else homePop('<b>Kanto &amp; Johto.</b> No level cap here.')
+    renderTools(); toolsEnabled(true); saveGame()
+  }
+  /** Your first trip to Hoenn and Sinnoh: Alex explains, and you pick a new partner (Hoenn's three first), who leads your party here. */
+  async function hsArrival() {
+    Sound.music('vs')
+    await wipeTrainer(async () => { setScene(SCALPER_SCENES, sceneRoll); showLayer('battle') })
+    await trainerOn(ALEX); await talk(ALEX, ALEX.hoenn); await trainerOff()
+    const me = await pickStarter(2)
+    party.unshift(me)
+    const boxed = boxOverCap(); if (party.length > 6) toBox(party.pop())
+    renderTools()
+    await summary(me, `A fresh start: Lv ${me.level}, under the Lv ${hsCap()} cap here.`, `${me.name} joined your party!`, 'It leads your party in Hoenn and Sinnoh.')
+    if (boxed) { await say(boxedLine(boxed), 'They\'ll be waiting there.', 900); feed(`<b>You</b>: ${boxedLine(boxed)}`) }
+    await trainerOn(ALEX); await talk(ALEX, ALEX.hoennPicked(me.name)); await trainerOff()
+    hsStarted = true
+    feed(`<b>You</b> picked ${me.name} for Hoenn and Sinnoh.`)
+    Sound.stopMusic(); await backToMachine('idle')
+  }
+  $('travelBar') && ($('travelBar').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !live()) return; guard(regionTrip)() })
   async function dailyEncounter(state = 'in') {
     const c = dailyChallenge()
-    if (!dailyOpen() || !party.some((m) => m.hp > 0)) { if (!party.some((m) => m.hp > 0)) $('homeSub').textContent = 'heal your party to take on the daily challenge'; return }
+    if (!dailyOpen() || !party.some(canFight)) { if (!party.some(canFight)) $('homeSub').textContent = noFighter('heal your party to take on the daily challenge'); return }
     const T = { ...c.who, title: 'DAILY CHALLENGE', smart: true, blunder: 0, easy: false }
     toolsEnabled(false); $('dailyBar').hidden = true
     Sound.music('vs')
@@ -8503,14 +9085,14 @@ async function run(id) {
 
   /* ══════════ double battles: two you've beaten, at once (PAIRS) ══════════ */
   const DOUBLE_TOKENS = '6.00'
-  /** Whether you've beaten a pair's member: as their rematch ticket counts it. */
+  /** Whether you've beaten a pair's member: as their rematch ticket counts it, and the second region's gyms and Leagues the same way. */
   function memberBeaten(ref) {
     if (ref === 'alex') return rivalStep >= 1
     const i = ref.indexOf('_'), kind = ref.slice(0, i), arg = ref.slice(i + 1)
-    if (kind === 'gym') return badges.includes(+arg)
-    const list = { elite: ELITE, kanto: KANTO_ELITE }[kind], j = list ? list.findIndex((L) => L.short.toLowerCase() === arg) : -1
+    if (kind === 'gym') return (+arg >= 16 ? hsBadges : badges).includes(+arg)
+    const list = { elite: ELITE, kanto: KANTO_ELITE, hoenn: HOENN_ELITE, sinnoh: SINNOH_ELITE }[kind], j = list ? list.findIndex((L) => L.short.toLowerCase() === arg) : -1
     if (j < 0) return false
-    return kind === 'elite' ? champion || eliteStep > j : redBeaten || kantoStep > j
+    return kind === 'elite' ? champion || eliteStep > j : kind === 'kanto' ? redBeaten || kantoStep > j : kind === 'hoenn' ? hs.hoenn || hs.hoennStep > j : hs.sinnoh || hs.sinnohStep > j
   }
   /** Every pair, with its two members as they'd battle now (Alex as of his last battle with you), and whether you've beaten both. */
   function pairFoes() {
@@ -8579,7 +9161,7 @@ async function run(id) {
   /** A leader's team for this fight: their set levels (leaderLevels), every IV at least their floor (`ivs`, 20 unless set). */
   function gymTeam(n) {
     // leaderLevels(): set levels, from `low` up to the ace at `min`.
-    const L = GYMS[n], lv = leaderLevels(L)
+    const L = gymAt(n), lv = leaderLevels(L)
     return (demo ? L.team : teamFor(L, rand)).map((name, i) => {
       const m = individual(DATA.trainer.find((t) => t.name === name) ?? speciesByName(name), lv[i], rand)
       for (const k of STAT_KEYS) m.ivs[k] = Math.max(L.ivs ?? 20, m.ivs[k])
@@ -8593,16 +9175,17 @@ async function run(id) {
    * next gym's instead. Returns what moved, for the feed.
    */
   function carrySummons() {
-    const g = nextGym(); if (g >= GYMS.length) return ''
+    const g = nextGym(), lo = inHS() ? 16 : 0; if (g >= lo + 16) return ''
     let n = 0
-    for (const k of Object.keys(bag)) { const m = /^summon:(\d+)$/.exec(k); if (m && +m[1] < g && bag[k] > 0) { n += bag[k]; bag[k] = 0 } }
+    // Only this region's: a Kanto summon held in Hoenn is still good back in Kanto.
+    for (const k of Object.keys(bag)) { const m = /^summon:(\d+)$/.exec(k); if (m && +m[1] >= lo && +m[1] < g && bag[k] > 0) { n += bag[k]; bag[k] = 0 } }
     if (!n) return ''
     summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + n
-    return `<b>${n === 1 ? 'Your spare summon' : `Your ${n} spare summons`}</b> now ${n === 1 ? 'summons' : 'summon'} ${GYMS[g].short} of ${GYMS[g].city}.`
+    return `<b>${n === 1 ? 'Your spare summon' : `Your ${n} spare summons`}</b> now ${n === 1 ? 'summons' : 'summon'} ${gymAt(g).short} of ${gymAt(g).city}.`
   }
   /** Summoned from the Bag: the leader's VS, their words, the battle, a badge. The summon is spent either way. */
   async function gymBattle(n, demoPlan) {
-    const L = GYMS[n]
+    const L = gymAt(n)
     toolsEnabled(false)
     Sound.music('gymIntro')   // the fanfare, then the intro loop under their words
     await wipeTrainer(async () => {
@@ -8622,7 +9205,7 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
-      badges.push(n); sfx('levelup'); showBadge(L)
+      ;(n >= 16 ? hsBadges : badges).push(n); sfx('levelup'); showBadge(L)
       { const moved = carrySummons(); if (moved) feed(moved) }
       await say(`You got the ${L.badge} BADGE`, `from ${L.short}!`, 1100)
       await payMilestone(`gym:${n}`, L.tokens)
@@ -8656,7 +9239,7 @@ async function run(id) {
    */
   async function leagueBattle(id = 'elite', demoPlan) {
     const G = LEAGUES[id], list = G.members, st = leagueStep(id), L = list[st], key = summonKey(id), name = G.card.summonName
-    const setStep = (n) => { if (id === 'kanto') kantoStep = n; else eliteStep = n }
+    const setStep = (n) => { if (id === 'kanto') kantoStep = n; else if (id === 'hoenn') hs.hoennStep = n; else if (id === 'sinnoh') hs.sinnohStep = n; else eliteStep = n }
     toolsEnabled(false)
     // Each member's own intro under the splash and their words; Red says nothing, under the start of their theme.
     Sound.music(L.red ? G.battle(L) : L.introSong ?? LEAGUE_INTRO[L.short.toLowerCase()] ?? 'gymIntro')
@@ -8676,12 +9259,14 @@ async function run(id) {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
       await trainerOn(L); await talk(L, L.outro); await trainerOff()
       await out.exp?.()
-      await payMilestone(`${id === 'kanto' ? 'kanto' : 'elite'}:${L.short}`, L.tokens)
+      await payMilestone(`${id}:${L.short}`, L.tokens)
       { const p = await givePack('elite'); if (p) { sfx('click'); await say(`${L.short} gave you`, `${p}!`, 700) } }
       setStep(st + 1)
       if (st + 1 === list.length) {
         setStep(0); bag[key] = Math.max(0, (bag[key] ?? 0) - 1); sfx('levelup')
         if (id === 'kanto') { redBeaten = true; await say('RED nodded,', 'then turned back to the snow.', 1300); await say('You beat RED!', `The ${name} is spent.`, 1500) }
+        else if (id === 'hoenn') { hs.hoenn = true; await say("You're HOENN's new CHAMPION!", `The ${name} is spent. Sinnoh's gyms are open, and the cap is Lv ${hsCap()}.`, 1600) }
+        else if (id === 'sinnoh') { hs.sinnoh = true; await say("You're SINNOH's new CHAMPION!", `The ${name} is spent. There's no level cap now.`, 1600) }
         else { champion = true; await say("You're the new CHAMPION!", `The ${name} is spent. Kanto's gyms are open.`, 1500) }
       } else await say(`Next up: ${list[st + 1].full}.`, `Use your ${name} whenever you're ready.`, 900)
     } else {
@@ -8890,7 +9475,13 @@ async function run(id) {
    * rare one is in about 1 machine's pool in 7. The demo keeps its old
    * even draw, so it plays out the same.
    */
-  function poolFor(code, week = thisWeek()) {
+  function poolFor(code, week = thisWeek(), where = region) {
+    // Each region draws its own: Kanto and Johto's from DATA.wild, Hoenn and Sinnoh's from theirs (HOENN_SINNOH_WILD).
+    if (where === 'hs' && !demo) {
+      const r = rng(hashStr(`${code}:hs:${week}`)), left = HS_WILD(), out = []
+      while (out.length < POOL_SIZE && left.length) out.push(left.splice(left.indexOf(weightedPick(left, rarityWeight, r)), 1)[0].name)
+      return out
+    }
     const r = rng(hashStr(`${code}:${week}`))
     if (demo) {
       const names = DATA.wild.map((w) => w.name)
@@ -8930,7 +9521,7 @@ async function run(id) {
   }
   /** A wild Pokémon from that trainer's pool: by rarity again, so a rare one in the pool is still a rare find. */
   const wildFrom = (who, roll = Math.random) => {
-    const pool = poolFor(seedOf(who).m.code).map((n) => DATA.wild.find((w) => w.name === n))
+    const pool = poolFor(seedOf(who).m.code).map(speciesByName)
     return demo ? pool[Math.floor(roll() * pool.length)] : weightedPick(pool, rarityWeight, roll)
   }
   let poolWeek = null   // the week the panel shows: when it turns (the game left open, or a phone bringing back a tab from last week), it's redrawn
@@ -8941,7 +9532,7 @@ async function run(id) {
     const { m, why } = seedOf(YOU), ms = nextRotation(), dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24
     $('poolWhere').innerHTML = `<b>${esc(m.code)}</b> · ${esc(m.venue)}${m.city ? `, ${esc(m.city)}` : ''}<small>${why === 'report' ? 'from your latest timer report' : `random machine this week (no timer reports yet) · report a timer${realSeed ? ' on the Timers tab' : ''} to choose`}</small>`
     $('poolWhen').textContent = demo ? 'changes every Monday' : weekShift ? `week +${weekShift}` : `changes in ${dd}d ${hh}h`
-    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = DATA.wild.find((x) => x.name === n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt=""><b class="nm">${n.replace(/[♀♂]/, (g) => `<i class="sx ${g === '♀' ? 'f' : 'm'}">${g}</i>`)}</b>${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
+    $('poolMons').innerHTML = poolFor(m.code).map((n) => { const w = speciesByName(n), k = rarityOf(w); return `<span class="${k}"><img src="${ART[w.id]}" alt=""><b class="nm">${n.replace(/[♀♂]/, (g) => `<i class="sx ${g === '♀' ? 'f' : 'm'}">${g}</i>`)}</b>${k === 'common' ? '' : `<em>${k}</em>`}</span>` }).join('')
     if (flash) anim($('poolPanel'), [{ boxShadow: '0 0 0 3px #facc15' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 900 })
   }
 
@@ -9035,10 +9626,10 @@ async function run(id) {
     // A kind of battle that's off (yours, or not live) doesn't jump out: the tap is an empty one.
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
     // A rival battle that's due takes this tap: Alex is waiting at the machine (with trainer battles on, and a Pokémon that can fight).
-    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some((m) => m.hp > 0))) { enc = 'rival'; pity = false }
+    if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some(canFight))) { enc = 'rival'; pity = false }
     // If not, a glitcher battle that's due: Herb or Paul caught at the machine.
     let glitcher = force.enc === 'story' ? force.who ?? storyDue() : null
-    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some((m) => m.hp > 0)) glitcher = storyDue()
+    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some(canFight)) glitcher = storyDue()
     if (glitcher) { enc = 'story'; pity = false }
     // Either way, the other story characters keep their distance for a while.
     if (!demo && (enc === 'rival' || glitcher)) storyGap = { taps: STORY_GAP + Math.floor(flavor() * 5), who: enc === 'rival' ? 'ALEX' : glitcher }
@@ -9568,12 +10159,12 @@ async function run(id) {
   async function battle(o) {
     CRUMBS.set({ kind: o.kind, who: o.trainer?.full ?? o.trainer?.short ?? `wild ${o.foe?.name}`, foeLv: o.foe?.level, party: party.map((m) => `${m.name} ${m.level}`).join(', ') })
     CRUMBS.phase('battle set up')
-    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
+    Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter(canFight).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
     try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
   }
   async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
-    let me = party.find((m) => m.hp > 0)
+    let me = party.find(canFight)
     const foeTeam = kind === 'trainer' ? [foe, ...roster] : null   // a wild Pokémon has no team to show
     watchBalls($('eBalls'), $('pBalls'), () => ({ enemy: foeTeam, enemyOut: [foe], mine: party, mineOut: [me] }), () => getComputedStyle($('battleL')).display !== 'none')
     // Stat stages for this battle (Howl, Growth). Switching out clears them, as in the games.
@@ -9765,9 +10356,9 @@ async function run(id) {
           sfx('shadow'); showTags(); await say('All Pokémon that heard the song', 'will faint in three turns!', 450); return true
         }
         case 'baton': {
-          const others = party.filter((m) => m.hp > 0 && m !== me); if (!others.length) return false
+          const others = party.filter((m) => canFight(m) && m !== me); if (!others.length) return false
           let next = others[0]
-          if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Pass to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); if (p !== 'back' && party[+p.slice(1)]?.hp > 0 && party[+p.slice(1)] !== me) next = party[+p.slice(1)] }
+          if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Pass to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); if (p !== 'back' && canFight(party[+p.slice(1)]) && party[+p.slice(1)] !== me) next = party[+p.slice(1)] }
           const keep = Object.fromEntries(['atk', 'spa', 'def', 'spd', 'spe', 'acc', 'eva'].map((k) => [k, t[k] ?? 0]))
           await switchTo(next); Object.assign(ST(me), keep); showTags(); await say(`${me.name} took over`, 'with the stat changes!', 300); return true
         }
@@ -9788,10 +10379,10 @@ async function run(id) {
           // A trainer battle: a flash that lowers the other side's accuracy, then it switches out.
           sfx('zap'); flash('#fff', .85, 280); await stage(other, 'acc', -1, other === foe)
           if (user === me) {
-            const others = party.filter((m) => m.hp > 0 && m !== me)
+            const others = party.filter((m) => canFight(m) && m !== me)
             if (!others.length || t.trapped) return true
             let next = others[0]
-            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && c?.hp > 0 && c !== me) next = c }
+            if (others.length > 1 && !demo) { drawParty(); panel('pParty'); msg0('Switch to which Pokémon?', ''); const p = await choose('pParty', null); panel(null); const c = party[+p.slice(1)]; if (p !== 'back' && canFight(c) && c !== me) next = c }
             await switchTo(next)
           } else if (roster.length) await foeSwap()
           return true
@@ -9875,7 +10466,7 @@ async function run(id) {
       const stab = att.types.includes(mv.type) ? 1.5 : 1
       const eff = soften(gameMult(mv.type, def.types))
       const burn = att.status === 'brn' && mv.cat !== 'spec' ? 0.5 : 1
-      return { dmg: Math.max(1, Math.round(base * stab * eff * mult * burn)), eff }
+      return { dmg: Math.max(1, Math.round(base * stab * eff * mult * burn * wonderGuard(def, mv))), eff }
     }
 
     /* ── menus: one top level, each with its own page ── */
@@ -9929,7 +10520,7 @@ async function run(id) {
       $('pParty').innerHTML = [...Array(n).keys()].map((i) => {
         const m = party[i]; if (!m) return `<button class="btn fm${i} t-empty" disabled>—</button>`
         const pct = m.hp / m.stats.hp * 100
-        return `<button class="btn fm${i} t-party pmon${m.hp <= 0 ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${m.hp}/${m.stats.hp} HP</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
+        return `<button class="btn fm${i} t-party pmon${!canFight(m) ? ' off' : ''}${m === me ? ' sel' : ''}" data-act="p${i}"><img src="${spr(m)}" alt=""><span style="flex:1;min-width:0">${m.name}<small>${overCap(m) ? `Lv ${m.level} · over the Lv ${levelCap()} cap` : `${m.hp}/${m.stats.hp} HP`}</small><span class="hpm"><i style="width:${pct}%;background:${hpColor(pct)}"></i></span></span></button>`
       }).join('') + (sending ? '' : `<button class="btn fback t-run" data-act="back">◀ BACK</button>`)
     }
     function choose(panelId, scripted) {
@@ -9965,6 +10556,7 @@ async function run(id) {
       if (mv.sleepOk && !opts.snoring) { await say('But it failed!', `${me.name} isn't asleep.`, 300); return }
       // Moves whose power is worked out now: Flail by HP, Fury Cutter by its run, Knock Off on a trainer's Pokémon.
       if (mv.flail) mv = { ...mv, power: flailPower(me) }
+      if (mv.spout) mv = { ...mv, power: spoutPower(me) }
       if (mv.furyCutter) { t.fury = t.lastMove === name ? Math.min(2, (t.fury ?? 0) + 1) : 0; mv = { ...mv, power: mv.power * 2 ** t.fury } }
       if (mv.knockOff && kind === 'trainer') mv = { ...mv, power: Math.round(mv.power * 1.5) }
       t.lastMove = name
@@ -10015,6 +10607,7 @@ async function run(id) {
       if (accDownOf(mv) && clean && foe.hp > 0) await stage(foe, 'acc', -accDownOf(mv), true)
       if (hits > 1) await say(landed === hits ? `Hit ${hits} times — full damage!` : `Hit ${landed} of ${hits} times.`)
       if (mv.recharge) ST(me).recharge = true
+      if (mv.selfDrop && clean && me.hp > 0) for (const [k, by] of Object.entries(mv.selfDrop)) await stage(me, k, by)
       if (mv.rampage && !crit && !ST(me).conf && me.hp > 0) { ST(me).conf = 2 + Math.floor(rand() * 2); showTags(); await say(me.name, 'became confused from fatigue!', 300) }
       if (crit) await say('A critical hit!')
       if (landed && eff > 1) await say("It's super effective!")
@@ -10573,7 +11166,7 @@ async function run(id) {
         await anim($('player'), [{ transform: 'translateY(0)', clipPath: 'inset(0 0 0 0)' }, { transform: 'translateY(120px)', clipPath: 'inset(0 0 120px 0)' }], { duration: 520 }).finished
         $('player').style.visibility = 'hidden'
         await say(`${me.name} fainted!`); addBond(me, -10)
-        const up = party.filter((m) => m.hp > 0)
+        const up = party.filter(canFight)
         if (!up.length) { $('phud').style.visibility = 'hidden'; return { result: 'lost' } }
         // Your call who goes in next (the demo takes the first).
         let next = up[0]
@@ -10652,6 +11245,12 @@ async function run(id) {
         evolveInto(m, to.name)
         await say('Congratulations! Your', `${was} evolved into ${m.name}!`, 1400)
         for (const r of learnAtLevel(m)) await say(`${m.name} learned ${r.name}!`, r.equipped ? '' : 'Swap it in from the Box.', 600)
+        if (was === 'NINCADA' && m.name === 'NINJASK') {
+          // The shell it left behind comes to life: a SHEDINJA, as strong as it was (same level, IVs and nature).
+          const sh = shedinjaOf(m); cry(sh)
+          const boxed = party.length < 6 ? (party.push(sh), null) : toBox(sh)
+          await say('Something appeared in the empty shell...', `SHEDINJA ${boxed === null ? 'joined your party' : `went to Box ${boxed + 1}`}!`, 1200)
+        }
         renderTools()
       }
       stage.remove()
@@ -10677,14 +11276,15 @@ async function run(id) {
   }
 
   async function wildEncounter(demoPlan, state = homeState, legend = false) {
-    if (!party.some((m) => m.hp > 0)) { renderHome(homeState); $('homeSub').textContent = 'your party has fainted. Heal them first!'; sfx('blocked'); return }
+    if (!party.some(canFight)) { renderHome(homeState); $('homeSub').textContent = noFighter('your party has fainted. Heal them first!'); sfx('blocked'); return }
     toolsEnabled(false)
     // The machine shudders, and something leaps out from behind it.
     sfx('rustle')
     await anim($(state === 'maint' ? 'maint' : 'attractRows'), [0, -4, 4, -3, 3, 0].map((v) => ({ transform: `translateX(${v}px)` })), { duration: 360 }).finished
     const b = bangOn($('home'), 150, 160); await W(560); b.remove()
     // Now and then, one of the roaming legendaries instead: the shared one, HP and all.
-    const roamer = legend || (!demoPlan && flavor() < LEGEND_RATE) ? pickLegend() : null
+    // Johto's roaming legendaries stay in Kanto and Johto (they're far over Hoenn's caps).
+    const roamer = legend || (!demoPlan && !inHS() && flavor() < LEGEND_RATE) ? pickLegend() : null
     const species = demoPlan ? DATA.wild.find((w) => w.name === demoPlan.wild) : window.__forceWild ? speciesByName(window.__forceWild) : wildFrom(YOU)   // from your seed's pool this week (__forceWild: testing only)
     const foe = roamer ?? individual(species, demoPlan ? 4 : wildLevel(species), rand)
     if (!roamer && !demoPlan && SHINY_IDS.has(foe.id) && (window.__forceShiny || Math.random() < 1 / SHINY_ODDS)) foe.shiny = true   // __forceShiny: testing only
@@ -10895,7 +11495,7 @@ async function run(id) {
     await W(560)
     renderHome(state, true); $('homeLoiterer').style.display = 'block'
     sfx('blocked'); const b = bangOn($('home'), 214, 92); await W(700); b.remove()
-    if (!party.some((m) => m.hp > 0)) { $('homeSub').textContent = 'heal your party to take them on'; toolsEnabled(true); return }
+    if (!party.some(canFight)) { $('homeSub').textContent = noFighter('heal your party to take them on'); toolsEnabled(true); return }
     Sound.music('vs')
     await wipeTrainer(async () => {
       setScene(SCALPER_SCENES, sceneRoll); showLayer('battle')
@@ -10935,9 +11535,9 @@ async function run(id) {
   }
 
   /* ══════════ starter pick ══════════ */
-  async function pickStarter() {
+  async function pickStarter(first = 0) {
     Sound.music('win')
-    let region = 0, sel = 1
+    let region = first, sel = 1
     const S = (r) => DATA.starters.filter((s) => s.region === r)
     $('showcase').style.display = 'block'
     // One region at a time: ◀ the name ▶, rather than nine three-letter tabs too small to read or tap.
@@ -11121,7 +11721,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue, region, hsStarted, hsBadges, hs }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -11201,6 +11801,10 @@ async function run(id) {
     // Only today's roamers: a save from when Raikou, Entei and Suicune roamed starts the birds fresh.
     for (const [n, m] of Object.entries(s.roam ?? {})) if (LEGENDS.includes(n)) ROAM[n] = m
     weekShift = s.weekShift ?? 0; Object.assign(reports, s.reports ?? {})
+    // Hoenn and Sinnoh: where you were (Kanto and Johto, if the region isn't open to this save), and its progress.
+    hsStarted = !!s.hsStarted; hsBadges.splice(0, hsBadges.length, ...(Array.isArray(s.hsBadges) ? s.hsBadges : []))
+    Object.assign(hs, { hoenn: false, sinnoh: false, hoennStep: 0, sinnohStep: 0 }, s.hs ?? {})
+    region = s.region === 'hs' && hsStarted && hsUnlocked() ? 'hs' : 'kj'; paintRegion()
     tutorialDone = true
     { const moved = carrySummons(); if (moved) setTimeout(() => feed(moved), 0) }
     $('wallet').textContent = `${wallet.toFixed(2)} tk`; renderRoamers?.(); renderPool?.(); renderTools()
@@ -11270,6 +11874,10 @@ async function run(id) {
     /** A strike ring as it's drawn with your accuracy `b` stages down and the target's evasion `v` up (left on screen; clear() removes it). */
     ringLook: (b, v, x = 160, y = 110) => { blind = b; veil = v; try { return ring(x, y, 60000, 'STRIKE') } finally { blind = 0; veil = 0 } }, setHeals: (h) => { heals = h }, FREE_HEALS, get healPrice() { return healPrice },
     leagueNow, leagueKey, get league() { return { elite: eliteStep, kanto: kantoStep, champion, red: redBeaten } }, get fame() { return fame }, hallOfFame, get shareOn() { return shareOn }, setLeague: (o) => { champion = o.champion ?? champion; redBeaten = o.red ?? redBeaten; kantoStep = o.kanto ?? kantoStep } }   // for tests: the shared machine, the other trainers, and your party, Bag and tokens
+  // Hoenn and Sinnoh, for the tests: the region, its progress and cap, and travelling.
+  // (getOwnPropertyDescriptors, so the getters stay live: Object.assign would copy their values once.)
+  Object.defineProperties(window.__vvm, Object.getOwnPropertyDescriptors({ get region() { return region }, setRegion: (v) => { region = v; paintRegion(); renderPool() }, get hsStarted() { return hsStarted }, setHsStarted: (v) => { hsStarted = v },
+    hsBadges, hs, hsCap, levelCap, canFight, overCap, trainerCap, trainerLevel, regionTrip: guard(regionTrip), setFame: (v) => { fame = v }, paintTravel, saveData: () => readLocal() }))
   $('machineState').onchange = () => { setMachine($('machineState').value); feed(`The machine is now <b>${{ in: 'stocked', out: 'sold out', maint: 'under maintenance' }[machine.state]}</b>, for everyone.`) }
   // Three trainers tap in the same instant: three independent rolls. Yours then plays out.
   $('bTogether').onclick = guard(async () => {

@@ -95,7 +95,7 @@ function Bottle({ body, edge }: { body: string; edge: string }) {
 }
 
 /** The evolution stones (v88): one shape, each in its own colours and with its own mark inside. */
-const STONES: Record<string, { body: string; edge: string; mark: string; glyph: 'bolt' | 'drop' | 'flame' | 'leaf' | 'flake' | 'moon' | 'sun' | 'dusk' | 'star' }> = {
+const STONES: Record<string, { body: string; edge: string; mark: string; glyph: 'bolt' | 'drop' | 'flame' | 'leaf' | 'flake' | 'moon' | 'sun' | 'dusk' | 'star' | 'burst' }> = {
   thunder_stone: { body: '#86efac', edge: '#15803d', mark: '#facc15', glyph: 'bolt' },
   water_stone: { body: '#7dd3fc', edge: '#0369a1', mark: '#1d4ed8', glyph: 'drop' },
   fire_stone: { body: '#fdba74', edge: '#c2410c', mark: '#dc2626', glyph: 'flame' },
@@ -105,6 +105,7 @@ const STONES: Record<string, { body: string; edge: string; mark: string; glyph: 
   sun_stone: { body: '#fde047', edge: '#c2410c', mark: '#ea580c', glyph: 'sun' },
   dusk_stone: { body: '#6b21a8', edge: '#3b0764', mark: '#f472b6', glyph: 'dusk' },
   shiny_stone: { body: '#f5f5f4', edge: '#a8a29e', mark: '#facc15', glyph: 'star' },
+  dawn_stone: { body: '#5eead4', edge: '#0f766e', mark: '#f0fdfa', glyph: 'burst' },   // v107: Gallade, Froslass
 }
 
 function Stone({ body, edge, mark, glyph }: (typeof STONES)[string]) {
@@ -122,6 +123,7 @@ function Stone({ body, edge, mark, glyph }: (typeof STONES)[string]) {
         {glyph === 'sun' && <><circle cx="12" cy="12" r="2.6" stroke="none" /><path d="M12 7v1.3M12 15.7V17M7 12h1.3M15.7 12H17M8.5 8.5l.9.9M14.6 14.6l.9.9M8.5 15.5l.9-.9M14.6 9.4l.9-.9" fill="none" strokeWidth="1.2" /></>}
         {glyph === 'dusk' && <><circle cx="12" cy="13" r="3" stroke="none" opacity="0.9" /><path d="M8 10.5h8" fill="none" strokeWidth="1.2" /></>}
         {glyph === 'star' && <path d="M12 7.5l1.3 3 3.2.3-2.4 2.1.7 3.1L12 14.4 9.2 16l.7-3.1-2.4-2.1 3.2-.3Z" stroke="none" />}
+        {glyph === 'burst' && <path d="M12 7.2l1.1 2.9 3-.9-1.6 2.7 2.6 1.6-3.1.4.3 3.1L12 15l-2.3 2 .3-3.1-3.1-.4 2.6-1.6-1.6-2.7 3 .9Z" stroke="none" />}
       </g>
     </>
   )

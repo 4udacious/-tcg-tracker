@@ -169,3 +169,52 @@ test('2v2: when one trainer of a tag team runs out, their partner sends in anoth
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('Hoenn and Sinnoh\'s League in play: Roxanne summoned from the Bag for the STONE BADGE (the cap rises), then the Hoenn League ladder from Sidney', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm
+      v.setFame({ at: Date.now(), team: [] }); v.setRegion('hs'); v.setHsStarted(true); v.setRival(7)
+      // A partner under the cap, strong enough that the battles are short: this is about the gym and the ladder, not the fight.
+      const m = individual(speciesByName('TREECKO'), 15, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 3000, atk: 900, spa: 900, def: 900, spd: 900, spe: 900 }); m.hp = 3000
+      v.party.splice(0, 9, m)
+      HS_GYMS[0].team = ['NOSEPASS']; HOENN_ELITE[0].team = ['MIGHTYENA']
+      summonItem(16); v.bag['summon:16'] = 1; v.renderTools()
+    })
+    const openBag = async (item) => {
+      await page.evaluate(() => document.getElementById('home').click())
+      for (let i = 0; i < 20 && !(await page.$('#sheetBody [data-tab]')); i++) {
+        await page.waitForTimeout(400)
+        await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
+      }
+      await page.dispatchEvent('#sheetBody [data-tab="other"]', 'click'); await page.waitForTimeout(200)
+      await page.dispatchEvent(`#sheetBody [data-item="${item}"]`, 'click'); await page.waitForTimeout(300)
+      return page.textContent('#sheetBody')
+    }
+    const play = async (sel) => {
+      await page.dispatchEvent(sel, 'click')
+      let fought = false
+      for (let i = 0; i < 60 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
+      assert.ok(fought, `the battle started (${sel})`)
+      for (let i = 0; i < 700; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+    }
+    // The gym: Roxanne of Rustboro, the first of Hoenn's eight.
+    assert.match(await openBag('summon:16'), /ROXANNE.*RUSTBORO CITY GYM · ROCK TYPE.*Hoenn gym 1 of 8/s, "the summon's page: Roxanne, Hoenn's first gym")
+    await play('#sheetBody [data-challenge="16"]')
+    const gym = await page.evaluate(() => { const v = window.__vvm; return { hs: [...v.hsBadges], kj: v.badges.length, cap: v.hsCap(), summon: v.bag['summon:16'] ?? 0 } })
+    assert.deepEqual(gym, { hs: [16], kj: 0, cap: 19, summon: 0 }, 'the STONE BADGE, the cap up to Lv 19, and Johto\'s badges untouched')
+    // The Hoenn League: all eight badges, a ticket, and the ladder from Sidney.
+    await page.evaluate(() => { const v = window.__vvm; for (let n = 17; n < 24; n++) v.hsBadges.push(n); v.bag[v.leagueKey()] = 1; v.renderTools() })
+    assert.equal(await page.evaluate(() => window.__vvm.leagueKey()), 'summon:hoenn')
+    const ladder = await openBag('summon:hoenn')
+    assert.match(ladder, /SIDNEY.*PHOEBE.*GLACIA.*DRAKE.*WALLACE/s, 'the ladder shows all five'); assert.match(ladder, /CHALLENGE SIDNEY/)
+    await play('#sheetBody [data-elite="hoenn"]')
+    const r = await page.evaluate(() => ({ step: window.__vvm.hs.hoennStep, ticket: window.__vvm.bag['summon:hoenn'] ?? 0 }))
+    if (r.step === 1) assert.equal(r.ticket, 1, 'won: the ticket stays for Phoebe')
+    else assert.deepEqual([r.step, r.ticket], [0, 0], 'lost: the ticket is used up')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

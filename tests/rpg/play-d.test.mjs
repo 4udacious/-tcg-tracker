@@ -145,3 +145,90 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('Hoenn and Sinnoh\'s moves played: Close Combat lowers its user\'s own defenses once it lands, and a Shedinja shrugs off what isn\'t super effective', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      MOVEDEX['CLOSE COMBAT'].cost = 0
+      const m = individual(speciesByName('LUCARIO'), 60, Math.random); learnAtLevel(m)
+      m.moves = ['TACKLE', 'CLOSE COMBAT']; if (!m.learned.includes('CLOSE COMBAT')) m.learned.push('CLOSE COMBAT'); Object.assign(m.stats, { hp: 3000 }); m.hp = 3000
+      window.__vvm.party.splice(0, 9, m); window.__forceWild = 'SNORLAX'
+      const said = window.__said = [], msg = document.getElementById('msg')
+      new MutationObserver(() => { if (said.at(-1) !== msg.textContent) said.push(msg.textContent) }).observe(msg, { childList: true, subtree: true, characterData: true })
+    })
+    bot.want = ['CLOSE COMBAT']
+    assert.ok(await bot.encounter('wild'), 'a wild battle started')
+    const said = await page.evaluate(() => window.__said)
+    assert.ok(said.some((l) => /CLOSE COMBAT!/.test(l)), 'Close Combat was used')
+    assert.ok(said.some((l) => /LUCARIO's Defense.*fell!/.test(l)) && said.some((l) => /LUCARIO's Sp\. Def.*fell!/.test(l)), `its own Defense and Sp. Def fell: ${said.filter((l) => /fell|lower/.test(l)).slice(0, 4).join(' | ')}`)
+    // A Shedinja in battle: a Normal hit does a quarter of what it would.
+    const r = await page.evaluate(() => {
+      const sh = individual(speciesByName('SHEDINJA'), 40, () => 0.5), pika = individual(speciesByName('PIKACHU'), 40, () => 0.5)
+      return [wonderGuard(sh, moveInfo('BODY SLAM')), wonderGuard(sh, moveInfo('FLAMETHROWER')), wonderGuard(pika, moveInfo('BODY SLAM'))]
+    })
+    assert.deepEqual(r, [0.25, 1, 1])
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('Hoenn and Sinnoh, played: opened by the Hall of Fame, a trip there with a new partner, the level cap, the region\'s wild Pokémon and trainers, and back', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    // Not open before the Hall of Fame (Alex's last battle).
+    const before = await page.evaluate(() => { window.__hsOpen = true; window.__vvm.paintTravel(); return document.getElementById('travelBar').hidden })
+    assert.ok(before, 'no Travel before the Hall of Fame')
+    await page.evaluate(() => {
+      const v = window.__vvm, m = individual(speciesByName('CHARIZARD'), 70, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      v.party.splice(0, 9, m); v.setFame({ at: Date.now(), team: [{ id: m.id, name: m.name, level: 70 }] })
+    })
+    for (let i = 0; i < 30 && !(await bot.atHome()); i++) await bot.step()
+    // The bar repaints every second, once the game is idle at the machine.
+    await page.waitForFunction(() => !document.getElementById('travelBar').hidden, null, { timeout: 60000 })
+    assert.match(await page.textContent('#travelBar'), /to Hoenn & Sinnoh · NEW/, 'Travel shows once the Hall of Fame is in')
+    assert.equal(await page.evaluate(() => document.body.classList.contains('hs')), false, 'the usual red machine in Kanto and Johto')
+    // The trip: Alex, then a new partner (Hoenn's three shown first).
+    await page.dispatchEvent('#travelBar', 'click')
+    for (let i = 0; i < 200 && !(await page.evaluate(() => window.__vvm.hsStarted && getComputedStyle(document.getElementById('home')).display !== 'none' && document.getElementById('battleL').style.display !== 'block')); i++) await bot.step()
+    await page.waitForFunction(() => window.__vvm.saveData()?.region === 'hs', null, { timeout: 60000 }).catch(() => {})
+    const r = await page.evaluate(() => {
+      const v = window.__vvm, [lead] = v.party, old = v.box.find((m) => m.name === 'CHARIZARD')
+      return { region: v.region, blue: document.body.classList.contains('hs'), lead: [lead.name, lead.level], party: v.party.map((m) => m.name), old: old && v.overCap(old), cap: v.hsCap(), trainerCap: v.trainerCap(),
+        pool: v.poolFor(v.seedOf('YOU').m.code).filter((n) => !HOENN_SINNOH_WILD.includes(n)), poolHead: document.querySelector('#poolPanel .phead b').textContent,
+        save: (() => { const s = v.saveData(); return s && [s.region, s.hsStarted] })(), travel: document.getElementById('travelBar').textContent }
+    })
+    assert.equal(r.region, 'hs'); assert.ok(r.blue, 'the blue machine in Hoenn and Sinnoh')
+    assert.deepEqual(r.lead, ['TORCHIC', 5], 'a new partner, at Lv 5, leading the party')
+    assert.deepEqual(r.party, ['TORCHIC']); assert.equal(r.old, true, 'the Lv 70 Charizard, over the cap, went to the Box')
+    assert.equal(r.cap, 15); assert.equal(r.trainerCap, 12, 'wild Pokémon and trainers stay under the cap')
+    assert.deepEqual(r.pool, [], 'the wild pool is Hoenn and Sinnoh\'s'); assert.match(r.poolHead, /HOENN & SINNOH/)
+    assert.deepEqual(r.save, ['hs', true], 'saved there')
+    // A wild battle: Torchic leads (Charizard can't), against a Hoenn or Sinnoh Pokémon under the cap.
+    await page.evaluate(() => { window.__said = []; const msg = document.getElementById('msg'); new MutationObserver(() => { if (window.__said.at(-1) !== msg.textContent) window.__said.push(msg.textContent) }).observe(msg, { childList: true, subtree: true, characterData: true }) })
+    assert.ok(await bot.encounter('wild'), 'a wild battle in Hoenn')
+    const said = await page.evaluate(() => window.__said.join(' | '))
+    assert.match(said, /Go! TORCHIC!|TORCHIC/, 'Torchic went out'); assert.doesNotMatch(said, /Go! CHARIZARD/, 'Charizard sat out')
+    // Everyday trainers bring their Hoenn and Sinnoh teams; EXP stops at the cap.
+    const t = await page.evaluate(async () => {
+      const v = window.__vvm, deck = v.deckFor(v.SCALPERS.find((T) => T.short === 'ROSE'), 10)
+      const m = v.party[0]; m.level = 15; m.exp = 0; m.stats = statsAt(m, 15); await v.gainExp(m, 5000)
+      return { deck: deck.map((x) => x.name).filter((n) => !HS_POOLS.ROSE.some((p) => p.name === n)), level: m.level, dbg: [v.region, deck.map((x) => x.name + x.level).join(), v.trainerLevel()] }
+    })
+    assert.deepEqual(t.deck, [], `Rose's Hoenn team ${JSON.stringify(t.dbg)}`); assert.equal(t.level, 15, 'no EXP past the cap')
+    // And back: the red machine, no cap. The Charizard stays in the Box, fit to fight again. (The bar is on the idle screen: back to it from the shelf.)
+    for (let i = 0; i < 30 && !(await bot.atHome()); i++) await bot.step()
+    for (let i = 0; i < 40 && await page.evaluate(() => document.getElementById('travelBar').hidden); i++) {
+      await page.evaluate(() => { const b = document.getElementById('cbBack'); if (b && b.offsetParent) b.click() }); await page.waitForTimeout(1000)
+    }
+    assert.match(await page.textContent('#travelBar'), /back to Kanto & Johto/)
+    await page.dispatchEvent('#travelBar', 'click')
+    await page.waitForFunction(() => window.__vvm.region === 'kj', null, { timeout: 30000 }).catch(() => {})
+    const back = await page.evaluate(() => { const v = window.__vvm, c = v.box.find((m) => m.name === 'CHARIZARD'); return { region: v.region, blue: document.body.classList.contains('hs'), boxed: !!c, charizard: v.canFight(c), party: v.party.map((m) => m.name) } })
+    assert.deepEqual(back, { region: 'kj', blue: false, boxed: true, charizard: true, party: ['TORCHIC'] }, 'still in the Box, and able to fight here again')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

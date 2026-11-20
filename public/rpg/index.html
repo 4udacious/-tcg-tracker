@@ -52,6 +52,21 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .dailybar b { font-weight: 900; letter-spacing: .06em; }
 .dailybar span { color: #fde68a; }
 .dailybar[hidden] { display: none; }
+/* Travel between the regions (once Hoenn and Sinnoh are open): blue to go there, red to come back. */
+.travelbar { display: block; width: calc(100% - 8px); margin: 10px 4px 0; padding: 9px 12px; border: 0; border-radius: 12px; background: linear-gradient(90deg, #1d4ed8, #0e7490); color: #fff; font: 700 12px system-ui, sans-serif; cursor: pointer; }
+.travelbar b { font-weight: 900; letter-spacing: .06em; }
+.travelbar span { color: #fde68a; }
+.travelbar[hidden] { display: none; }
+body.hs .travelbar { background: linear-gradient(90deg, #e11d48, #b45309); }
+/* Hoenn and Sinnoh's machine: sapphire blue and gold where Kanto and Johto's is red. */
+body.hs .cab { background: #eef2f8; box-shadow: 0 0 0 3px #2563eb, 0 0 26px rgba(37,99,235,.5); }
+body.hs .crown { border-color: #2563eb; box-shadow: 0 0 16px rgba(37,99,235,.6); }
+body.hs .crown::before { background: #1d4ed8; }
+body.hs .tray { border-color: #2563eb; }
+body.hs .vvm-bg { box-shadow: 0 0 0 2px #2563eb, 0 0 12px rgba(37,99,235,.7); }
+body.hs .home { background: radial-gradient(circle at 50% 0%, #10345a 0%, #071426 70%); }
+body.hs .home .logo { color: #fbbf24; text-shadow: 0 0 10px rgba(251,191,36,.55); }
+body.hs .tool .n { background: #2563eb; }
 .tray { position: relative; margin: 10px 4px 0; height: 46px; border-radius: 12px; background: #111; border: 3px solid #ff3b53; box-shadow: inset 0 4px 14px rgba(0,0,0,.8); cursor: pointer; }
 .trayin { position: absolute; inset: 0; overflow: hidden; border-radius: 9px; }
 .tdrop { position: absolute; top: 50%; transform: translateY(-50%) rotate(var(--tilt)); }
@@ -1265,6 +1280,8 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
     <button class="updatebar" id="updateBar" type="button" hidden>New version available · tap to refresh</button>
     <!-- The daily challenge (Play and the app): a type a day, for a pack and tokens. Only at the machine, until it's won. -->
     <button class="dailybar" id="dailyBar" type="button" hidden></button>
+    <!-- Travel between Kanto & Johto and Hoenn & Sinnoh, once the second region is open. Only at the machine. -->
+    <button class="travelbar" id="travelBar" type="button" hidden></button>
 
     <div class="tray" id="tray" role="button" aria-label="The tray: tap to collect"><div class="trayin" id="trayIn"></div><div class="traystuck" id="trayStuck" aria-hidden="true"></div></div>
 
@@ -1292,6 +1309,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=4c60d9dd00"></script>
+<script src="/rpg/game.js?v=c55d1e8446"></script>
 </body>
 </html>
