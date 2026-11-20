@@ -18,7 +18,8 @@
 //
 // Left out, so read the numbers as a guide: statuses and stat moves (yours and
 // theirs; a rampage's confusion is in), your own switching to a better
-// matchup mid-battle (the leaders' is in), Move Discs, Revives.
+// matchup mid-battle (the leaders' is in), Move Discs, Revives. A leader's
+// counter after a parry (LEADER_COUNTER) is in.
 //
 // A double battle is a 2v2 (duoBattle below): your first two against one of
 // each pair's, with the shared PP pool, spread moves, their partner-aware
@@ -103,15 +104,17 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
         const score = (mv) => (mv.power ?? 60) * (mv.hits ?? 1) * soften(gameMult(mv.type, foe.types)) * (me.types.includes(mv.type) ? 1.5 : 1)
         const mv = me.sim.filter((x) => (x.cost ?? 0) <= pp).sort((a, b) => score(b) - score(a))[0] ?? me.sim[0]
         pp -= mv.cost ?? 0
-        let clean = false
+        let clean = false, countered = false
         for (let h = 0; h < (mv.hits ?? 1) && foe.hp > 0; h++) {
           const dt = Math.abs(gauss() * skill.strike), g = grade(dt)
           if ((mv.hits ?? 1) > 1 && g.miss) continue
           clean ||= !g.miss
-          // A leader parries now and then (the game's own rule): a fifth of the damage.
+          // A leader parries now and then (the game's own rule): a fifth of the damage, and a counter after.
           const parried = leaderParries(T, foe, dt <= 40 ? 'PERFECT' : g.miss ? 'MISS' : 'GOOD', conf > 0, R)
           foe.hp = Math.max(0, foe.hp - damage(me, foe, mv, g.mult * (parried ? DEFEND_TAKEN.parry : 1)))
+          countered ||= parried
         }
+        if (countered && foe.hp > 0) me.hp = Math.max(1, me.hp - Math.max(1, Math.round(damage(foe, me, MOVEDEX.TACKLE, 1) * LEADER_COUNTER)))
         if ((mv.cost ?? 0) === 0 && clean) pp = Math.min(5, pp + 1)
       }
       if (foe.hp <= 0) {
@@ -214,13 +217,17 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
           const targets = a.mv.spread ? foes : [a.f && a.f.m.hp > 0 && foes.includes(a.f) ? a.f : foes[0]]
           const mult = targets.length > 1 ? 0.75 : 1
           let clean = false
+          const parriers = new Set()
           for (const f of targets) for (let h = 0; h < (a.mv.hits ?? 1) && f.m.hp > 0; h++) {
             const dt = Math.abs(gauss() * skill.strike), g = grade(dt)
             if ((a.mv.hits ?? 1) > 1 && g.miss) continue
             clean ||= !g.miss
             const parried = leaderParries(f.T, f.m, dt <= 40 ? 'PERFECT' : g.miss ? 'MISS' : 'GOOD', false, R)
             f.m.hp = Math.max(0, f.m.hp - damage(a.who, f.m, a.mv, g.mult * mult * (parried ? DEFEND_TAKEN.parry : 1)))
+            if (parried) parriers.add(f.m)
           }
+          // Each that parried counters, never for the knockout.
+          for (const m of parriers) if (m.hp > 0) a.who.hp = Math.max(1, a.who.hp - Math.max(1, Math.round(damage(m, a.who, MOVEDEX.TACKLE, 1) * LEADER_COUNTER)))
           // Earthquake and the like roll on into your partner, who can jump it.
           const partner = a.mv.spread === 'all' ? up(mine).find((x) => x !== a.who) : null
           if (partner) partner.hp = Math.max(0, partner.hp - damage(a.who, partner, a.mv, 0.75 * ring(true, 820, skill)))
