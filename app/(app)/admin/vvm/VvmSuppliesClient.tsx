@@ -90,7 +90,8 @@ export default function VvmSuppliesClient({ supplies, show = 'supplies' }: { sup
           <p className="text-xs text-muted leading-snug">
             One ticket per Gym Leader, Elite Four member, Red and Alex ({on} of {singles.length} on).
             On the shelf at random like any supply, and only for sale to members who have
-            beaten that opponent. A won rematch pays its tokens even past the daily battle
+            beaten that opponent. A member holds one ticket per opponent at a time: another for the same
+            leader once it&apos;s used. A won rematch pays its tokens even past the daily battle
             limit. <b>Appearance rate</b> applies from the next restock; purchase limits
             straight away.
           </p>
@@ -109,7 +110,7 @@ export default function VvmSuppliesClient({ supplies, show = 'supplies' }: { sup
             One ticket per pair: two Gym Leaders, two Elite Four members, Alex &amp; Red, and the like
             ({doublesOn} of {doubles.length} on). A 2v2 against the strongest three of each, above the
             player&apos;s level, and much harder than a rematch. Only for sale to members who have beaten
-            both. A win pays 6 tokens even past the daily battle limit.
+            both, one ticket per pair at a time. A win pays 6 tokens even past the daily battle limit.
           </p>
         </div>
         <ul className="space-y-2">

@@ -620,6 +620,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
             { key: 'rematch_gym_0', kind: 'item', name: 'Falkner Rematch', description: 'Rematch Falkner', price: 1, contents: null, max: 1, left_today: null },
             { key: 'double_falkner_bugsy', kind: 'item', name: 'Falkner & Bugsy Double', description: 'Double battle', price: 2, contents: null, max: 1, left_today: null },
             { key: 'double_brock_misty', kind: 'item', name: 'Brock & Misty Double', description: 'Double battle', price: 2, contents: null, max: 1, left_today: null },
+            { key: 'rematch_gym_1', kind: 'item', name: 'Bugsy Rematch', description: 'Rematch Bugsy', price: 1, contents: null, max: 1, left_today: null },
             { key: 'gym_summon', kind: 'item', name: 'Gym Summon', description: 'Your next gym', price: 3, contents: null, max: 1, left_today: null }],
           boxes: [{ box_id: 5, name: 'Jungle Booster Box', set_name: 'Jungle', packs: 36, price: 3, image: '/rpg/a/jungle-scyther.webp', quantity: 2, max: 1 }] } },
         async balance() { return balance },
@@ -696,6 +697,11 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.ok(await frame.$('[data-buy="sup:rematch_gym_0"]'), 'the rematch, once Falkner is beaten')
     assert.ok(await frame.$('[data-buy="sup:double_falkner_bugsy"]'), 'Falkner & Bugsy, once both are beaten')
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:double_brock_misty"]')), null, 'not Brock & Misty: not beaten yet')
+    // One of each ticket at a time (v112): Bugsy's rematch and Falkner & Bugsy's double battle are in the Bag already, so theirs are greyed out; Falkner's isn't.
+    const held = await frame.evaluate(() => Object.fromEntries(['rematch_gym_1', 'double_falkner_bugsy', 'rematch_gym_0'].map((k) => [k, document.querySelector(`[data-buy="sup:${k}"] .meta`)?.textContent ?? ''])))
+    assert.match(held.rematch_gym_1, /you have one: use it first/, `a rematch ticket you hold isn't sold again (${held.rematch_gym_1})`)
+    assert.match(held.double_falkner_bugsy, /you have one: use it first/, `nor a double battle ticket (${held.double_falkner_bugsy})`)
+    assert.doesNotMatch(held.rematch_gym_0, /use it first/, `another leader's is fine (${held.rematch_gym_0})`)
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:gym_summon"]')), null, 'no Gym Summon with all 8 Johto badges, before the League')
     await page.waitForTimeout(1200); await tile.evaluate((b) => b.querySelector('b').click())
     assert.equal(await frame.evaluate(() => document.getElementById('cbSum').textContent), 'CART empty', 'a greyed-out tile never goes in the cart')
