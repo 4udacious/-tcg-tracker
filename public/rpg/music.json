@@ -242,6 +242,17 @@
    "loopEnd": 46.956531,
    "gain": 1
   },
+  "rematch": {
+   "file": "rematch.bd837bed.m4a",
+   "mp3": "rematch.22ad6b4e.mp3",
+   "sig": "87cc1b0e",
+   "rate": 44100,
+   "samples": 3704400,
+   "loop": true,
+   "loopStart": 3,
+   "loopEnd": 81,
+   "gain": 1
+  },
   "rival": {
    "file": "rival.df70e95a.m4a",
    "mp3": "rival.1923d79b.mp3",

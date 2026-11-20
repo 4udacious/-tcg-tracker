@@ -1895,9 +1895,9 @@ SONGS.wild = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16,
   ] }
 
 /*
- * The endgame challenge battle: veterans, rematch tickets and the daily
- * challenge. Its own piece, in B-flat minor (no other theme's key) at 166 bpm,
- * on the sixteenth grid:
+ * The endgame challenge battle: veterans and the daily challenge (rematch
+ * tickets and double battles have SONGS.rematch). Its own piece, in B-flat
+ * minor (no other theme's key) at 166 bpm, on the sixteenth grid:
  *   - Intro, once: a two-bar brass call on F7, the dominant.
  *   - The theme on brass with a synth over it: a syncopated hook (three short
  *     hits, then a rising answer), driving bass, power guitar.
@@ -1946,6 +1946,90 @@ SONGS.endgame = { file: null, loop: true, bpm: 166, div: 4, chordLen: 16, vol: 1
         'A#5 . . . . . . . C#6 . . . . . . .', 'E6 . . . C#6 . . . A#5 . . . F#5 . . .'),
       bass: bars('F#1 . . . . . . . F#1 . . F#1 . . F#1 .', 'F#1 . . . . . . . F#1 . . F#1 . . F#1 .', drive('F#1'), 'F#1 . F#2 . F#1 . F#2 . F#1 F#2 F#1 F#2 F#1 F#2 F#1 F#2'),
       drums: 'K...h...S...h...' + 'K...h...S...h.K.' + 'K.hgS.hgK.hgS.hg' + 'TTttTTttSSSSXXXX' }),
+  ] }
+
+/*
+ * The rematch battle: rematch tickets (Gym Leaders, the Elite Fours, the
+ * Champions) and double battles. Heavier than the endgame theme, and long,
+ * for long battles: F-sharp minor (no other theme's key) at 160 bpm, on the
+ * sixteenth grid, with power guitar nearly throughout:
+ *   - Intro, once: a two-bar brass call on C#7 over timpani.
+ *   - The hook on brass, low strings an octave under it and a synth faintly
+ *     over it, horn stabs, driving bass.
+ *   - The riff: guitar and bass chugging 3-3-2 under short, low brass hits,
+ *     turning on E7 into...
+ *   - The hook a minor third up, in A minor: violins over brass and low
+ *     strings, string tremolo, sixteenth hats, a run into the bridge.
+ *   - A half-time bridge back in F-sharp minor: a new tune on the synth over
+ *     a choir, timpani on every bar, walking bass, landing on C#7.
+ *   - A solo: synth and violins in runs over the hook's chords.
+ *   - The riff again, an octave up on violins with the brass under them.
+ *   - A build: piano ostinato and toms, round to the top.
+ * A 3 s intro, then a 78 s loop.
+ */
+const REMATCH_HOOK = bars(
+  'C#5 . F#5 . . . G#5 . A5 . . . G#5 . F#5 .', 'E5 . F#5 . . . A5 . D6 . . . C#6 . A5 .',
+  'B5 . . . G#5 . E5 . B5 . . . C#6 . B5 .', 'G#5~ . . . . . . . F5 . . . G#5 . C#6 .',
+  'C#5 . F#5 . . . G#5 . A5 . . . C#6 . A5 .', 'D6 . . . C#6 . A5 . F#5 . . . A5 . D6 .',
+  'C#6 . B5 . A5 . F#5 . D6 . C#6 . B5 . A5 .', 'G#5 . . . F5 . G#5 . B5 . . . C#6 . . .')
+const REMATCH_CHORDS = 'F#m D E C# F#m D Bm C#7'.split(' ')
+const REMATCH_RIFF = bars(
+  'F#4! . . F#4! . . A4 . . . G#4 . F#4 . . .', 'C#5 . . . . . . . - - - - B4 . A4 .',
+  'A4! . . A4! . . D5 . . . C#5 . A4 . . .', 'B4 . . . . . . . G#4 . . . E4 . . .',
+  'F#4! . . F#4! . . A4 . . . C#5 . E5 . . .', 'F#5 . . . E5 . C#5 . . . A4 . C#5 . . .',
+  'D5 . . . F#5 . . . A5 . . . F#5 . D5 .', 'E5~ . . . . . . . D5 . . . B4 . G#4 .')
+/** The riff's chug, 3-3-2 twice a bar; its last bar turns to whichever chord comes next. */
+const rematchChug = (last) => bars('F#1 . . F#1 . . F#2 . F#1 . . F#1 . . E2 .', 'F#1 . . F#1 . . F#2 . F#1 . . A1 . . C#2 .',
+  'D2 . . D2 . . D3 . D2 . . D2 . . A1 .', 'E1 . . E1 . . E2 . E1 . . E1 . . G#1 .',
+  'F#1 . . F#1 . . F#2 . F#1 . . F#1 . . E2 .', 'F#1 . . F#1 . . F#2 . F#1 . . A1 . . C#2 .',
+  'D2 . . D2 . . D3 . D2 . . D2 . . A1 .', last)
+const RIFF_DRUMS = 'K.hKShKhK.hKShKh'.repeat(7) + 'K.hKShKhTTttSSSS'
+SONGS.rematch = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 1.0,
+  leadInst: 'brass', doubles: [['lowstrings', -1, 0.5], ['synth', 1, 0.18]], harmInst: 'strings', power: true,
+  comp: false, glock: false, hats16: false, crash: true, fill: '', stabs: 'x.....x.....x...',
+  intro: { chords: ['C#7', 'C#7'], power: false, stabs: null, doubles: [['lowstrings', -1, 0.6]],
+    lead: bars('C#5 . . C#5 . . C#5 . E5 . . E5 . . G#5 .', 'B5~ . . . . . . . - - - - - - - -'),
+    bass: bars('C#2 . . C#2 . . C#2 . C#2 . . C#2 . . C#2 .', 'C#2 . . . . . . . - - - - - - - -'),
+    drums: 'P..P..P.S..S..S.' + 'P...P...TTttSSSS' },
+  sections: [
+    { // The hook, on brass
+      chords: REMATCH_CHORDS, lead: REMATCH_HOOK,
+      bass: bars(drive('F#1'), drive('D2'), drive('E1'), drive('C#2'), drive('F#1'), drive('D2'), drive('B1'), 'C#2 . . C#3 . . C#2 . B1 . . G#1 . . F1 .'),
+      drums: 'K.h.S.hKK.hKS.h.'.repeat(7) + 'K.h.S.hKTTttSSSS' },
+    { // The riff: low brass hits over the chug, turning on E7
+      chords: 'F#m F#m D E F#m F#m D E7'.split(' '), lead: REMATCH_RIFF, doubles: [['lowstrings', -1, 0.45], ['synth', 1, 0.18]], stabs: null,
+      bass: rematchChug('E1 . . E2 . . E1 . E1 . G#1 . B1 . D2 .'), drums: RIFF_DRUMS },
+    { // A minor third up: violins on top, brass and low strings under, tremolo strings
+      chords: transposeChords(REMATCH_CHORDS, 3), leadInst: 'violins', doubles: [['brass', -1, 0.55], ['lowstrings', -2, 0.35]], trem: 'x', hats16: true, runs: '.......f',
+      lead: [...transpose(REMATCH_HOOK, 3).slice(0, 112), ...bars('E5 . G#5 . B5 . D6 . E6 . G#6 . B6 . D7 .')],
+      bass: bars(drive('A1'), drive('F1'), drive('G1'), drive('E1'), drive('A1'), drive('F1'), drive('D2'), 'E1 . E2 . E1 . E2 . G#1 . B1 . D2 . E2 .'),
+      drums: 'K.hKS.hgK.hKS.hg'.repeat(7) + 'K.hKS.hgSSSSXXXX' },
+    { // The bridge: half-time, a choir, timpani on each bar, the guitar out
+      chords: 'Bm C#m D E Bm C#m D C#7'.split(' '), leadInst: 'synth', doubles: [['brass', -1, 0.45]], padInst: 'choir', power: false, stabs: null,
+      lead: bars('F#5 . . . . . . . D5 . F#5 . B5 . . .', 'G#5 . . . . . . . E5 . G#5 . C#6 . . .',
+        'A5 . . . F#5 . D6 . . . C#6 . A5 . F#5 .', 'B5~ . . . . . . . G#5 . . . E5 . . .',
+        'D6 . . . . . . . B5 . D6 . F#6 . . .', 'E6 . . . . . . . C#6 . E6 . G#6 . . .',
+        'F#6 . . . E6 . D6 . A5 . . . D6 . F#6 .', 'F6~ . . . . . . . . . . . - - - -'),
+      bass: bars(walk('B1', 'D2', 'F#2', 'D2'), walk('C#2', 'E2', 'G#2', 'E2'), walk('D2', 'F#2', 'A2', 'F#2'), walk('E2', 'G#2', 'B2', 'G#2'),
+        walk('B1', 'D2', 'F#2', 'D2'), walk('C#2', 'E2', 'G#2', 'E2'), walk('D2', 'F#2', 'A2', 'F#2'), 'C#2 . . . . . . . C#2 . . . F2 . G#2 .'),
+      drums: 'P.h.h.h.S.h.h.h.'.repeat(7) + 'K.h.S.h.TTttSSSS' },
+    { // The solo: synth and violins in runs over the hook's chords
+      chords: REMATCH_CHORDS, leadInst: 'synth', doubles: [['violins', 0, 0.3], ['brass', -1, 0.3]], hats16: true, runs: '...f...f',
+      lead: bars('F#5 G#5 A5 C#6 F#6 . . . E6 . C#6 . A5 . C#6 .', 'D6 . . . A5 . F#5 . A5 D6 F#6 . E6 . D6 .',
+        'E6 . . . B5 . G#5 . E5 . G#5 B5 E6 . G#6 .', 'F6~ . . . . . . . C#6 F6 G#6 . F6 . C#6 .',
+        'A6 . G#6 . F#6 . C#6 . A5 . C#6 . F#6 . A6 .', 'F#6 . . . D6 . A5 . F#5 A5 D6 F#6 A6 . . .',
+        'B6 . A6 . F#6 . D6 . B5 . D6 . F#6 . D6 .', 'G#6~ . . . . . . . F6 . . . C#6 . . .'),
+      bass: bars(drive('F#1'), drive('D2'), drive('E1'), drive('C#2'), drive('F#1'), drive('D2'), drive('B1'), 'C#2 . . C#3 . . C#2 . B1 . . G#1 . . F1 .'),
+      drums: 'K.h.S.hKK.hKS.h.'.repeat(7) + 'K.h.S.hgSSSSXXXX' },
+    { // The riff again, an octave up on violins, turning on C#7 for the build
+      chords: 'F#m F#m D E F#m F#m D C#7'.split(' '), leadInst: 'violins', doubles: [['brass', -1, 0.55], ['lowstrings', -2, 0.3]], stabs: null, hats16: true, trem: '....x.x.',
+      lead: [...transpose(REMATCH_RIFF, 12).slice(0, 112), ...bars('F5~ . . . . . . . G#5 . . . B5 . C#6 .')],
+      bass: rematchChug('C#2 . . C#3 . . C#2 . B1 . . G#1 . . F1 .'), drums: RIFF_DRUMS },
+    { // The build: piano ostinato and toms, round to the top
+      chords: 'F#m F#m C#7 C#7'.split(' '), leadInst: 'synth', doubles: [['brass', -1, 0.35]], power: false, stabs: null, ostinato: '0 1 2 3 2 1 0 1'.split(' '), trem: '..xx',
+      lead: bars('- - - - - - - - - - - - - - - -', '- - - - - - - - - - - - C#5 . F#5 .', 'F5 . . . . . . . G#5 . . . . . . .', 'B5 . . . C#6 . . . F6 . . . G#6 . . .'),
+      bass: bars('F#1 . . . . . . . F#1 . . F#1 . . F#1 .', 'F#1 . . . . . . . F#1 . . F#1 . . F#1 .', drive('C#2'), 'C#2 . C#3 . C#2 . C#3 . C#2 C#3 C#2 C#3 C#2 C#3 C#2 C#3'),
+      drums: 'K...h...S...h...' + 'K...h...S...h.K.' + 'K.hgS.hgK.hgS.hg' + 'TTttTTttSSSSXXXX' },
   ] }
 
 /*
@@ -8481,7 +8565,7 @@ async function run(id) {
     await W(1400)
     await talk(T, words.intro)
     vsHide()
-    Sound.music('endgame')   // the endgame challenges' own theme
+    Sound.music('rematch')   // the rematch theme (SONGS.rematch)
     let won
     if (two) {
       const out = await duoBattle({ foes: team.slice(0, 2).map((mon) => ({ mon, owner: T })), bench: team.slice(2).map((mon) => ({ mon, owner: T })), trainers: [T] })
@@ -8559,7 +8643,7 @@ async function run(id) {
     await W(1400)
     for (const [i, T] of crew.entries()) await talk(T, [words.intro[i]])
     vsHide()
-    Sound.music('endgame')   // the endgame challenges' own theme
+    Sound.music('rematch')   // the rematch theme (SONGS.rematch)
     const out = await duoBattle({ foes: teams.map((t, i) => ({ mon: t[0], owner: crew[i] })), bench: teams.flatMap((t, i) => t.slice(1).map((mon) => ({ mon, owner: crew[i] }))), trainers: crew })
     if (out.result === 'won') {
       Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
