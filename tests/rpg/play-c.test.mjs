@@ -219,6 +219,7 @@ test('double battles: a ticket in the Bag brings a pair, three each, for tokens 
     await page.waitForTimeout(500)
     const before = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
     const from = g.log.length
+    await page.evaluate(() => { const play = Sound.music; window.__songs = []; Sound.music = (name, ...a) => { window.__songs.push(name); return play.call(Sound, name, ...a) } })   // the songs asked for
     await openTicket()
     await page.dispatchEvent('#sheetBody [data-pair="brock_misty"]', 'click')
     const done = () => g.log.slice(from).some((l) => /MISTY gave you a MOVE DISC|Another ticket/.test(l))
@@ -230,6 +231,7 @@ test('double battles: a ticket in the Bag brings a pair, three each, for tokens 
     const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, ticket: v.bag['double:brock_misty'], discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
     assert.equal(after.discs, before.discs + 2); assert.equal(after.ticket, 0, 'the ticket is spent')
     assert.equal(Math.round((after.wallet - before.wallet) * 100) / 100, 6, 'and 6 tokens')
+    assert.deepEqual((await page.evaluate(() => window.__songs)).slice(0, 2), ['rematchIntro', 'rematch'], 'the rematch intro under their words, then the rematch theme')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
