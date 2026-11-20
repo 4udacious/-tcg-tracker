@@ -5730,8 +5730,9 @@ async function run(id) {
     return false
   }
   function supNot(key) {
-    if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r ? 'not in this game' : !r.beaten() ? 'beat them first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
-    if (key.startsWith('double_')) { const p = pairOf(key.slice(7)); return !p ? 'not in this game' : !p.beaten() ? 'beat them both first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
+    // One of each rematch or double battle ticket at a time (v112): another for the same battle once it's used.
+    if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r ? 'not in this game' : !r.beaten() ? 'beat them first' : bag[rematchKey(r.id)] > 0 ? 'you have one: use it first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
+    if (key.startsWith('double_')) { const p = pairOf(key.slice(7)); return !p ? 'not in this game' : !p.beaten() ? 'beat them both first' : bag[pairKey(p.id)] > 0 ? 'you have one: use it first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
     if (key === 'gym_summon') return heldSummon() ? 'you have one' : nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
     if (key === 'elite_ticket') { const lg = leagueNow(); return !lg ? (redBeaten ? "you've beaten Red" : champion ? 'needs all 16 badges' : 'needs all 8 Johto badges') : bag[summonKey(lg)] ? 'you have one' : '' }
@@ -6115,7 +6116,7 @@ async function run(id) {
   const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
     insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
     ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty',
-    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first', rematch_not_beaten: 'that rematch is only for those who beat them', double_not_beaten: 'that double battle is only for those who beat them both',
+    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first', rematch_not_beaten: 'that rematch is only for those who beat them', ticket_limit: 'you already have that ticket: use it first', double_not_beaten: 'that double battle is only for those who beat them both',
     supply_limit_reached: 'that is more of it than one checkout allows', supply_daily_limit: "that's more of it than you can buy today" }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
@@ -8431,7 +8432,11 @@ async function run(id) {
    * at your level (their ace two above your best), with a leader's smarts and
    * their own words (REMATCH_TALK). A win pays REMATCH_TOKENS and a Move Disc
    * of their type. The ticket was bought, so in the app its tokens come
-   * outside the daily battle cap (payRematch, v93).
+   * outside the daily battle cap (payRematch, v93). One ticket per opponent
+   * at a time (v112): the shelf greys out one you hold, and the server
+   * refuses a second; tickets for different opponents are fine, and so is a
+   * stack bought before the limit. Double battle tickets are the same, one
+   * per pair.
    */
   const REMATCH_TOKENS = '2.00'
   function rematchFoes() {
