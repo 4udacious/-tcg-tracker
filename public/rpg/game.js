@@ -2033,6 +2033,33 @@ SONGS.rematch = { file: null, loop: true, bpm: 160, div: 4, chordLen: 16, vol: 1
   ] }
 
 /*
+ * The rematch intro: under the VS splash and the trainers' words before a
+ * rematch or a double battle, built from SONGS.rematch. A two-bar fanfare as
+ * they step up (brass hits in the theme's 3-3-2 over timpani), then a
+ * sixteen-second loop for as long as they talk: the hook in long notes on
+ * brass over low strings, a choir behind, the 3-3-2 pulse on bass and hats,
+ * string tremolo rising in its second half, and toms into the next pass. F-sharp
+ * minor at 120 bpm (three quarters of the battle's 160), quieter than the
+ * battle so it stays under the text, ending each loop on C#7 to hand over to
+ * the battle theme.
+ */
+SONGS.rematchIntro = { file: null, loop: true, bpm: 120, div: 4, chordLen: 16, vol: 0.8,
+  leadInst: 'brass', leadVel: 0.75, doubles: [['lowstrings', -1, 0.45]], harmInst: 'strings', padInst: 'choir', power: false,
+  comp: false, glock: false, hats16: false, crash: false, fill: '', trem: '....xxxx',
+  intro: { chords: ['F#m', 'F#m'], leadVel: 0.95, padInst: 'strings', trem: null, crash: true,
+    lead: bars('F#4 . . F#4 . . F#4 . A4 . . A4 . . C#5 .', 'F#5~ . . . . . . . - - - - - - - -'),
+    bass: bars('F#1 . . F#1 . . F#1 . F#1 . . F#1 . . F#1 .', 'F#1 . . . . . . . - - - - - - - -'),
+    drums: 'P..P..P.P..P..P.' + 'P.......TTttSSSS' },
+  sections: [{
+    chords: 'F#m F#m D E Bm D C# C#7'.split(' '),
+    lead: bars('C#5 . . . F#5 . . . G#5 . . . A5 . . .', 'G#5 . . . . . . . F#5 . . . . . . .',
+      'E5 . . . F#5 . . . A5 . . . D6 . . .', 'C#6 . . . . . . . B5 . . . . . . .',
+      'B5 . . . . . . . F#5 . . . D5 . . .', 'A5 . . . . . . . F#5 . . . A5 . . .',
+      'G#5~ . . . . . . . . . . . F5 . . .', 'G#5 . . . B5 . . . C#6 . . . . . . .'),
+    bass: bars(drive('F#1'), drive('F#1'), drive('D2'), drive('E1'), drive('B1'), drive('D2'), drive('C#2'), 'C#2 . . C#3 . . C#2 . B1 . . G#1 . . F1 .'),
+    drums: 'P..h..h.S..h..h.'.repeat(6) + 'P..h..h.S..h..hh' + 'P..T..T.TTttSSSS' }] }
+
+/*
  * The Elite Four battle, second version (the first is SONGS.eliteClassic).
  * Where the gym theme drives, this one looms. It's the only battle theme not
  * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.
@@ -8555,7 +8582,7 @@ async function run(id) {
     const T = { ...r.T, hard: true, strong: true, rematch: true, restores: 1, outro: [words.outro], gloat: [words.gloat] }
     const team = rematchTeam(T), two = duo && team.length >= 2
     toolsEnabled(false)
-    Sound.music(T.gym != null ? 'gymIntro' : 'vs')
+    Sound.music('rematchIntro')   // the rematch intro under their words, then the rematch theme
     await wipeTrainer(async () => {
       setScene([T.scene ?? RIVAL_LOOKS[T.phase]?.scene ?? 'hall']); showLayer('battle')
       const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', T.color ?? RIVAL_LOOKS[T.phase]?.color ?? '#f59e0b')
@@ -8634,7 +8661,7 @@ async function run(id) {
     const words = PAIR_TALK[id], crew = [pairSide(p.A, p), pairSide(p.B, p)]
     const lv = trainerLevel(), teams = crew.map((T) => { const t = pairTeam(T, lv, rand); t.at(-1).pairAce = true; return t })
     toolsEnabled(false)
-    Sound.music('vs')
+    Sound.music('rematchIntro')   // the rematch intro under both their words, then the rematch theme
     await wipeTrainer(async () => {
       setScene([crew.map((T) => T.scene ?? RIVAL_LOOKS[T.phase]?.scene).find(Boolean) ?? 'hall']); showLayer('battle')
       vsSplash(crew, 2, 'DOUBLE BATTLE · 2 VS 2')

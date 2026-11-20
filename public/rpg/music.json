@@ -253,6 +253,17 @@
    "loopEnd": 81,
    "gain": 1
   },
+  "rematchIntro": {
+   "file": "rematchIntro.df4ca34e.m4a",
+   "mp3": "rematchIntro.bdeed1d5.mp3",
+   "sig": "f066939d",
+   "rate": 44100,
+   "samples": 1014300,
+   "loop": true,
+   "loopStart": 4,
+   "loopEnd": 20,
+   "gain": 1
+  },
   "rival": {
    "file": "rival.df70e95a.m4a",
    "mp3": "rival.1923d79b.mp3",

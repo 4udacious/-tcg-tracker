@@ -231,7 +231,7 @@ test('double battles: a ticket in the Bag brings a pair, three each, for tokens 
     const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, ticket: v.bag['double:brock_misty'], discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
     assert.equal(after.discs, before.discs + 2); assert.equal(after.ticket, 0, 'the ticket is spent')
     assert.equal(Math.round((after.wallet - before.wallet) * 100) / 100, 6, 'and 6 tokens')
-    assert.ok((await page.evaluate(() => window.__songs)).includes('rematch'), 'to the rematch theme')
+    assert.deepEqual((await page.evaluate(() => window.__songs)).slice(0, 2), ['rematchIntro', 'rematch'], 'the rematch intro under their words, then the rematch theme')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

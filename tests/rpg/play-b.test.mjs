@@ -129,7 +129,7 @@ test('rematch tickets: a leader you beat, 1v1 or 2v2, for tokens and a Move Disc
       if (duo) assert.match(lines, /sent out.*and/i, '2v2: they send out two')
       const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
       assert.equal(after.discs, before.discs + 1); assert.ok(after.wallet > before.wallet, 'and tokens')
-      assert.equal((await page.evaluate(() => window.__songs))[1], 'rematch', 'to the rematch theme, after the gym intro')
+      assert.deepEqual((await page.evaluate(() => window.__songs)).slice(0, 2), ['rematchIntro', 'rematch'], 'the rematch intro under their words, then the rematch theme')
     }
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
