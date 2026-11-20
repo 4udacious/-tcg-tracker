@@ -2824,7 +2824,21 @@ function shakeOdds(foe, ball, throwMult) {
  * paralyzed, and a confused one parries less (CONF_DEFEND). The simulator
  * uses this same rule.
  */
-const leaderParries = (T, foe, label, confused, r) => !!T?.parry && label !== 'PERFECT' && label !== 'MISS' && !cantDefend(foe) && r() < T.parry * (confused ? CONF_DEFEND : 1)
+const leaderParries = (T, foe, label, confused, r) => !!T?.parry && label !== 'MISS' && !cantDefend(foe) && (globalThis.__forceParry === true || (label !== 'PERFECT' && r() < T.parry * (confused ? CONF_DEFEND : 1)))   // __forceParry: testing only
+/*
+ * And they hit back: once an attack with a parried hit is done, the leader's
+ * Pokémon counters, as yours does after PERFECT parries, for a Tackle's
+ * worth at LEADER_COUNTER. It can't be defended, and it never knocks out (it
+ * leaves 1 HP). The simulator uses it too.
+ */
+const LEADER_COUNTER = 0.8
+/**
+ * How often they parry: a small chance, since a parry now brings a counter.
+ * Gym Leaders least, the Elite Fours more, Red and Cynthia most; Alex from
+ * `alex`, a little more each battle (rivalTrainer); a double battle's pair at
+ * least PAIR_TUNE.parry. Tuned in sim.mjs.
+ */
+const PARRY = { gym: 0.09, elite: 0.12, top: 0.15, alex: 0.07 }
 /*
  * CPU trainers carry Full Heals: leaders (Gym Leaders, the Elite Fours, Red,
  * Alex, Herb and Paul: trainer.hard) two a battle, regular trainers one. They
@@ -4417,7 +4431,7 @@ for (const id of [150, 145, 144, 146]) Object.assign(ART, { [id]: `/rpg/a/${id}.
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
-  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? 0.12 + n * 0.02,
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? PARRY.alex + n * 0.012,
     vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
@@ -5275,7 +5289,7 @@ const HS_GYM_LIST = [
     gloat: ['Hm. Another one who couldn\'t keep up.', 'Come back when you can make me sweat.'] },
 ]
 HS_GYM_LIST.forEach((L, i) => Object.assign(L, { gym: 16 + i, region: i < 8 ? 'hoenn' : 'sinnoh', hs: true, role: L.role ?? 'GYM LEADER', hard: true, tokens: L.tokens ?? (i < 8 ? '8.00' : '10.00'),
-  title: `${L.city} GYM · ${L.type.toUpperCase()} TYPE`, summonName: `${L.badge} SUMMON`, gap: 3, parry: 0.15, strong: i >= 3 }, art(L)))
+  title: `${L.city} GYM · ${L.type.toUpperCase()} TYPE`, summonName: `${L.badge} SUMMON`, gap: 3, parry: PARRY.gym, strong: i >= 3 }, art(L)))
 HS_GYMS.push(...HS_GYM_LIST)
 
 const HOENN_ELITE = [
@@ -5342,9 +5356,9 @@ const SINNOH_ELITE = [
     outro: ['...Just a moment ago, you were the most powerful challenger. Now you\'re the Champion.', "Hoenn and Sinnoh's Hall of Fame is yours."],
     gloat: ["That was a wonderful battle. I'm sorry it had to end.", 'Start again from Aaron.'] },
 ]
-HOENN_ELITE.forEach((L) => Object.assign(L, { elite: true, hs: true, region: 'hoenn', city: L.city ?? 'EVER GRANDE CITY', role: L.role ?? 'ELITE FOUR', hard: true, gap: 3, parry: 0.2, strong: true,
+HOENN_ELITE.forEach((L) => Object.assign(L, { elite: true, hs: true, region: 'hoenn', city: L.city ?? 'EVER GRANDE CITY', role: L.role ?? 'ELITE FOUR', hard: true, gap: 3, parry: PARRY.elite, strong: true,
   title: `${L.role === 'CHAMPION' ? 'HOENN CHAMPION' : 'HOENN ELITE FOUR'} · ${L.type.toUpperCase()} TYPE` }, art(L)))
-SINNOH_ELITE.forEach((L) => Object.assign(L, { elite: true, hs: true, region: 'sinnoh', city: L.city ?? 'POKéMON LEAGUE', role: L.role ?? 'ELITE FOUR', hard: true, gap: 3, parry: L.role === 'CHAMPION' ? 0.25 : 0.2, strong: true,
+SINNOH_ELITE.forEach((L) => Object.assign(L, { elite: true, hs: true, region: 'sinnoh', city: L.city ?? 'POKéMON LEAGUE', role: L.role ?? 'ELITE FOUR', hard: true, gap: 3, parry: L.role === 'CHAMPION' ? PARRY.top : PARRY.elite, strong: true,
   title: `${L.role === 'CHAMPION' ? 'SINNOH CHAMPION' : 'SINNOH ELITE FOUR'} · ${L.type.toUpperCase()} TYPE` }, art(L)))
 const HOENN_CARD = { short: 'THE HOENN LEAGUE', city: 'EVER GRANDE CITY', summonName: 'HOENN LEAGUE TICKET', face: 'gymFace:wallace', color: '#22d3ee', tag: 'LEAGUE' }
 const SINNOH_CARD = { short: 'THE SINNOH LEAGUE', city: 'POKéMON LEAGUE', summonName: 'SINNOH LEAGUE TICKET', face: 'gymFace:cynthia', color: '#fde68a', tag: 'LEAGUE' }
@@ -5532,7 +5546,7 @@ ELITE.forEach((L) => Object.assign(L, { gap: GAP.elite,
 KANTO_ELITE.forEach((L) => { L.gap = L.red ? GAP.red : GAP.kantoElite })
 ;[...GYMS, ...ELITE, ...KANTO_ELITE].forEach((L) => { if (IV31.includes(L.short)) L.ivs = 31 })
 // How often each parries your strikes (leaderParries): the gyms least, the Elite Fours more, Red most.
-GYMS.forEach((L) => { L.parry ??= 0.15 }); ELITE.forEach((L) => { L.parry ??= 0.2 }); KANTO_ELITE.forEach((L) => { L.parry ??= L.red ? 0.25 : 0.2 })
+GYMS.forEach((L) => { L.parry ??= PARRY.gym }); ELITE.forEach((L) => { L.parry ??= PARRY.elite }); KANTO_ELITE.forEach((L) => { L.parry ??= L.red ? PARRY.top : PARRY.elite })
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {
@@ -5676,10 +5690,10 @@ function pairMilestone(ref) {
  * a leader's usual pace). A pair's own `lift` adds to `up` for all three:
  * some teams are stronger than others. Tuned in sim.mjs (PAIR_AIM).
  */
-const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.25, restores: 1, ringFast: 0.88 }
+const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.15, restores: 1, ringFast: 0.88 }
 /** A member as they battle in pair `P`: a leader's smarts and then some (see PAIR_TUNE). */
 function pairSide(T, P = {}) {
-  return { ...T, hard: true, strong: true, smart: true, pair: true, restores: PAIR_TUNE.restores, parry: Math.max(T.parry ?? 0.15, PAIR_TUNE.parry), duoFast: PAIR_TUNE.ringFast, lift: P.lift ?? 0, top: !!P.top }
+  return { ...T, hard: true, strong: true, smart: true, pair: true, restores: PAIR_TUNE.restores, parry: Math.max(T.parry ?? PARRY.gym, PAIR_TUNE.parry), duoFast: PAIR_TUNE.ringFast, lift: P.lift ?? 0, top: !!P.top }
 }
 /**
  * Below Lv 50 a party is still evolving while a pair's three are fully
@@ -8165,7 +8179,8 @@ async function run(id) {
     async function strike(act, step) {
       const { actor, move: mv } = act
       const planned = [].concat(act.planned ?? 'great')
-      const results = []
+      const results = [], parriers = new Set()   // the leaders' Pokémon that parried a hit of it: each counters, after
+
       if (mv.sleepOk && !act.snoring) { await announce(`${actor.mon.name} used`, `${mv.name}!`, 100); if (!actor.ally) setDPP(dpp - (mv.cost ?? 0)); await say('But it failed!', `${actor.mon.name} isn't asleep.`, 250); return }
       {
         // Power worked out now (the flags are cleared on the copy, so this runs once).
@@ -8190,7 +8205,8 @@ async function run(id) {
         const mult = foesUp.length > 1 ? 0.75 : 1
         for (const [k, F] of foesUp.entries()) {
           if (F.mon.hp <= 0) continue
-          results.push(await hitOnce(actor, F, mv, planned[k] ?? planned.at(-1), foesUp.length > 1 ? `FOE ${k + 1}/${foesUp.length}` : 'STRIKE', k ? 620 : 820, mult, false))
+          const res = await hitOnce(actor, F, mv, planned[k] ?? planned.at(-1), foesUp.length > 1 ? `FOE ${k + 1}/${foesUp.length}` : 'STRIKE', k ? 620 : 820, mult, false)
+          results.push(res); if (res?.parried) parriers.add(F)
         }
         // Earthquake, Surf and the like roll on into your own partner. It can jump.
         const ally = mv.spread === 'all' ? allyOf(actor) : null
@@ -8205,7 +8221,8 @@ async function run(id) {
         if (!actor.ally) setDPP(dpp - (mv.cost ?? 0))   // a partner's moves don't spend your PP
         const hits = mv.hits ?? 1
         for (let h = 0; h < hits && T.mon.hp > 0; h++) {
-          results.push(await hitOnce(actor, T, mv, planned[h] ?? planned.at(-1), hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', h ? 560 : 820, 1, hits > 1, h))
+          const res = await hitOnce(actor, T, mv, planned[h] ?? planned.at(-1), hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', h ? 560 : 820, 1, hits > 1, h)
+          results.push(res); if (res?.parried) parriers.add(T)
         }
         if (hits > 1) { const n = results.filter(Boolean).length; await say(n === hits ? `Hit ${hits} times — full damage!` : `Hit ${n} of ${hits} times.`, '', 260) }
       }
@@ -8223,6 +8240,16 @@ async function run(id) {
       if (landed.some((r) => r.crit)) await say('A critical hit!')
       if (!mv.spread && landed.length && landed.at(-1).eff > 1) await say("It's super effective!")
       if (!mv.spread && landed.length && landed.at(-1).eff < 1) await say("It's not very effective...")
+      // Each that parried a hit of it counters (LEADER_COUNTER), never for the knockout.
+      for (const P of parriers) {
+        if (P.gone || P.mon.hp <= 0 || actor.mon.hp <= 1) continue
+        sfx('counter'); pop(`${P.owner.short}'S COUNTER!`, actor.c.x, actor.c.y - 90, 'orange'); await W(120)
+        await strikeFx({ fx: 'dash' }, P.c, actor.c, P.el)
+        const { dmg } = dmgOf(P.mon, actor.mon, { ...MOVEDEX.TACKLE }, LEADER_COUNTER), from = actor.mon.hp
+        sparks(actor.c.x, actor.c.y, '#fdba74'); sfx('hit')
+        await Promise.all([blink(actor.el, 2), hpTo(actor, Math.max(1, from - dmg))]); pop(`-${from - actor.mon.hp}`, actor.c.x + 30, actor.c.y - 30, 'red')
+        await say(`${P.owner.short}'s ${P.mon.name} countered`, `for ${from - actor.mon.hp} damage!`, 250)
+      }
     }
 
     /**
@@ -10501,7 +10528,7 @@ async function run(id) {
       if (mv.furyCutter) { t.fury = t.lastMove === name ? Math.min(2, (t.fury ?? 0) + 1) : 0; mv = { ...mv, power: mv.power * 2 ** t.fury } }
       if (mv.knockOff && kind === 'trainer') mv = { ...mv, power: Math.round(mv.power * 1.5) }
       t.lastMove = name
-      let landed = 0, crit = false, eff = 1, clean = false
+      let landed = 0, crit = false, eff = 1, clean = false, parriedAny = false
       const sr = strikeRing(ringNet(ST(me).acc, ST(foe).eva))
       if (ST(me).conf) sr.tight *= 0.85
       wobble = !!ST(me).conf   // confused: its rings wobble
@@ -10536,7 +10563,7 @@ async function run(id) {
           if (mv.knockOff && restores > 0 && foe.hp > 0) { restores--; sfx('flinch'); await say(`${me.name} knocked away`, `${trainer.short}'s FULL RESTORE!`, 400) }
           if (acc.crit) addBond(me, 2)
           landed++; crit ||= acc.crit; eff = r.eff; if (acc.label !== 'MISS') clean = true
-          if (parried) continue
+          if (parried) { parriedAny = true; continue }
           if (foe.hp > 0 && foe.status === 'frz' && mv.type === 'fire') { foe.status = null; showTags(); await say(who(foe), STATUS_TEXT.thaw, 300) }
           if (foe.hp > 0) await afflict(foe, statusFromHit(foe, { ...mv, name }, rand))
           if (foe.hp > 0 && FLINCH[name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[name]) ST(foe).flinch = true
@@ -10552,6 +10579,16 @@ async function run(id) {
       if (crit) await say('A critical hit!')
       if (landed && eff > 1) await say("It's super effective!")
       if (landed && eff < 1) await say("It's not very effective...")
+      // A hit of it parried: the leader's Pokémon counters (LEADER_COUNTER), never for the knockout.
+      if (parriedAny && foe.hp > 0 && me.hp > 1) {
+        sfx('counter'); pop(`${trainer.short}'S COUNTER!`, C.p.x, C.p.y - 96, 'orange'); await W(120)
+        anim($('enemy'), [{ transform: 'translate(0,0)' }, { transform: 'translate(-120px,110px)', offset: .45 }, { transform: 'translate(0,0)' }], { duration: 420 })
+        await W(210)
+        const dmg = Math.max(1, Math.round(damage(foe, me, MOVEDEX.TACKLE, 1).dmg * LEADER_COUNTER)), from = me.hp
+        sparks(C.p.x, C.p.y, '#fdba74'); sfx('hit')
+        await Promise.all([blink($('player')), setHPOf(me, Math.max(1, from - dmg))]); pop(`-${from - me.hp}`, C.p.x + 34, C.p.y - 30, 'red')
+        await say(`${trainer.short}'s ${foe.name} countered`, `for ${from - me.hp} damage!`, 300)
+      }
     }
 
     /** A self-targeting support move in a 1v1: Howl, Growth, Life Dew. The ASSIST ring sets how strong it is. */
