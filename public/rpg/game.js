@@ -2816,15 +2816,37 @@ function shakeOdds(foe, ball, throwMult) {
   return a >= 255 ? 1 : 1 / Math.pow(255 / a, 0.1875)
 }
 /*
- * The leaders parry back: a Gym Leader, an Elite Four member, Red or Alex
- * (`parry`, the chance a hit of yours is parried) can parry your strikes. A
- * parried hit does a fifth of its damage (DEFEND_TAKEN.parry) and nothing
- * else (no status, no flinch). A PERFECT strike can't be parried, and a MISS
- * isn't worth it; nor can a leader's Pokémon that's asleep, frozen or
- * paralyzed, and a confused one parries less (CONF_DEFEND). The simulator
- * uses this same rule.
+ * The leaders parry back: a Gym Leader, an Elite Four member, Red, Alex or a
+ * double battle's pair (`parry`, PARRY) can parry a strike of yours that
+ * isn't PERFECT, the likelier the worse your timing (PARRY_TIMING: a MISS
+ * most of all). Two kinds:
+ *  · most are plain parries: the hit does a fifth of its damage
+ *    (DEFEND_TAKEN.parry) and nothing else (no status, no flinch);
+ *  · some are PERFECT parries (PERFECT_PARRY, again more often the worse your
+ *    timing): no damage at all, and once your attack's done their Pokémon
+ *    counters, as yours does after PERFECT parries: a Tackle's worth at
+ *    LEADER_COUNTER, undefendable, that never knocks out (it leaves 1 HP).
+ * A leader's Pokémon that's asleep, frozen or paralyzed can't parry, and a
+ * confused one parries less (CONF_DEFEND). Returns null, 'parry' or
+ * 'perfect'. The simulator uses this same rule.
  */
-const leaderParries = (T, foe, label, confused, r) => !!T?.parry && label !== 'PERFECT' && label !== 'MISS' && !cantDefend(foe) && r() < T.parry * (confused ? CONF_DEFEND : 1)
+const PARRY_TIMING = { GREAT: 0.5, GOOD: 1, OK: 1.5, MISS: 2 }
+const PERFECT_PARRY = { GREAT: 0.15, GOOD: 0.25, OK: 0.35, MISS: 0.45 }
+function leaderParries(T, foe, label, confused, r) {
+  if (!T?.parry || cantDefend(foe)) return null
+  const forced = globalThis.__forceParry   // testing only: 'parry' or 'perfect' on every strike, whatever its timing
+  if (forced === 'parry' || forced === 'perfect') return forced
+  if (!PARRY_TIMING[label] || r() >= T.parry * PARRY_TIMING[label] * (confused ? CONF_DEFEND : 1)) return null
+  return r() < PERFECT_PARRY[label] ? 'perfect' : 'parry'
+}
+const LEADER_COUNTER = 0.8
+/**
+ * How often they parry a GOOD strike (PARRY_TIMING scales it by your
+ * timing): Gym Leaders least, the Elite Fours more, Red most;
+ * Alex from `alex`, a little more each battle (rivalTrainer); a double
+ * battle's pair at least PAIR_TUNE.parry. Tuned in sim.mjs.
+ */
+const PARRY = { gym: 0.2, elite: 0.27, top: 0.34, alex: 0.16 }
 /*
  * CPU trainers carry Full Heals: leaders (Gym Leaders, the Elite Fours, Red,
  * Alex, Herb and Paul: trainer.hard) two a battle, regular trainers one. They
@@ -4391,7 +4413,7 @@ for (const id of [150, 145, 144, 146]) Object.assign(ART, { [id]: `/rpg/a/${id}.
 /** Alex as the battle needs them for battle n (0-6): the phase's look and difficulty, this battle's Full Restores and words. */
 function rivalTrainer(n) {
   const B = RIVAL_BATTLES[n], phase = RIVAL_PHASE_OF[n], L = RIVAL_LOOKS[phase]
-  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? 0.12 + n * 0.02,
+  return { ...B, phase, short: 'ALEX', full: 'RIVAL ALEX', title: L.title, role: 'RIVAL', rival: true, hard: true, parry: B.parry ?? PARRY.alex + n * 0.025,
     vs: L.vs, face: L.face, body: L.body, down: L.down, faceDown: L.faceDown, tellRate: B.tellRate ?? L.tellRate, ringFast: B.ringFast ?? L.ringFast, ivs: B.ivs ?? L.ivs,
     movesFor: (f) => RIVAL_MOVES[f.name] ?? (phase > 1 ? strongMoves(f) : null) }
 }
@@ -5122,6 +5144,12 @@ function art(L) {
   return { key: k, vs: `gymVs:${k}`, face: `gymFace:${k}`, body: `gymBody:${k}`, down: `gymBody:${k}`, faceDown: `gymFace:${k}` }
 }
 
+/** How far across each leader's VS portrait their head is (0-1), measured from the art: a two-trainer VS lines it up with the middle of its half (aimVs). */
+const VS_FOCUS = {
+  falkner: 0.615, bugsy: 0.58, whitney: 0.674, morty: 0.693, chuck: 0.649, jasmine: 0.745, pryce: 0.617, clair: 0.391, brock: 0.654, misty: 0.699, lt_surge: 0.687, erika: 0.627, janine: 0.374, sabrina: 0.537,
+  blaine: 0.63, blue: 0.672, will: 0.417, koga: 0.743, bruno: 0.751, karen: 0.625, lance: 0.694, lorelei: 0.503, agatha: 0.498, red: 0.493, 'rival-1': 0.441, 'rival-2': 0.511, 'rival-3': 0.439,
+}
+
 const LEVEL_CAP = 100
 
 /**
@@ -5278,7 +5306,7 @@ ELITE.forEach((L) => Object.assign(L, { gap: GAP.elite,
 KANTO_ELITE.forEach((L) => { L.gap = L.red ? GAP.red : GAP.kantoElite })
 ;[...GYMS, ...ELITE, ...KANTO_ELITE].forEach((L) => { if (IV31.includes(L.short)) L.ivs = 31 })
 // How often each parries your strikes (leaderParries): the gyms least, the Elite Fours more, Red most.
-GYMS.forEach((L) => { L.parry ??= 0.15 }); ELITE.forEach((L) => { L.parry ??= 0.2 }); KANTO_ELITE.forEach((L) => { L.parry ??= L.red ? 0.25 : 0.2 })
+GYMS.forEach((L) => { L.parry ??= PARRY.gym }); ELITE.forEach((L) => { L.parry ??= PARRY.elite }); KANTO_ELITE.forEach((L) => { L.parry ??= L.red ? PARRY.top : PARRY.elite })
 
 /* What a leader says after a tell: a jab when it lands, by the tell, or a grudging nod when you read it. */
 const TELL_QUIP = {
@@ -5330,6 +5358,219 @@ const STRONG_MOVES = {
 }
 /** A Kanto leader's Pokémon's moves (not their ace's: that's the leader's `sig`). */
 const strongMoves = (m) => STRONG_MOVES[m.types[0]] ?? STRONG_MOVES.normal
+
+/** The last form a species evolves into (by level, stone, cord or Bond), as far as the game has it. */
+function finalForm(name) {
+  let n = name
+  for (let i = 0; i < 4; i++) {
+    const next = DATA.evos?.[n]?.[0]?.to ?? EVO_HOW[n]?.find((r) => r.item || r.bond || r.move)?.to
+    if (!next || !speciesByName(next)) break
+    n = next
+  }
+  return n
+}
+
+/*
+ * ══════════ Double battles: two you've beaten, at once ══════════
+ * A pair of trainers back as a tag team, each with the strongest three of
+ * their team, fully evolved (pairTeam), one of each on the field. Each pair
+ * is a ticket of its own on the VVM's shelf (`double_<id>`, v109), only for
+ * those who've beaten both (the server checks both battles' milestones).
+ *
+ * Harder than a rematch, by design: every Pokémon above your best's level
+ * with every IV at 31 (PAIR_TUNE.up), attacks and targets picked to finish
+ * what the partner started and to cover each other's weaknesses
+ * (duoSmartPick), a Full Restore each, more parries, faster rings. Tuned in
+ * sim.mjs to about 1 win in 3 for an average player (the Champions' pairs, 1
+ * in 4). A win pays DOUBLE_TOKENS outside the daily cap (v109) and a Move
+ * Disc from each of them.
+ *
+ * Members are named as the rematch tickets name them (gym_N, elite_will,
+ * kanto_red, alex).
+ */
+const PAIRS = [
+  // Johto's and Kanto's gyms, two neighbours at a time.
+  { id: 'falkner_bugsy', a: 'gym_0', b: 'gym_1', lift: 0.13 },
+  { id: 'whitney_morty', a: 'gym_2', b: 'gym_3', lift: 0.09 },
+  { id: 'chuck_jasmine', a: 'gym_4', b: 'gym_5', lift: 0.06 },
+  { id: 'pryce_clair', a: 'gym_6', b: 'gym_7', lift: -0.09 },
+  { id: 'brock_misty', a: 'gym_8', b: 'gym_9', lift: 0.05 },
+  { id: 'surge_erika', a: 'gym_10', b: 'gym_11', lift: 0.05 },
+  { id: 'janine_sabrina', a: 'gym_12', b: 'gym_13', lift: 0.09 },
+  { id: 'blaine_blue', a: 'gym_14', b: 'gym_15', lift: 0.03 },
+  // The Elite Fours.
+  { id: 'will_karen', a: 'elite_will', b: 'elite_karen', lift: 0.07 },
+  { id: 'koga_bruno', a: 'elite_koga', b: 'elite_bruno', lift: 0.09 },
+  { id: 'lorelei_agatha', a: 'kanto_lorelei', b: 'kanto_agatha', lift: 0.02 },
+  { id: 'bruno_lance', a: 'kanto_bruno', b: 'kanto_lance', lift: -0.04 },
+  // Family, and the last word.
+  { id: 'lance_clair', a: 'elite_lance', b: 'gym_7', top: true, lift: -0.18 },
+  { id: 'koga_janine', a: 'elite_koga', b: 'gym_12', lift: 0.17 },
+  { id: 'alex_red', a: 'alex', b: 'kanto_red', top: true, lift: -0.02 },
+]
+/** "BROCK & MISTY"; "TATE&LIZA AND JUAN" where a name has an & already. */
+const pairName = (A, B) => [A.short, B.short].join(A.short.includes('&') || B.short.includes('&') ? ' AND ' : ' & ')
+/** A pair's member as a trainer: a Gym Leader, an Elite Four member or Champion, Red, or Alex as of `alexStep` (his last battle you've had). */
+function pairMember(ref, alexStep = RIVAL_BATTLES.length - 1) {
+  if (ref === 'alex') return rivalTrainer(Math.max(0, Math.min(alexStep, RIVAL_BATTLES.length - 1)))
+  const i = ref.indexOf('_'), kind = ref.slice(0, i), arg = ref.slice(i + 1)
+  if (kind === 'gym') return GYMS[+arg] ?? null
+  return { elite: ELITE, kanto: KANTO_ELITE }[kind]?.find((L) => L.short.toLowerCase() === arg) ?? null
+}
+/** The battle a member's milestone is paid for (battle_milestones): what the server checks before it sells the ticket. */
+function pairMilestone(ref) {
+  if (ref === 'alex') return 'rival:0'
+  const i = ref.indexOf('_'), kind = ref.slice(0, i), arg = ref.slice(i + 1)
+  return kind === 'gym' ? `gym:${arg}` : `${kind}:${arg.toUpperCase()}`
+}
+/**
+ * How much harder a pair is than either alone: how far above your best's
+ * level their lead, second and ace are (`up`, a share of it: +6% at Lv 50 is
+ * 3 levels), the least each parries (`parry`), Full Restores each
+ * (`restores`), and how much faster their rings close (`ringFast`, on top of
+ * a leader's usual pace). A pair's own `lift` adds to `up` for all three:
+ * some teams are stronger than others. Tuned in sim.mjs (PAIR_AIM).
+ */
+const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.3, restores: 1, ringFast: 0.88 }
+/** A member as they battle in pair `P`: a leader's smarts and then some (see PAIR_TUNE). */
+function pairSide(T, P = {}) {
+  return { ...T, hard: true, strong: true, smart: true, pair: true, restores: PAIR_TUNE.restores, parry: Math.max(T.parry ?? PARRY.gym, PAIR_TUNE.parry), duoFast: PAIR_TUNE.ringFast, lift: P.lift ?? 0, top: !!P.top }
+}
+/**
+ * Below Lv 50 a party is still evolving while a pair's three are fully
+ * evolved, so they come in nearer your level: [your level, less of a share]
+ * points, straight lines between (none from Lv 50 up). Tuned in sim.mjs.
+ */
+const PAIR_EARLY = [[15, 0.22], [20, 0.18], [30, 0.14], [40, 0.03], [50, 0]]
+const pairEarly = (lv) => { const P = PAIR_EARLY, j = P.findIndex(([l]) => l >= lv); if (j <= 0) return j === 0 ? P[0][1] : 0
+  const [l0, v0] = P[j - 1], [l1, v1] = P[j]; return v0 + (v1 - v0) * (lv - l0) / (l1 - l0) }
+/**
+ * The level a pair's Pokémon in slot k (0 lead, 1 second, 2 ace) should be
+ * against your best at `lv`. Past LEVEL_CAP it's still Lv 100, with the stats
+ * of the level it should be (pairTeam): at the top, they've trained past it.
+ */
+const pairLevel = (T, lv, k) => Math.max(2, Math.round(lv * (1 + PAIR_TUNE.up[k] + (T.lift ?? 0) - pairEarly(lv))))
+const baseTotal = (sp) => Object.values(sp.base).reduce((a, b) => a + b, 0)
+/**
+ * A member's three for a pair battle at `lv` (your best's level): every
+ * Pokémon on any of their teams, fully evolved, and of those the three with
+ * the highest base stats, the strongest (their ace) sent out last. Every IV 31.
+ */
+function pairTeam(T, lv, r = Math.random) {
+  const sp = (n) => DATA.trainer.find((t) => t.name === n) ?? speciesByName(n)
+  const names = [...new Set([T.team, ...(T.alts ?? [])].flat().map(finalForm))].filter(sp)
+  const top3 = names.map((n, i) => ({ n, i, s: baseTotal(sp(n)) })).sort((x, y) => y.s - x.s || y.i - x.i).slice(0, 3)
+  const order = [top3[1], top3[2], top3[0]].filter(Boolean)
+  return order.map((x, k) => {
+    const want = pairLevel(T, lv, k + 3 - order.length), m = individual(sp(x.n), Math.min(LEVEL_CAP, want), r)
+    for (const s of STAT_KEYS) m.ivs[s] = 31
+    m.stats = statsAt(m, want)
+    // Past the cap, it hits as hard as it would at `want` (damage scales with the attacker's level too).
+    if (want > m.level) { const f = (2 * want / 5 + 2) / (2 * m.level / 5 + 2); m.stats.atk = Math.round(m.stats.atk * f); m.stats.spa = Math.round(m.stats.spa * f) }
+    m.hp = m.stats.hp
+    return m
+  })
+}
+/** A pair member's attacks: their own Pokémon's, a leader's strong moves of both its types, and the ace's signature moves. */
+function pairMoves(T, m, ace) {
+  const all = [...(T.movesFor?.(m) ?? []), ...(ace && T.sig ? T.sig : []), ...(TRAINER_MOVES[m.name] ?? []), ...m.types.flatMap((t) => STRONG_MOVES[t] ?? [])]
+  const seen = new Set()
+  return (all.length ? all : WILD_MOVES[m.types[0]] ?? WILD_MOVES.normal).filter((mv) => !seen.has(mv.name) && seen.add(mv.name))
+}
+/** Roughly what `mv` from `att` does to `def` (no stages or weather): for choosing, not dealing. */
+function estHit(att, def, mv) {
+  const spec = mv.cat === 'spec', A = spec ? att.stats.spa : att.stats.atk, D = spec ? def.stats.spd : def.stats.def
+  const base = Math.floor(Math.floor(Math.floor(2 * att.level / 5 + 2) * (mv.power ?? 0) * A / D) / 50) + 2
+  return base * (att.types.includes(mv.type) ? 1.5 : 1) * soften(gameMult(mv.type, def.types)) * (mv.hits ?? 1)
+}
+/**
+ * A pair member's Pokémon choosing its attack in a 2v2: the move and target
+ * that take the most of a foe's remaining HP, a knockout worth most of all
+ * (so it finishes what its partner started). A move that hits everyone
+ * (SPREAD: Surf, Discharge...) counts what it does to both of yours, less
+ * twice what it does to its own partner: Surf beside a Water type, never
+ * beside a Fire type.
+ * A Hyper Beam's charging turn halves its worth. Usually the best; now and
+ * then the next best. Returns { mv, target } (one of `foes`), or null.
+ */
+function duoSmartPick(me, moves, foes, partner, r = Math.random) {
+  const opts = []
+  const share = (d, m) => Math.min(1, d / Math.max(1, m.hp))
+  for (const mv of moves) {
+    if (mv.splash || !(mv.power > 0)) continue
+    const slow = mv.charge ? 0.5 : 1
+    if (SPREAD.has(mv.name)) {
+      let v = foes.reduce((n, f) => n + share(estHit(me, f, mv) * 0.75, f) + (estHit(me, f, mv) * 0.75 >= f.hp ? 0.5 : 0), 0)
+      if (partner && partner.hp > 0) v -= 2 * share(estHit(me, partner, mv) * 0.75, partner)
+      opts.push({ mv, target: foes[0], v: v * slow })
+    } else for (const f of foes) { const d = estHit(me, f, mv); opts.push({ mv, target: f, v: (share(d, f) + (d >= f.hp ? 0.5 : 0)) * slow }) }
+  }
+  opts.sort((a, b) => b.v - a.v)
+  return opts[r() < 0.8 || opts.length < 2 ? 0 : 1] ?? null
+}
+/* What a pair says: `intro` as they arrive (the first member, then the second), `outro` when you win, `gloat` when they do. */
+const PAIR_TALK = {
+  falkner_bugsy: { intro: ['Bugsy and I agreed: Violet and Azalea should take you on together.', "Birds and bugs! It's not as odd as it sounds. Watch the sky AND the grass!"],
+    outro: ['Grounded by both of us at once... impressive.', "I'll need a whole new notebook for this one!"], gloat: ['Two badges of trouble, all at once.', 'Teamwork evolves too!'] },
+  whitney_morty: { intro: ["Morty says ghosts and normal types can't touch each other. So nobody can touch US!", "Whitney's idea, not mine. But the mist agreed to it."],
+    outro: ['Waaah! Two against one and we STILL lost?!', 'The mist showed me this. I hoped it was wrong.'], gloat: ["Yay! Miltank and Morty's ghosties win!", 'The ending I foresaw, after all.'] },
+  chuck_jasmine: { intro: ['WAHAHAH! I swam across the sea from Cianwood for this!', "Chuck's fists, and my steel... Um, please don't hold back."],
+    outro: ['Hrrng! Back under the waterfall for me!', 'You were... very strong. Thank you.'], gloat: ['Steel and fists! Unbreakable!', "Um... I hope that wasn't too rough."] },
+  pryce_clair: { intro: ['Ice and dragons. Clair knows what that means for her own kind, and she came anyway.', "Don't get any ideas. I'm here to win, not to make friends with the old man."],
+    outro: ['Hmm. Even the oldest ice melts in time.', "Fine! You're strong. Don't let it go to your head."], gloat: ['Patience, young one. Winter always returns.', "Ha! The dragon clan's pride is restored."] },
+  brock_misty: { intro: ['Misty and I go way back. Rock-solid defense...', "...and my water to wash you away! You're going down!"],
+    outro: ['Your bond with your Pokémon is something else.', 'Ugh! Fine. You win this time!'], gloat: ['Like a boulder: unmovable!', "That's the power of the Cerulean Gym!"] },
+  surge_erika: { intro: ['Hey, kid! The lady and I make a shocking team!', "Oh my... Lt. Surge insisted. I do hope you don't mind."],
+    outro: ["Whoa! You're the real deal, kid!", 'How lovely... I lost, and yet I feel refreshed.'], gloat: ['Ha! Zapped! Shocking, right?', 'Oh dear. Perhaps a nap would help.'] },
+  janine_sabrina: { intro: ['Sabrina saw you coming. I just set the traps.', "I knew you'd buy this ticket. I know how this ends, too."],
+    outro: ['Hmph! Father would say I need more training.', '...My vision was wrong. How very interesting.'], gloat: ['Caught in the trap! Just like I planned.', 'As I foresaw.'] },
+  blaine_blue: { intro: ["Hah! Blue's been hanging around Cinnabar since the volcano. Quiz time: who's hotter?", "Don't look so nervous. Okay, look a LITTLE nervous. We're good."],
+    outro: ["Hah! I'm burned out! Both of us!", "Tch. You're still the better trainer. For now."], gloat: ['Correct answer: us!', "Ha! Told ya. I'm the best... and so's he."] },
+  will_karen: { intro: ["Karen's dark types cover my one weakness. A perfect pairing.", "Strong Pokémon. Weak Pokémon. Let's see which yours are, against two of us."],
+    outro: ["Even together, we couldn't read you.", "You're a real trainer. Try to stay that way."], gloat: ['A flawless pairing, as I predicted.', 'Favorites still win in the end.'] },
+  koga_bruno: { intro: ['Fwahaha! Bruno brings brute force. I bring everything else.', "Hoo hah! Two masters. One challenger. Let's go!"],
+    outro: ['A ninja knows when he is beaten. This is that time.', 'Hrrrm! My muscles need more training!'], gloat: ['The poison was in your path all along.', 'HOO HAH! Victory!'] },
+  lorelei_agatha: { intro: ["Agatha and I, together at last. Kanto's coldest welcome.", "Hah! Lorelei's ice and my ghosts. Don't you dare go easy on an old woman."],
+    outro: ["Well done. You've thawed us both.", "Hmph! You remind me of Oak in his prime. That's a compliment."], gloat: ['Frozen solid. Better luck next time.', 'Ahahaha! Still too green, child!'] },
+  bruno_lance: { intro: ["We've trained side by side at the Plateau for years.", "My dragons and Bruno's fighters. Show us everything you have."],
+    outro: ["Hrrm... you've grown stronger than us both.", 'Magnificent. Truly magnificent.'], gloat: ['Hoo! Our training paid off!', 'The Plateau stands. Come back stronger.'] },
+  lance_clair: { intro: ['Clair and I are of the same dragon clan. Today we fight as one.', "My cousin and I don't team up for just anyone. Feel honored. Then lose."],
+    outro: ['The elders of our clan would be proud of you, not us.', "...I'll admit it. You're stronger than both of us."], gloat: ['Two dragon masters is a lot to handle.', "Ha! That's the might of the dragon clan!"] },
+  koga_janine: { intro: ['My daughter has grown. Today we show you the ninja arts together.', "Father! Watch me! I won't let you down!"],
+    outro: ['Janine. We both have much to learn.', "Father... I'm sorry. I'll train twice as hard!"], gloat: ['Well done, Janine. Fwahaha!', 'Did you see that, Father?!'] },
+  alex_red: { intro: ['I found him on Mt. Silver and asked. He just... nodded. So: Red and me, on the same side.', '…'],
+    outro: ['Okay... okay. Best battle of my life, and I LOST it.', '…Strong.'], gloat: ['Ha! Did you see that, Red? We did it!', '…Again?'] },
+  roxanne_brawly: { intro: ['Brawly and I compared notes. Rock and fighting types make a very strong syllabus.', "Whoa, a two-on-two! Let's ride this wave!"],
+    outro: ["I'll have to revise everything I've studied.", 'Wiped out! Gnarly battle, though!'], gloat: ['Textbook teamwork. Quite literally.', 'Hang loose! That wave was ours!'] },
+  wattson_flannery: { intro: ['Wahahahah! Flannery and I are fired up AND charged up!', "R-right! I mean... yes! Let's turn up the heat!"],
+    outro: ["Wahahah! A fine battle! I'm shocked!", 'Too hot to handle... You burned brighter than both of us!'], gloat: ['Wahahah! A jolt of teamwork!', 'Hot! Hot! Grandpa would be proud!'] },
+  norman_winona: { intro: ["Winona and I agreed you deserve a real test. Fair warning: we won't hold back.", "Norman's strength on the ground, my birds in the sky. There's nowhere to hide."],
+    outro: ["I'm proud of you. Truly.", "You've soared higher than either of us."], gloat: ['Strength comes from losing to the hardest battles. Try again.', 'The sky was ours today.'] },
+  tateliza_juan: { intro: ['Juan joined us. Did you see it coming? We did! Hehehe!', 'Ahahaha! A ballet of water and minds, mon ami. Shall we dance?'],
+    outro: ["We couldn't read you... even with three of us!", 'Magnifique. A performance worthy of Sootopolis.'], gloat: ['Hehehe! Two minds and a maestro!', 'The dance ends, and I take the bow.'] },
+  roark_gardenia: { intro: ['Gardenia and I go back to the first badges of Sinnoh. Rocks and roots, together!', "My grass types grow right through Roark's rocks! Let's battle!"],
+    outro: ['Ha! You dug deeper than we did.', 'Aww! Beaten fair and square!'], gloat: ['Solid as bedrock!', 'Our garden grew strong!'] },
+  maylene_wake: { intro: ["Wake and I train together all the time. I'm ready! Let's do this!", 'WAHAHAHA! The masked man of the mighty waves AND Maylene! Ready to get crashed?!'],
+    outro: ["I'll... I'll keep training. Thank you!", 'WAHAHA! You splashed us good!'], gloat: ['We did it, Wake!', "CRASH! That's how it's done!"] },
+  fantina_byron: { intro: ['Bonjour! Byron promised me a dance of steel and ghosts. Shall we?', "Gahahaha! I'm not much of a dancer, but my steel can tango!"],
+    outro: ['Ooh la la! You dance better than we do!', "Gahaha! You've got a backbone of steel!"], gloat: ['Magnifique! What a dance!', 'Gahahaha! Steel stands firm!'] },
+  candice_volkner: { intro: ['Volkner was bored again, so I dragged him up to Snowpoint! Focus time!', "...She's right. I've been waiting for someone worth getting serious for."],
+    outro: ["Ack! You're way cool. Like, ice cool!", 'That... was exciting. Thank you.'], gloat: ['Diamond dust! Totally focused!', 'Not bad. But not enough.'] },
+  sidney_phoebe: { intro: ["Phoebe and I figured we'd double the fun. No hard feelings, yeah?", "My ghosts and Sidney's dark types... You've got no openings left!"],
+    outro: ["Ha! Now that's what I'm talking about!", 'Wow! I need to go back to Mt. Pyre and train!'], gloat: ["That's how it goes, yeah?", 'Ahaha! The spirits were on our side!'] },
+  glacia_drake: { intro: ["Drake and I share the last two halls. Let's see if your passion survives us both.", 'Ho! The two toughest at once. Do you know what a Pokémon battle demands?!'],
+    outro: ['Your passion is real. I can see it now.', "Superb! You've got what it takes!"], gloat: ["Too cold, I'm afraid.", "Not yet! Come back when you're ready!"] },
+  aaron_bertha: { intro: ["Bertha says bugs and ground types don't mix. I'll prove her wrong!", "Ahaha, young Aaron's so eager. Well then, let's give it our all, dearie."],
+    outro: ['My bugs... They gave it everything!', "Ahaha! You're a fine trainer, dearie."], gloat: ['Bug types are the best! I told you!', "Don't fret, dearie. Try again."] },
+  flint_lucian: { intro: ["Lucian put his book down for this. That's how fired up we are!", "A chapter I've been looking forward to. Let us begin."],
+    outro: ["Burned out! You've got a real flame!", 'A fitting final chapter. I enjoyed it.'], gloat: ['Haha! Still blazing!', 'The story continues, but not for you today.'] },
+  byron_roark: { intro: ['Gahahaha! My boy Roark and I, digging deep together!', "Dad, don't embarrass me... Anyway! We're both serious."],
+    outro: ['Gahaha! Beat both of us, eh? Well done!', 'Dad... I think we both need more training.'], gloat: ["Gahahaha! That's my boy!", 'We did it, Dad!'] },
+  volkner_flint: { intro: ["Flint dragged me out of Sunyshore again. ...I'm glad he did.", 'Best friends, best battle! Get ready to burn up!'],
+    outro: ["That was... the battle I'd been waiting for.", "Haha! Volkner's smiling! You've done something big!"], gloat: ['...Not bad, Flint.', "We're fired up AND electrified!"] },
+  wallace_cynthia: { intro: ["Two Champions on one stage. Let's give this a dazzling finish.", "I've wondered what you'd do against both of us. Show me."],
+    outro: ['What elegance! You outshone us both.', "Amazing... You're the strongest trainer I know."], gloat: ['A beautiful performance, if I may say so.', "Don't be discouraged. Champions are made from losses."] },
+}
 
 async function run(id) {
   const demo = MODE !== 'play'   // 'demo' and 'duo' are both watched
@@ -5611,8 +5852,8 @@ async function run(id) {
     // Evolution items (v88).
     thunder_stone: 'thunderstone', water_stone: 'waterstone', fire_stone: 'firestone', leaf_stone: 'leafstone', ice_stone: 'icestone', moon_stone: 'moonstone',
     sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }
-  /** Can this Bag item be sold back to the VVM (v103)? Anything but Gym Summons, League and rematch tickets and key items. */
-  const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && ITEMS[k].summon == null && !ITEMS[k].rematch && !['summon', 'elite', 'disc'].includes(k)
+  /** Can this Bag item be sold back to the VVM (v103)? Anything but Gym Summons, League, rematch and double battle tickets and key items. */
+  const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && ITEMS[k].summon == null && !ITEMS[k].rematch && !ITEMS[k].pair && !['summon', 'elite', 'disc'].includes(k)
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
@@ -5668,12 +5909,14 @@ async function run(id) {
    */
   function supLocked(key) {
     if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r || !r.beaten() }
+    if (key.startsWith('double_')) { const p = pairOf(key.slice(7)); return !p || !p.beaten() }
     if (key === 'gym_summon') return !(nextGym() < GYMS.length && (nextGym() < 8 || champion))
     if (key === 'elite_ticket') return !leagueNow()
     return false
   }
   function supNot(key) {
     if (key.startsWith('rematch_')) { const r = rematchOf(key.slice(8)); return !r ? 'not in this game' : !r.beaten() ? 'beat them first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
+    if (key.startsWith('double_')) { const p = pairOf(key.slice(7)); return !p ? 'not in this game' : !p.beaten() ? 'beat them both first' : !modeLive.trainers ? "trainer battles aren't live yet" : '' }
     if ((key === 'gym_summon' || key === 'elite_ticket') && !modeLive.trainers) return "trainer battles aren't live yet"
     if (key === 'gym_summon') return heldSummon() ? 'you have one' : nextGym() < GYMS.length && (nextGym() < 8 || champion) ? '' : 'no gym to summon'
     if (key === 'elite_ticket') { const lg = leagueNow(); return !lg ? (redBeaten ? "you've beaten Red" : champion ? 'needs all 16 badges' : 'needs all 8 Johto badges') : bag[summonKey(lg)] ? 'you have one' : '' }
@@ -5691,6 +5934,8 @@ async function run(id) {
       if (x.key === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return `<button class="tile summon" data-buy="sup:gym_summon"${off}><span class="art"><img src="${ART[L.face]}" alt=""></span><i class="kind">GYM</i><b>${L.badge} SUMMON</b>${meta(L.short)}</button>` }
       if (x.key.startsWith('rematch_')) { const r = rematchOf(x.key.slice(8)); if (!r) return ''
         return `<button class="tile summon" data-buy="sup:${esc(x.key)}"${off}><span class="art"><img src="${ART[r.T.face]}" alt=""></span><i class="kind">REMATCH</i><b>${esc(r.T.short)}</b>${meta('1v1 or 2v2')}</button>` }
+      if (x.key.startsWith('double_')) { const p = pairOf(x.key.slice(7)); if (!p) return ''
+        return `<button class="tile summon pair" data-buy="sup:${esc(x.key)}"${off}><span class="art">${pairFaces(p)}</span><i class="kind">DOUBLE</i><b>${esc(pairName(p.A, p.B))}</b>${meta('2v2 · 3 each')}</button>` }
       if (x.key === 'elite_ticket') { const c = LEAGUES[leagueNow() ?? (champion ? 'kanto' : 'elite')].card; return `<button class="tile summon" data-buy="sup:elite_ticket"${off}><span class="art"><img src="${ART[c.face]}" alt=""></span><i class="kind">LEAGUE</i><b>${c.summonName}</b>${meta('all 5 battles')}</button>` }
       if (x.key === 'move_disc') { const n = discOfCycle(t.cycle_no ?? 0), m = moveInfo(n)
         return `<button class="tile item" data-buy="sup:move_disc"${off}><span class="art"><span class="supic disc"></span></span><i class="kind">MOVE DISC</i><b>${n}</b>${meta(m.type.toUpperCase())}</button>` }
@@ -5722,12 +5967,13 @@ async function run(id) {
   async function collectItems() {
     claimEmblem()
     const api = vvm(); if (!api || !tutorialDone) return []
-    const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k)), ...rematchFoes().map((r) => 'rematch_' + r.id)]
+    const keys = [...Object.keys(BAG_OF), 'move_disc', ...['gym_summon', 'elite_ticket'].filter((k) => !supNot(k)), ...rematchFoes().map((r) => 'rematch_' + r.id), ...pairFoes().map((p) => 'double_' + p.id)]
     const got = await api.takeItems(keys).catch(() => [])
     const said = []
     for (const { key, qty } of got) {
       if (BAG_OF[key]) { bag[BAG_OF[key]] = (bag[BAG_OF[key]] ?? 0) + qty; said.push(`${qty} ${ITEMS[BAG_OF[key]].name}`) }
       else if (key.startsWith('rematch_') && rematchItem(key.slice(8))) { const k = rematchKey(key.slice(8)); bag[k] = (bag[k] ?? 0) + qty; said.push(`${qty} ${ITEMS[k].name}`) }
+      else if (key.startsWith('double_') && pairItem(key.slice(7))) { const k = pairKey(key.slice(7)); bag[k] = (bag[k] ?? 0) + qty; said.push(`${qty === 1 ? 'a DOUBLE BATTLE ticket' : `${qty} DOUBLE BATTLE tickets`} (${ITEMS[k].name})`) }
       else if (key === 'gym_summon') { const g = nextGym(); summonItem(g); bag[summonKey(g)] = (bag[summonKey(g)] ?? 0) + qty; said.push(`${qty} ${ITEMS[summonKey(g)].name}`) }
       else if (key === 'elite_ticket') { const k = leagueKey(); bag[k] = 1; said.push(`${aOrAn(ITEMS[k].name)}`) }   // the catalog's one League ticket: for the League that's open
       else if (key === 'move_disc') for (let i = 0; i < qty; i++) { const n = discDue.shift() ?? pickOf(DISC_POOL); discItem(n); bag[discKey(n)] = (bag[discKey(n)] ?? 0) + 1; said.push(`a MOVE DISC (${n})`) }
@@ -5880,6 +6126,8 @@ async function run(id) {
       if (id === 'gym_summon') { const L = GYMS[nextGym()] ?? GYMS.at(-1); return { title: `${L.badge} SUMMON`, kind: 'GYM SUMMON', art: `<img src="${ART[L.face]}" alt="">`, left, desc: `<p>Summons ${esc(L.full)} of ${esc(L.city)}, your next Gym Leader: ${L.team.length} ${esc(L.type)}-type Pokémon. Win and you get the ${esc(L.badge)} BADGE and ${L.tokens} tokens. Used up when they arrive, win or lose.</p>` } }
       if (id === 'elite_ticket') { const lg = leagueNow() ?? (champion ? 'kanto' : 'elite'), c = LEAGUES[lg].card; return { title: c.summonName, kind: 'LEAGUE TICKET', art: `<img src="${ART[c.face]}" alt="">`, left, desc: `<p>All five League battles: ${esc(LEAGUES[lg].sub)}. Win and the ticket carries you to the next; lose and it's gone.</p>` } }
       if (id.startsWith('rematch_')) { const re = rematchOf(id.slice(8)); return { title: re ? `${re.T.short} REMATCH` : r.name, kind: 'REMATCH', art: re ? `<img src="${ART[re.T.face]}" alt="">` : '', left, desc: `<p>A rematch with ${esc(re?.T.full ?? r.name)}, 1v1 or 2v2, at your level. A win pays ${REMATCH_TOKENS} tokens and a Move Disc of their type.</p>` } }
+      if (id.startsWith('double_')) { const p = pairOf(id.slice(7)); return { title: p ? pairName(p.A, p.B) : r.name, kind: 'DOUBLE BATTLE', art: p ? `<span class="pairart">${pairFaces(p)}</span>` : '', left,
+        desc: `<p>${p ? `${esc(p.A.full)} and ${esc(p.B.full)}` : esc(r.name)}, together: a 2v2 against the three strongest of each of their teams, above your level, every one at its best. Harder than any rematch. A win pays ${DOUBLE_TOKENS} tokens and a Move Disc from each of them.</p>` } }
       const bk = BAG_OF[id]
       return { title: r.name.toUpperCase(), kind: 'ITEM', art: `<span class="supic ${bk ?? ''}"></span>`, left, desc: (itemInfo(bk) || para(r.description)) }
     }
@@ -6052,7 +6300,7 @@ async function run(id) {
   const CHECKOUT_FAIL = { not_holder: 'your turn at the machine timed out', insufficient_stock: 'someone got there first: the stock changed', set_sold_out: 'that set has sold out for good',
     insufficient_tokens: 'not enough tokens', ticket_sold_out: 'that raffle ticket just ran out', ticket_limit_reached: 'you hold the most of that ticket you can',
     ticket_unavailable: 'that raffle ticket is gone', supply_not_stocked: "that supply isn't on the shelf anymore", supply_unavailable: "that supply isn't sold anymore", empty_cart: 'the cart is empty',
-    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first', rematch_not_beaten: 'that rematch is only for those who beat them',
+    box_unavailable: "that box isn't on the shelf anymore", box_sold_out: 'that box just sold out', box_limit_reached: 'you hold the most of that box you can', gym_summon_limit: 'you already have a Gym Summon: use it first', rematch_not_beaten: 'that rematch is only for those who beat them', double_not_beaten: 'that double battle is only for those who beat them both',
     supply_limit_reached: 'that is more of it than one checkout allows', supply_daily_limit: "that's more of it than you can buy today" }
   $('cbGo').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy || !cartCount()) return; sfx('select'); drawCheckout(); $('checkout').classList.add('open') }
   $('cbBack').onclick = (e) => { e.stopPropagation(); if (MODE !== 'play' || busy) return; sfx('move'); cart.clear(); paintCart(); guard(() => toIdle())() }
@@ -6198,6 +6446,10 @@ async function run(id) {
       if (it.rematch) {
         const r = rematchOf(it.rematch), ok = !!r && modeOn('trainers')
         return `<button class="irow" data-rematch="${it.rematch}"${ok ? '' : ' disabled'}><img class="ic face" src="${r ? ART[r.T.face] : ''}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">${ok ? 'rematch them now (1v1 or 2v2) · tap' : 'trainer battles are off'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
+      }
+      if (it.pair) {
+        const p = pairOf(it.pair), ok = !!p && modeOn('trainers')
+        return `<button class="irow" data-pair="${it.pair}"${ok ? '' : ' disabled'}><span class="ic pairic">${p ? pairFaces(p) : ''}</span><span class="mid"><b>${it.name}</b><span class="sub">${ok ? 'double battle, 3 each: take them on now · tap' : 'trainer battles are off'}</span></span><span class="ct">×${bag[k] ?? 0}</span></button>`
       }
       if (it.summon != null) {
         const n = it.summon, L = GYMS[n], done = badges.includes(n), ready = n === nextGym() && (n < 8 || champion)
@@ -6475,6 +6727,11 @@ async function run(id) {
       if (a.challenge != null) { bag[summonKey(a.challenge)]--; pendingSummon = a.challenge; renderTools(); sfx('select'); sheetCloser?.(); return }
       // A rematch ticket: spent, and they turn up once the sheet closes.
       if (a.rematch != null) { if (!(bag[rematchKey(a.rematch)] > 0) || !party.some((m) => m.hp > 0)) { toast = 'Heal your party first.'; toastBad = true; draw(); return } bag[rematchKey(a.rematch)]--; pendingRematch = a.rematch; renderTools(); sfx('select'); sheetCloser?.(); return }
+      // A double battle ticket: two of yours have to be able to fight.
+      if (a.pair != null) {
+        if (!(bag[pairKey(a.pair)] > 0) || party.filter(((m) => m.hp > 0)).length < 2) { toast = party.some(((m) => m.hp > 0)) ? 'A double battle needs two Pokémon ready to fight.' : 'Heal your party first.'; toastBad = true; draw(); return }
+        bag[pairKey(a.pair)]--; pendingPair = a.pair; renderTools(); sfx('select'); sheetCloser?.(); return
+      }
       if (a.target != null && ITEMS[view.item].disc) {
         // A Move Disc: learned now, equipped if there's room, otherwise straight to the move editor.
         const m = party[a.target], n = ITEMS[view.item].disc, r = teach(m, n, true)
@@ -6597,7 +6854,7 @@ async function run(id) {
     }
     toast = ''; draw(); fitSheet(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release', 'sellpage', 'sell', 'sellall']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'pair', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release', 'sellpage', 'sell', 'sellall']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -7035,12 +7292,13 @@ async function run(id) {
     return second
   }
   /** The VS splash for a 2v2: the tag team's split portrait, or one scalper's. */
-  function vsSplash(crew, onField) {
+  function vsSplash(crew, onField, label = 'TAG TEAM · 2 VS 2') {
     const vs = $('vs'); vs.style.display = 'block'
     if (crew[1]) {
-      $('vsImg').src = ART[crew[1].vs]; $('vsName').textContent = `${crew[0].short} & ${crew[1].short}`; vs.classList.add('duo')   // whoever the pair is
+      $('vsImg').src = ART[crew[1].vs]; $('vsName').textContent = pairName(crew[0], crew[1]); vs.classList.add('duo')   // whoever the pair is
       const two = $('vsImg').parentElement.cloneNode(true); two.classList.add('who2'); two.querySelector('img').removeAttribute('id'); two.querySelector('img').src = ART[crew[0].vs]; $('vsImg').parentElement.before(two)
-      vs.querySelector('.name span').textContent = 'TAG TEAM · 2 VS 2'
+      aimVs(two.querySelector('img'), crew[0]); aimVs($('vsImg'), crew[1])
+      vs.querySelector('.name span').textContent = label
       anim(two, [{ transform: 'translateX(-260px)' }, { transform: 'none' }], { duration: 420, delay: 520, fill: 'both', easing: 'cubic-bezier(.2,.8,.3,1)' })
     } else {
       $('vsImg').src = ART[crew[0].vs]; $('vsName').textContent = crew[0].full
@@ -7054,8 +7312,19 @@ async function run(id) {
     $('vsImg').src = ART[T.vs]; $('vsName').textContent = T.full; vs.querySelector('.name span').textContent = sub; vs.querySelector('.big').textContent = 'ALLY'
     vsIn(vs)
   }
+  /**
+   * A portrait in half of a two-trainer VS: its head over the middle of the
+   * half you can see (60% across: the slant hides the left of it), by where
+   * the head is in that art (VS_FOCUS). Art not in the table keeps the
+   * stylesheet's place (the scalpers').
+   */
+  function aimVs(img, T) {
+    const f = VS_FOCUS[(ART[T.vs] ?? '').split('/').pop().replace(/^gym-|-vs\.jpg$/g, '')]
+    img.style.left = f == null ? '' : '60%'; img.style.transform = f == null ? '' : `translateX(-${(f * 100).toFixed(1)}%)`
+  }
   function vsHide() {
     const vs = $('vs'); vs.style.display = 'none'; vs.getAnimations({ subtree: true }).forEach((a) => a.cancel())
+    $('vsImg').style.left = ''; $('vsImg').style.transform = ''
     vs.querySelector('.who2')?.remove(); vs.querySelector('.name span').textContent = 'SCALPER'; vs.querySelector('.big').textContent = 'VS'
     vs.classList.remove('duo', 'ally', 'gym')
   }
@@ -7516,6 +7785,7 @@ async function run(id) {
       }).filter(Boolean)
     }
     const foeHeals = new Map()   // each trainer's Full Heals left this battle
+    const foeRestores = new Map()   // and a pair member's Full Restores (PAIR_TUNE.restores)
     function foeCommands(step) {
       return alive('e').map((s) => {
         const scripted = step?.foes?.[s.mon.name]
@@ -7523,6 +7793,11 @@ async function run(id) {
         const heal = TRAINER_SUPPORT[s.mon.name]
         if (scripted?.move && SUPPORT[scripted.move]) return { actor: s, move: moveInfo(scripted.move), target: s }
         if (s.charged) { const up = alive('p'); return { actor: s, move: s.charged, target: up[Math.floor(rand() * up.length)] } }
+        // A pair member's Full Restore, when one of theirs is low: all its HP back, and any status gone.
+        if (!scripted && !demo && s.owner?.pair && (foeRestores.get(s.owner) ?? s.owner.restores ?? 0) > 0 && s.mon.hp < s.mon.stats.hp * 0.35) {
+          foeRestores.set(s.owner, (foeRestores.get(s.owner) ?? s.owner.restores) - 1)
+          return { actor: s, move: { name: 'FULL RESTORE', kind: 'item', item: 'fullrestore', prio: 6, cost: 0, foe: true }, target: s }
+        }
         // Its trainer's Full Heal (FOE_FULL_HEALS a battle each): used first thing in the turn, like yours.
         if (!scripted && !demo && s.owner && (foeHeals.get(s.owner) ?? FOE_FULL_HEALS(s.owner)) > 0 && foeWantsFullHeal(s.mon, s.owner, rand)) {
           foeHeals.set(s.owner, (foeHeals.get(s.owner) ?? FOE_FULL_HEALS(s.owner)) - 1)
@@ -7545,6 +7820,12 @@ async function run(id) {
             s.usedStatus = true; const sm = moveInfo(sn), fits = up.filter((x) => demo || moveWorks(sn, s.mon, x.mon, S, { weather: weather?.kind }))
             return { actor: s, move: sm, target: sm.target === 'foe' ? fits[Math.floor(rand() * fits.length)] ?? up[0] : s }
           }
+        }
+        // A pair member's Pokémon picks the attack and the target that do the most (duoSmartPick).
+        if (!scripted && s.owner?.smart) {
+          const up = alive('p'), ms = pairMoves(s.owner, s.mon, !!s.mon.pairAce).filter((m) => S(s.mon).disabled?.name !== m.name)
+          const p = duoSmartPick(s.mon, ms, up.map((x) => x.mon), allyOf(s)?.mon, rand)
+          if (p) return { actor: s, move: { ...p.mv, kind: p.mv.kind ?? 'strike', foe: true }, target: up.find((x) => x.mon === p.target) ?? up[0] }
         }
         s.turn = (s.turn ?? 0)
         let mv = (scripted?.move && atk.find((m) => m.name === scripted.move)) || atk[s.turn++ % atk.length]
@@ -7570,7 +7851,7 @@ async function run(id) {
       await hpTo(s, Math.min(s.mon.stats.hp, from + amt)); pop(`+${s.mon.hp - from}`, s.c.x + 30, s.c.y - 40, 'green')
       await say(`${s.mon.name} drained`, 'some HP!', 200)
     }
-    async function hitOnce(actor, T, mv, planned, label, approach, mult, whiffOnMiss, h = 0) {
+    async function hitOnce(actor, T, mv, planned, label, approach, mult, whiffOnMiss, h = 0, parriers = null) {
       if (S(T.mon).protect) { sfx('clang'); pop('PROTECTED', T.c.x, T.c.y - 70, 'blue'); await say(T.mon.name, 'protected itself!', 250); return null }
       let acc
       const sr = strikeRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); approach = Math.round(approach * sr.speed)
@@ -7585,11 +7866,12 @@ async function run(id) {
         panel(null)
       }
       if (whiffOnMiss && acc.label === 'MISS') { pop('MISSED', T.c.x, T.c.y - 70, 'red small'); sfx('dodge'); return null }
-      // A leader's Pokémon can parry it (not a PERFECT): a fifth of the damage, and nothing else.
+      // A leader's Pokémon can parry it (not a PERFECT): a fifth of the damage and nothing else, or, a PERFECT parry, none at all and a counter after (leaderParries).
       const parried = !demo && T.side !== 'p' && leaderParries(T.owner, T.mon, acc.label, !!S(T.mon).conf, chance)
-      pop(parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+      pop(parried === 'perfect' ? `${T.owner.short}'S PERFECT PARRY!` : parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
       sfx(parried ? 'parry' : mv.snd); await strikeFx(mv, actor.c, T.c, actor.el, approach < 820)
-      if (parried) { anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(T.c.x - 20, T.c.y - 20) }
+      if (parried) { anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(T.c.x - 20, T.c.y - 20, parried === 'perfect' ? '#fde047' : undefined, parried === 'perfect' ? 16 : 10) }
+      if (parried === 'perfect') { parriers?.add(T); return null }   // not a scratch on it: the counter comes once the attack's done
       const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult * (parried ? DEFEND_TAKEN.parry : 1))
       const from = T.mon.hp
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
@@ -7610,7 +7892,8 @@ async function run(id) {
     async function strike(act, step) {
       const { actor, move: mv } = act
       const planned = [].concat(act.planned ?? 'great')
-      const results = []
+      const results = [], parriers = new Set()   // the leaders' Pokémon that PERFECT parried a hit of it: each counters, after
+
       if (mv.sleepOk && !act.snoring) { await announce(`${actor.mon.name} used`, `${mv.name}!`, 100); if (!actor.ally) setDPP(dpp - (mv.cost ?? 0)); await say('But it failed!', `${actor.mon.name} isn't asleep.`, 250); return }
       {
         // Power worked out now (the flags are cleared on the copy, so this runs once).
@@ -7635,7 +7918,7 @@ async function run(id) {
         const mult = foesUp.length > 1 ? 0.75 : 1
         for (const [k, F] of foesUp.entries()) {
           if (F.mon.hp <= 0) continue
-          results.push(await hitOnce(actor, F, mv, planned[k] ?? planned.at(-1), foesUp.length > 1 ? `FOE ${k + 1}/${foesUp.length}` : 'STRIKE', k ? 620 : 820, mult, false))
+          results.push(await hitOnce(actor, F, mv, planned[k] ?? planned.at(-1), foesUp.length > 1 ? `FOE ${k + 1}/${foesUp.length}` : 'STRIKE', k ? 620 : 820, mult, false, 0, parriers))
         }
         // Earthquake, Surf and the like roll on into your own partner. It can jump.
         const ally = mv.spread === 'all' ? allyOf(actor) : null
@@ -7650,7 +7933,7 @@ async function run(id) {
         if (!actor.ally) setDPP(dpp - (mv.cost ?? 0))   // a partner's moves don't spend your PP
         const hits = mv.hits ?? 1
         for (let h = 0; h < hits && T.mon.hp > 0; h++) {
-          results.push(await hitOnce(actor, T, mv, planned[h] ?? planned.at(-1), hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', h ? 560 : 820, 1, hits > 1, h))
+          results.push(await hitOnce(actor, T, mv, planned[h] ?? planned.at(-1), hits > 1 ? `HIT ${h + 1}/${hits}` : 'STRIKE', h ? 560 : 820, 1, hits > 1, h, parriers))
         }
         if (hits > 1) { const n = results.filter(Boolean).length; await say(n === hits ? `Hit ${hits} times — full damage!` : `Hit ${n} of ${hits} times.`, '', 260) }
       }
@@ -7668,6 +7951,16 @@ async function run(id) {
       if (landed.some((r) => r.crit)) await say('A critical hit!')
       if (!mv.spread && landed.length && landed.at(-1).eff > 1) await say("It's super effective!")
       if (!mv.spread && landed.length && landed.at(-1).eff < 1) await say("It's not very effective...")
+      // Each that PERFECT parried a hit of it counters (LEADER_COUNTER), never for the knockout.
+      for (const P of parriers) {
+        if (P.gone || P.mon.hp <= 0 || actor.mon.hp <= 1) continue
+        sfx('counter'); pop(`${P.owner.short}'S COUNTER!`, actor.c.x, actor.c.y - 90, 'orange'); await W(120)
+        await strikeFx({ fx: 'dash' }, P.c, actor.c, P.el)
+        const { dmg } = dmgOf(P.mon, actor.mon, { ...MOVEDEX.TACKLE }, LEADER_COUNTER), from = actor.mon.hp
+        sparks(actor.c.x, actor.c.y, '#fdba74'); sfx('hit')
+        await Promise.all([blink(actor.el, 2), hpTo(actor, Math.max(1, from - dmg))]); pop(`-${from - actor.mon.hp}`, actor.c.x + 30, actor.c.y - 30, 'red')
+        await say(`${P.owner.short}'s ${P.mon.name} countered`, `for ${from - actor.mon.hp} damage!`, 250)
+      }
     }
 
     /**
@@ -7682,7 +7975,8 @@ async function run(id) {
       // Every ring closes at its own speed, after a wind-up of its own (see attackPace).
       const pace = attackPace(ownPartner ? null : actor.owner, leadLevel())
       const vary = demo ? 1 : paceRoll(pace.speed), windup = demo || ownPartner ? 0 : Math.round(Math.random() * pace.wait)
-      const approach = Math.round((mv.fast ? 640 : h === 0 ? 820 : 560) * dr.speed * vary)
+      // A pair member's rings close faster still (PAIR_TUNE.ringFast).
+      const approach = Math.round((mv.fast ? 640 : h === 0 ? 820 : 560) * dr.speed * vary * (ownPartner ? 1 : actor.owner?.duoFast ?? 1))
       let first = null
       const auto = T.ally   // a partner's Pokémon: they defend it, and your presses don't count here
       // Armed through the wind-up, so tapping early still counts as your press (and misses), after a moment's grace once the text is gone.
@@ -8006,8 +8300,14 @@ async function run(id) {
     }
 
     async function useItemDuo(act) {
-      if (act.actor.side === 'e') {   // a foe trainer's Full Heal, on its own Pokémon
+      if (act.actor.side === 'e') {   // a foe trainer's Full Heal (or a pair member's Full Restore), on its own Pokémon
         const m = act.actor.mon, was = m.status
+        if (act.move.item === 'fullrestore') {
+          await say(`${act.actor.owner.short} used`, 'a FULL RESTORE!', 200); sfx('heal'); healFx(act.actor)
+          m.status = null; m.toxN = 0; m.sleep = 0; S(m).conf = 0
+          await hpTo(act.actor, m.stats.hp); tags(act.actor)
+          await say(`${m.name}'s HP`, 'was fully restored!', 250); return
+        }
         await say(`${act.actor.owner.short} used`, 'a FULL HEAL!', 200); sfx('heal')
         if (!was) { await say("It didn't have any effect."); return }
         m.status = null; m.toxN = 0; m.sleep = 0; tags(act.actor)
@@ -8349,16 +8649,6 @@ async function run(id) {
   /** A ticket as a Bag item, registered the first time one turns up. */
   const rematchItem = (id) => { const r = rematchOf(id); if (!r) return null
     return (ITEMS[rematchKey(id)] ??= { name: `${r.T.short} REMATCH`, sub: `${r.T.full}: 1v1 or 2v2`, cls: 't-summon', rematch: id }) }
-  /** The last form a species evolves into (by level, stone, cord or Bond), as far as the game has it. */
-  function finalForm(name) {
-    let n = name
-    for (let i = 0; i < 4; i++) {
-      const next = DATA.evos?.[n]?.[0]?.to ?? EVO_HOW[n]?.find((r) => r.item || r.bond || r.move)?.to
-      if (!next || !speciesByName(next)) break
-      n = next
-    }
-    return n
-  }
   function rematchTeam(L) {
     const ace = Math.min(LEVEL_CAP, trainerLevel() + 2), lv = leaderLevels({ ...L, min: ace, low: Math.max(2, ace - 6) })
     return teamFor(L, rand).map((name, i) => {
@@ -8408,6 +8698,80 @@ async function run(id) {
     } else {
       await trainerOn(T); await talk(T, words.gloat); await trainerOff()
       await say(`${T.short} won the rematch.`, 'Another ticket, another try.')
+    }
+    Sound.stopMusic(); saveGame(); await backToMachine('in')
+  }
+
+  /* ══════════ double battles: two you've beaten, at once (PAIRS) ══════════ */
+  const DOUBLE_TOKENS = '6.00'
+  /** Whether you've beaten a pair's member: as their rematch ticket counts it. */
+  function memberBeaten(ref) {
+    if (ref === 'alex') return rivalStep >= 1
+    const i = ref.indexOf('_'), kind = ref.slice(0, i), arg = ref.slice(i + 1)
+    if (kind === 'gym') return badges.includes(+arg)
+    const list = { elite: ELITE, kanto: KANTO_ELITE }[kind], j = list ? list.findIndex((L) => L.short.toLowerCase() === arg) : -1
+    if (j < 0) return false
+    return kind === 'elite' ? champion || eliteStep > j : redBeaten || kantoStep > j
+  }
+  /** Every pair, with its two members as they'd battle now (Alex as of his last battle with you), and whether you've beaten both. */
+  function pairFoes() {
+    const alexStep = Math.max(0, Math.min(rivalStep, RIVAL_BATTLES.length) - 1)
+    return PAIRS.map((P) => ({ ...P, A: pairMember(P.a, alexStep), B: pairMember(P.b, alexStep), beaten: () => memberBeaten(P.a) && memberBeaten(P.b) })).filter((P) => P.A && P.B)
+  }
+  const pairOf = (id) => pairFoes().find((p) => p.id === id) ?? null
+  const pairKey = (id) => 'double:' + id
+  /** A double battle ticket as a Bag item, registered the first time one turns up. */
+  const pairItem = (id) => { const p = pairOf(id); if (!p) return null
+    return (ITEMS[pairKey(id)] ??= { name: pairName(p.A, p.B), sub: 'Double battle: 3 each', cls: 't-summon', pair: id }) }
+  /** The pair's two faces, for a shelf tile, the Bag and the ticket's sheet. */
+  const pairFaces = (p) => `<img src="${ART[p.A.face]}" alt=""><img src="${ART[p.B.face]}" alt="">`
+  /**
+   * A double battle won: in the app the server pays one of your bought double
+   * battle tickets DOUBLE_TOKENS, outside the daily battle cap (v109); with
+   * none on record, the usual capped battle tokens.
+   */
+  async function payDouble() {
+    const api = vvm()
+    if (!api?.awardDouble) return payTokens(DOUBLE_TOKENS, 'double')
+    const r = await api.awardDouble().catch(() => null)
+    if (!r || r.reason === 'no_ticket' || r.reason === 'error') return payTokens(DOUBLE_TOKENS, 'double')
+    wallet = r.balance; $('wallet').textContent = `${wallet.toFixed(2)} tk`
+    if (r.awarded > 0) { sfx('tokens'); return say(`You got ${r.awarded.toFixed(2)} tokens!`, '', 600) }
+    return say('No tokens this time.', '', 600)
+  }
+  let pendingPair = null   // a double battle ticket used in the Bag, to fight once the sheet closes
+  /** A double battle: the pair's VS, a word from each, the 2v2 (three each), and a win's tokens and a Move Disc from each. */
+  async function pairBattle(id) {
+    const p = pairOf(id); if (!p) return
+    const words = PAIR_TALK[id], crew = [pairSide(p.A, p), pairSide(p.B, p)]
+    const lv = trainerLevel(), teams = crew.map((T) => { const t = pairTeam(T, lv, rand); t.at(-1).pairAce = true; return t })
+    toolsEnabled(false)
+    Sound.music('vs')
+    await wipeTrainer(async () => {
+      setScene([crew.map((T) => T.scene ?? RIVAL_LOOKS[T.phase]?.scene).find(Boolean) ?? 'hall']); showLayer('battle')
+      vsSplash(crew, 2, 'DOUBLE BATTLE · 2 VS 2')
+      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', crew.map((T) => T.color ?? RIVAL_LOOKS[T.phase]?.color).find(Boolean) ?? '#f59e0b')
+    })
+    await W(1400)
+    for (const [i, T] of crew.entries()) await talk(T, [words.intro[i]])
+    vsHide()
+    Sound.music('endgame')   // the endgame challenges' own theme
+    const out = await duoBattle({ foes: teams.map((t, i) => ({ mon: t[0], owner: crew[i] })), bench: teams.flatMap((t, i) => t.slice(1).map((mon) => ({ mon, owner: crew[i] }))), trainers: crew })
+    if (out.result === 'won') {
+      Sound.music('victory'); setTimeout(() => { if (live()) Sound.music('win') }, 3450)
+      for (const [i, T] of crew.entries()) { await trainerOn(T, 'down'); await talk(T, [words.outro[i]], 'faceDown'); await trainerOff() }
+      await out.exp?.(); out.cleanup?.()
+      await payDouble()
+      for (const T of crew) {
+        const disc = T.type ? gymDisc(T) : pickOf(DISC_POOL); bag[discKey(disc)] = (bag[discKey(disc)] ?? 0) + 1
+        sfx('click'); await say(`${T.short} gave you a MOVE DISC:`, `${disc}!`, 900)
+      }
+      feed(`<b>You</b> won a double battle with ${esc(crew[0].full)} and ${esc(crew[1].full)}.`)
+      renderTools()
+    } else {
+      out.cleanup?.()
+      for (const [i, T] of crew.entries()) { await trainerOn(T); await talk(T, [words.gloat[i]]); await trainerOff() }
+      await say(`${pairName(crew[0], crew[1])} won.`, 'Another ticket, another try.')
     }
     Sound.stopMusic(); saveGame(); await backToMachine('in')
   }
@@ -9025,7 +9389,11 @@ async function run(id) {
   /* ── effects ── */
   function pop(text, x, y, cls = '') {
     const el = document.createElement('div'); el.className = 'pop ' + cls
-    el.textContent = text; el.style.left = x + 'px'; el.style.top = y + 'px'; fx.appendChild(el)
+    el.textContent = text; el.style.top = Math.max(16, y) + 'px'; fx.appendChild(el)
+    // Centred on x, but kept on screen: a long one ("BROCK'S COUNTER!") beside a Pokémon at the edge used to run off
+    // it, and one over a foe at the top ("BROCK PARRIED!") off the top.
+    const half = el.offsetWidth / 2, wide = fx.clientWidth || 320
+    el.style.left = Math.max(half + 4, Math.min(wide - half - 4, x)) + 'px'
     anim(el, [{ transform: 'translate(-50%,8px) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,-4px) scale(1.15)', opacity: 1, offset: .25 },
       { transform: 'translate(-50%,-14px) scale(1)', opacity: 1, offset: .75 }, { transform: 'translate(-50%,-22px)', opacity: 0 }], { duration: 950 })
     setTimeout(() => el.remove(), 1000)
@@ -9802,7 +10170,7 @@ async function run(id) {
       if (mv.furyCutter) { t.fury = t.lastMove === name ? Math.min(2, (t.fury ?? 0) + 1) : 0; mv = { ...mv, power: mv.power * 2 ** t.fury } }
       if (mv.knockOff && kind === 'trainer') mv = { ...mv, power: Math.round(mv.power * 1.5) }
       t.lastMove = name
-      let landed = 0, crit = false, eff = 1, clean = false
+      let landed = 0, crit = false, eff = 1, clean = false, perfectParried = false
       const sr = strikeRing(ringNet(ST(me).acc, ST(foe).eva))
       if (ST(me).conf) sr.tight *= 0.85
       wobble = !!ST(me).conf   // confused: its rings wobble
@@ -9817,12 +10185,13 @@ async function run(id) {
           // One ring per hit. Miss a ring and that hit misses, so only landing
           // every ring deals the move's full damage.
           if (hits > 1 && acc.label === 'MISS') { pop('MISSED', C.e.x, C.e.y - 70, 'red small'); sfx('dodge'); continue }
-          // A leader can parry it (not a PERFECT): a fifth of the damage, and nothing else.
+          // A leader can parry it (not a PERFECT): a fifth of the damage and nothing else, or, a PERFECT parry, none at all and a counter after (leaderParries).
           const parried = !demo && leaderParries(trainer, foe, acc.label, !!ST(foe).conf, chance)
-          pop(parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+          pop(parried === 'perfect' ? `${trainer.short}'S PERFECT PARRY!` : parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
           sfx(parried ? 'parry' : mv.snd)
           await strikeFx(mv, C.p, C.e, $('player'), h > 0)
-          if (parried) { anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(C.e.x - 20, C.e.y - 20) }
+          if (parried) { anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(C.e.x - 20, C.e.y - 20, parried === 'perfect' ? '#fde047' : undefined, parried === 'perfect' ? 16 : 10) }
+          if (parried === 'perfect') { perfectParried = true; if (mv.furyCutter) t.fury = -1; continue }   // not a scratch on it, and the run starts over
           const r = damage(me, foe, mv, parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult)
           if (mv.furyCutter && acc.label === 'MISS') t.fury = -1   // a miss starts the run over
           const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
@@ -9853,6 +10222,16 @@ async function run(id) {
       if (crit) await say('A critical hit!')
       if (landed && eff > 1) await say("It's super effective!")
       if (landed && eff < 1) await say("It's not very effective...")
+      // A hit of it PERFECT parried: the leader's Pokémon counters (LEADER_COUNTER), never for the knockout.
+      if (perfectParried && foe.hp > 0 && me.hp > 1) {
+        sfx('counter'); pop(`${trainer.short}'S COUNTER!`, C.p.x, C.p.y - 96, 'orange'); await W(120)
+        anim($('enemy'), [{ transform: 'translate(0,0)' }, { transform: 'translate(-120px,110px)', offset: .45 }, { transform: 'translate(0,0)' }], { duration: 420 })
+        await W(210)
+        const dmg = Math.max(1, Math.round(damage(foe, me, MOVEDEX.TACKLE, 1).dmg * LEADER_COUNTER)), from = me.hp
+        sparks(C.p.x, C.p.y, '#fdba74'); sfx('hit')
+        await Promise.all([blink($('player')), setHPOf(me, Math.max(1, from - dmg))]); pop(`-${from - me.hp}`, C.p.x + 34, C.p.y - 30, 'red')
+        await say(`${trainer.short}'s ${foe.name} countered`, `for ${from - me.hp} damage!`, 300)
+      }
     }
 
     /** A self-targeting support move in a 1v1: Howl, Growth, Life Dew. The ASSIST ring sets how strong it is. */
@@ -11019,6 +11398,7 @@ async function run(id) {
       if (k.startsWith('disc:')) discItem(k.slice(5))
       if (k.startsWith('summon:')) summonItem(LEAGUES[k.slice(7)] ? k.slice(7) : +k.slice(7))
       if (k.startsWith('rematch:')) rematchItem(k.slice(8))
+      if (k.startsWith('double:')) pairItem(k.slice(7))
       if (ITEMS[k]) bag[k] = n
     }
     wallet = s.wallet ?? wallet; badges.splice(0, badges.length, ...(s.badges ?? []))
@@ -11091,7 +11471,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { gainExp, trackHold, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, trackHold, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, pairBattle, pairFoes, pairItem, payDouble, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
@@ -11145,6 +11525,7 @@ async function run(id) {
       // A summon chosen in the Bag: the Gym Leader appears once the sheet is closed.
       if (pendingSummon != null) { const n = pendingSummon; pendingSummon = null; await (LEAGUES[n] ? leagueBattle(n) : gymBattle(n)) }
       if (pendingRematch != null) { const id = pendingRematch; pendingRematch = null; await rematchBattle(id) }
+      if (pendingPair != null) { const id = pendingPair; pendingPair = null; await pairBattle(id) }
       // An evolution item used in the Bag: the evolution plays on the battle screen, then back to the machine.
       if (pendingEvoItem) {
         pendingEvoItem = false; toolsEnabled(false)

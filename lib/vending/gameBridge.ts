@@ -242,6 +242,17 @@ export function makeVvmApi(userId: string) {
       const r = one(data as { ok: boolean; reason: string; awarded: number; balance: number } | null)
       return r ? { ...r, awarded: n(r.awarded), balance: n(r.balance) } : { ok: false, reason: 'error', awarded: 0, balance: await balance() }
     },
+    /**
+     * A won double battle's tokens (v109): the server's amount for one of the
+     * double battle tickets you've taken into the game, outside the daily cap.
+     * 'no_ticket' when none is owed, 'error' before v109 (the game then pays
+     * through awardTokens).
+     */
+    async awardDouble() {
+      const { data } = await db.rpc('battle_award_double')
+      const r = one(data as { ok: boolean; reason: string; awarded: number; balance: number } | null)
+      return r ? { ...r, awarded: n(r.awarded), balance: n(r.balance) } : { ok: false, reason: 'error', awarded: 0, balance: await balance() }
+    },
     /** Real tokens into the earned bucket (capped per day). */
     async awardTokens(amount: number, source: string) {
       const { data } = await db.rpc('battle_award_tokens', { p_amount: amount, p_source: source })

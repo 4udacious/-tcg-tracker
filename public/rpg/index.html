@@ -836,6 +836,14 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .supplies .tile .art { position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 2 / 3; border-radius: 2px; overflow: hidden; }
 .supplies .tile.pack .art img { width: 100%; height: 100%; object-fit: contain; }
 .supplies .tile.summon .art img { width: 100%; height: 100%; object-fit: cover; }
+/* A double battle ticket: the pair's two faces, one above the other (and side by side in the Bag). */
+.supplies .tile.summon.pair .art { flex-direction: column; }
+.supplies .tile.summon.pair .art img { height: 50%; }
+.shelfpop .spart .pairart { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.shelfpop .spart .pairart img { height: 50%; object-fit: cover; }
+.irow .ic.pairic { display: flex; width: 44px; border-radius: 8px; border: 0; overflow: hidden; }
+.irow .ic.pairic img { width: 50%; height: 100%; object-fit: cover; }
+.irow .ic.pairic::after { display: none; }
 .supplies .tile.item .art { background: radial-gradient(circle at 50% 40%, #fff, #dbeafe); }
 .supplies .tile.item .art .supic { zoom: 1.3; }
 .supplies .tile.bundle .art { flex-direction: column; gap: 5px; background: radial-gradient(circle at 50% 35%, #fff7d6, #fde68a); }
@@ -1284,6 +1292,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=b95a36e6dc"></script>
+<script src="/rpg/game.js?v=74446e1687"></script>
 </body>
 </html>

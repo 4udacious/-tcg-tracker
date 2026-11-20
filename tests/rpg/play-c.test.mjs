@@ -188,3 +188,48 @@ test('a caught Pokémon is saved at once, before its summary is dismissed: a roa
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('double battles: a ticket in the Bag brings a pair, three each, for tokens and a Move Disc from each', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    // Brock and Misty beaten, a ticket for them, and one Pokémon able to fight: not enough for a 2v2.
+    await page.evaluate(() => {
+      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 80, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 4000, atk: 6000, spa: 6000, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp; return m }   // the test is about the double battle, not the fight
+      const fainted = mk('VENUSAUR'); fainted.hp = 0
+      v.party.splice(0, 9, mk('CHARIZARD'), fainted); v.badges.push(...[...Array(10).keys()].filter((i) => !v.badges.includes(i)))
+      v.pairItem('brock_misty'); v.bag['double:brock_misty'] = 1; v.renderTools()
+      document.getElementById('home').click()   // back to idle from the screen the tutorial ends on
+    })
+    // The Bag's Other pocket, where the ticket is.
+    const openTicket = async () => {
+      for (let i = 0; i < 20 && !(await page.$('#sheet.open #sheetBody [data-pair="brock_misty"]')); i++) {
+        await page.waitForTimeout(400)
+        await page.evaluate(() => { document.querySelectorAll('.tool').forEach((t) => { t.disabled = false }); document.getElementById('tBag').click() })
+        await page.waitForTimeout(200); await page.evaluate(() => document.querySelector('#sheetBody [data-tab="other"]')?.click())
+      }
+      return page.evaluate(() => { const b = document.querySelector('[data-pair="brock_misty"]'); return { name: b.querySelector('b').textContent, faces: b.querySelectorAll('.pairic img').length } })
+    }
+    assert.deepEqual(await openTicket(), { name: 'BROCK & MISTY', faces: 2 }, 'the ticket in the Bag, with both faces')
+    await page.dispatchEvent('#sheetBody [data-pair="brock_misty"]', 'click'); await page.waitForTimeout(300)
+    assert.match(await page.evaluate(() => document.getElementById('sheetBody').textContent), /needs two Pokémon ready to fight/, 'one able to fight: not a 2v2')
+    assert.equal(await page.evaluate(() => window.__vvm.bag['double:brock_misty']), 1, 'and the ticket isn\'t spent')
+    await page.evaluate(() => { const v = window.__vvm; for (const m of v.party) m.hp = m.stats.hp; document.getElementById('sheetClose').click() })
+    await page.waitForTimeout(500)
+    const before = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
+    const from = g.log.length
+    await openTicket()
+    await page.dispatchEvent('#sheetBody [data-pair="brock_misty"]', 'click')
+    const done = () => g.log.slice(from).some((l) => /MISTY gave you a MOVE DISC|Another ticket/.test(l))
+    for (let i = 0; i < 1500 && !(done() && (await bot.atHome())); i++) await bot.step()
+    const lines = g.log.slice(from).join(' | ')
+    assert.match(lines, /BROCK and MISTY.*want to battle/, 'both of them')
+    assert.match(lines, /BROCK sent out/); assert.match(lines, /MISTY sent out/)
+    assert.match(lines, /BROCK gave you a MOVE DISC/, 'won: a Move Disc from Brock'); assert.match(lines, /MISTY gave you a MOVE DISC/, 'and one from Misty')
+    const after = await page.evaluate(() => { const v = window.__vvm; return { wallet: v.wallet, ticket: v.bag['double:brock_misty'], discs: Object.keys(v.bag).filter((k) => k.startsWith('disc:')).reduce((n, k) => n + v.bag[k], 0) } })
+    assert.equal(after.discs, before.discs + 2); assert.equal(after.ticket, 0, 'the ticket is spent')
+    assert.equal(Math.round((after.wallet - before.wallet) * 100) / 100, 6, 'and 6 tokens')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
