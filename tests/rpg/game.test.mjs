@@ -6,6 +6,7 @@
 // (--test-concurrency=4: one Chromium each), and the music tests run on their
 // own afterwards (music.test.mjs), since they measure timing under load.
 import { test } from 'node:test'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { openGame } from './harness.mjs'
 import { simulate, SKILLS, AIMS } from './sim.mjs'
@@ -718,13 +719,15 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     // A stand-in for the VVM tab's bridge (lib/vending/gameBridge.ts) on the parent, and the game in a same-origin frame.
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, dawn_stone: 1, rematch_gym_1: 1 }
+      let balance = 10, owned = { potion: 2, move_disc: 1, full_heal: 1, hyper_potion: 2, max_revive: 1, ultra_ball: 3, thunder_stone: 1, linking_cord: 2, dragon_scale: 1, dawn_stone: 1, rematch_gym_1: 1, double_falkner_bugsy: 1 }
       window.__vvmApi = {
         async machine() { calls.push(['machine']); return { status: 'in_stock', cycle_no: 7, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: false, trainers: false, heal_price: 0.75,
           packs: [{ set_code: 'base2', set_name: 'Jungle', image: '/rpg/a/jungle-scyther.webp', quantity: 3, description: null }], tickets: [],
           supplies: [{ key: 'great_ball', kind: 'item', name: 'Great Ball', description: 'Catch rate ×1.5', price: 0.4, contents: null },
             { key: 'elite_ticket', kind: 'item', name: 'Elite Four Ticket', description: 'All five League battles', price: 5, contents: null },
             { key: 'rematch_gym_0', kind: 'item', name: 'Falkner Rematch', description: 'Rematch Falkner', price: 1, contents: null, max: 1, left_today: null },
+            { key: 'double_falkner_bugsy', kind: 'item', name: 'Falkner & Bugsy Double', description: 'Double battle', price: 2, contents: null, max: 1, left_today: null },
+            { key: 'double_brock_misty', kind: 'item', name: 'Brock & Misty Double', description: 'Double battle', price: 2, contents: null, max: 1, left_today: null },
             { key: 'gym_summon', kind: 'item', name: 'Gym Summon', description: 'Your next gym', price: 3, contents: null, max: 1, left_today: null }],
           boxes: [{ box_id: 5, name: 'Jungle Booster Box', set_name: 'Jungle', packs: 36, price: 3, image: '/rpg/a/jungle-scyther.webp', quantity: 2, max: 1 }] } },
         async balance() { return balance },
@@ -761,6 +764,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(await frame.evaluate(() => window.__vvm.bag.ultra), 3, 'bought Ultra Balls are in the Bag')
     assert.deepEqual(await frame.evaluate(() => [window.__vvm.bag.thunderstone, window.__vvm.bag.linkcable, window.__vvm.bag.dragonscale, window.__vvm.bag.dawnstone]), [1, 2, 1, 1], 'bought evolution items (the Dawn Stone too) are the game\'s own in the Bag')
     assert.equal(await frame.evaluate(() => window.__vvm.bag['rematch:gym_1']), 1, 'a bought rematch ticket is in the Bag, for that leader')
+    assert.equal(await frame.evaluate(() => window.__vvm.bag['double:falkner_bugsy']), 1, 'and a bought double battle ticket, for that pair')
     // The wild pool is the machine of your latest real timer report (Timers tab), not one of the game's own.
     await frame.waitForFunction(() => /TAC-07/.test(document.getElementById('poolWhere').textContent), null, { timeout: 10000 })
     const pool = await frame.evaluate(() => ({ where: document.getElementById('poolWhere').textContent, shown: [...document.querySelectorAll('#poolMons .nm')].map((b) => b.textContent), want: window.__vvm.poolFor('TAC-07') }))
@@ -773,6 +777,7 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     await frame.waitForSelector('[data-buy="set:base2"]', { timeout: 10000 }); await page.waitForTimeout(1200)   // the screen finishes fading in
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:elite_ticket"]')), null, 'no Elite Four ticket on the shelf before all 8 badges')
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:rematch_gym_0"]')), null, 'no rematch on the shelf with a leader you haven\'t beaten')
+    assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:double_falkner_bugsy"]')), null, 'no double battle with a pair you haven\'t beaten')
     assert.ok(await frame.$('[data-buy="sup:gym_summon"]'), 'a Gym Summon, with a gym to go to')
     // A tap opens an item's details; its quantity and ADD put it in the cart. The box: 2 asked for, only 1 allowed.
     await frame.evaluate(() => { const add = (k, n = 1) => { document.querySelector(`[data-buy="${k}"]`).click(); for (let i = 1; i < n; i++) document.querySelector('#shelfPop [data-pop="plus"]:not([disabled])')?.click(); document.querySelector('#shelfPop [data-pop="add"]')?.click() }; add('set:base2'); add('sup:great_ball'); add('box:5', 2) })
@@ -797,6 +802,8 @@ test('in the app: the real machine, checkout, packs, sealed boxes and tokens go 
     assert.equal(await tile.evaluate((b) => b.disabled), true)
     // The same machine, now you qualify: Falkner's rematch is there too, and the Gym Summon isn't (no gym left before the League).
     assert.ok(await frame.$('[data-buy="sup:rematch_gym_0"]'), 'the rematch, once Falkner is beaten')
+    assert.ok(await frame.$('[data-buy="sup:double_falkner_bugsy"]'), 'Falkner & Bugsy, once both are beaten')
+    assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:double_brock_misty"]')), null, 'not Brock & Misty: not beaten yet')
     assert.equal(await frame.evaluate(() => document.querySelector('[data-buy="sup:gym_summon"]')), null, 'no Gym Summon with all 8 Johto badges, before the League')
     await page.waitForTimeout(1200); await tile.evaluate((b) => b.querySelector('b').click())
     assert.equal(await frame.evaluate(() => document.getElementById('cbSum').textContent), 'CART empty', 'a greyed-out tile never goes in the cart')
@@ -869,13 +876,13 @@ test('in the app: on cooldown, a tap that turns into a battle shows the cooldown
   } finally { await g.close() }
 })
 
-test('in the app: a won rematch pays for its ticket even after the day\'s battle tokens are used up', async () => {
+test('in the app: a won rematch or double battle pays for its ticket even after the day\'s battle tokens are used up', async () => {
   const g = await openGame()
   try {
     const { page } = g
     await page.evaluate(() => {
       const calls = window.__calls = []
-      let owed = 1, balance = 10
+      let owed = 1, doubles = 1, balance = 10
       window.__vvmApi = {
         async machine() { return { status: 'in_stock', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance, wild: true, trainers: true, heal_price: 0.5, find_chance: 0.8,
           packs: [], tickets: [], supplies: [], boxes: [] } },
@@ -885,6 +892,7 @@ test('in the app: a won rematch pays for its ticket even after the day\'s battle
         async awardTokens(amount, source) { calls.push(['awardTokens', amount, source]); return { ok: false, reason: 'daily_cap', awarded: 0, balance } },
         // ...but a bought ticket's win is paid outside the cap, once a ticket.
         async awardRematch() { calls.push(['awardRematch']); if (!owed) return { ok: false, reason: 'no_ticket', awarded: 0, balance }; owed--; balance += 2; return { ok: true, reason: 'ok', awarded: 2, balance } },
+        async awardDouble() { calls.push(['awardDouble']); if (!doubles) return { ok: false, reason: 'no_ticket', awarded: 0, balance }; doubles--; balance += 6; return { ok: true, reason: 'ok', awarded: 6, balance } },
         async loadSave() { return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
         async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
       }
@@ -895,10 +903,10 @@ test('in the app: a won rematch pays for its ticket even after the day\'s battle
     })
     const frame = await (await page.waitForSelector('#game')).contentFrame()
     await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
-    const pay = async () => {
-      await frame.evaluate(() => { window.__paid = false; window.__said = []; const msg = document.getElementById('msg')
+    const pay = async (fn = 'payRematch') => {
+      await frame.evaluate((fn) => { window.__paid = false; window.__said = []; const msg = document.getElementById('msg')
         const o = new MutationObserver(() => window.__said.push(msg.textContent)); o.observe(msg, { childList: true, subtree: true, characterData: true })
-        window.__vvm.payRematch().then(() => { o.disconnect(); window.__paid = true }) })
+        window.__vvm[fn]().then(() => { o.disconnect(); window.__paid = true }) }, fn)
       for (let i = 0; i < 40 && !(await frame.evaluate(() => window.__paid)); i++) { await frame.evaluate(() => document.getElementById('msg')?.click()); await page.waitForTimeout(250) }
       return frame.evaluate(() => ({ said: window.__said.join(' | '), wallet: window.__vvm.wallet }))
     }
@@ -908,7 +916,13 @@ test('in the app: a won rematch pays for its ticket even after the day\'s battle
     const second = await pay()
     assert.match(second.said, /all the battle tokens for today/, `with no ticket owed, it's the usual capped battle tokens (${second.said})`)
     assert.equal(second.wallet, 12)
-    assert.deepEqual((await page.evaluate(() => window.__calls)).map((c) => c[0]), ['awardRematch', 'awardRematch', 'awardTokens'])
+    // A double battle's ticket the same way, for 6.
+    const third = await pay('payDouble')
+    assert.match(third.said, /You got 6\.00 tokens/, `a double battle's ticket is paid past the cap (${third.said})`)
+    assert.equal(third.wallet, 18)
+    const fourth = await pay('payDouble')
+    assert.match(fourth.said, /all the battle tokens for today/, `with none owed, the capped battle tokens (${fourth.said})`)
+    assert.deepEqual((await page.evaluate(() => window.__calls)).map((c) => c[0]), ['awardRematch', 'awardRematch', 'awardTokens', 'awardDouble', 'awardDouble', 'awardTokens'])
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -1908,12 +1922,12 @@ test('a Pokémon of two types learns moves of its second type too (Lv 8, 22, 38)
   } finally { await g.close() }
 })
 
-test('balance: every leader, Elite Four member, Red, Alex, Herb and Paul within 15 points of their aim (sim.mjs, average player)', async () => {
+test('balance: every leader, Elite Four member, Red, Alex, Herb and Paul, and every double battle within 15 points of their aim (sim.mjs, average player)', async () => {
   const g = await openGame()
   try {
     await g.page.click('#mPlay'); await g.page.waitForTimeout(800)
     const rows = await g.page.evaluate(simulate, { N: 1000, SKILLS: { average: SKILLS.average }, ONLY: '', AIMS })
-    assert.ok(rows.length >= 41, `every fight simulated (${rows.length})`)
+    assert.ok(rows.length >= 71, `every fight simulated (${rows.length})`)
     const off = rows.filter((r) => Math.abs(r.average - r.aim) > 0.15).map((r) => `${r.group} ${r.name}: ${Math.round(r.average * 100)}% (aim ${Math.round(r.aim * 100)}%)`)
     assert.deepEqual(off, [], 'a fight drifted from its aim: re-tune it with `npm run sim:rpg`, or set its own aim in sim.mjs (AIMS)')
     assert.deepEqual(g.errors, [])
@@ -2106,6 +2120,85 @@ test('gym rematches: every leader comes back fully evolved, at your level', asyn
     }
     const falkner = r.find((t) => t.who === 'FALKNER').after.map((x) => x.split(' ')[0])
     assert.ok(!falkner.includes('PIDGEY') && falkner.some((n) => n === 'PIDGEOT' || n === 'NOCTOWL'), `Falkner's birds have evolved: ${falkner}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('double battles: every pair is two you can beat, three each at their strongest, a ticket the server knows', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => PAIRS.map((P) => {
+      const A = pairMember(P.a), B = pairMember(P.b), words = PAIR_TALK[P.id]
+      const teams = [A, B].map((T) => pairTeam(pairSide(T, P), 60, Math.random))
+      const best = (n) => Object.values(speciesByName(n).base).reduce((a, b) => a + b, 0)
+      return {
+        id: P.id, ok: !!(A && B), name: A && B && pairName(A, B), milestones: [P.a, P.b].map(pairMilestone),
+        talk: !!words && ['intro', 'outro', 'gloat'].every((k) => words[k]?.length === 2 && words[k].every((l) => typeof l === 'string' && l.length)),
+        art: [A, B].every((T) => T && ART[T.vs] && ART[T.face] && ART[T.down] && ART[T.faceDown]),
+        teams: teams.map((t) => t.map((m) => ({ name: m.name, level: m.level, sprite: !!ART[m.id], ivs: Object.values(m.ivs).every((v) => v === 31), bst: best(m.name) }))),
+        // A member's ace (last) is their strongest; nothing still to evolve.
+        final: teams.flat().every((m) => finalForm(m.name) === m.name),
+      }
+    }))
+    assert.equal(r.length, 30, 'thirty pairs')
+    assert.equal(new Set(r.map((p) => p.id)).size, 30, 'each once')
+    for (const p of r) {
+      assert.ok(p.ok, `${p.id}: both members are in the game`)
+      assert.ok(p.talk, `${p.id}: an intro, an outro and a gloat for each`)
+      assert.ok(p.art, `${p.id}: both have their VS, face and post-battle art`)
+      for (const t of p.teams) {
+        assert.equal(t.length, 3, `${p.id}: three each (${t.map((m) => m.name)})`)
+        assert.ok(t.every((m) => m.sprite && m.ivs), `${p.id}: real species, every IV 31`)
+        assert.ok(t[2].bst >= t[0].bst && t[2].bst >= t[1].bst, `${p.id}: the ace is the strongest (${t.map((m) => `${m.name} ${m.bst}`)})`)
+        assert.ok(t[2].level >= t[0].level, `${p.id}: the ace comes in highest`)
+      }
+      assert.ok(p.final, `${p.id}: fully evolved`)
+    }
+    assert.ok(r.find((p) => p.id === 'tateliza_juan').name === 'TATE&LIZA AND JUAN' && r.find((p) => p.id === 'brock_misty').name === 'BROCK & MISTY')
+    assert.ok(r.some((p) => p.id === 'alex_red'), 'Alex and Red, together')
+    // The migration (v109) has a ticket for each pair, needing exactly these two battles.
+    const sql = readFileSync(new URL('../../supabase/migrations/v109_double_battles.sql', import.meta.url), 'utf8')
+    const rows = Object.fromEntries([...sql.matchAll(/\('double_(\w+)', '([a-z]+:[A-Z0-9]+)', '([a-z]+:[A-Z0-9]+)'\)/g)].map((m) => [m[1], [m[2], m[3]]]))
+    const supplies = [...sql.matchAll(/\('double_(\w+)', 'item'/g)].map((m) => m[1])
+    assert.deepEqual(Object.keys(rows).sort(), r.map((p) => p.id).sort(), 'a milestone row for each pair')
+    assert.deepEqual(supplies.sort(), r.map((p) => p.id).sort(), 'a supply for each pair')
+    for (const p of r) assert.deepEqual(rows[p.id], p.milestones, `${p.id}: the server checks the same two battles`)
+    // Your level and theirs: above it at Lv 60, nearer it while a party is still evolving, and at the cap they hit as hard as the level they'd be.
+    const lv = await page.evaluate(() => {
+      const P = PAIRS.find((x) => x.id === 'brock_misty'), T = pairSide(pairMember('gym_8'), P)
+      const at = (l) => pairTeam(T, l, Math.random).map((m) => m.level), capped = pairTeam(T, 100, Math.random).at(-1)
+      const plain = individual(speciesByName(capped.name), 100, Math.random); for (const k of STAT_KEYS) plain.ivs[k] = 31; plain.nature = capped.nature
+      return { at60: at(60), at20: at(20), cap: capped.level, atk: capped.stats.atk, plainAtk: statsAt(plain, 100).atk }
+    })
+    assert.ok(lv.at60.every((l) => l > 60) && lv.at60[2] > lv.at60[0], `above your Lv 60 best, the ace highest (${lv.at60})`)
+    assert.ok(lv.at20.every((l) => l <= 22), `nearer your level at Lv 20 (${lv.at20})`)
+    assert.equal(lv.cap, 100, 'never past Lv 100'); assert.ok(lv.atk > lv.plainAtk * 1.1, `but stronger than a plain Lv 100 (${lv.atk} vs ${lv.plainAtk})`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('double battles: a pair picks attacks to finish what the partner started, and Surf only beside a Pokémon it won\'t hurt much', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(500)
+    const r = await page.evaluate(() => {
+      const mk = (n, lv = 60) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; return m }
+      const surf = { ...MOVEDEX.SURF, name: 'SURF', kind: 'strike' }, tackle = { ...MOVEDEX.TACKLE, name: 'TACKLE', kind: 'strike' }
+      const user = mk('GYARADOS'), a = mk('ARCANINE'), b = mk('ARCANINE')
+      // Surf hits both of yours (SPREAD): worth it beside a Water type, not beside a Fire type it would hurt.
+      const n = 400, pick = (partner) => { let spread = 0; for (let i = 0; i < n; i++) spread += duoSmartPick(user, [surf, tackle], [a, b], partner).mv.name === 'SURF' ? 1 : 0; return spread / n }
+      const besideWater = pick(mk('LAPRAS')), besideFire = pick(mk('CHARIZARD'))
+      // A knockout in reach: the hurt one, not the healthy one.
+      const hurt = mk('ARCANINE'), well = mk('ARCANINE'); hurt.hp = 5
+      let finish = 0; for (let i = 0; i < n; i++) finish += duoSmartPick(user, [tackle], [well, hurt], null).target === hurt ? 1 : 0
+      return { besideWater, besideFire, finish: finish / n }
+    })
+    assert.ok(r.besideWater > 0.7, `Surf beside a Water type (${r.besideWater})`)
+    assert.ok(r.besideFire < 0.3, `not beside a Fire type it would hurt (${r.besideFire})`)
+    assert.ok(r.finish > 0.7, `finishes off the hurt one (${r.finish})`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
