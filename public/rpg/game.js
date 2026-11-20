@@ -9384,9 +9384,14 @@ async function run(id) {
   const grade = (label, mult) => ({ label, crit: false, ...GRADE[label], ...(mult != null ? { mult } : {}) })
   const byShare = (x) => grade(x >= 1 ? 'PERFECT' : x >= 0.75 ? 'GREAT' : x >= 0.5 ? 'GOOD' : x >= 0.25 ? 'OK' : 'MISS')
   function strikeBtn(title, how) { panel('pStrike'); $('bStrike').innerHTML = `${title}<small style="font-size:12px;margin-top:6px">${how}</small><span class="key">A</span>` }
+  /**
+   * The left edge for an input `w` wide that wants to start at `x`, pulled in to stay `pad` inside the screen. A foe on
+   * the right in a 2v2 stands near the edge, where the charge meter, Stone Edge's stones and the track ran off it.
+   */
+  const onScreen = (x, w, pad = 4) => Math.max(pad, Math.min((fx.clientWidth || 320) - w - pad, x))
   async function chargeTap(cx, cy) {
     strikeBtn('HOLD A', 'let go in the gold zone')
-    const m = document.createElement('div'); m.className = 'meter'; m.style.left = (cx + 46) + 'px'; m.style.top = (cy - 62) + 'px'
+    const m = document.createElement('div'); m.className = 'meter'; m.style.left = onScreen(cx + 46, 16) + 'px'; m.style.top = (cy - 62) + 'px'   // 16 wide, border and all
     m.innerHTML = '<div class="zone" style="bottom:82%;height:14%"></div><div class="fill"></div>'; fx.appendChild(m)
     const fill = m.querySelector('.fill'), FILL = 1100, start = performance.now()
     let t0 = null, out = null
@@ -9420,7 +9425,8 @@ async function run(id) {
   async function twinTap(cx, cy, approach, tight) {
     strikeBtn('HIT 1 · HIT 2', 'two rings: tap each as it closes')
     const gap = 300, t0 = performance.now(), closes = [t0 + approach, t0 + approach + gap]
-    const rgs = [ring(cx - 22, cy + 6, approach, '1'), ring(cx + 22, cy - 6, approach + gap, '2')], taps = []
+    const x = onScreen(cx - 54, 108) + 54   // both rings on screen: 22 either side of the target, 32 in radius
+    const rgs = [ring(x - 22, cy + 6, approach, '1'), ring(x + 22, cy - 6, approach + gap, '2')], taps = []
     const off = listen((b, t) => { if (b !== 'a' || taps.length >= 2) return; const k = taps.length; taps.push(t); rgs[k].el.getAnimations().forEach((a) => a.pause()); rgs[k].el.style.borderColor = accuracy(Math.abs(t - closes[k]) / tight).color })
     await W(approach + gap + 240); off(); await W(120); rgs.forEach((r) => r.clear()); panel(null)
     return closes.map((c, k) => accuracy(taps[k] == null ? Infinity : Math.abs(taps[k] - c) / tight))
@@ -9435,7 +9441,7 @@ async function run(id) {
   const TRACK = { ms: 2500, dot: 130, arc: 20, span: 120, edge: 18, outCost: 0.4, perfect: 0.75 }
   async function trackHold(cx, cy, ms = TRACK.ms) {
     strikeBtn('HOLD A', 'only while the dot is in the bright arc')
-    const box = document.createElement('div'); box.className = 'track'; box.style.left = (cx - 56) + 'px'; box.style.top = (cy - 56) + 'px'
+    const box = document.createElement('div'); box.className = 'track'; box.style.left = onScreen(cx - 56, 112) + 'px'; box.style.top = (cy - 56) + 'px'
     box.innerHTML = '<div class="arc"></div><div class="dot"></div>'; fx.appendChild(box)
     const arc = box.querySelector('.arc'), dot = box.querySelector('.dot'), SPAN = TRACK.span
     let inT = 0, inHeld = 0, outT = 0, outHeld = 0, last = performance.now(); const t0 = last
@@ -9455,7 +9461,7 @@ async function run(id) {
   /** Four beats after two count-in clicks: tap on each. How many of the four you hit. */
   async function rhythmTap(cx, cy, gap = 440) {
     strikeBtn('SING!', 'tap A on the beat · 4 beats')
-    const row = document.createElement('div'); row.className = 'beats'; row.style.left = cx + 'px'; row.style.top = (cy - 92) + 'px'
+    const row = document.createElement('div'); row.className = 'beats'; row.style.left = (onScreen(cx - 48, 96) + 48) + 'px'; row.style.top = (cy - 92) + 'px'   // centred: four 18 px beats, 8 apart
     row.innerHTML = '<i></i>'.repeat(4); fx.appendChild(row)
     const t0 = performance.now() + gap * 2, beats = [0, 1, 2, 3].map((i) => t0 + i * gap), hits = [false, false, false, false]
     const off = listen((b, t) => { if (b !== 'a') return; const i = beats.findIndex((x) => Math.abs(t - x) <= 110); if (i >= 0 && !hits[i]) { hits[i] = true; row.children[i].className = 'hit' } })
@@ -9528,7 +9534,8 @@ async function run(id) {
   async function pickStone(cx, cy) {
     const keys = ['left', 'up', 'right'], glyph = ['◀', '▲', '▶']
     const cue = $('padCue'); cue.innerHTML = '<span style="font-size:13px">PICK THE GLOWING STONE</span>'; panel('pPad'); $('pPad').classList.add('pick')
-    const stones = keys.map((_, i) => { const st = document.createElement('div'); st.className = 'stone'; st.style.left = (cx - 15 + (i - 1) * 58) + 'px'; st.style.top = (cy + 30) + 'px'; st.innerHTML = `<b>${glyph[i]}</b>`; fx.appendChild(st); return st })
+    const mid = onScreen(cx - 73, 146) + 73   // the three on screen: 30 wide, 58 apart
+    const stones = keys.map((_, i) => { const st = document.createElement('div'); st.className = 'stone'; st.style.left = (mid - 15 + (i - 1) * 58) + 'px'; st.style.top = (cy + 30) + 'px'; st.innerHTML = `<b>${glyph[i]}</b>`; fx.appendChild(st); return st })
     const RISE = 1500, t0 = performance.now(), want = Math.floor(Math.random() * 3), glowAt = t0 + 250
     let pick = null, pickT = 0
     const off = listen((b, t) => { const i = keys.indexOf(b); if (i >= 0 && pick == null && t >= glowAt) { pick = i; pickT = t; stones[i].classList.add(i === want ? 'hit' : 'wrong'); sfx(i === want ? 'select' : 'flinch') } })
@@ -11378,7 +11385,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { gainExp, trackHold, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, pairBattle, pairFoes, pairItem, payDouble, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, trackHold, chargeTap, pickStone, twinTap, DUO_AT, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, pairBattle, pairFoes, pairItem, payDouble, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
