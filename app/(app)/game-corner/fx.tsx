@@ -53,6 +53,21 @@ export const RAIL: CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,235,200,.35), inset 0 -2px 4px rgba(0,0,0,.5), 0 10px 24px rgba(0,0,0,.45)',
 }
 
+/** The high-limit room's velvet: burgundy. */
+export const VELVET_RED: CSSProperties = {
+  backgroundColor: '#4a0d1c',
+  backgroundImage: `${NOISE}, radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.12), transparent 55%), radial-gradient(ellipse at 50% 40%, #82193b 0%, #5a1028 50%, #2a0612 100%)`,
+  backgroundBlendMode: 'multiply, screen, normal',
+}
+
+/** The high-limit room's rail: ebony, the grain only just showing. */
+export const RAIL_DARK: CSSProperties = {
+  ...RAIL,
+  backgroundColor: '#1c0f08',
+  backgroundImage: `linear-gradient(180deg, rgba(255,220,170,.2), transparent 18%, transparent 75%, rgba(0,0,0,.5)), linear-gradient(rgba(18,9,4,.62), rgba(18,9,4,.62)), ${WOOD}`,
+  backgroundSize: 'auto, auto, 420px 160px',
+}
+
 /** Gold lettering. */
 export const GOLD_TEXT: CSSProperties = {
   backgroundImage: 'linear-gradient(90deg,#fde68a,#f59e0b 25%,#fff7ed 50%,#f59e0b 75%,#fde68a)',
@@ -87,6 +102,9 @@ export const CORNER_CSS = `
 // ─────────────────────────────────────────────── chips
 /** A casino chip's colours by value: face, edge stripes, lettering. */
 export function chipColors(v: number): { face: string; stripe: string; ink: string } {
+  if (v >= 50) return { face: '#ca8a04', stripe: '#1c1917', ink: '#1c1917' }
+  if (v >= 25) return { face: '#be185d', stripe: '#fdf2f8', ink: '#fff' }
+  if (v >= 10) return { face: '#ea580c', stripe: '#fff7ed', ink: '#fff' }
   if (v >= 5) return { face: '#6d28d9', stripe: '#fde68a', ink: '#fff' }
   if (v >= 2) return { face: '#18181b', stripe: '#f4f4f5', ink: '#fde68a' }
   if (v >= 1) return { face: '#15803d', stripe: '#f4f4f5', ink: '#fff' }
@@ -118,7 +136,9 @@ export function Chip({ value, label, size = 40, style }: { value: number; label?
   )
 }
 
-const DENOMS = [5, 2, 1, 0.5, 0.25, 0.1]
+const DENOMS = [50, 25, 10, 5, 2, 1, 0.5, 0.25, 0.1]
+/** The chips a table offers, between its smallest bet and its limit. */
+export const chipsFor = (min: number, max: number) => [...DENOMS].reverse().filter((c) => c >= min && c <= max)
 /** A stack of chips making up an amount (up to five shown), the amount on the top one. */
 export function ChipStack({ amount, size = 26, label }: { amount: number; size?: number; label?: string }) {
   const chips: number[] = []

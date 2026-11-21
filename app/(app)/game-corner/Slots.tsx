@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, money, num } from '../vending/tokens'
-import { refusal, type CornerState, type Reel } from './state'
+import { capsFor, refusal, type CornerState, type Reel, type SlotMachine } from './state'
 import { centerOf, Coin, GOLD_TEXT, NOISE, SCRATCHES, SCUFFS, useCelebration, useCountUp } from './fx'
 import { sfx } from './sfx'
 
@@ -27,6 +27,33 @@ const TABS_LEFT = [1, 4, 2, 5, 3], TABS_RIGHT = [1, 5, 2, 4, 3]
 /** What blurs past while a reel spins (each reel starts at a different place on it). */
 const STRIP: Reel[] = ['SEVEN', 'CHERRY', 'BALL', 'BLANK', 'PIKACHU', 'CHERRY', 'BAR', 'BLANK', 'BALL', 'CHERRY', 'PIKACHU', 'BLANK']
 const blankGrid = (): Reel[] => Array(9).fill('BLANK')
+
+/**
+ * The two kinds of machine: the main floor's, red enamel gone tired, chrome trim, chipped and cracked; and the
+ * high-limit room's, black lacquer and gold, kept nicer.
+ */
+const THEMES = {
+  main: {
+    title: 'GAME CORNER', worn: true,
+    body: `${SCRATCHES}, ${NOISE}, radial-gradient(ellipse at 15% 100%, rgba(120,53,15,.55), transparent 35%), radial-gradient(ellipse at 90% 96%, rgba(68,64,60,.6), transparent 30%), linear-gradient(180deg, #a3132f 0%, #7f1d1d 32%, #4c0d10 100%)`,
+    trim: 'inset 0 0 0 3px #d4d4d8, inset 0 0 0 5px #3f3f46, inset 0 0 0 6px rgba(255,255,255,.15), 0 18px 34px rgba(0,0,0,.6)',
+    bezel: 'linear-gradient(180deg,#f4f4f5,#a1a1aa 45%,#e4e4e7 55%,#71717a)',
+    spin: 'radial-gradient(ellipse at 50% 25%, #fca5a5, #dc2626 45%, #991b1b)', spinEdge: '#7f1d1d', spinGlow: 'rgba(239,68,68,.55)', spinInk: '#fff',
+    room: 'radial-gradient(ellipse at 50% 0%, #5b21b6 0%, #24113f 42%, #0c0a14 100%)', glow: 'rgba(244,63,94,.35)',
+    carpet: 'linear-gradient(180deg, rgba(0,0,0,.65), transparent 70%), repeating-linear-gradient(45deg, rgba(250,204,21,.2) 0 2px, transparent 2px 13px), repeating-linear-gradient(-45deg, rgba(56,189,248,.16) 0 2px, transparent 2px 13px)', carpetBase: '#3b0d2e',
+    mini: 'linear-gradient(180deg,#991b1b,#450a0a)', miniTrim: 'inset 0 0 0 2px #a1a1aa, inset 0 0 0 3px #3f3f46, 0 4px 10px rgba(0,0,0,.3)',
+  },
+  high: {
+    title: 'HIGH LIMIT', worn: false,
+    body: `${SCRATCHES}, ${NOISE}, radial-gradient(ellipse at 50% 0%, rgba(253,230,138,.12), transparent 50%), linear-gradient(180deg, #3f3f46 0%, #18181b 35%, #050505 100%)`,
+    trim: 'inset 0 0 0 3px #e5c158, inset 0 0 0 5px #5c3d0a, inset 0 0 0 6px rgba(255,235,180,.2), 0 18px 34px rgba(0,0,0,.7)',
+    bezel: 'linear-gradient(180deg,#fef3c7,#d4a017 45%,#fde68a 55%,#92400e)',
+    spin: 'radial-gradient(ellipse at 50% 25%, #fef9c3, #eab308 45%, #a16207)', spinEdge: '#713f12', spinGlow: 'rgba(250,204,21,.55)', spinInk: '#1c1917',
+    room: 'radial-gradient(ellipse at 50% 0%, #92400e 0%, #2a1306 45%, #0a0604 100%)', glow: 'rgba(250,204,21,.3)',
+    carpet: 'linear-gradient(180deg, rgba(0,0,0,.6), transparent 70%), repeating-radial-gradient(circle at 10px 10px, rgba(250,204,21,.22) 0 2px, transparent 2px 20px)', carpetBase: '#3a0a14',
+    mini: 'linear-gradient(180deg,#27272a,#050505)', miniTrim: 'inset 0 0 0 2px #e5c158, inset 0 0 0 3px #5c3d0a, 0 4px 10px rgba(0,0,0,.35)',
+  },
+}
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** One reel's face. */
@@ -126,15 +153,17 @@ function Chip({ style }: { style: React.CSSProperties }) {
 }
 
 /**
- * The slots: a row of eight machines, each a 3x3 window with five paylines (the three rows and the two diagonals),
+ * The slots: a row of eight machines (and, behind a velvet rope, four high-limit ones), each a 3x3 window with five paylines (the three rows and the two diagonals),
  * all played every spin, the bet split evenly across them. Sit at a free one (or one nobody has touched for 2
  * minutes), bet, pull the lever. Everyone sees who's at each machine and their last spin, so you're playing beside
  * the others, and hears their big wins down the row.
  */
 export default function Slots({ state, onPlayed }: { state: CornerState; onPlayed: () => void }) {
   const mine = state.slots.find((m) => m.mine && m.player)
-  // A bet per line, and five lines: the spin costs five times it, within the table's smallest bet and the slots' cap.
-  const steps = [0.02, 0.05, 0.1, 0.2, 0.5, 1].filter((b) => money(b * LINES) >= state.caps.min && money(b * LINES) <= state.caps.slots)
+  const theme = mine?.high ? THEMES.high : THEMES.main
+  // A bet per line, and five lines: the spin costs five times it, within the machine's room's smallest bet and limit.
+  const caps = capsFor(state, !!mine?.high)
+  const steps = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].filter((b) => money(b * LINES) >= caps.min && money(b * LINES) <= caps.slots)
   const [lineBet, setLineBet] = useState(steps[0] ?? 0.02)
   const bet = money(lineBet * LINES)
   const [cells, setCells] = useState<Reel[]>(mine?.reels?.length === 9 ? mine.reels : blankGrid())
@@ -232,36 +261,70 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         : { background: '#1c1917', color: LINE_COLOR[line - 1], boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.12)' }}>{line}</span>
   )
 
+  /** A machine in a row: its marquee, its last spin, who's at it (or a place to sit). */
+  const cabinet = (m: SlotMachine) => {
+    const recent = m.at && Date.now() - Date.parse(m.at) < 6000
+    const big = !!(recent && m.win != null && m.bet != null && m.win > m.bet)
+    const t = m.high ? THEMES.high : THEMES.main
+    return (
+      <div key={m.machine} className={`relative rounded-t-xl rounded-b-md p-1.5 text-white ${m.mine && m.player ? 'ring-2 ring-signal' : ''}`}
+        style={{ backgroundImage: `${SCRATCHES}, ${t.mini}`, boxShadow: t.miniTrim }}>
+        <div className="rounded-t-lg rounded-b-sm bg-zinc-950 px-1.5 py-1" style={{ boxShadow: 'inset 0 0 0 1px #a16207' }}>
+          <Bulbs n={9} dead={!m.high && m.machine % 3 === 0 ? [m.machine % 9] : []} party={big} size={4} />
+          <div className="flex items-center justify-between text-[10px] leading-4 mt-0.5">
+            <span className="text-amber-200/80 font-semibold">#{m.machine}{m.high && <span className="ml-1 text-[8px] tracking-wider">HIGH</span>}</span>
+            {m.player && m.win != null && recent && <span className={big ? 'text-amber-300 font-bold' : 'text-white/60'}>{m.win > 0 ? `+${fmt(m.win)}` : '–'}</span>}
+          </div>
+        </div>
+        <div className="flex justify-center my-1.5 rounded-md p-1 bg-zinc-900" style={{ boxShadow: `inset 0 0 0 1px ${m.high ? '#d4a017' : '#71717a'}` }}>
+          <Window cells={m.player && m.reels?.length === 9 ? m.reels : blankGrid()} lines={m.player && recent ? m.lines ?? [] : []} size={15} />
+        </div>
+        {m.player ? (
+          <div className="flex items-center gap-1.5 text-xs truncate rounded bg-black/30 px-1 py-0.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {m.avatar ? <img src={m.avatar} alt="" className="w-4 h-4 rounded-full" /> : <span className="w-4 h-4 rounded-full bg-white/20" />}
+            <span className="truncate">{m.mine ? 'You' : m.player}</span>
+          </div>
+        ) : (
+          <button type="button" onClick={() => sit(m.machine)} disabled={sitting != null || !state.open}
+            className="w-full h-7 rounded-md text-xs font-bold text-zinc-900 disabled:opacity-50"
+            style={{ background: 'linear-gradient(180deg,#fde68a,#d97706)', boxShadow: '0 2px 0 #78350f' }}>
+            {sitting === m.machine ? 'Sitting…' : mine ? 'Move here' : 'Sit here'}
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {coins}
       {/* The room: a dim casino, the machine glowing, carpet underfoot. */}
-      <section className="relative overflow-hidden rounded-2xl px-3 pt-4" style={{ background: 'radial-gradient(ellipse at 50% 0%, #5b21b6 0%, #24113f 42%, #0c0a14 100%)' }}>
-        <div className="absolute left-1/2 top-16 -translate-x-1/2 w-72 h-72 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(244,63,94,.35), transparent 65%)' }} aria-hidden />
+      <section className="relative overflow-hidden rounded-2xl px-3 pt-4" style={{ background: theme.room }}>
+        <div className="absolute left-1/2 top-16 -translate-x-1/2 w-72 h-72 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${theme.glow}, transparent 65%)` }} aria-hidden />
         {mine ? (
           <div className="relative mx-auto gc-motion" style={{ maxWidth: 352, paddingRight: 30, animation: shake ? 'gc-shake .45s ease-in-out 2' : undefined }}>
-            {/* The cabinet: red enamel gone tired, chrome trim, scratches, a few chips out of the paint. */}
-            <div className="relative rounded-t-[26px] rounded-b-[14px] p-2.5 pb-3 text-white" style={{
-              backgroundColor: '#7f1d1d',
-              backgroundImage: `${SCRATCHES}, ${NOISE}, radial-gradient(ellipse at 15% 100%, rgba(120,53,15,.55), transparent 35%), radial-gradient(ellipse at 90% 96%, rgba(68,64,60,.6), transparent 30%), linear-gradient(180deg, #a3132f 0%, #7f1d1d 32%, #4c0d10 100%)`,
-              boxShadow: 'inset 0 0 0 3px #d4d4d8, inset 0 0 0 5px #3f3f46, inset 0 0 0 6px rgba(255,255,255,.15), 0 18px 34px rgba(0,0,0,.6)',
-            }}>
-              <Chip style={{ left: 4, top: 96, width: 12, height: 9 }} />
-              <Chip style={{ right: 3, top: 210, width: 9, height: 14 }} />
-              <Chip style={{ left: 30, bottom: 4, width: 16, height: 7 }} />
-              <Chip style={{ right: 60, top: 3, width: 10, height: 6 }} />
+            {/* The cabinet: on the main floor red enamel gone tired, chrome trim, scratches, a few chips out of the
+                paint; in the high-limit room black lacquer and gold. */}
+            <div className="relative rounded-t-[26px] rounded-b-[14px] p-2.5 pb-3 text-white" style={{ backgroundColor: '#18181b', backgroundImage: theme.body, boxShadow: theme.trim }}>
+              {theme.worn && <>
+                <Chip style={{ left: 4, top: 96, width: 12, height: 9 }} />
+                <Chip style={{ right: 3, top: 210, width: 9, height: 14 }} />
+                <Chip style={{ left: 30, bottom: 4, width: 16, height: 7 }} />
+                <Chip style={{ right: 60, top: 3, width: 10, height: 6 }} />
+              </>}
 
               {/* Marquee: dim glass, a blown bulb, the name in gold. */}
               <div className="relative rounded-t-[19px] rounded-b-md px-3 pt-2 pb-2 text-center overflow-hidden" style={{ background: 'linear-gradient(180deg,#1c1917,#0c0a09)', boxShadow: 'inset 0 0 0 2px #a16207, inset 0 0 0 3px #451a03, inset 0 0 20px rgba(0,0,0,.85)' }}>
-                <Bulbs n={13} dead={[8]} party={party} />
-                <div className="my-1 font-display font-black text-[27px] leading-none tracking-wider" style={{ ...GOLD_TEXT, opacity: 0.93, filter: 'drop-shadow(0 0 6px rgba(245,158,11,.45))', animation: party ? 'gc-shine 1.2s linear infinite' : undefined }}>GAME CORNER</div>
+                <Bulbs n={13} dead={theme.worn ? [8] : []} party={party} />
+                <div className="my-1 font-display font-black text-[27px] leading-none tracking-wider" style={{ ...GOLD_TEXT, opacity: 0.93, filter: 'drop-shadow(0 0 6px rgba(245,158,11,.45))', animation: party ? 'gc-shine 1.2s linear infinite' : undefined }}>{theme.title}</div>
                 <div className="text-[9px] tracking-[0.35em] text-amber-200/60">★ MACHINE {mine.machine} ★</div>
-                <div className="mt-1"><Bulbs n={13} dead={[2]} party={party} /></div>
+                <div className="mt-1"><Bulbs n={13} dead={theme.worn ? [2] : []} party={party} /></div>
                 <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `${SCRATCHES}, linear-gradient(170deg, rgba(255,255,255,.12), transparent 35%)` }} />
               </div>
 
               {/* The reel glass in its chrome bezel, payline tabs down each side; cracked once, and taped. */}
-              <div className="relative mt-2.5 rounded-xl p-[5px]" style={{ background: 'linear-gradient(180deg,#f4f4f5,#a1a1aa 45%,#e4e4e7 55%,#71717a)', boxShadow: '0 2px 0 rgba(0,0,0,.55), inset 0 1px 0 #fff' }}>
+              <div className="relative mt-2.5 rounded-xl p-[5px]" style={{ background: theme.bezel, boxShadow: '0 2px 0 rgba(0,0,0,.55), inset 0 1px 0 #fff' }}>
                 <div className="relative rounded-lg bg-zinc-950 py-2 flex justify-center items-center gap-1.5" style={{ boxShadow: 'inset 0 0 14px rgba(0,0,0,.9)' }} aria-live="polite">
                   <div className="flex flex-col justify-between self-stretch py-1">{TABS_LEFT.map((l) => tab(l, 'l'))}</div>
                   <div className="relative" style={{ width: span.w, height: span.h }}>
@@ -280,10 +343,12 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
                   <div className="flex flex-col justify-between self-stretch py-1">{TABS_RIGHT.map((l) => tab(l, 'r'))}</div>
                   {/* Glass: a glare, the crack, the tape over it. */}
                   <div className="absolute inset-0 rounded-lg pointer-events-none" style={{ background: 'linear-gradient(118deg, rgba(255,255,255,.2) 0 14%, transparent 26%, transparent 74%, rgba(255,255,255,.06) 84%)' }} />
-                  <svg className="absolute right-1 top-1 w-16 h-12 pointer-events-none" viewBox="0 0 64 48" aria-hidden>
-                    <path d="M63 2 L44 14 L36 13 L22 26 M44 14 L47 27 L40 40 M36 13 L31 4" stroke="rgba(255,255,255,.55)" strokeWidth=".8" fill="none" />
-                  </svg>
-                  <span className="absolute right-3 top-3 w-9 h-3.5 rotate-[32deg] pointer-events-none" aria-hidden style={{ background: 'rgba(254,243,199,.5)', boxShadow: '0 0 0 .5px rgba(120,113,108,.4)' }} />
+                  {theme.worn && <>
+                    <svg className="absolute right-1 top-1 w-16 h-12 pointer-events-none" viewBox="0 0 64 48" aria-hidden>
+                      <path d="M63 2 L44 14 L36 13 L22 26 M44 14 L47 27 L40 40 M36 13 L31 4" stroke="rgba(255,255,255,.55)" strokeWidth=".8" fill="none" />
+                    </svg>
+                    <span className="absolute right-3 top-3 w-9 h-3.5 rotate-[32deg] pointer-events-none" aria-hidden style={{ background: 'rgba(254,243,199,.5)', boxShadow: '0 0 0 .5px rgba(120,113,108,.4)' }} />
+                  </>}
                 </div>
               </div>
 
@@ -296,8 +361,8 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               {/* The button deck: worn pale where hands rest. */}
               <div className="relative mt-2.5 rounded-lg p-2" style={{ background: 'radial-gradient(ellipse at 50% 90%, rgba(255,255,255,.12), transparent 55%), linear-gradient(180deg,#3f3f46,#18181b)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.15), 0 2px 0 #000' }}>
                 {/* An old sticker, peeling at a corner. */}
-                <span className="absolute -left-1.5 -top-2 grid place-items-center w-9 h-9 rounded-full -rotate-12 text-[7px] font-black leading-[1.05] text-red-800 text-center pointer-events-none" aria-hidden
-                  style={{ background: `${SCUFFS}, radial-gradient(circle at 70% 30%, #fef9c3, #facc15 70%)`, boxShadow: '1px 2px 3px rgba(0,0,0,.4)', clipPath: 'polygon(0 0,100% 0,100% 72%,72% 100%,0 100%)' }}>5<br />LINES!</span>
+                {theme.worn && <span className="absolute -left-1.5 -top-2 grid place-items-center w-9 h-9 rounded-full -rotate-12 text-[7px] font-black leading-[1.05] text-red-800 text-center pointer-events-none" aria-hidden
+                  style={{ background: `${SCUFFS}, radial-gradient(circle at 70% 30%, #fef9c3, #facc15 70%)`, boxShadow: '1px 2px 3px rgba(0,0,0,.4)', clipPath: 'polygon(0 0,100% 0,100% 72%,72% 100%,0 100%)' }}>5<br />LINES!</span>}
                 <div className="text-[9px] tracking-[0.25em] text-zinc-400 text-center">BET A LINE</div>
                 <div className="flex flex-wrap justify-center gap-1.5 mt-1">
                   {steps.map((b) => (
@@ -311,8 +376,8 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
                   ))}
                 </div>
                 <button type="button" onClick={() => spin(false)} disabled={!canSpin}
-                  className="mt-2 w-full h-12 rounded-xl font-display font-black text-xl tracking-wider text-white transition-transform active:translate-y-[3px] disabled:opacity-60"
-                  style={{ background: 'radial-gradient(ellipse at 50% 25%, #fca5a5, #dc2626 45%, #991b1b)', boxShadow: canSpin ? '0 4px 0 #7f1d1d, 0 0 14px rgba(239,68,68,.55)' : '0 4px 0 #7f1d1d', textShadow: '0 1px 0 #7f1d1d' }}>
+                  className="mt-2 w-full h-12 rounded-xl font-display font-black text-xl tracking-wider transition-transform active:translate-y-[3px] disabled:opacity-60"
+                  style={{ background: theme.spin, color: theme.spinInk, boxShadow: canSpin ? `0 4px 0 ${theme.spinEdge}, 0 0 14px ${theme.spinGlow}` : `0 4px 0 ${theme.spinEdge}`, textShadow: mine.high ? '0 1px 0 rgba(255,255,255,.5)' : `0 1px 0 ${theme.spinEdge}` }}>
                   {state.balance < bet ? 'NOT ENOUGH TOKENS' : spinning ? 'SPINNING…' : 'SPIN'}
                   <span className="block text-[10px] font-sans font-semibold tracking-normal -mt-1 opacity-80">{LINES} lines × {fmt(lineBet)} = {fmt(bet)}</span>
                 </button>
@@ -358,10 +423,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         )}
         {!mine && note && <p className="relative text-sm text-white/70 text-center pb-3">{note}</p>}
         {/* Carpet. */}
-        <div className="relative -mx-3 mt-4 h-10" aria-hidden style={{
-          backgroundColor: '#3b0d2e',
-          backgroundImage: 'linear-gradient(180deg, rgba(0,0,0,.65), transparent 70%), repeating-linear-gradient(45deg, rgba(250,204,21,.2) 0 2px, transparent 2px 13px), repeating-linear-gradient(-45deg, rgba(56,189,248,.16) 0 2px, transparent 2px 13px)',
-        }} />
+        <div className="relative -mx-3 mt-4 h-10" aria-hidden style={{ backgroundColor: theme.carpetBase, backgroundImage: theme.carpet }} />
       </section>
 
       {mine && (
@@ -396,41 +458,31 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         </section>
       )}
 
-      {/* The row: small cabinets, each with whoever's at it and their last spin. */}
-      <section aria-label="The row of machines" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {state.slots.map((m) => {
-          const recent = m.at && Date.now() - Date.parse(m.at) < 6000
-          const big = !!(recent && m.win != null && m.bet != null && m.win > m.bet)
-          return (
-            <div key={m.machine} className={`relative rounded-t-xl rounded-b-md p-1.5 text-white ${m.mine && m.player ? 'ring-2 ring-signal' : ''}`}
-              style={{ backgroundImage: `${SCRATCHES}, linear-gradient(180deg,#991b1b,#450a0a)`, boxShadow: 'inset 0 0 0 2px #a1a1aa, inset 0 0 0 3px #3f3f46, 0 4px 10px rgba(0,0,0,.3)' }}>
-              <div className="rounded-t-lg rounded-b-sm bg-zinc-950 px-1.5 py-1" style={{ boxShadow: 'inset 0 0 0 1px #a16207' }}>
-                <Bulbs n={9} dead={m.machine % 3 === 0 ? [m.machine % 9] : []} party={big} size={4} />
-                <div className="flex items-center justify-between text-[10px] leading-4 mt-0.5">
-                  <span className="text-amber-200/80 font-semibold">#{m.machine}</span>
-                  {m.player && m.win != null && recent && <span className={big ? 'text-amber-300 font-bold' : 'text-white/60'}>{m.win > 0 ? `+${fmt(m.win)}` : '–'}</span>}
-                </div>
-              </div>
-              <div className="flex justify-center my-1.5 rounded-md p-1 bg-zinc-900" style={{ boxShadow: 'inset 0 0 0 1px #71717a' }}>
-                <Window cells={m.player && m.reels?.length === 9 ? m.reels : blankGrid()} lines={m.player && recent ? m.lines ?? [] : []} size={15} />
-              </div>
-              {m.player ? (
-                <div className="flex items-center gap-1.5 text-xs truncate rounded bg-black/30 px-1 py-0.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {m.avatar ? <img src={m.avatar} alt="" className="w-4 h-4 rounded-full" /> : <span className="w-4 h-4 rounded-full bg-white/20" />}
-                  <span className="truncate">{m.mine ? 'You' : m.player}</span>
-                </div>
-              ) : (
-                <button type="button" onClick={() => sit(m.machine)} disabled={sitting != null || !state.open}
-                  className="w-full h-7 rounded-md text-xs font-bold text-zinc-900 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(180deg,#fde68a,#d97706)', boxShadow: '0 2px 0 #78350f' }}>
-                  {sitting === m.machine ? 'Sitting…' : mine ? 'Move here' : 'Sit here'}
-                </button>
-              )}
-            </div>
-          )
-        })}
+      {/* The rows: small cabinets, each with whoever's at it and their last spin. The main floor's eight, then the
+          high-limit room's, behind a velvet rope. */}
+      <section aria-label="The main floor's machines" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {state.slots.filter((m) => !m.high).map(cabinet)}
       </section>
+      {state.slots.some((m) => m.high) && (
+        <section aria-label="The high-limit machines" className="rounded-2xl p-3 space-y-2.5" style={{ background: THEMES.high.room }}>
+          <div className="text-center">
+            <div className="font-display font-black text-lg tracking-[0.2em]" style={{ ...GOLD_TEXT, animation: 'gc-shine 3s linear infinite' }}>HIGH LIMIT</div>
+            <div className="text-[11px] text-amber-100/70">{fmt(state.caps.high.min)} to {fmt(state.caps.high.slots)} a spin</div>
+          </div>
+          {/* The velvet rope, between two brass posts. */}
+          <div className="relative h-5 mx-1" aria-hidden>
+            <span className="absolute left-0 top-0 w-3 h-5 rounded-t-full" style={{ background: 'linear-gradient(90deg,#713f12,#fde68a,#a16207)' }} />
+            <span className="absolute right-0 top-0 w-3 h-5 rounded-t-full" style={{ background: 'linear-gradient(90deg,#713f12,#fde68a,#a16207)' }} />
+            <svg className="absolute inset-x-2 top-1 h-4 w-[calc(100%-1rem)]" viewBox="0 0 100 16" preserveAspectRatio="none">
+              <path d="M0 2 Q50 18 100 2" stroke="#9f1239" strokeWidth="3.5" fill="none" vectorEffect="non-scaling-stroke" />
+              <path d="M0 1.5 Q50 16 100 1.5" stroke="rgba(255,255,255,.25)" strokeWidth="1" fill="none" vectorEffect="non-scaling-stroke" />
+            </svg>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {state.slots.filter((m) => m.high).map(cabinet)}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

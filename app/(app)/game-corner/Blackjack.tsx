@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, money } from '../vending/tokens'
-import { refusal, type BjHand, type BjSeat, type BjTable, type CornerState } from './state'
+import { capsFor, refusal, type BjHand, type BjSeat, type BjTable, type CornerState } from './state'
 import { canDouble, canSplit, cardName, handTotal, isRed, RANKS, rankOf, revealAt, SUITS, suitOf, totalLabel } from './blackjack'
-import { centerOf, Chip, ChipStack, NOISE, RAIL, VELVET, useCelebration } from './fx'
+import { centerOf, Chip, ChipStack, chipsFor, GOLD_TEXT, NOISE, RAIL, RAIL_DARK, VELVET, VELVET_RED, useCelebration } from './fx'
 import { sfx } from './sfx'
 
 const WORDS = {
@@ -18,7 +18,6 @@ const SIZES = { sm: { w: 24, h: 34, f: 10, step: 12 }, md: { w: 40, h: 57, f: 13
 type Size = keyof typeof SIZES
 /** How far each seat sits down the felt's curve, left to right. */
 const ARC = [0, 12, 18, 12, 0]
-const CHIPS = [0.1, 0.25, 0.5, 1, 2, 5]
 /** The table's outline: square at the dealer's side, rounding away under the players. */
 const TABLE_SHAPE = '22px 22px 50% 50% / 22px 22px 30% 30%'
 const BACK: CSSProperties = {
@@ -154,7 +153,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   const { party, celebrate } = useCelebration()
 
   // The table in view: the one picked, else your own, else the liveliest one with a free seat.
-  const busiest = [...bj.tables].sort((a, b) => b.seats.filter((s) => s.player).length - a.seats.filter((s) => s.player).length)
+  const busiest = [...bj.tables.filter((x) => !x.high)].sort((a, b) => b.seats.filter((s) => s.player).length - a.seats.filter((s) => s.player).length)
     .find((t) => t.seats.some((s) => !s.player)) ?? bj.tables[0]
   const t = bj.tables.find((x) => x.table === (view ?? mine?.table ?? busiest?.table)) ?? bj.tables[0]
 
@@ -164,7 +163,9 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   const mySeat = atThis && mine ? t.seats.find((s) => s.seat === mine.seat) : undefined
   const myHands = mySeat?.hands.filter((h) => h.mine) ?? []
   const inHand = bj.tables.some((x) => x.seats.some((s) => s.hands.some((h) => h.mine && h.result == null)))
-  const chips = CHIPS.filter((c) => c >= state.caps.min && c <= state.caps.blackjack)
+  // The table's room: its limits and its chips (the high-limit table's are bigger).
+  const caps = capsFor(state, !!t?.high)
+  const chips = chipsFor(caps.min, caps.blackjack).slice(-6)
 
   // Once the hand is done the dealer's cards turn over one by one, and the results show after the last.
   const doneAt = t?.done_at ? Date.parse(t.done_at) : 0
@@ -255,28 +256,32 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   return (
     <div className="space-y-4">
       {party}
-      <nav aria-label="Tables" className="grid grid-cols-3 gap-1.5">
+      <nav aria-label="Tables" className={`grid gap-1.5 ${bj.tables.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         {bj.tables.map((x) => {
-          const n = x.seats.filter((s) => s.player).length
+          const n = x.seats.filter((s) => s.player).length, on = x.table === t.table
           return (
-            <button key={x.table} type="button" onClick={() => { if (x.table !== t.table) sfx.click(); setView(x.table) }} aria-pressed={x.table === t.table}
-              className={`rounded-xl border px-2 py-1.5 text-left ${x.table === t.table ? 'border-ink bg-ink text-white' : 'border-card-border bg-card'}`}>
-              <span className="block text-sm font-semibold">Table {x.table}{mine?.table === x.table && <span className="ml-1 text-signal" aria-label="(yours)">●</span>}</span>
-              <span className={`block text-[11px] ${x.table === t.table ? 'text-white/70' : 'text-muted'}`}>{n}/5 · {n === 0 ? 'empty' : x.phase === 'betting' ? 'betting' : 'playing'}</span>
+            <button key={x.table} type="button" onClick={() => { if (!on) sfx.click(); setView(x.table) }} aria-pressed={on}
+              className={`rounded-xl border px-2 py-1.5 text-left min-w-0 ${on ? (x.high ? 'border-amber-500 text-amber-100' : 'border-ink bg-ink text-white') : x.high ? 'border-amber-500/60 bg-card' : 'border-card-border bg-card'}`}
+              style={on && x.high ? { background: 'linear-gradient(180deg,#3b0a17,#1c0509)' } : undefined}>
+              <span className="block text-sm font-semibold truncate">
+                {x.high ? 'High limit' : `Table ${x.table}`}{mine?.table === x.table && <span className="ml-1 text-signal" aria-label="(yours)">●</span>}
+              </span>
+              <span className={`block text-[11px] truncate ${on ? 'opacity-70' : 'text-muted'}`}>{n}/5 · {n === 0 ? 'empty' : x.phase === 'betting' ? 'betting' : 'playing'}</span>
             </button>
           )
         })}
       </nav>
 
-      {/* The table: a padded leather rail, stitched, round green velvet. */}
-      <section aria-label={`Table ${t.table}`} className="relative p-[11px]" style={{
+      {/* The table: a padded leather rail, stitched, round green velvet; at the high-limit table black leather and
+          burgundy velvet. */}
+      <section aria-label={t.high ? 'The high-limit table' : `Table ${t.table}`} className="relative p-[11px]" style={{
         borderRadius: TABLE_SHAPE,
-        backgroundColor: '#2b1a12',
-        backgroundImage: `${NOISE}, radial-gradient(ellipse at 50% 8%, rgba(255,235,205,.25), transparent 45%), linear-gradient(180deg,#5b3a29,#2b1a12)`,
+        backgroundColor: t.high ? '#0c0a09' : '#2b1a12',
+        backgroundImage: `${NOISE}, radial-gradient(ellipse at 50% 8%, rgba(255,235,205,.25), transparent 45%), linear-gradient(180deg,${t.high ? '#3f3f46,#0c0a09' : '#5b3a29,#2b1a12'})`,
         boxShadow: '0 14px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,235,205,.3), inset 0 -3px 6px rgba(0,0,0,.6)',
       }}>
         <div className="absolute inset-[4px] pointer-events-none" style={{ borderRadius: TABLE_SHAPE, border: '1.5px dashed rgba(255,235,205,.3)' }} aria-hidden />
-        <div className="relative px-3 pt-3 pb-5 text-white overflow-hidden" style={{ ...VELVET, borderRadius: TABLE_SHAPE, boxShadow: 'inset 0 0 0 2px #c9a227, inset 0 0 36px rgba(0,0,0,.6)' }}>
+        <div className="relative px-3 pt-3 pb-5 text-white overflow-hidden" style={{ ...(t.high ? VELVET_RED : VELVET), borderRadius: TABLE_SHAPE, boxShadow: 'inset 0 0 0 2px #c9a227, inset 0 0 36px rgba(0,0,0,.6)' }}>
           {/* The discard tray (fuller as the shoe empties) and the shoe. */}
           <div className="absolute left-3 top-3 w-9 h-12 rounded-md p-1 flex items-end" aria-label={`${Math.round(dealtShare * 100)}% of the shoe dealt`} style={{ background: 'rgba(0,0,0,.35)', boxShadow: 'inset 0 0 0 1px rgba(253,230,138,.35)' }}>
             <div className="w-full rounded-[2px]" style={{ height: `${8 + dealtShare * 80}%`, ...BACK, boxShadow: '0 -1px 0 #fff' }} />
@@ -287,6 +292,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
           </div>
 
           <div className="flex flex-col items-center gap-1 min-h-[92px]">
+            {t.high && <span className="text-[11px] font-black tracking-[0.3em] -mb-1" style={GOLD_TEXT}>★ HIGH LIMIT ★</span>}
             <span className="text-[10px] uppercase tracking-[0.25em] text-white/60">Dealer</span>
             {dealer.length > 0 ? <Fan cards={dealer} size="md" from={[110, -10]} turnAt={t.phase === 'done' ? 1 : undefined} />
               : <div className="h-[57px] w-10 rounded-[5px] border border-dashed border-white/20" aria-hidden />}
@@ -342,10 +348,10 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
               <div className="flex items-center justify-center gap-2 min-h-12">
                 {stake > 0 ? <><ChipStack amount={stake} size={30} /><span className="text-sm">Your bet <b className="font-mono">{fmt(stake)}</b></span></> : <span className="text-sm text-muted">Tap chips to make your bet.</span>}
               </div>
-              <div className="flex flex-wrap justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={RAIL} role="group" aria-label="Chips">
+              <div className="flex flex-wrap justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={t.high ? RAIL_DARK : RAIL} role="group" aria-label="Chips">
                 {chips.map((c) => (
-                  <button key={c} type="button" aria-label={`Add ${fmt(c)}`} disabled={money(stake + c) > state.caps.blackjack}
-                    onClick={() => { sfx.chip(); setStake((s) => Math.min(state.caps.blackjack, money(s + c))) }}
+                  <button key={c} type="button" aria-label={`Add ${fmt(c)}`} disabled={money(stake + c) > caps.blackjack}
+                    onClick={() => { sfx.chip(); setStake((s) => Math.min(caps.blackjack, money(s + c))) }}
                     className="rounded-full transition-transform hover:-translate-y-1 disabled:opacity-40 disabled:hover:translate-y-0">
                     <Chip value={c} size={40} label={fmt(c)} />
                   </button>
@@ -363,7 +369,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
                   </button>
                 )}
               </div>
-              <p className="text-center text-[11px] text-muted">{fmt(state.caps.min)} to {fmt(state.caps.blackjack)} a hand.</p>
+              <p className="text-center text-[11px] text-muted">{fmt(caps.min)} to {fmt(caps.blackjack)} a hand{t.high ? ', at the high-limit table' : ''}.</p>
             </div>
           )}
 

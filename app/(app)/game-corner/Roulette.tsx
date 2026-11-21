@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, money } from '../vending/tokens'
-import { colorOf, refusal, RED, WHEEL, type BetKind, type CornerState, type RouletteBet } from './state'
-import { centerOf, Chip, GOLD_TEXT, RAIL, VELVET, WOOD, useCelebration } from './fx'
+import { capsFor, colorOf, refusal, RED, WHEEL, type BetKind, type Caps, type CornerState, type RouletteBet, type RouletteState } from './state'
+import { centerOf, Chip, chipsFor, GOLD_TEXT, RAIL, RAIL_DARK, VELVET, VELVET_RED, WOOD, useCelebration } from './fx'
 import { sfx } from './sfx'
 
 /** How long the wheel turns, and when the ball leaves the track for the pockets (ms). */
@@ -107,9 +107,38 @@ function Wheel({ turn, ball, dropped, size = 252 }: { turn: number; ball: number
  * same ball drop.
  */
 export default function Roulette({ state, skew, onPlayed }: { state: CornerState; skew: number; onPlayed: () => void }) {
-  const rt = state.roulette
-  const chips = [0.1, 0.25, 0.5, 1, 2, 5].filter((c) => c >= state.caps.min && c <= state.caps.roulette)
-  const [chip, setChip] = useState(chips[0] ?? state.caps.min)
+  const [high, setHigh] = useState(false)
+  const rt = high && state.roulette_high ? state.roulette_high : state.roulette
+  return (
+    <div className="space-y-3">
+      {state.roulette_high && (
+        <nav aria-label="Wheels" className="grid grid-cols-2 gap-1.5">
+          {[false, true].map((h) => {
+            const c = capsFor(state, h), on = (rt.wheel === 2) === h
+            return (
+              <button key={String(h)} type="button" aria-pressed={on} onClick={() => { if (!on) sfx.click(); setHigh(h) }}
+                className={`rounded-xl border px-3 py-1.5 text-left ${on ? (h ? 'border-amber-500 text-amber-100' : 'border-ink bg-ink text-white') : 'border-card-border bg-card'}`}
+                style={on && h ? { background: 'linear-gradient(180deg,#3b0a17,#1c0509)' } : undefined}>
+                <span className="block text-sm font-semibold">{h ? 'High limit' : 'Main wheel'}</span>
+                <span className={`block text-[11px] ${on ? 'opacity-70' : 'text-muted'}`}>{fmt(c.min)} to {fmt(c.roulette)} a spin</span>
+              </button>
+            )
+          })}
+        </nav>
+      )}
+      {/* Its own table each: switching wheels starts afresh, the ball where that wheel's last landed. */}
+      <Table key={rt.wheel} rt={rt} caps={capsFor(state, rt.wheel === 2)} open={state.open} skew={skew} onPlayed={onPlayed} />
+    </div>
+  )
+}
+
+/**
+ * One wheel's table: the main one in a wooden frame on green velvet, the high-limit one in ebony on burgundy.
+ */
+function Table({ rt, caps, open: cornerOpen, skew, onPlayed }: { rt: RouletteState; caps: Caps; open: boolean; skew: number; onPlayed: () => void }) {
+  const high = rt.wheel === 2
+  const chips = chipsFor(caps.min, caps.roulette).slice(-6)
+  const [chip, setChip] = useState(chips[0] ?? caps.min)
   const [note, setNote] = useState<string | null>(null)
   const [placing, setPlacing] = useState(false)
   const [, tick] = useState(0)
@@ -141,7 +170,8 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
   const now = Date.now() + skew
   const closesIn = Math.max(0, Math.ceil((Date.parse(rt.bets_close_at) - now) / 1000))
   const nextIn = Math.max(0, Math.ceil((Date.parse(rt.round_ends_at) - now) / 1000))
-  const open = rt.betting && closesIn > 0
+  // Bets open: the round's betting time, and the Game Corner open (or you're an admin).
+  const open = cornerOpen && rt.betting && closesIn > 0
   const was = useRef({ betting: rt.betting, closesIn, bets: rt.bets.length, round: rt.round })
   useEffect(() => {
     const p = was.current
@@ -189,13 +219,14 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
   async function place(kind: BetKind, pick: number | null) {
     if (!open || placing) return
     setPlacing(true); setNote(null)
-    const { error } = await createClient().rpc('game_corner_roulette_bet', { p_kind: kind, p_pick: pick, p_amount: chip })
+    // The main wheel is the default, so a page newer than the database (before v117) still bets on it.
+    const { error } = await createClient().rpc('game_corner_roulette_bet', { p_kind: kind, p_pick: pick, p_amount: chip, ...(high ? { p_wheel: 2 } : {}) })
     setPlacing(false)
     if (error) setNote(refusal(error)); else onPlayed()
   }
   async function clear() {
     sfx.click()
-    const { error } = await createClient().rpc('game_corner_roulette_clear')
+    const { error } = await createClient().rpc('game_corner_roulette_clear', high ? { p_wheel: 2 } : undefined)
     if (error) setNote(refusal(error)); else onPlayed()
   }
 
@@ -230,8 +261,8 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
     <div className="space-y-4">
       {party}
       {/* The table: a polished wooden rail round green velvet, gold piping inside it. */}
-      <section className="rounded-[26px] p-2.5" style={RAIL}>
-        <div className="relative rounded-[18px] p-3 space-y-3 text-white" style={{ ...VELVET, boxShadow: 'inset 0 0 0 2px #c9a227, inset 0 0 0 3px rgba(0,0,0,.45), inset 0 0 40px rgba(0,0,0,.65)' }}>
+      <section className="rounded-[26px] p-2.5" style={high ? RAIL_DARK : RAIL}>
+        <div className="relative rounded-[18px] p-3 space-y-3 text-white" style={{ ...(high ? VELVET_RED : VELVET), boxShadow: 'inset 0 0 0 2px #c9a227, inset 0 0 0 3px rgba(0,0,0,.45), inset 0 0 40px rgba(0,0,0,.65)' }}>
           <div ref={wheelBox} className="pt-1"><Wheel turn={turn} ball={ball} dropped={dropped} /></div>
 
           <div className="text-center min-h-12" aria-live="polite">
@@ -260,7 +291,7 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
 
           {/* The chip rack, in wood. */}
           <div className="space-y-1.5">
-            <div className="flex justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={RAIL} role="group" aria-label="Chip">
+            <div className="flex justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={high ? RAIL_DARK : RAIL} role="group" aria-label="Chip">
               {chips.map((c) => (
                 <button key={c} type="button" onClick={() => { sfx.chip(); setChip(c) }} aria-pressed={chip === c} aria-label={`Chip ${fmt(c)}`}
                   className="rounded-full transition-transform" style={{ transform: chip === c ? 'translateY(-4px)' : 'none', filter: chip === c ? 'drop-shadow(0 0 6px rgba(253,224,71,.9))' : 'none' }}>
@@ -269,7 +300,7 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
               ))}
             </div>
             <div className="text-center text-xs text-white/70">
-              Your bets <span className="font-mono text-amber-200">{fmt(mineTotal)}</span> / {fmt(state.caps.roulette)}
+              Your bets <span className="font-mono text-amber-200">{fmt(mineTotal)}</span> / {fmt(caps.roulette)}
               {mineTotal > 0 && open && <button type="button" onClick={clear} className="ml-2 underline hover:text-white">Take back</button>}
             </div>
           </div>
@@ -296,7 +327,7 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
             A number pays 35 to 1, a dozen or column 2 to 1, the rest even money. Zero takes every outside bet.
           </p>
           {note && <p className="text-sm text-center text-amber-200">{note}</p>}
-          <p className="text-center text-[10px] tracking-[0.35em] font-semibold" style={{ ...GOLD_TEXT, opacity: 0.8 }}>★ GAME CORNER ★</p>
+          <p className="text-center text-[10px] tracking-[0.35em] font-semibold" style={{ ...GOLD_TEXT, opacity: 0.8 }}>{high ? '★ HIGH LIMIT ★' : '★ GAME CORNER ★'}</p>
         </div>
       </section>
 
