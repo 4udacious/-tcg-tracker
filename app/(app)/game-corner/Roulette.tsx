@@ -199,20 +199,22 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
     if (error) setNote(refusal(error)); else onPlayed()
   }
 
-  const Cell = ({ kind, pick, label, fill, side = false, style }: { kind: BetKind; pick: number | null; label: string; fill?: string; side?: boolean; style?: CSSProperties }) => {
+  // A place to bet on the layout. Called as a function, not mounted as a component of its own, so the cells keep
+  // their place (and their chips' animations) across the four re-renders a second.
+  const cell = ({ kind, pick, label, fill, side = false, style }: { kind: BetKind; pick: number | null; label: string; fill?: string; side?: boolean; style?: CSSProperties }) => {
     const e = onCell.get(key(kind, pick))
     const hit = result != null && wins(kind, pick, result)
     return (
-      <button type="button" onClick={() => place(kind, pick)} disabled={!open}
+      <button key={key(kind, pick)} type="button" onClick={() => place(kind, pick)} disabled={!open}
         title={e ? `${e.who.join(', ')}: ${fmt(e.total)}` : `Bet ${fmt(chip)} on ${label}`}
-        className={`relative rounded-[4px] text-xs font-bold text-white disabled:cursor-default ${hit ? 'z-10 gc-motion' : ''}`}
+        className={`relative rounded-[4px] text-xs font-bold text-white disabled:cursor-default ${hit ? 'z-10' : ''}`}
         style={{
-          background: fill ?? 'transparent',
+          background: fill ?? (hit ? 'rgba(253,230,138,.14)' : 'transparent'),
           boxShadow: `inset 0 0 0 1px rgba(253,230,138,.55)${fill ? ', inset 0 -2px 3px rgba(0,0,0,.35)' : ''}`,
           textShadow: '0 1px 1px rgba(0,0,0,.6)',
-          animation: hit ? `gc-glow ${kind === 'number' ? 0.7 : 1.1}s ease-in-out infinite` : undefined,
           ...style,
         }}>
+        {hit && <span className="absolute inset-0 rounded-[4px] pointer-events-none gc-motion" style={{ animation: `gc-glow ${kind === 'number' ? 0.7 : 1.1}s ease-in-out infinite` }} aria-hidden />}
         {side ? <span className="inline-block [writing-mode:vertical-rl] rotate-180">{label}</span> : label}
         {e && (
           <span className={`absolute -top-2 -right-2 z-10 rounded-full ${e.mine ? 'ring-2 ring-amber-300' : ''} ${hit && e.mine ? 'gc-motion' : ''}`}
@@ -257,8 +259,8 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
           )}
 
           {/* The chip rack, in wood. */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-1 rounded-xl p-1.5" style={RAIL} role="group" aria-label="Chip">
+          <div className="space-y-1.5">
+            <div className="flex justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={RAIL} role="group" aria-label="Chip">
               {chips.map((c) => (
                 <button key={c} type="button" onClick={() => { sfx.chip(); setChip(c) }} aria-pressed={chip === c} aria-label={`Chip ${fmt(c)}`}
                   className="rounded-full transition-transform" style={{ transform: chip === c ? 'translateY(-4px)' : 'none', filter: chip === c ? 'drop-shadow(0 0 6px rgba(253,224,71,.9))' : 'none' }}>
@@ -266,28 +268,28 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
                 </button>
               ))}
             </div>
-            <div className="text-right text-xs text-white/70 shrink-0">
-              <div>Your bets <span className="font-mono text-amber-200">{fmt(mineTotal)}</span> / {fmt(state.caps.roulette)}</div>
-              {mineTotal > 0 && open && <button type="button" onClick={clear} className="underline hover:text-white">Take back</button>}
+            <div className="text-center text-xs text-white/70">
+              Your bets <span className="font-mono text-amber-200">{fmt(mineTotal)}</span> / {fmt(state.caps.roulette)}
+              {mineTotal > 0 && open && <button type="button" onClick={clear} className="ml-2 underline hover:text-white">Take back</button>}
             </div>
           </div>
 
           {/* The layout stood on end for a phone: 0 at the top, the numbers three across down to 36, the columns' 2:1 at
               the foot; the dozens and the even-money bets down the left. */}
           <div className="grid grid-cols-[2.4rem_2.4rem_repeat(3,minmax(0,1fr))] auto-rows-[2.1rem] gap-[3px] pt-1">
-            <Cell kind="number" pick={0} label="0" fill={FILL.green} style={{ gridColumn: '3 / span 3', gridRow: 1 }} />
+            {cell({ kind: 'number', pick: 0, label: '0', fill: FILL.green, style: { gridColumn: '3 / span 3', gridRow: 1 } })}
             {([['low', '1–18'], ['even', 'Even'], ['red', 'Red'], ['black', 'Black'], ['odd', 'Odd'], ['high', '19–36']] as [BetKind, string][]).map(([k, l], i) => (
-              <Cell key={k} kind={k} pick={null} label={l} side fill={k === 'red' ? FILL.red : k === 'black' ? FILL.black : undefined}
-                style={{ gridColumn: 1, gridRow: `${2 + i * 2} / span 2` }} />
+              cell({ kind: k, pick: null, label: l, side: true, fill: k === 'red' ? FILL.red : k === 'black' ? FILL.black : undefined,
+                style: { gridColumn: 1, gridRow: `${2 + i * 2} / span 2` } })
             ))}
             {[1, 2, 3].map((d) => (
-              <Cell key={d} kind="dozen" pick={d} label={`${['1st', '2nd', '3rd'][d - 1]} 12`} side style={{ gridColumn: 2, gridRow: `${2 + (d - 1) * 4} / span 4` }} />
+              cell({ kind: 'dozen', pick: d, label: `${['1st', '2nd', '3rd'][d - 1]} 12`, side: true, style: { gridColumn: 2, gridRow: `${2 + (d - 1) * 4} / span 4` } })
             ))}
             {Array.from({ length: 36 }, (_, i) => i + 1).map((n) => (
-              <Cell key={n} kind="number" pick={n} label={String(n)} fill={FILL[colorOf(n)]} style={{ gridRow: 1 + Math.ceil(n / 3), gridColumn: 3 + ((n - 1) % 3) }} />
+              cell({ kind: 'number', pick: n, label: String(n), fill: FILL[colorOf(n)], style: { gridRow: 1 + Math.ceil(n / 3), gridColumn: 3 + ((n - 1) % 3) } })
             ))}
             {[1, 2, 3].map((col) => (
-              <Cell key={col} kind="column" pick={col} label="2:1" style={{ gridRow: 14, gridColumn: 2 + col }} />
+              cell({ kind: 'column', pick: col, label: '2:1', style: { gridRow: 14, gridColumn: 2 + col } })
             ))}
           </div>
           <p className="text-[11px] text-white/60 text-center">

@@ -285,9 +285,6 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
                   </svg>
                   <span className="absolute right-3 top-3 w-9 h-3.5 rotate-[32deg] pointer-events-none" aria-hidden style={{ background: 'rgba(254,243,199,.5)', boxShadow: '0 0 0 .5px rgba(120,113,108,.4)' }} />
                 </div>
-                {/* An old sticker, peeling. */}
-                <span className="absolute -left-2 -top-3 grid place-items-center w-11 h-11 rounded-full -rotate-12 text-[8px] font-black leading-[1.05] text-red-800 text-center pointer-events-none" aria-hidden
-                  style={{ background: `${SCUFFS}, radial-gradient(circle at 70% 30%, #fef9c3, #facc15 70%)`, boxShadow: '1px 2px 3px rgba(0,0,0,.4)', clipPath: 'polygon(0 0,100% 0,100% 72%,72% 100%,0 100%)' }}>5<br />LINES!</span>
               </div>
 
               <div className="mt-2.5 grid grid-cols-3 gap-1.5">
@@ -298,6 +295,9 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
 
               {/* The button deck: worn pale where hands rest. */}
               <div className="relative mt-2.5 rounded-lg p-2" style={{ background: 'radial-gradient(ellipse at 50% 90%, rgba(255,255,255,.12), transparent 55%), linear-gradient(180deg,#3f3f46,#18181b)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.15), 0 2px 0 #000' }}>
+                {/* An old sticker, peeling at a corner. */}
+                <span className="absolute -left-1.5 -top-2 grid place-items-center w-9 h-9 rounded-full -rotate-12 text-[7px] font-black leading-[1.05] text-red-800 text-center pointer-events-none" aria-hidden
+                  style={{ background: `${SCUFFS}, radial-gradient(circle at 70% 30%, #fef9c3, #facc15 70%)`, boxShadow: '1px 2px 3px rgba(0,0,0,.4)', clipPath: 'polygon(0 0,100% 0,100% 72%,72% 100%,0 100%)' }}>5<br />LINES!</span>
                 <div className="text-[9px] tracking-[0.25em] text-zinc-400 text-center">BET A LINE</div>
                 <div className="flex flex-wrap justify-center gap-1.5 mt-1">
                   {steps.map((b) => (

@@ -7,7 +7,7 @@
 type Listener = (muted: boolean) => void
 type Ctx = AudioContext
 
-const VOLUME = 0.5
+const VOLUME = 0.8
 let ctx: Ctx | null = null
 let master: GainNode | null = null
 let noiseBuf: AudioBuffer | null = null
