@@ -212,6 +212,8 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
   clip-path: polygon(50% 0, 100% 34%, 86% 100%, 14% 100%, 0 34%); background: linear-gradient(#a8a29e, #57534e); }
 .stone b { font-size: 11px; color: rgb(255 255 255 / .7); }
 .stone.glow { background: linear-gradient(#fef08a, #f59e0b); filter: drop-shadow(0 0 7px #fde047); }
+/* A dazzled glow (your accuracy down) keeps the dazzle: the right stone is no clearer than the rest. */
+.stone.glow.dazzle { filter: opacity(var(--dz-o)) blur(var(--dz-b)) drop-shadow(0 0 7px #fde047); }
 .stone.glow b { color: #78350f; } .stone.hit { background: linear-gradient(#bbf7d0, #16a34a); } .stone.wrong { background: linear-gradient(#fecaca, #dc2626); }
 .track .dot { position: absolute; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
 .track.on .dot { background: #fde047; box-shadow: 0 0 12px #fde047; }
@@ -1292,6 +1294,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=be965babdc"></script>
+<script src="/rpg/game.js?v=76a679be59"></script>
 </body>
 </html>

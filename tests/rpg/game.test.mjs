@@ -71,6 +71,51 @@ test('a quick double tap on a phone: no double-tap scroll, and both taps still c
   } finally { await g.close() }
 })
 
+test('your aim off (accuracy down, an evasive target, confused) shows on every input, not just rings, and narrows its windows', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.click('#mPlay'); await page.waitForTimeout(800)
+    const r = await page.evaluate(async () => {
+      document.getElementById('home').style.display = 'none'; document.getElementById('battleL').style.display = 'block'
+      const v = window.__vvm, fx = document.getElementById('fx'), key = (type, k = 'x') => dispatchEvent(new KeyboardEvent(type, { key: k }))
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+      /** Starts an input, reads how its pieces look (and anything else asked), then lets it finish. */
+      const look = async (sel, start, extra = () => null, finish = async () => {}) => {
+        const done = start(); let out = null
+        for (let i = 0; i < 100 && !out; i++) {
+          const els = [...document.querySelectorAll(sel)]
+          if (els.length) { await wait(60); out = { cls: [...new Set(els.flatMap((e) => [...e.classList].filter((c) => ['wobble', 'veil', 'dazzle'].includes(c))))].sort(), dazzle: els[0].dataset.dazzle ?? null, veil: els[0].dataset.veil ?? null, extra: extra(els) } }   // a frame in, once it's drawn
+          else await wait(15)
+        }
+        await finish(); await done; return out
+      }
+      const tap = async () => { key('keydown'); await wait(60); key('keyup') }
+      const zone = (els) => parseFloat(els[0].querySelector('.zone').style.height)
+      const span = (els) => [...els[0].querySelector('.arc').style.background.matchAll(/([\d.]+)deg/g)].map((m) => +m[1])[2]   // from, 0, the arc's end
+      const runs = async () => ({
+        charge: await look('.meter', () => v.chargeTap(220, 74, 0.6), zone, tap),
+        track: await look('.track', () => v.trackHold(220, 74, 250, 0.6), span),
+        stones: await look('.stone', () => v.pickStone(220, 74, 0.6)),
+        shadow: await look('.vanish', () => v.vanishTap(220, 74, 0.6), () => null, tap),
+        arrows: await look('#padCue i', () => v.swipeSeq(3, 300, 0.6)),
+      })
+      v.aim({ blind: 2, veil: 1, wobble: true }); const off = await runs()
+      v.aim({}); const plain = await look('.meter', () => v.chargeTap(220, 74), zone, tap)
+      return { off, plain, normalSpan: await look('.track', () => v.trackHold(220, 74, 250), span) }
+    })
+    for (const [k, x] of Object.entries(r.off)) {
+      assert.ok(x, `${k}: shown`)
+      assert.deepEqual(x.cls, ['dazzle', 'veil', 'wobble'], `${k}: dazzled, flickering and wobbling, like a ring`)
+      assert.equal(x.dazzle, '2', `${k}: dazzled as far as the accuracy fell`); assert.equal(x.veil, '1')
+    }
+    assert.ok(r.off.charge.extra < r.plain.extra * 0.7, `the gold zone narrower (${r.off.charge.extra}% against ${r.plain.extra}%)`)
+    assert.ok(r.off.track.extra < r.normalSpan.extra * 0.7, `the bright arc narrower (${r.off.track.extra}° against ${r.normalSpan.extra}°)`)
+    assert.deepEqual(r.plain.cls, [], 'with your aim true, none of it')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('a tracking move (Aurora Beam, Flamethrower…): holding just while the dot is in the arc is PERFECT; holding throughout or never isn\'t', async () => {
   const g = await openGame()
   try {
