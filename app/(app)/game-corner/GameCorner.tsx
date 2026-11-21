@@ -6,16 +6,19 @@ import { createClient } from '@/lib/supabase/client'
 import { fmt } from '../vending/tokens'
 import { normalize, type CornerState } from './state'
 import Slots from './Slots'
+import Blackjack from './Blackjack'
 import Roulette from './Roulette'
 
-type Game = 'slots' | 'roulette'
+type Game = 'slots' | 'blackjack' | 'roulette'
+const GAMES: [Game, string][] = [['slots', 'Slots'], ['blackjack', 'Blackjack'], ['roulette', 'Roulette']]
 
 /**
  * The Game Corner. Read once a second while the page is in view
- * (game_corner_state): the row of slot machines and who's at them, and the
- * roulette table's clock and everyone's bets. The rest of the app advances on
- * reads too, so there's no live channel to keep up; a round of roulette is
- * settled by whichever read comes first after its betting closes.
+ * (game_corner_state): the row of slot machines and who's at them, the
+ * blackjack tables, and the roulette table's clock and everyone's bets. The
+ * rest of the app advances on reads too, so there's no live channel to keep
+ * up; a round of roulette is settled, and a blackjack table moves on, with
+ * whichever read comes first once the clock says so.
  */
 export default function GameCorner({ admin = false }: { admin?: boolean }) {
   const router = useRouter()
@@ -57,7 +60,7 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-bold">Game Corner</h1>
-          <p className="text-xs text-muted">Slots and roulette, for tokens. Real casino odds: over time, the house wins.</p>
+          <p className="text-xs text-muted">Slots, blackjack and roulette, for tokens. Real casino odds: over time, the house wins.</p>
         </div>
         <div className="text-right shrink-0">
           <div className="font-mono text-lg font-semibold tabular-nums">{state ? fmt(state.balance) : '…'}</div>
@@ -75,10 +78,10 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
       ))}
 
       <nav aria-label="Games" className="flex gap-1 p-1 rounded-xl bg-card border border-card-border">
-        {(['slots', 'roulette'] as Game[]).map((g) => (
+        {GAMES.map(([g, label]) => (
           <button key={g} type="button" onClick={() => setGame(g)} aria-pressed={game === g}
             className={`flex-1 min-h-10 rounded-lg text-sm font-medium transition-colors ${game === g ? 'bg-ink text-white' : 'text-muted hover:text-ink'}`}>
-            {g === 'slots' ? 'Slots' : 'Roulette'}
+            {label}
           </button>
         ))}
       </nav>
@@ -87,6 +90,8 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
         <div className="h-64 rounded-2xl bg-card border border-card-border animate-pulse" aria-hidden />
       ) : game === 'slots' ? (
         <Slots state={admin ? { ...state, open: true } : state} onPlayed={played} />
+      ) : game === 'blackjack' ? (
+        <Blackjack state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} />
       ) : (
         <Roulette state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} />
       )}
