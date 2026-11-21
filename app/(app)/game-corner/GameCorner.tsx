@@ -8,6 +8,8 @@ import { normalize, type CornerState } from './state'
 import Slots from './Slots'
 import Blackjack from './Blackjack'
 import Roulette from './Roulette'
+import { CORNER_CSS } from './fx'
+import { isMuted, onMuted, setMuted, sfx, unlock } from './sfx'
 
 type Game = 'slots' | 'blackjack' | 'roulette'
 const GAMES: [Game, string][] = [['slots', 'Slots'], ['blackjack', 'Blackjack'], ['roulette', 'Roulette']]
@@ -55,16 +57,31 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
     refreshTimer.current = setTimeout(() => router.refresh(), 2500)
   }, [read, router])
 
+  // Sound: off or on is remembered on this device; any tap wakes the audio (browsers allow it only then).
+  const [muted, setMutedState] = useState(false)
+  useEffect(() => { setMutedState(isMuted()); return onMuted(setMutedState) }, [])
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onPointerDown={unlock}>
+      <style>{CORNER_CSS}</style>
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-bold">Game Corner</h1>
           <p className="text-xs text-muted">Slots, blackjack and roulette, for tokens. Real casino odds: over time, the house wins.</p>
         </div>
-        <div className="text-right shrink-0">
-          <div className="font-mono text-lg font-semibold tabular-nums">{state ? fmt(state.balance) : '…'}</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted">tokens</div>
+        <div className="flex items-end gap-3 shrink-0">
+          <button type="button" onClick={() => { unlock(); setMuted(!muted); if (muted) setTimeout(() => sfx.chip(), 30) }}
+            aria-pressed={!muted} aria-label={muted ? 'Sound off. Turn it on' : 'Sound on. Turn it off'}
+            className="grid place-items-center w-9 h-9 rounded-full border border-card-border bg-card text-muted hover:text-ink">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
+              {muted ? <path d="M17 9l5 6M22 9l-5 6" /> : <><path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" /></>}
+            </svg>
+          </button>
+          <div className="text-right">
+            <div className="font-mono text-lg font-semibold tabular-nums">{state ? fmt(state.balance) : '…'}</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted">tokens</div>
+          </div>
         </div>
       </header>
 
@@ -79,7 +96,7 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
 
       <nav aria-label="Games" className="flex gap-1 p-1 rounded-xl bg-card border border-card-border">
         {GAMES.map(([g, label]) => (
-          <button key={g} type="button" onClick={() => setGame(g)} aria-pressed={game === g}
+          <button key={g} type="button" onClick={() => { if (g !== game) sfx.click(); setGame(g) }} aria-pressed={game === g}
             className={`flex-1 min-h-10 rounded-lg text-sm font-medium transition-colors ${game === g ? 'bg-ink text-white' : 'text-muted hover:text-ink'}`}>
             {label}
           </button>
