@@ -2,19 +2,26 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { fmt, num } from '../vending/tokens'
+import { fmt, money, num } from '../vending/tokens'
 import { refusal, type CornerState, type Reel } from './state'
 
 const FACES: Reel[] = ['SEVEN', 'BAR', 'PIKACHU', 'BALL', 'CHERRY', 'BLANK']
+/** What a payline pays, as a multiple of its share of the bet (game_corner_slot_pays, v115). */
 const PAYS: [Reel[], string, number][] = [
-  [['SEVEN', 'SEVEN', 'SEVEN'], 'Three Sevens', 250],
-  [['BAR', 'BAR', 'BAR'], 'Three Bars', 50],
-  [['PIKACHU', 'PIKACHU', 'PIKACHU'], 'Three Pikachu', 20],
-  [['BALL', 'BALL', 'BALL'], 'Three Poké Balls', 10],
-  [['CHERRY', 'CHERRY', 'CHERRY'], 'Three Cherries', 5],
-  [['CHERRY', 'CHERRY', 'BLANK'], 'Two Cherries', 2],
-  [['CHERRY', 'BLANK', 'BLANK'], 'One Cherry', 1],
+  [['SEVEN', 'SEVEN', 'SEVEN'], 'Three Sevens', 400],
+  [['BAR', 'BAR', 'BAR'], 'Three Bars', 80],
+  [['PIKACHU', 'PIKACHU', 'PIKACHU'], 'Three Pikachu', 30],
+  [['BALL', 'BALL', 'BALL'], 'Three Poké Balls', 15],
+  [['CHERRY', 'CHERRY', 'CHERRY'], 'Three Cherries', 8],
+  [['CHERRY', 'BLANK', 'CHERRY'], 'Two Cherries', 4],
 ]
+const LINES = 5
+/** Each payline's row on reels 1, 2 and 3 (0 top, 1 middle, 2 bottom), and its name. */
+const LINE_ROWS: [number, number, number][] = [[0, 0, 0], [1, 1, 1], [2, 2, 2], [0, 1, 2], [2, 1, 0]]
+const LINE_NAME = ['Top row', 'Middle row', 'Bottom row', 'Diagonal ↘', 'Diagonal ↗']
+const LINE_COLOR = ['#f59e0b', '#ef4444', '#3b82f6', '#22c55e', '#a855f7']
+const blankGrid = (): Reel[] => Array(9).fill('BLANK')
+const randomGrid = (): Reel[] => Array.from({ length: 9 }, () => FACES[Math.floor(Math.random() * FACES.length)])
 
 /** One reel's face. */
 export function Face({ r, size = 40 }: { r: Reel; size?: number }) {
@@ -32,16 +39,49 @@ export function Face({ r, size = 40 }: { r: Reel; size?: number }) {
 }
 
 /**
- * The slots: a row of eight machines. Sit at a free one (or one nobody has
- * touched for 2 minutes), bet, spin. Everyone sees who's at each machine and
- * their last spin, so you're playing beside the others.
+ * A machine's 3x3 window, reel by reel (cells[reel * 3 + row]), with the paylines that paid drawn over it. `moving`:
+ * how many reels are still spinning, from the right.
+ */
+function Window({ cells, lines = [], size, moving = 0 }: { cells: Reel[]; lines?: number[]; size: number; moving?: number }) {
+  const cell = size + Math.round(size * 0.35), gap = Math.max(2, Math.round(size / 12))
+  const at = (reel: number, row: number) => [reel * (cell + gap) + cell / 2, row * (cell + gap) + cell / 2]
+  const span = 3 * cell + 2 * gap
+  return (
+    <div className="relative" style={{ width: span, height: span }}>
+      <div className="grid grid-cols-3" style={{ gap }}>
+        {[0, 1, 2].flatMap((row) => [0, 1, 2].map((reel) => (
+          <div key={`${reel}-${row}`} className={`grid place-items-center rounded-md bg-white ${size > 30 ? 'shadow-inner' : 'border border-card-border'} ${reel >= 3 - moving ? 'blur-[1px]' : ''}`}
+            style={{ width: cell, height: cell }}>
+            <Face r={cells[reel * 3 + row] ?? 'BLANK'} size={size} />
+          </div>
+        )))}
+      </div>
+      {lines.length > 0 && (
+        <svg className="absolute inset-0 pointer-events-none" viewBox={`0 0 ${span} ${span}`} aria-hidden>
+          {lines.map((l) => {
+            const pts = LINE_ROWS[l - 1].map((row, reel) => at(reel, row).join(',')).join(' ')
+            return <polyline key={l} points={pts} fill="none" stroke={LINE_COLOR[l - 1]} strokeWidth={Math.max(2, size / 10)} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+          })}
+        </svg>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The slots: a row of eight machines, each a 3x3 window with five paylines (the three rows and the two diagonals),
+ * all played every spin, the bet split evenly across them. Sit at a free one (or one nobody has touched for 2
+ * minutes), bet, spin. Everyone sees who's at each machine and their last spin, so you're playing beside the others.
  */
 export default function Slots({ state, onPlayed }: { state: CornerState; onPlayed: () => void }) {
   const mine = state.slots.find((m) => m.mine && m.player)
-  const steps = [0.1, 0.25, 0.5, 1, 2, 5].filter((b) => b >= state.caps.min && b <= state.caps.slots)
-  const [bet, setBet] = useState(steps[0] ?? state.caps.min)
-  const [reels, setReels] = useState<Reel[]>(mine?.reels ?? ['SEVEN', 'SEVEN', 'SEVEN'])
-  const [stopped, setStopped] = useState(3)   // how many reels have stopped (3: all)
+  // A bet per line, and five lines: the spin costs five times it, within the table's smallest bet and the slots' cap.
+  const steps = [0.02, 0.05, 0.1, 0.2, 0.5, 1].filter((b) => money(b * LINES) >= state.caps.min && money(b * LINES) <= state.caps.slots)
+  const [lineBet, setLineBet] = useState(steps[0] ?? 0.02)
+  const bet = money(lineBet * LINES)
+  const [cells, setCells] = useState<Reel[]>(mine?.reels?.length === 9 ? mine.reels : blankGrid())
+  const [paid, setPaid] = useState<{ line: number; mult: number; win: number }[]>([])
+  const [moving, setMoving] = useState(0)   // reels still spinning, from the right
   const [spinning, setSpinning] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [win, setWin] = useState<number | null>(null)
@@ -50,13 +90,13 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
   const ticker = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => () => { if (ticker.current) clearInterval(ticker.current) }, [])
-  useEffect(() => { if (!steps.includes(bet) && steps.length) setBet(steps[0]) }, [steps, bet])
+  useEffect(() => { if (!steps.includes(lineBet) && steps.length) setLineBet(steps[0]) }, [steps, lineBet])
 
   async function sit(machine: number) {
     setSitting(machine); setNote(null)
     const { error } = await createClient().rpc('game_corner_slot_sit', { p_machine: machine })
     setSitting(null)
-    if (error) setNote(refusal(error)); else { setWin(null); onPlayed() }
+    if (error) setNote(refusal(error)); else { setWin(null); setPaid([]); setCells(blankGrid()); onPlayed() }
   }
   async function leave() {
     await createClient().rpc('game_corner_slot_leave')
@@ -65,26 +105,28 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
 
   async function spin() {
     if (spinning) return
-    setSpinning(true); setNote(null); setWin(null); setStopped(0)
-    // The reels blur through faces until the machine answers, then stop one by one.
-    ticker.current = setInterval(() => setReels(() => [0, 1, 2].map(() => FACES[Math.floor(Math.random() * 5)])), 70)
+    setSpinning(true); setNote(null); setWin(null); setPaid([]); setMoving(3)
+    // The reels blur through faces until the machine answers, then stop one by one, left to right.
+    ticker.current = setInterval(() => setCells(randomGrid()), 70)
     const started = Date.now()
     const { data, error } = await createClient().rpc('game_corner_slot_spin', { p_bet: bet })
     await new Promise((r) => setTimeout(r, Math.max(0, 700 - (Date.now() - started))))
     if (ticker.current) clearInterval(ticker.current)
     if (error || !data) {
-      setStopped(3); setSpinning(false); setNote(refusal(error)); return
+      setMoving(0); setSpinning(false); setNote(refusal(error)); return
     }
-    const res = data as { reels: Reel[]; win: number; mult: number }
-    for (let i = 0; i < 3; i++) {
-      setReels((prev) => prev.map((x, k) => (k <= i ? res.reels[k] : FACES[Math.floor(Math.random() * 5)])))
-      setStopped(i + 1)
+    const res = data as { reels: Reel[]; win: number; lines: { line: number; mult: number; win: number }[] }
+    for (let stop = 1; stop <= 3; stop++) {
+      // Reels that have stopped show the result; the rest keep blurring.
+      setCells(() => { const rnd = randomGrid(); return res.reels.map((r, i) => (Math.floor(i / 3) < stop ? r : rnd[i])) })
+      setMoving(3 - stop)
       await new Promise((r) => setTimeout(r, 260))
     }
+    setPaid(res.lines.map((l) => ({ ...l, mult: num(l.mult), win: num(l.win) })))
     setWin(num(res.win)); setSpinning(false); onPlayed()
   }
 
-  const result = win == null ? null : win === 0 ? 'No luck this time.' : win === bet ? `A Cherry: your ${fmt(bet)} back.` : `You win ${fmt(win)} tokens!`
+  const result = win == null ? null : win === 0 ? 'No luck this time.' : win > bet ? `You win ${fmt(win)} tokens!` : `${fmt(win)} back.`
 
   return (
     <div className="space-y-4">
@@ -94,37 +136,59 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
             <h2 className="font-display font-semibold">Machine {mine.machine}</h2>
             <button type="button" onClick={leave} className="text-xs text-muted hover:text-ink underline">Leave seat</button>
           </div>
-          <div className="flex justify-center gap-2 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-700 p-3" aria-live="polite">
-            {reels.map((r, i) => (
-              <div key={i} className={`grid place-items-center w-20 h-24 rounded-lg bg-white shadow-inner ${spinning && i >= stopped ? 'blur-[1px]' : ''}`}>
-                <Face r={r} size={56} />
-              </div>
-            ))}
+          <div className="flex justify-center rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-700 p-3" aria-live="polite">
+            <Window cells={cells} lines={spinning ? [] : paid.map((p) => p.line)} size={52} moving={spinning ? moving : 0} />
           </div>
-          <p className={`text-center text-sm min-h-5 ${win && win > bet ? 'text-signal font-semibold' : 'text-muted'}`}>{spinning ? 'Spinning…' : note ?? result ?? 'Pick a bet and spin.'}</p>
-          <div className="flex flex-wrap items-center justify-center gap-1.5">
-            {steps.map((b) => (
-              <button key={b} type="button" onClick={() => setBet(b)} aria-pressed={bet === b} disabled={spinning}
-                className={`min-w-12 h-9 px-2 rounded-full border text-sm font-mono ${bet === b ? 'bg-ink text-white border-ink' : 'border-card-border'}`}>{fmt(b)}</button>
-            ))}
+          <p className={`text-center text-sm min-h-5 ${win && win > bet ? 'text-signal font-semibold' : 'text-muted'}`}>{spinning ? 'Spinning…' : note ?? result ?? 'Five lines, every spin. Pick a bet and spin.'}</p>
+          {!spinning && paid.length > 0 && (
+            <ul className="text-xs space-y-0.5">
+              {paid.map((p) => (
+                <li key={p.line} className="flex items-center gap-2">
+                  <span className="w-3 h-1 rounded-full" style={{ background: LINE_COLOR[p.line - 1] }} aria-hidden />
+                  <span className="flex-1">{LINE_NAME[p.line - 1]}: {p.mult}× the line</span>
+                  <span className="font-mono">+{fmt(p.win)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="space-y-1">
+            <p className="text-center text-[11px] text-muted">Bet a line</p>
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {steps.map((b) => (
+                <button key={b} type="button" onClick={() => setLineBet(b)} aria-pressed={lineBet === b} disabled={spinning}
+                  className={`min-w-12 h-9 px-2 rounded-full border text-sm font-mono ${lineBet === b ? 'bg-ink text-white border-ink' : 'border-card-border'}`}>{fmt(b)}</button>
+              ))}
+            </div>
           </div>
           <button type="button" onClick={spin} disabled={spinning || !state.open || state.balance < bet}
             className="w-full h-12 rounded-xl bg-signal text-ink font-display font-bold text-lg disabled:opacity-50">
             {state.balance < bet ? 'Not enough tokens' : `SPIN · ${fmt(bet)}`}
+            <span className="block text-[11px] font-sans font-medium -mt-1">{LINES} lines × {fmt(lineBet)}</span>
           </button>
           <button type="button" onClick={() => setShowPays((v) => !v)} className="w-full text-xs text-muted underline">{showPays ? 'Hide' : 'Show'} what pays</button>
           {showPays && (
-            <table className="w-full text-sm">
-              <tbody>
-                {PAYS.map(([faces, label, x]) => (
-                  <tr key={label} className="border-t border-card-border">
-                    <td className="py-1"><span className="inline-flex gap-0.5 align-middle">{faces.map((f, i) => <Face key={i} r={f} size={18} />)}</span></td>
-                    <td className="py-1">{label}{x === 1 ? ' (anywhere)' : ''}</td>
-                    <td className="py-1 text-right font-mono">{x === 1 ? 'bet back' : `${x}×`}</td>
-                  </tr>
+            <div className="space-y-3">
+              <table className="w-full text-sm">
+                <tbody>
+                  {PAYS.map(([faces, label, x]) => (
+                    <tr key={label} className="border-t border-card-border">
+                      <td className="py-1"><span className="inline-flex gap-0.5 align-middle">{faces.map((f, i) => <Face key={i} r={f} size={18} />)}</span></td>
+                      <td className="py-1">{label}{x === 4 ? ' (any two)' : ''}</td>
+                      <td className="py-1 text-right font-mono">{x}×</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-muted">On any of the five lines, each paid on its own, times your line bet:</p>
+              <div className="flex justify-center gap-3">
+                {LINE_ROWS.map((_, l) => (
+                  <div key={l} className="text-center">
+                    <Window cells={blankGrid()} lines={[l + 1]} size={8} />
+                    <div className="text-[10px] text-muted mt-0.5">{l + 1}</div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
           )}
         </section>
       ) : (
@@ -142,10 +206,8 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
                 <span>#{m.machine}</span>
                 {m.player && m.win != null && m.at && recent && <span className={big ? 'text-signal font-semibold' : ''}>{m.win > 0 ? `+${fmt(m.win)}` : '–'}</span>}
               </div>
-              <div className="flex justify-center gap-0.5 my-1.5">
-                {(m.player && m.reels ? m.reels : (['BLANK', 'BLANK', 'BLANK'] as Reel[])).map((r, i) => (
-                  <div key={i} className="grid place-items-center w-8 h-9 rounded bg-white border border-card-border"><Face r={r} size={22} /></div>
-                ))}
+              <div className="flex justify-center my-1.5">
+                <Window cells={m.player && m.reels?.length === 9 ? m.reels : blankGrid()} lines={m.player && recent ? m.lines ?? [] : []} size={16} />
               </div>
               {m.player ? (
                 <div className="flex items-center gap-1.5 text-xs truncate">

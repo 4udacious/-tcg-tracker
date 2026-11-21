@@ -12,7 +12,8 @@ export type SlotMachine = {
   player: string | null
   avatar: string | null
   mine: boolean
-  reels: Reel[] | null
+  reels: Reel[] | null        // the 3x3 window, reel by reel: reel 1 top, middle, bottom, then reels 2 and 3
+  lines: number[] | null       // the paylines that paid (1-3 the rows, 4 and 5 the diagonals)
   bet: number | null
   win: number | null
   at: string | null

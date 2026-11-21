@@ -2,10 +2,14 @@
 --
 -- Real casino odds (the house wins slowly, so it drains tokens from the
 -- economy rather than adding them):
---   * Slots: three reels of 26 stops (1 Seven, 2 Bars, 3 Pikachu, 4 Poke
---     Balls, 7 Cherries, 9 blanks). Three of a kind pays 250x / 50x / 20x /
---     10x / 5x the bet, two Cherries 2x, one Cherry the bet back. Returns
---     95.1% over time; something pays on 61% of spins.
+--   * Slots: three reels, each a strip of 26 stops (1 Seven, 2 Bars, 3
+--     Pikachu, 4 Poke Balls, 7 Cherries, 9 blanks), seen three rows at a
+--     time: a 3x3 window and five paylines (the three rows and the two
+--     diagonals), all played every spin, the bet split evenly across them.
+--     On a line, three of a kind pays 400x / 80x / 30x / 15x / 8x its share
+--     of the bet, two Cherries 4x. Returns 95.2% over time (every line is one
+--     stop from each reel, so any number of lines returns the same); on five
+--     lines something pays on 67% of spins, more than the bet on 31%.
 --   * Roulette: one shared single-zero wheel (house edge 2.7%). A round every
 --     30 s: bets for the first 20 s, then the spin. A number pays 36x the bet
 --     (35 to 1 and the bet back), a dozen or a column 3x, red/black, odd/even
@@ -120,7 +124,8 @@ create table if not exists public.game_corner_slots (
   machine    smallint primary key check (machine between 1 and 8),
   user_id    uuid unique references public.profiles(id) on delete set null,
   seen_at    timestamptz,
-  last_reels text[],
+  last_reels text[],                -- the 3x3 window, reel by reel: reel 1 top, middle, bottom, then reel 2, then reel 3
+  last_lines smallint[],            -- the paylines that paid (1 top, 2 middle, 3 bottom, 4 top-left to bottom-right, 5 bottom-left to top-right)
   last_bet   numeric(12,2),
   last_win   numeric(12,2),
   last_at    timestamptz,
@@ -130,23 +135,22 @@ insert into public.game_corner_slots (machine) select g from generate_series(1, 
 alter table public.game_corner_slots enable row level security;   -- read and changed only through the functions below
 revoke all on public.game_corner_slots from anon, authenticated;
 
-/** One reel's stop: 26 weighted stops. Internal. */
-create or replace function public.game_corner_reel()
-returns text
-language sql volatile set search_path to 'public' as $$
-  select case when r < 1 then 'SEVEN' when r < 3 then 'BAR' when r < 6 then 'PIKACHU' when r < 10 then 'BALL' when r < 17 then 'CHERRY' else 'BLANK' end
-    from (select floor(random() * 26)::int as r) x;
+/** The reel strip, 26 stops (every reel the same strip, each stopping on its own). */
+create or replace function public.game_corner_strip()
+returns text[]
+language sql immutable as $$
+  select array['SEVEN','BLANK','CHERRY','BALL','BLANK','PIKACHU','CHERRY','BLANK','BAR','CHERRY','BALL','BLANK','PIKACHU',
+               'CHERRY','BLANK','BALL','BAR','CHERRY','BLANK','PIKACHU','BLANK','CHERRY','BALL','BLANK','CHERRY','BLANK']
 $$;
 
-/** What three reels pay, as a multiple of the bet (the bet back included). */
-create or replace function public.game_corner_slot_pays(p_reels text[])
+/** What one payline's three symbols pay, as a multiple of the line's share of the bet. */
+create or replace function public.game_corner_slot_pays(p_line text[])
 returns numeric
 language sql immutable set search_path to 'public' as $$
   select case
-    when p_reels[1] = p_reels[2] and p_reels[2] = p_reels[3] and p_reels[1] <> 'BLANK' then
-      case p_reels[1] when 'SEVEN' then 250 when 'BAR' then 50 when 'PIKACHU' then 20 when 'BALL' then 10 when 'CHERRY' then 5 end
-    when (select count(*) from unnest(p_reels) r where r = 'CHERRY') = 2 then 2
-    when (select count(*) from unnest(p_reels) r where r = 'CHERRY') = 1 then 1
+    when p_line[1] = p_line[2] and p_line[2] = p_line[3] and p_line[1] <> 'BLANK' then
+      case p_line[1] when 'SEVEN' then 400 when 'BAR' then 80 when 'PIKACHU' then 30 when 'BALL' then 15 when 'CHERRY' then 8 end
+    when (select count(*) from unnest(p_line) r where r = 'CHERRY') = 2 then 4
     else 0 end;
 $$;
 
@@ -162,7 +166,7 @@ begin
   if m.user_id = me then update public.game_corner_slots set seen_at = now() where machine = p_machine; return true; end if;
   if m.user_id is not null and m.seen_at > now() - interval '2 minutes' then raise exception 'seat_taken' using errcode = 'P0001'; end if;
   update public.game_corner_slots set user_id = null where user_id = me;
-  update public.game_corner_slots set user_id = me, seen_at = now(), last_reels = null, last_bet = null, last_win = null, last_at = null where machine = p_machine;
+  update public.game_corner_slots set user_id = me, seen_at = now(), last_reels = null, last_lines = null, last_bet = null, last_win = null, last_at = null where machine = p_machine;
   return true;
 end $$;
 
@@ -173,28 +177,45 @@ language sql security definer set search_path to 'public' as $$
   update public.game_corner_slots set user_id = null where user_id = auth.uid();
 $$;
 
-/** Spin your slot machine for p_bet tokens. Returns the reels, what they pay and your balance after. */
+/**
+ * Spin your slot machine for p_bet tokens, split evenly across the five paylines (so in fifths of a cent: 0.10 is
+ * 0.02 a line). Returns the 3x3 window (reel by reel), what each paying line won, the total and your balance after.
+ */
 create or replace function public.game_corner_slot_spin(p_bet numeric)
 returns jsonb
 language plpgsql security definer set search_path to 'public' as $$
 declare
   me uuid := auth.uid(); m public.game_corner_slots; s public.game_corner_settings;
-  v_allow numeric(12,2); v_reels text[]; v_mult numeric; v_win numeric(12,2);
+  strip text[] := public.game_corner_strip(); n int := array_length(public.game_corner_strip(), 1);
+  -- Each payline: the row it takes on reels 1, 2 and 3 (1 top, 2 middle, 3 bottom).
+  lines int[] := array[[1,1,1], [2,2,2], [3,3,3], [1,2,3], [3,2,1]];
+  v_allow numeric(12,2); v_line_bet numeric; v_grid text[] := '{}'; v_stop int; v_mult numeric;
+  v_win numeric(12,2) := 0; v_paid smallint[] := '{}'; v_wins jsonb := '[]';
 begin
   select * into s from public.game_corner_settings where id;
   perform public.game_corner_check(p_bet, s.slots_max_bet);
+  if (p_bet * 100) % 5 <> 0 then raise exception 'bad_bet' using errcode = 'P0001'; end if;   -- five lines, a whole cent each
+  v_line_bet := p_bet / 5;
   perform pg_advisory_xact_lock(hashtext('game_corner:' || me::text));
   select * into m from public.game_corner_slots where user_id = me for update;
   if m.machine is null then raise exception 'not_seated' using errcode = 'P0001'; end if;
   v_allow := public.game_corner_take(me, p_bet, 'Slots, machine ' || m.machine);
-  v_reels := array[public.game_corner_reel(), public.game_corner_reel(), public.game_corner_reel()];
-  v_mult := public.game_corner_slot_pays(v_reels);
-  v_win := round(p_bet * v_mult, 2);
-  perform public.game_corner_pay(me, v_win, p_bet, v_allow, 'game_corner_win', 'Slots, machine ' || m.machine || ': ' || array_to_string(v_reels, ' '));
+  for r in 1..3 loop
+    v_stop := floor(random() * n)::int;
+    for k in 0..2 loop v_grid := v_grid || strip[1 + (v_stop + k) % n]; end loop;   -- this reel's three rows, top down
+  end loop;
+  for l in 1..5 loop
+    v_mult := public.game_corner_slot_pays(array[v_grid[lines[l][1]], v_grid[3 + lines[l][2]], v_grid[6 + lines[l][3]]]);
+    if v_mult > 0 then
+      v_win := v_win + round(v_line_bet * v_mult, 2); v_paid := v_paid || l::smallint;
+      v_wins := v_wins || jsonb_build_object('line', l, 'mult', v_mult, 'win', round(v_line_bet * v_mult, 2));
+    end if;
+  end loop;
+  perform public.game_corner_pay(me, v_win, p_bet, v_allow, 'game_corner_win', 'Slots, machine ' || m.machine || ': ' || array_to_string(v_grid, ' '));
   update public.game_corner_slots
-     set seen_at = now(), last_reels = v_reels, last_bet = p_bet, last_win = v_win, last_at = now(), spins = spins + 1
+     set seen_at = now(), last_reels = v_grid, last_lines = v_paid, last_bet = p_bet, last_win = v_win, last_at = now(), spins = spins + 1
    where machine = m.machine;
-  return jsonb_build_object('machine', m.machine, 'reels', to_jsonb(v_reels), 'mult', v_mult, 'bet', p_bet, 'win', v_win, 'balance', public.token_balance(me));
+  return jsonb_build_object('machine', m.machine, 'reels', to_jsonb(v_grid), 'lines', v_wins, 'bet', p_bet, 'win', v_win, 'balance', public.token_balance(me));
 end $$;
 
 -- ─────────────────────────────────────────────── roulette
@@ -348,7 +369,7 @@ begin
            'player', case when m.user_id is not null and m.seen_at > now() - interval '2 minutes' then coalesce(p.display_name, p.username) end,
            'avatar', case when m.user_id is not null and m.seen_at > now() - interval '2 minutes' then p.avatar_url end,
            'mine', m.user_id = me,
-           'reels', to_jsonb(m.last_reels), 'bet', m.last_bet, 'win', m.last_win, 'at', m.last_at, 'spins', m.spins) order by m.machine)
+           'reels', to_jsonb(m.last_reels), 'lines', to_jsonb(m.last_lines), 'bet', m.last_bet, 'win', m.last_win, 'at', m.last_at, 'spins', m.spins) order by m.machine)
     into v_slots
     from public.game_corner_slots m left join public.profiles p on p.id = m.user_id;
 
@@ -380,7 +401,6 @@ end $$;
 revoke all on function public.game_corner_take(uuid, numeric, text) from public, anon, authenticated;
 revoke all on function public.game_corner_pay(uuid, numeric, numeric, numeric, text, text) from public, anon, authenticated;
 revoke all on function public.game_corner_check(numeric, numeric) from public, anon, authenticated;
-revoke all on function public.game_corner_reel() from public, anon, authenticated;
 revoke all on function public.game_corner_roulette_settle() from public, anon, authenticated;
 do $$
 declare f text;
@@ -388,7 +408,7 @@ begin
   foreach f in array array[
     'public.set_game_corner_settings(boolean, numeric, numeric, numeric, numeric)',
     'public.game_corner_slot_sit(integer)', 'public.game_corner_slot_leave()', 'public.game_corner_slot_spin(numeric)',
-    'public.game_corner_slot_pays(text[])', 'public.game_corner_red(integer)', 'public.game_corner_roulette_pays(text, integer, integer)',
+    'public.game_corner_slot_pays(text[])', 'public.game_corner_strip()', 'public.game_corner_red(integer)', 'public.game_corner_roulette_pays(text, integer, integer)',
     'public.game_corner_roulette_now()', 'public.game_corner_roulette_bet(text, integer, numeric)', 'public.game_corner_roulette_clear()',
     'public.game_corner_state()']
   loop
