@@ -31,12 +31,16 @@
 -- capped per game (game_corner_settings, Admin -> VVM -> Game Corner); no
 -- daily cap.
 --
+-- It starts closed: hidden from members (the page and the VVM's card show
+-- only to admins), who can still play it to try it out. An admin opens it in
+-- Admin -> VVM -> Game Corner.
+--
 -- Safe to re-run.
 
 -- ─────────────────────────────────────────────── settings
 create table if not exists public.game_corner_settings (
   id                boolean primary key default true check (id),
-  is_open           boolean not null default true,
+  is_open           boolean not null default false,   -- closed until an admin opens it
   min_bet           numeric(12,2) not null default 0.10 check (min_bet > 0),
   slots_max_bet     numeric(12,2) not null default 1.00,
   roulette_max_bet  numeric(12,2) not null default 5.00,   -- a member's bets on one spin, all together
@@ -106,7 +110,7 @@ begin
   end if;
 end $$;
 
-/** Who may play, and a bet's size: an error code the page explains, or null. Internal. */
+/** Who may play (members while it's open, admins always), and a bet's size: an error code the page explains, or null. Internal. */
 create or replace function public.game_corner_check(p_amount numeric, p_max numeric)
 returns void
 language plpgsql security definer set search_path to 'public' as $$
@@ -114,7 +118,7 @@ declare s public.game_corner_settings;
 begin
   if not public.is_member() then raise exception 'members_only' using errcode = 'P0001'; end if;
   select * into s from public.game_corner_settings where id;
-  if not s.is_open then raise exception 'closed' using errcode = 'P0001'; end if;
+  if not s.is_open and not public.is_admin() then raise exception 'closed' using errcode = 'P0001'; end if;   -- admins try it out while it's closed
   if p_amount is null or p_amount <> round(p_amount, 2) or p_amount < s.min_bet then raise exception 'bet_too_small' using errcode = 'P0001'; end if;
   if p_amount > p_max then raise exception 'bet_too_big' using errcode = 'P0001'; end if;
 end $$;
@@ -161,6 +165,7 @@ language plpgsql security definer set search_path to 'public' as $$
 declare me uuid := auth.uid(); m public.game_corner_slots;
 begin
   if not public.is_member() then raise exception 'members_only' using errcode = 'P0001'; end if;
+  if not (select s.is_open from public.game_corner_settings s where s.id) and not public.is_admin() then raise exception 'closed' using errcode = 'P0001'; end if;
   select * into m from public.game_corner_slots where machine = p_machine for update;
   if m.machine is null then raise exception 'no_such_machine' using errcode = 'P0001'; end if;
   if m.user_id = me then update public.game_corner_slots set seen_at = now() where machine = p_machine; return true; end if;

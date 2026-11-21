@@ -17,7 +17,7 @@ type Game = 'slots' | 'roulette'
  * reads too, so there's no live channel to keep up; a round of roulette is
  * settled by whichever read comes first after its betting closes.
  */
-export default function GameCorner() {
+export default function GameCorner({ admin = false }: { admin?: boolean }) {
   const router = useRouter()
   const [state, setState] = useState<CornerState | null>(null)
   const [failed, setFailed] = useState(false)
@@ -66,9 +66,13 @@ export default function GameCorner() {
       </header>
 
       {failed && !state && <p className="text-sm text-muted">The Game Corner couldn’t be reached. It will try again in a moment.</p>}
-      {state && !state.open && (
+      {state && !state.open && (admin ? (
+        <p className="rounded-xl border border-signal bg-card px-3 py-2 text-sm">
+          <b>Closed to members.</b> Only admins can see and play it for now. Open it in Admin → VVM → Game Corner.
+        </p>
+      ) : (
         <p className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm">The Game Corner is closed for now. Bets are off until it opens again.</p>
-      )}
+      ))}
 
       <nav aria-label="Games" className="flex gap-1 p-1 rounded-xl bg-card border border-card-border">
         {(['slots', 'roulette'] as Game[]).map((g) => (
@@ -82,9 +86,9 @@ export default function GameCorner() {
       {!state ? (
         <div className="h-64 rounded-2xl bg-card border border-card-border animate-pulse" aria-hidden />
       ) : game === 'slots' ? (
-        <Slots state={state} onPlayed={played} />
+        <Slots state={admin ? { ...state, open: true } : state} onPlayed={played} />
       ) : (
-        <Roulette state={state} skew={skew} onPlayed={played} />
+        <Roulette state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} />
       )}
     </div>
   )

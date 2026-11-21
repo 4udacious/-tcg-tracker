@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import VvmGame, { type RecentBuy } from './VvmGame'
+import { gameCornerAccess } from '../game-corner/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,10 @@ export default async function VendingPage({
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: recentBuys } = await supabase.rpc('vending_recent_buys', { p_limit: 6 })
+  const [{ data: recentBuys }, corner] = await Promise.all([
+    supabase.rpc('vending_recent_buys', { p_limit: 6 }),
+    gameCornerAccess(supabase, user!.id),   // the Game Corner's card: once it's open, or to admins
+  ])
 
-  return <VvmGame userId={user!.id} initialBuys={(recentBuys as RecentBuy[] | null) ?? []} />
+  return <VvmGame userId={user!.id} initialBuys={(recentBuys as RecentBuy[] | null) ?? []} gameCorner={corner.visible ? (corner.open ? 'open' : 'admins') : null} />
 }

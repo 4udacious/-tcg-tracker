@@ -23,6 +23,7 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
   const [saving, setSaving] = useState(false)
 
   async function save(nextOpen = open) {
+    const toggled = nextOpen !== open
     const vals = [min, slots, roulette, blackjack].map(num)
     if (vals.some((v) => !(v > 0))) { toast.show('Every amount needs to be more than 0.'); return }
     if (vals.slice(1).some((v) => v < vals[0])) { toast.show('No limit can be under the smallest bet.'); return }
@@ -33,7 +34,7 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
     setSaving(false)
     if (error) { toast.show(`Couldn't save: ${error.message}`); return }
     setOpen(nextOpen)
-    toast.show(nextOpen ? 'Game Corner saved.' : 'The Game Corner is closed.')
+    toast.show(!toggled ? 'Game Corner saved.' : nextOpen ? 'The Game Corner is open to members.' : 'The Game Corner is closed: hidden from members.')
   }
 
   const field = (label: string, value: string, set: (v: string) => void, hint: string) => (
@@ -51,6 +52,7 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
         <div>
           <h2 className="font-display font-semibold">Game Corner</h2>
           <p className="text-xs text-muted">Slots and roulette at real casino odds (slots return 95%, roulette single-zero). Bets in tokens.</p>
+          <p className="text-xs text-muted mt-1">{open ? 'Open: members see it on the VVM page and can play.' : 'Closed: hidden from members. Admins still see it, and can play to try it out.'}</p>
         </div>
         <button type="button" onClick={() => save(!open)} disabled={saving}
           className={`shrink-0 h-9 px-3 rounded-lg text-sm font-medium ${open ? 'bg-emerald-600 text-white' : 'border border-card-border'}`}>
