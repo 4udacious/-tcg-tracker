@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation'
  *
  *   Feed       /feed                     the community feed
  *   Timers     /timers
- *   VVM        /vending                  the machine itself
+ *   VVM        /vending, /game-corner    the machine itself, and the Game Corner
  *   Trainer    /collection, /showcase    what you own (and, next, your party)
  *   Community  /members, /interest, /market
  *
@@ -31,7 +31,7 @@ const tabs = [
   },
   {
     href: '/vending',
-    match: ['/vending'],
+    match: ['/vending', '/game-corner'],
     label: 'VVM',
     icon: (
       <>

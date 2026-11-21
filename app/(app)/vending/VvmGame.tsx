@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { makeVvmApi, type VvmApi } from '@/lib/vending/gameBridge'
@@ -39,7 +40,7 @@ function agoLabel(iso: string): string {
  *
  * Leaving the tab saves the game and gives up the machine if you held it.
  */
-export default function VvmGame({ userId, initialBuys }: { userId: string; initialBuys: RecentBuy[] }) {
+export default function VvmGame({ userId, initialBuys, gameCorner = null }: { userId: string; initialBuys: RecentBuy[]; gameCorner?: 'open' | 'admins' | null }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const api = useRef<VvmApi | null>(null)
   const [buys, setBuys] = useState(initialBuys)
@@ -87,6 +88,16 @@ export default function VvmGame({ userId, initialBuys }: { userId: string; initi
           style={{ height: 'calc(100dvh - 56px - 64px - env(safe-area-inset-bottom))', touchAction: 'manipulation' }}
         />
       </div>
+
+      {/* The Game Corner (v115): slots and roulette for tokens, beside the other members. Once it's open, or to admins. */}
+      {gameCorner && <Link href="/game-corner" className="mx-auto w-full max-w-sm flex items-center gap-3 rounded-2xl border border-card-border bg-card px-3 py-2.5 hover:border-signal">
+        <span className="grid place-items-center w-9 h-9 rounded-xl bg-signal font-display font-black text-ink" aria-hidden>7</span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-display font-semibold text-sm">Game Corner</span>
+          <span className="block text-xs text-muted truncate">{gameCorner === 'admins' ? 'Closed to members: only admins see this' : 'Slots and roulette, for tokens, with the others'}</span>
+        </span>
+        <span className="text-muted" aria-hidden>→</span>
+      </Link>}
 
       <div className="mx-auto w-full max-w-sm">
         <LobbyChat watching={watching} />
