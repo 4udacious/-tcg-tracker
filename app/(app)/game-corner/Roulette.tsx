@@ -97,14 +97,15 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
     if (error) setNote(refusal(error)); else onPlayed()
   }
 
-  const Cell = ({ kind, pick, label, cls = '' }: { kind: BetKind; pick: number | null; label: string; cls?: string }) => {
+  const Cell = ({ kind, pick, label, cls = '', side = false, style }: { kind: BetKind; pick: number | null; label: string; cls?: string; side?: boolean; style?: React.CSSProperties }) => {
     const e = onCell.get(key(kind, pick))
     const hit = rt.result != null && !rt.betting && (kind === 'number' ? pick === rt.result : false)
     return (
       <button type="button" onClick={() => place(kind, pick)} disabled={!open}
         title={e ? `${e.who.join(', ')}: ${fmt(e.total)}` : `Bet ${fmt(chip)} on ${label}`}
-        className={`relative min-h-9 rounded-md text-xs font-bold disabled:cursor-default ${cls} ${hit ? 'ring-2 ring-signal z-10' : ''}`}>
-        {label}
+        style={style}
+        className={`relative rounded-md text-xs font-bold disabled:cursor-default ${cls} ${hit ? 'ring-2 ring-signal z-10' : ''}`}>
+        {side ? <span className="inline-block [writing-mode:vertical-rl] rotate-180">{label}</span> : label}
         {e && (
           <span className={`absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full text-[10px] leading-5 font-mono shadow ${e.mine ? 'bg-signal text-ink' : 'bg-white text-ink border border-card-border'}`}>
             {fmt(e.total)}
@@ -158,25 +159,23 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
           </div>
         </div>
 
-        <div className="grid grid-cols-[2.25rem_1fr_2.75rem] gap-1">
-          <Cell kind="number" pick={0} label="0" cls={`${CELL_BG.green} row-span-3 h-full`} />
-          <div className="grid grid-cols-12 grid-rows-3 gap-1 row-span-3">
-            {[3, 2, 1].flatMap((row) => Array.from({ length: 12 }, (_, c) => c * 3 + row)).map((n) => (
-              <Cell key={n} kind="number" pick={n} label={String(n)} cls={CELL_BG[colorOf(n)]} />
-            ))}
-          </div>
-          {[3, 2, 1].map((col) => <Cell key={col} kind="column" pick={col} label="2:1" cls="border border-card-border" />)}
-        </div>
-        <div className="grid grid-cols-3 gap-1 pl-[2.5rem] pr-[3rem]">
-          {[1, 2, 3].map((d) => <Cell key={d} kind="dozen" pick={d} label={`${['1st', '2nd', '3rd'][d - 1]} 12`} cls="border border-card-border" />)}
-        </div>
-        <div className="grid grid-cols-6 gap-1 pl-[2.5rem] pr-[3rem]">
-          <Cell kind="low" pick={null} label="1–18" cls="border border-card-border" />
-          <Cell kind="even" pick={null} label="Even" cls="border border-card-border" />
-          <Cell kind="red" pick={null} label="Red" cls={CELL_BG.red} />
-          <Cell kind="black" pick={null} label="Black" cls={CELL_BG.black} />
-          <Cell kind="odd" pick={null} label="Odd" cls="border border-card-border" />
-          <Cell kind="high" pick={null} label="19–36" cls="border border-card-border" />
+        {/* The board stood on end for a phone: 0 at the top, the numbers three across down to 36, the columns' 2:1 at the
+            foot; the dozens and the even-money bets down the left. */}
+        <div className="grid grid-cols-[2.4rem_2.4rem_repeat(3,minmax(0,1fr))] auto-rows-[2.1rem] gap-1">
+          <Cell kind="number" pick={0} label="0" cls={`${CELL_BG.green} col-start-3 col-span-3 row-start-1`} />
+          {([['low', '1–18'], ['even', 'Even'], ['red', 'Red'], ['black', 'Black'], ['odd', 'Odd'], ['high', '19–36']] as [BetKind, string][]).map(([k, l], i) => (
+            <Cell key={k} kind={k} pick={null} label={l} side
+              cls={`col-start-1 row-span-2 ${k === 'red' ? CELL_BG.red : k === 'black' ? CELL_BG.black : 'border border-card-border'}`} style={{ gridRowStart: 2 + i * 2 }} />
+          ))}
+          {[1, 2, 3].map((d) => (
+            <Cell key={d} kind="dozen" pick={d} label={`${['1st', '2nd', '3rd'][d - 1]} 12`} side cls="col-start-2 row-span-4 border border-card-border" style={{ gridRowStart: 2 + (d - 1) * 4 }} />
+          ))}
+          {Array.from({ length: 36 }, (_, i) => i + 1).map((n) => (
+            <Cell key={n} kind="number" pick={n} label={String(n)} cls={CELL_BG[colorOf(n)]} style={{ gridRowStart: 1 + Math.ceil(n / 3), gridColumnStart: 3 + ((n - 1) % 3) }} />
+          ))}
+          {[1, 2, 3].map((col) => (
+            <Cell key={col} kind="column" pick={col} label="2:1" cls="row-start-[14] border border-card-border" style={{ gridColumnStart: 2 + col }} />
+          ))}
         </div>
         <p className="text-[11px] text-muted text-center">
           A number pays 35 to 1, a dozen or column 2 to 1, the rest even money. Zero takes every outside bet.
