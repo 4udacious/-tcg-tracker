@@ -2745,10 +2745,10 @@ const DISC_RULES = {
   'HEAL PULSE':   { types: ['psychic', 'fairy', 'water'] },
 }
 const DISC_NEVER = ['MAGIKARP']
-/** Can this Pokémon learn this disc's move? */
+/** Can this Pokémon learn this disc's move? (`except`: the few an `all` disc leaves out.) */
 function canLearnDisc(m, move) {
   const r = DISC_RULES[move]
-  if (!r || DISC_NEVER.includes(m.name)) return false
+  if (!r || DISC_NEVER.includes(m.name) || r.except?.includes(m.name)) return false
   return !!(r.all || r.types?.some((t) => m.types.includes(t)) || r.species?.includes(m.name))
 }
 /** Registers a disc as a Bag item the first time one turns up. */
@@ -3514,6 +3514,15 @@ Object.assign(DISC_RULES, {
   'FAIRY WIND':    { types: ['fairy', 'flying'], species: ['EEVEE'] },
 })
 DISC_POOL.push('DOUBLE HIT', 'ROLLOUT', 'ANCIENT POWER', 'FAIRY WIND')
+/*
+ * False Swipe: a light slash that never knocks a Pokémon out, leaving it at 1 HP at the least (the catcher's move:
+ * weaken a wild or roaming Pokémon without fainting it). A 0 PP attack like Tackle, so it's there every turn (and
+ * earns PP like one). A disc nearly everyone can learn, as in the main games; not the cocoons and grubs, Ditto,
+ * Unown, Wobbuffet and Wynaut, Smeargle or Beldum, which learn next to nothing (some of them come with Hoenn and Sinnoh).
+ */
+MOVEDEX['FALSE SWIPE'] = { type: 'normal', power: 40, cat: 'phys', cost: 0, fx: 'slash', snd: 'whoosh', falseSwipe: true, sub: 'never knocks out' }
+DISC_RULES['FALSE SWIPE'] = { all: true, except: ['CATERPIE', 'METAPOD', 'WEEDLE', 'KAKUNA', 'WURMPLE', 'SILCOON', 'CASCOON', 'KRICKETOT', 'BURMY', 'COMBEE', 'DITTO', 'UNOWN', 'WOBBUFFET', 'WYNAUT', 'SMEARGLE', 'BELDUM'] }
+DISC_POOL.push('FALSE SWIPE')
 /*
  * Coverage moves, from the main games: each species learns up to three moves of other types that it can learn
  * there (by TM, tutor or level-up, any generation; PokeAPI's learnsets), by level at 35, 42 and 49. Picked from
@@ -7793,7 +7802,7 @@ async function run(id) {
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
       impactFx(T.c, mv.type, eff > 1 || acc.crit); hitReact(T.el, actor.c, T.c, mv.type, eff > 1 || acc.crit)
       if (eff > 1 || acc.crit) await hitStop(mv.type)
-      await Promise.all([blink(T.el, 2), hpTo(T, from - dmg)])
+      await Promise.all([blink(T.el, 2), hpTo(T, mv.falseSwipe ? Math.max(1, from - dmg) : from - dmg)])   // False Swipe never knocks out
       pop(`-${from - T.mon.hp}`, T.c.x + 30, T.c.y - 30, acc.crit ? 'gold' : '')
       if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
       if (mv.recoil && actor.mon.hp > 1) { await hpTo(actor, Math.max(1, actor.mon.hp - Math.max(1, Math.round((from - T.mon.hp) * mv.recoil)))); await say(actor.mon.name, 'is damaged by recoil!', 250) }
@@ -10115,7 +10124,7 @@ async function run(id) {
           if (parried === 'perfect') { perfectParried = true; if (mv.furyCutter) t.fury = -1; continue }   // not a scratch on it, and the run starts over
           const r = damage(me, foe, mv, parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult)
           if (mv.furyCutter && acc.label === 'MISS') t.fury = -1   // a miss starts the run over
-          const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
+          const from = foe.hp; foe.hp = Math.max((demo && kind === 'wild') || mv.falseSwipe ? 1 : 0, foe.hp - r.dmg)   // False Swipe never knocks out
           sfx(r.eff > 1 ? 'hitSuper' : r.eff < 1 ? 'hitWeak' : 'hit')
           if (r.eff > 1 || acc.crit) shake(6, 320)
           impactFx(C.e, mv.type, r.eff > 1 || acc.crit); hitReact($('enemy'), C.p, C.e, mv.type, r.eff > 1 || acc.crit)
