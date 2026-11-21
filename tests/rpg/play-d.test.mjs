@@ -145,3 +145,53 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('False Swipe: a Move Disc nearly every Pokémon learns, and it never knocks one out (1v1 and 2v2)', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    // Who can learn it: nearly everyone, not the few that learn next to nothing.
+    const who = await page.evaluate(() => {
+      const all = [...new Map([...DATA.starters, ...DATA.wild, ...DATA.trainer].map((s) => [s.name, s])).values()]
+      const can = (s) => canLearnDisc({ name: s.name, types: s.types }, 'FALSE SWIPE')
+      return { share: all.filter(can).length / all.length, some: Object.fromEntries(['PIKACHU', 'CHARIZARD', 'SNORLAX', 'GENGAR', 'METAPOD', 'DITTO', 'MAGIKARP'].map((n) => [n, can(speciesByName(n))])), pool: DISC_POOL.includes('FALSE SWIPE') }
+    })
+    assert.ok(who.share > 0.95, `nearly every species (${(who.share * 100).toFixed(1)}%)`)
+    assert.deepEqual(who.some, { PIKACHU: true, CHARIZARD: true, SNORLAX: true, GENGAR: true, METAPOD: false, DITTO: false, MAGIKARP: false })
+    assert.ok(who.pool, 'and it turns up as a Move Disc')
+    // Two hard hitters that know it: anything else would faint from one blow.
+    await page.evaluate(() => {
+      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 80, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 4000, atk: 9000, spa: 9000, def: 900, spd: 900, spe: 900 }); m.hp = m.stats.hp; m.learned.push('FALSE SWIPE'); m.moves = ['FALSE SWIPE', ...m.moves.filter((x) => x !== 'FALSE SWIPE').slice(0, 3)]; return m }
+      v.party.splice(0, 9, mk('CHARIZARD'), mk('MACHAMP'))
+    })
+    bot.want = ['FALSE SWIPE']
+    // The foes' HP: the 1v1 bar, or each 2v2 slot's (once drawn).
+    const bars = () => page.evaluate(() => [...document.querySelectorAll('#ehp, .hud.dh.e0 .hpb i, .hud.dh.e1 .hpb i')].filter((b) => b.offsetParent && b.style.width).map((b) => parseFloat(b.style.width)))
+    for (const kind of ['wild', 'duo']) {
+      for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
+      await page.evaluate(() => { for (const m of window.__vvm.party) m.hp = m.stats.hp })
+      await page.selectOption('#nextTap', kind); await page.evaluate(() => document.activeElement?.blur())
+      let fought = false
+      for (let tries = 0; tries < 5 && !fought; tries++) {
+        await page.evaluate(() => document.getElementById('home').click())
+        for (let i = 0; i < 25 && !fought; i++) { await bot.step(); fought = await bot.inBattle() }
+      }
+      assert.ok(fought, `${kind}: a battle`)
+      const from = g.log.length, swipes = () => (g.log.slice(from).join(' | ').match(/FALSE SWIPE/g) ?? []).length
+      let low = []
+      for (let i = 0; i < 400 && swipes() < 3 && (await bot.inBattle()); i++) {
+        await bot.step()
+        const b = await bars(); if (b.length) low = b
+        assert.ok(b.every((w) => w > 0), `${kind}: no foe fainted from False Swipe (${b}): ${g.log.slice(-6).join(' | ')}`)
+      }
+      assert.ok(swipes() >= 3, `${kind}: False Swipe used (${swipes()} times)`)
+      assert.ok(low.some((w) => w > 0 && w < 5), `${kind}: a foe left at the last sliver of HP (${low})`)
+      // Then finish it: any other move knocks them out as usual.
+      bot.want = []
+      for (let i = 0; i < 600 && (await bot.inBattle()); i++) await bot.step()
+      bot.want = ['FALSE SWIPE']
+    }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

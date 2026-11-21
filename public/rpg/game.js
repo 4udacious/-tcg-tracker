@@ -2745,10 +2745,10 @@ const DISC_RULES = {
   'HEAL PULSE':   { types: ['psychic', 'fairy', 'water'] },
 }
 const DISC_NEVER = ['MAGIKARP']
-/** Can this Pokémon learn this disc's move? */
+/** Can this Pokémon learn this disc's move? (`except`: the few an `all` disc leaves out.) */
 function canLearnDisc(m, move) {
   const r = DISC_RULES[move]
-  if (!r || DISC_NEVER.includes(m.name)) return false
+  if (!r || DISC_NEVER.includes(m.name) || r.except?.includes(m.name)) return false
   return !!(r.all || r.types?.some((t) => m.types.includes(t)) || r.species?.includes(m.name))
 }
 /** Registers a disc as a Bag item the first time one turns up. */
@@ -3514,6 +3514,15 @@ Object.assign(DISC_RULES, {
   'FAIRY WIND':    { types: ['fairy', 'flying'], species: ['EEVEE'] },
 })
 DISC_POOL.push('DOUBLE HIT', 'ROLLOUT', 'ANCIENT POWER', 'FAIRY WIND')
+/*
+ * False Swipe: a light slash that never knocks a Pokémon out, leaving it at 1 HP at the least (the catcher's move:
+ * weaken a wild or roaming Pokémon without fainting it). A 0 PP attack like Tackle, so it's there every turn (and
+ * earns PP like one). A disc nearly everyone can learn, as in the main games; not the cocoons and grubs, Ditto,
+ * Unown, Wobbuffet and Wynaut, Smeargle or Beldum, which learn next to nothing (some of them come with Hoenn and Sinnoh).
+ */
+MOVEDEX['FALSE SWIPE'] = { type: 'normal', power: 40, cat: 'phys', cost: 0, fx: 'slash', snd: 'whoosh', falseSwipe: true, sub: 'never knocks out' }
+DISC_RULES['FALSE SWIPE'] = { all: true, except: ['CATERPIE', 'METAPOD', 'WEEDLE', 'KAKUNA', 'WURMPLE', 'SILCOON', 'CASCOON', 'KRICKETOT', 'BURMY', 'COMBEE', 'DITTO', 'UNOWN', 'WOBBUFFET', 'WYNAUT', 'SMEARGLE', 'BELDUM'] }
+DISC_POOL.push('FALSE SWIPE')
 /*
  * Coverage moves, from the main games: each species learns up to three moves of other types that it can learn
  * there (by TM, tutor or level-up, any generation; PokeAPI's learnsets), by level at 35, 42 and 49. Picked from
@@ -7793,7 +7802,7 @@ async function run(id) {
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
       impactFx(T.c, mv.type, eff > 1 || acc.crit); hitReact(T.el, actor.c, T.c, mv.type, eff > 1 || acc.crit)
       if (eff > 1 || acc.crit) await hitStop(mv.type)
-      await Promise.all([blink(T.el, 2), hpTo(T, from - dmg)])
+      await Promise.all([blink(T.el, 2), hpTo(T, mv.falseSwipe ? Math.max(1, from - dmg) : from - dmg)])   // False Swipe never knocks out
       pop(`-${from - T.mon.hp}`, T.c.x + 30, T.c.y - 30, acc.crit ? 'gold' : '')
       if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
       if (mv.recoil && actor.mon.hp > 1) { await hpTo(actor, Math.max(1, actor.mon.hp - Math.max(1, Math.round((from - T.mon.hp) * mv.recoil)))); await say(actor.mon.name, 'is damaged by recoil!', 250) }
@@ -9325,15 +9334,32 @@ async function run(id) {
   function flash(color = '#fff', o = .8, dur = 160) { const f = $('flash'); f.style.background = color; anim(f, [{ opacity: o }, { opacity: 0 }], { duration: dur }) }
   function shake(px = 6, dur = 360) { $('screen').animate([0, -px, px, -px * .7, px * .7, -px * .3, 0].map((v) => ({ transform: `translate(${v}px, ${v * .3}px)` })), { duration: dur }) }
   async function blink(el, n = 3) { for (let i = 0; i < n; i++) { el.style.opacity = '0'; await W(65); el.style.opacity = '1'; await W(65) } }
+  /**
+   * How your aim is off, on whatever you aim with (a STRIKE ring and its mark, the charge meter, the track, Stone
+   * Edge's stones, Phantom Force's shadow, the arrows to swipe): confused, it wobbles; an evasive target (veil, its
+   * evasion stage), it flickers and fades; your accuracy lowered (blind, how far it fell), it's dazzled, dimmer and
+   * blurrier each stage. Returns a function that takes it all off again (for what stays on screen, like the arrows).
+   */
+  function aimFx(...els) {
+    for (const el of els) {
+      if (wobble) el.classList.add('wobble')
+      if (veil > 0) { el.classList.add('veil'); el.dataset.veil = String(Math.min(3, veil)) }
+      if (blind > 0) { el.classList.add('dazzle'); el.dataset.dazzle = String(Math.min(3, blind)) }
+    }
+    return () => { for (const el of els) { el.classList.remove('wobble', 'veil', 'dazzle'); delete el.dataset.veil; delete el.dataset.dazzle } }
+  }
+  /**
+   * The rest of the strike ring's handicap for the other inputs: `tight` (1, or less when your aim is off: accuracy
+   * down, the target evasive, or confused) narrows their windows as it does a ring's, and `pace` speeds them up as a
+   * ring closes faster (a ring's speed and its tightness move together, 0.15 and 0.2 a stage).
+   */
+  const paceOf = (tight) => 1 - 0.75 * (1 - tight)
   function ring(cx, cy, approach, label) {
     // An evasive target (veil, its evasion stage) is a smaller mark: about a fifth smaller each stage.
     const R = veil > 0 ? Math.round(32 * (1 - 0.18 * Math.min(3, veil))) : 32
     const t = document.createElement('div'); t.className = 'target'; t.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
     const r = document.createElement('div'); r.className = 'ring'; r.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${R * 2}px;height:${R * 2}px`
-    if (wobble) { t.classList.add('wobble'); r.classList.add('wobble') }
-    if (veil > 0) for (const el of [t, r]) { el.classList.add('veil'); el.dataset.veil = String(Math.min(3, veil)) }
-    // Your accuracy lowered (blind, how far it fell): the ring and its mark are dazzled, dimmer and blurrier each stage.
-    if (blind > 0) for (const el of [t, r]) { el.classList.add('dazzle'); el.dataset.dazzle = String(Math.min(3, blind)) }
+    aimFx(t, r)
     fx.append(t, r)
     let g = null
     if (label) { g = document.createElement('div'); g.className = 'glyph'; g.textContent = label; g.style.left = cx + 'px'; g.style.top = (cy - R - 20) + 'px'; fx.appendChild(g) }
@@ -9389,11 +9415,13 @@ async function run(id) {
    * the right in a 2v2 stands near the edge, where the charge meter, Stone Edge's stones and the track ran off it.
    */
   const onScreen = (x, w, pad = 4) => Math.max(pad, Math.min((fx.clientWidth || 320) - w - pad, x))
-  async function chargeTap(cx, cy) {
+  async function chargeTap(cx, cy, tight = 1) {
     strikeBtn('HOLD A', 'let go in the gold zone')
     const m = document.createElement('div'); m.className = 'meter'; m.style.left = onScreen(cx + 46, 16) + 'px'; m.style.top = (cy - 62) + 'px'   // 16 wide, border and all
-    m.innerHTML = '<div class="zone" style="bottom:82%;height:14%"></div><div class="fill"></div>'; fx.appendChild(m)
-    const fill = m.querySelector('.fill'), FILL = 1100, start = performance.now()
+    // The gold zone (PERFECT) is 0.82-0.96 of full, centred on 0.89; your aim off narrows it and every window below it, and the meter fills faster.
+    const C = 0.89, Z = 0.07 * tight
+    m.innerHTML = `<div class="zone" style="bottom:${((C - Z) * 100).toFixed(1)}%;height:${(2 * Z * 100).toFixed(1)}%"></div><div class="fill"></div>`; fx.appendChild(m); aimFx(m)
+    const fill = m.querySelector('.fill'), FILL = 1100 * paceOf(tight), start = performance.now()
     let t0 = null, out = null
     const offD = listen((b, t) => { if (b === 'a' && t0 == null) t0 = t })
     const offU = listenUp((b, t) => { if (b === 'a' && t0 != null && out == null) out = t })
@@ -9407,15 +9435,16 @@ async function run(id) {
     }
     offD(); offU(); panel(null)
     const f = t0 == null ? 0 : ((out ?? performance.now()) - t0) / FILL
-    const g = t0 == null ? grade('MISS') : over ? grade('MISS', 0.5) : f >= 0.82 && f <= 0.96 ? grade('PERFECT') : f >= 0.96 ? grade('GOOD') : f >= 0.65 ? grade('GREAT') : f >= 0.45 ? grade('GOOD') : f >= 0.25 ? grade('OK') : grade('MISS')
+    const g = t0 == null ? grade('MISS') : over ? grade('MISS', 0.5) : f >= C - Z && f <= C + Z ? grade('PERFECT') : f > C + Z ? grade('GOOD') : f >= C - 0.24 * tight ? grade('GREAT') : f >= C - 0.44 * tight ? grade('GOOD') : f >= C - 0.64 * tight ? grade('OK') : grade('MISS')
     if (over) pop('FIZZLED', cx, cy - 70, 'red small')
     await W(200); m.remove(); return g
   }
-  async function mashStrike(goal = 14) { return byShare((await mash('MASH A!', goal, 2000)) / goal) }
-  async function swipeSeq(n = 3, ms = 2400) {
+  async function mashStrike(goal = 14, tight = 1) { return byShare((await mash('MASH A!', goal, Math.round(2000 * paceOf(tight)))) / goal) }
+  async function swipeSeq(n = 3, ms = 2400, tight = 1) {
     const keys = ['left', 'up', 'down', 'right'], glyph = { left: '◀', up: '▲', down: '▼', right: '▶' }
     const want = Array.from({ length: n }, () => keys[Math.floor(Math.random() * 4)])
     const cue = $('padCue'); cue.innerHTML = want.map((k) => `<i>${glyph[k]}</i>`).join(''); panel('pPad')
+    aimFx(...cue.children); ms = Math.round(ms * paceOf(tight))   // each arrow clears as you enter it (its class is set)
     let i = 0, bad = false
     const off = listen((b) => { if (bad || i >= n || !keys.includes(b)) return; const ok = b === want[i]; cue.children[i].className = ok ? 'ok' : 'bad'; sfx(ok ? 'select' : 'flinch'); if (ok) i++; else bad = true })
     const t0 = performance.now(); while (performance.now() - t0 < ms && i < n && !bad) await W(30)
@@ -9439,15 +9468,16 @@ async function run(id) {
    * at 75% held: about 60% PERFECT for a typical player, as the other moves.
    */
   const TRACK = { ms: 2500, dot: 130, arc: 20, span: 120, edge: 18, outCost: 0.4, perfect: 0.75 }
-  async function trackHold(cx, cy, ms = TRACK.ms) {
+  async function trackHold(cx, cy, ms = TRACK.ms, tight = 1) {
     strikeBtn('HOLD A', 'only while the dot is in the bright arc')
     const box = document.createElement('div'); box.className = 'track'; box.style.left = onScreen(cx - 56, 112) + 'px'; box.style.top = (cy - 56) + 'px'
-    box.innerHTML = '<div class="arc"></div><div class="dot"></div>'; fx.appendChild(box)
-    const arc = box.querySelector('.arc'), dot = box.querySelector('.dot'), SPAN = TRACK.span
+    box.innerHTML = '<div class="arc"></div><div class="dot"></div>'; fx.appendChild(box); aimFx(box)
+    // Your aim off: the bright arc narrower and the dot quicker, as a ring tightens and speeds up.
+    const arc = box.querySelector('.arc'), dot = box.querySelector('.dot'), SPAN = TRACK.span * tight, DOT = TRACK.dot / paceOf(tight)
     let inT = 0, inHeld = 0, outT = 0, outHeld = 0, last = performance.now(); const t0 = last
     while (performance.now() - t0 < ms) {
       const now = performance.now(), dt = now - last, k = (now - t0) / 1000; last = now
-      const a = (k * TRACK.dot) % 360, c = (360 - (k * TRACK.arc) % 360 + 140) % 360   // the dot goes round one way, the arc the other
+      const a = (k * DOT) % 360, c = (360 - (k * TRACK.arc) % 360 + 140) % 360   // the dot goes round one way, the arc the other
       arc.style.background = `conic-gradient(from ${c - SPAN / 2}deg, rgb(250 204 21 / .95) 0 ${SPAN}deg, rgb(15 23 42 / .3) ${SPAN}deg)`   // dark track, bright target: readable on snow as on night scenes
       dot.style.left = (56 + 49 * Math.sin(a * Math.PI / 180)) + 'px'; dot.style.top = (56 - 49 * Math.cos(a * Math.PI / 180)) + 'px'
       const off = Math.abs(((a - c + 540) % 360) - 180), inside = off <= SPAN / 2, on = !!btnDown.a
@@ -9495,12 +9525,13 @@ async function run(id) {
       if (h === 1 && twinNext?.mv === mv && performance.now() - twinNext.at < 4000) { const a = twinNext.acc; twinNext = null; return a }
       const [a, b] = await twinTap(cx, cy, approach, tight); twinNext = { mv, acc: b, at: performance.now() }; return a
     }
-    if (mv.input === 'charge') return chargeTap(cx, cy)
-    if (mv.input === 'mash') return mashStrike()
-    if (mv.input === 'swipe') return swipeSeq()
-    if (mv.input === 'track') return trackHold(cx, cy)
-    if (mv.input === 'vanish') return vanishTap(cx, cy)
-    if (mv.input === 'pick') return pickStone(cx, cy)
+    // Your aim's handicap (accuracy down, an evasive target, confusion: `tight`, and how it looks) reaches every input, not just rings.
+    if (mv.input === 'charge') return chargeTap(cx, cy, tight)
+    if (mv.input === 'mash') return mashStrike(14, tight)
+    if (mv.input === 'swipe') return swipeSeq(3, 2400, tight)
+    if (mv.input === 'track') return trackHold(cx, cy, TRACK.ms, tight)
+    if (mv.input === 'vanish') return vanishTap(cx, cy, tight)
+    if (mv.input === 'pick') return pickStone(cx, cy, tight)
     return timedTap(planned, cx, cy, label, approach, tight)
   }
   /*
@@ -9508,9 +9539,9 @@ async function run(id) {
    * Tap A the moment it does: the quicker, the better (PERFECT within 0.3 s). Half the time a faint false flicker
    * comes first; a tap before the real one is a MISS.
    */
-  async function vanishTap(cx, cy) {
+  async function vanishTap(cx, cy, tight = 1) {
     strikeBtn('VANISHED…', 'tap A the moment its shadow flickers in')
-    const sh = document.createElement('div'); sh.className = 'vanish'; sh.style.left = (cx - 34) + 'px'; sh.style.top = (cy - 44) + 'px'; fx.appendChild(sh)
+    const sh = document.createElement('div'); sh.className = 'vanish'; sh.style.left = (cx - 34) + 'px'; sh.style.top = (cy - 44) + 'px'; fx.appendChild(sh); aimFx(sh)
     const me = $('player'); me.style.opacity = '0.15'
     const appearAt = performance.now() + 700 + Math.random() * 1100, fakeAt = Math.random() < 0.5 ? appearAt - 300 - Math.random() * 250 : 0
     let first = null
@@ -9525,18 +9556,20 @@ async function run(id) {
     const dt = first == null ? Infinity : first - appearAt
     if (first != null && dt < 0) pop('TOO SOON', cx, cy - 70, 'red small')
     await W(140); sh.remove()
-    return grade(dt < 0 ? 'MISS' : dt <= 300 ? 'PERFECT' : dt <= 420 ? 'GREAT' : dt <= 560 ? 'GOOD' : dt <= 750 ? 'OK' : 'MISS')
+    const w = tight   // your aim off: every window narrower
+    return grade(dt < 0 ? 'MISS' : dt <= 300 * w ? 'PERFECT' : dt <= 420 * w ? 'GREAT' : dt <= 560 * w ? 'GOOD' : dt <= 750 * w ? 'OK' : 'MISS')
   }
   /*
    * Stone Edge: three stones rise round the target and one glows. Press its arrow (◀ ▲ ▶) before they fall: the
    * quicker, the better (PERFECT within 0.45 s of the glow). The wrong stone is a MISS.
    */
-  async function pickStone(cx, cy) {
+  async function pickStone(cx, cy, tight = 1) {
     const keys = ['left', 'up', 'right'], glyph = ['◀', '▲', '▶']
     const cue = $('padCue'); cue.innerHTML = '<span style="font-size:13px">PICK THE GLOWING STONE</span>'; panel('pPad'); $('pPad').classList.add('pick')
     const mid = onScreen(cx - 73, 146) + 73   // the three on screen: 30 wide, 58 apart
     const stones = keys.map((_, i) => { const st = document.createElement('div'); st.className = 'stone'; st.style.left = (mid - 15 + (i - 1) * 58) + 'px'; st.style.top = (cy + 30) + 'px'; st.innerHTML = `<b>${glyph[i]}</b>`; fx.appendChild(st); return st })
-    const RISE = 1500, t0 = performance.now(), want = Math.floor(Math.random() * 3), glowAt = t0 + 250
+    aimFx(...stones)
+    const RISE = 1500 * paceOf(tight), t0 = performance.now(), want = Math.floor(Math.random() * 3), glowAt = t0 + 250   // your aim off: they fall sooner
     let pick = null, pickT = 0
     const off = listen((b, t) => { const i = keys.indexOf(b); if (i >= 0 && pick == null && t >= glowAt) { pick = i; pickT = t; stones[i].classList.add(i === want ? 'hit' : 'wrong'); sfx(i === want ? 'select' : 'flinch') } })
     while (pick == null && performance.now() - t0 < RISE) {
@@ -9547,7 +9580,7 @@ async function run(id) {
     }
     off(); await W(220); panel(null); $('pPad').classList.remove('pick'); for (const st of stones) st.remove()
     const dt = pickT - glowAt
-    return grade(pick !== want ? 'MISS' : dt <= 450 ? 'PERFECT' : dt <= 700 ? 'GREAT' : dt <= 950 ? 'GOOD' : 'OK')
+    return grade(pick !== want ? 'MISS' : dt <= 450 * tight ? 'PERFECT' : dt <= 700 * tight ? 'GREAT' : dt <= 950 * tight ? 'GOOD' : 'OK')
   }
   /** A one-off chance roll that never fires in the scripted demo, so the demo plays out the same each time. */
   const chance = demo ? () => 1 : Math.random
@@ -10115,7 +10148,7 @@ async function run(id) {
           if (parried === 'perfect') { perfectParried = true; if (mv.furyCutter) t.fury = -1; continue }   // not a scratch on it, and the run starts over
           const r = damage(me, foe, mv, parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult)
           if (mv.furyCutter && acc.label === 'MISS') t.fury = -1   // a miss starts the run over
-          const from = foe.hp; foe.hp = Math.max(demo && kind === 'wild' ? 1 : 0, foe.hp - r.dmg)
+          const from = foe.hp; foe.hp = Math.max((demo && kind === 'wild') || mv.falseSwipe ? 1 : 0, foe.hp - r.dmg)   // False Swipe never knocks out
           sfx(r.eff > 1 ? 'hitSuper' : r.eff < 1 ? 'hitWeak' : 'hit')
           if (r.eff > 1 || acc.crit) shake(6, 320)
           impactFx(C.e, mv.type, r.eff > 1 || acc.crit); hitReact($('enemy'), C.p, C.e, mv.type, r.eff > 1 || acc.crit)
@@ -11385,7 +11418,7 @@ async function run(id) {
   $('bWeek').onclick = () => { if (!tutorialDone) return; weekShift++; renderPool(true); feed(`A new week: every machine's wild pool has changed.${Object.keys(reports).includes(YOU) ? '' : ' With no report, you are on a new random machine.'}`) }
   // Other trainers report timers now and then too, moving their own pools.
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
-  window.__vvm = { gainExp, trackHold, chargeTap, pickStone, twinTap, DUO_AT, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, pairBattle, pairFoes, pairItem, payDouble, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
+  window.__vvm = { gainExp, trackHold, chargeTap, pickStone, twinTap, vanishTap, swipeSeq, DUO_AT, aim: (o = {}) => { wobble = !!o.wobble; veil = o.veil | 0; blind = o.blind | 0 }, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, pairBattle, pairFoes, pairItem, payDouble, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
