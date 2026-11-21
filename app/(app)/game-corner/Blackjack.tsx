@@ -32,7 +32,8 @@ function Card({ c, size }: { c: number; size: Size }) {
   return (
     <div role="img" aria-label={cardName(c)} className="relative rounded-[5px] bg-white border border-zinc-300 shadow-sm select-none"
       style={{ ...style, color: isRed(c) ? '#dc2626' : '#18181b' }}>
-      <span className="absolute left-[3px] top-[2px] font-bold leading-[0.95] text-center" style={{ fontSize: f }}>
+      <span className="absolute left-[3px] top-[2px] font-bold leading-[0.95] text-center"
+        style={{ fontSize: size === 'sm' && rank === '10' ? f - 1.5 : f, letterSpacing: rank === '10' ? '-0.08em' : undefined, marginLeft: size === 'sm' && rank === '10' ? -1.5 : 0 }}>
         {rank}{size !== 'sm' && <><br />{suit}</>}
       </span>
       {size === 'sm' ? (
@@ -68,8 +69,8 @@ function outcome(h: BjHand): { text: string; good: boolean } {
 }
 
 /** A seat round the felt: its hands (small), its bet, and who's sitting there, or a place to sit. */
-function Spot({ seat, t, settled, offset, canSit, sitting, onSit }: {
-  seat: BjSeat; t: BjTable; settled: boolean; offset: number; canSit: boolean; sitting: boolean; onSit: () => void
+function Spot({ seat, t, settled, offset, canSit, moving, sitting, onSit }: {
+  seat: BjSeat; t: BjTable; settled: boolean; offset: number; canSit: boolean; moving: boolean; sitting: boolean; onSit: () => void
 }) {
   const turn = t.phase === 'playing' && t.turn?.seat === seat.seat
   const name = seat.mine ? 'You' : seat.player ?? seat.hands[0]?.player ?? null
@@ -95,7 +96,7 @@ function Spot({ seat, t, settled, offset, canSit, sitting, onSit }: {
       ) : canSit ? (
         <button type="button" onClick={onSit} disabled={sitting} aria-label={`Sit in seat ${seat.seat}`}
           className="grid place-items-center w-11 h-11 rounded-full border-2 border-dashed border-white/60 text-[11px] font-semibold hover:bg-white/15 disabled:opacity-50">
-          {sitting ? '…' : 'Sit'}
+          {sitting ? '…' : moving ? 'Move' : 'Sit'}
         </button>
       ) : (
         <span className="grid place-items-center w-11 h-11 rounded-full border-2 border-dashed border-white/25 text-[10px] text-white/40" aria-label={`Seat ${seat.seat}, empty`}>{seat.seat}</span>
@@ -215,7 +216,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
         <div className="mt-2 grid grid-cols-5 gap-1 items-start">
           {t.seats.map((s, i) => (
             <Spot key={s.seat} seat={s} t={t} settled={settled} offset={ARC[i] ?? 0}
-              canSit={state.open && !inHand} sitting={busy === `sit:${t.table}:${s.seat}`} onSit={() => sit(t.table, s.seat)} />
+              canSit={state.open && !inHand} moving={!!mine} sitting={busy === `sit:${t.table}:${s.seat}`} onSit={() => sit(t.table, s.seat)} />
           ))}
         </div>
       </section>
@@ -237,7 +238,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
                   <div key={h.hand} className={`flex flex-col items-center gap-1 rounded-xl p-2 ${active ? 'ring-2 ring-signal' : ''}`}>
                     <Fan cards={h.cards} size="lg" max={myHands.length > 1 ? 130 : 220} />
                     <span className="text-sm font-semibold">{totalLabel(h)}</span>
-                    <span className="text-xs text-muted font-mono">{fmt(h.bet)}{h.doubled ? ' · doubled' : ''}</span>
+                    <span className="text-xs text-muted">Bet <span className="font-mono">{fmt(h.bet)}</span>{h.doubled ? ' · doubled' : ''}</span>
                     {settled && h.result && <span className={`text-sm ${outcome(h).good ? 'text-signal font-semibold' : 'text-muted'}`}>{outcome(h).text}</span>}
                   </div>
                 )
