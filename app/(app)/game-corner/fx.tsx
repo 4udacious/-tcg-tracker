@@ -14,6 +14,11 @@ export const NOISE = svg(
   `<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/>` +
   `<feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`)
 
+/** A much finer, fainter grain: plush, cared-for velvet. */
+export const NOISE_FINE = svg(
+  `<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='1' stitchTiles='stitch'/>` +
+  `<feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`)
+
 /** Wood grain, running along: warm browns. */
 export const WOOD = svg(
   `<filter id='w'><feTurbulence type='fractalNoise' baseFrequency='.005 .16' numOctaves='3' seed='4' stitchTiles='stitch'/>` +
@@ -53,19 +58,25 @@ export const RAIL: CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,235,200,.35), inset 0 -2px 4px rgba(0,0,0,.5), 0 10px 24px rgba(0,0,0,.45)',
 }
 
-/** The high-limit room's velvet: burgundy. */
+/** The main floor's rail, its varnish scuffed by years of elbows. */
+export const RAIL_WORN: CSSProperties = {
+  ...RAIL,
+  backgroundImage: `${SCUFFS}, ${RAIL.backgroundImage}`,
+  backgroundSize: '260px 260px, auto, 420px 160px',
+}
+
+/** The high-limit room's velvet: burgundy, plush and spotless. */
 export const VELVET_RED: CSSProperties = {
   backgroundColor: '#4a0d1c',
-  backgroundImage: `${NOISE}, radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.12), transparent 55%), radial-gradient(ellipse at 50% 40%, #82193b 0%, #5a1028 50%, #2a0612 100%)`,
+  backgroundImage: `${NOISE_FINE}, radial-gradient(ellipse at 50% 0%, rgba(255,240,220,.16), transparent 55%), radial-gradient(ellipse at 50% 40%, #8a1c40 0%, #5e1029 52%, #2a0612 100%)`,
   backgroundBlendMode: 'multiply, screen, normal',
 }
 
-/** The high-limit room's rail: ebony, the grain only just showing. */
-export const RAIL_DARK: CSSProperties = {
-  ...RAIL,
-  backgroundColor: '#1c0f08',
-  backgroundImage: `linear-gradient(180deg, rgba(255,220,170,.2), transparent 18%, transparent 75%, rgba(0,0,0,.5)), linear-gradient(rgba(18,9,4,.62), rgba(18,9,4,.62)), ${WOOD}`,
-  backgroundSize: 'auto, auto, 420px 160px',
+/** The high-limit room's rail: piano-black lacquer, a gold inlay line, a deep gloss. */
+export const RAIL_LUXE: CSSProperties = {
+  backgroundColor: '#0c0a09',
+  backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.05) 20%, transparent 38%, transparent 72%, rgba(255,255,255,.07) 90%, rgba(0,0,0,.4)), linear-gradient(135deg, #2a2522, #0c0a09 55%, #1c1917)',
+  boxShadow: 'inset 0 0 0 1px rgba(243,210,122,.95), inset 0 0 0 3px #0c0a09, inset 0 0 0 4px rgba(243,210,122,.45), 0 12px 28px rgba(0,0,0,.55)',
 }
 
 /** Gold lettering. */
@@ -95,6 +106,7 @@ export const CORNER_CSS = `
 @keyframes gc-turn{0%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
 @keyframes gc-drop{from{transform:translateY(-16px) scale(1.25);opacity:0}to{transform:none;opacity:1}}
 @keyframes gc-bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+@keyframes gc-glint{0%,72%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(420%) skewX(-18deg)}}
 @keyframes gc-pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
 @media (prefers-reduced-motion: reduce){.gc-motion{animation:none!important;transition:none!important}}
 `

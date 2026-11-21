@@ -29,29 +29,54 @@ const STRIP: Reel[] = ['SEVEN', 'CHERRY', 'BALL', 'BLANK', 'PIKACHU', 'CHERRY', 
 const blankGrid = (): Reel[] => Array(9).fill('BLANK')
 
 /**
- * The two kinds of machine: the main floor's, red enamel gone tired, chrome trim, chipped and cracked; and the
- * high-limit room's, black lacquer and gold, kept nicer.
+ * The two kinds of machine. The main floor's: red enamel gone tired, chrome trim, chipped, cracked and taped, a
+ * blown bulb or two. The high-limit room's: kept pristine, piano-black lacquer with a glint running over it, gold
+ * pinstripes, polished brass, every bulb burning, in an art-deco room.
  */
 const THEMES = {
   main: {
-    title: 'GAME CORNER', worn: true,
+    title: 'GAME CORNER', worn: true, sheen: false, pearl: false,
     body: `${SCRATCHES}, ${NOISE}, radial-gradient(ellipse at 15% 100%, rgba(120,53,15,.55), transparent 35%), radial-gradient(ellipse at 90% 96%, rgba(68,64,60,.6), transparent 30%), linear-gradient(180deg, #a3132f 0%, #7f1d1d 32%, #4c0d10 100%)`,
     trim: 'inset 0 0 0 3px #d4d4d8, inset 0 0 0 5px #3f3f46, inset 0 0 0 6px rgba(255,255,255,.15), 0 18px 34px rgba(0,0,0,.6)',
+    marquee: 'linear-gradient(180deg,#1c1917,#0c0a09)',
+    marqueeRing: 'inset 0 0 0 2px #a16207, inset 0 0 0 3px #451a03, inset 0 0 20px rgba(0,0,0,.85)',
+    marqueeGlass: `${SCRATCHES}, linear-gradient(170deg, rgba(255,255,255,.12), transparent 35%)`,
     bezel: 'linear-gradient(180deg,#f4f4f5,#a1a1aa 45%,#e4e4e7 55%,#71717a)',
+    ink: '#fb923c', inkGlow: 'rgba(249,115,22,.85)',
+    deck: 'radial-gradient(ellipse at 50% 90%, rgba(255,255,255,.12), transparent 55%), linear-gradient(180deg,#3f3f46,#18181b)',
+    deckRing: 'inset 0 1px 0 rgba(255,255,255,.15), 0 2px 0 #000',
+    btnOn: { background: 'linear-gradient(180deg,#fde68a,#f59e0b)', color: '#1c1917', boxShadow: '0 1px 0 #92400e, 0 0 10px rgba(251,191,36,.7)', transform: 'translateY(2px)' },
+    btnOff: { background: 'linear-gradient(180deg,#f4f4f5,#a1a1aa)', color: '#27272a', boxShadow: '0 3px 0 #52525b' },
     spin: 'radial-gradient(ellipse at 50% 25%, #fca5a5, #dc2626 45%, #991b1b)', spinEdge: '#7f1d1d', spinGlow: 'rgba(239,68,68,.55)', spinInk: '#fff',
+    tray: 'linear-gradient(180deg,#09090b,#3f3f46 62%,#a1a1aa)',
+    rod: 'linear-gradient(90deg,#52525b,#f4f4f5 40%,#a1a1aa 70%,#3f3f46)',
+    knob: 'radial-gradient(circle at 35% 30%, #fecaca 0 12%, #ef4444 38%, #991b1b 82%)',
+    housing: `${SCRATCHES}, linear-gradient(180deg,#e4e4e7,#71717a)`,
     room: 'radial-gradient(ellipse at 50% 0%, #5b21b6 0%, #24113f 42%, #0c0a14 100%)', glow: 'rgba(244,63,94,.35)',
     carpet: 'linear-gradient(180deg, rgba(0,0,0,.65), transparent 70%), repeating-linear-gradient(45deg, rgba(250,204,21,.2) 0 2px, transparent 2px 13px), repeating-linear-gradient(-45deg, rgba(56,189,248,.16) 0 2px, transparent 2px 13px)', carpetBase: '#3b0d2e',
-    mini: 'linear-gradient(180deg,#991b1b,#450a0a)', miniTrim: 'inset 0 0 0 2px #a1a1aa, inset 0 0 0 3px #3f3f46, 0 4px 10px rgba(0,0,0,.3)',
+    mini: `${SCRATCHES}, linear-gradient(180deg,#991b1b,#450a0a)`, miniTrim: 'inset 0 0 0 2px #a1a1aa, inset 0 0 0 3px #3f3f46, 0 4px 10px rgba(0,0,0,.3)',
   },
   high: {
-    title: 'HIGH LIMIT', worn: false,
-    body: `${SCRATCHES}, ${NOISE}, radial-gradient(ellipse at 50% 0%, rgba(253,230,138,.12), transparent 50%), linear-gradient(180deg, #3f3f46 0%, #18181b 35%, #050505 100%)`,
-    trim: 'inset 0 0 0 3px #e5c158, inset 0 0 0 5px #5c3d0a, inset 0 0 0 6px rgba(255,235,180,.2), 0 18px 34px rgba(0,0,0,.7)',
-    bezel: 'linear-gradient(180deg,#fef3c7,#d4a017 45%,#fde68a 55%,#92400e)',
-    spin: 'radial-gradient(ellipse at 50% 25%, #fef9c3, #eab308 45%, #a16207)', spinEdge: '#713f12', spinGlow: 'rgba(250,204,21,.55)', spinInk: '#1c1917',
-    room: 'radial-gradient(ellipse at 50% 0%, #92400e 0%, #2a1306 45%, #0a0604 100%)', glow: 'rgba(250,204,21,.3)',
-    carpet: 'linear-gradient(180deg, rgba(0,0,0,.6), transparent 70%), repeating-radial-gradient(circle at 10px 10px, rgba(250,204,21,.22) 0 2px, transparent 2px 20px)', carpetBase: '#3a0a14',
-    mini: 'linear-gradient(180deg,#27272a,#050505)', miniTrim: 'inset 0 0 0 2px #e5c158, inset 0 0 0 3px #5c3d0a, 0 4px 10px rgba(0,0,0,.35)',
+    title: 'HIGH LIMIT', worn: false, sheen: true, pearl: true,
+    body: 'linear-gradient(105deg, transparent 28%, rgba(255,255,255,.08) 36%, transparent 44%), radial-gradient(ellipse at 50% -10%, rgba(253,230,138,.2), transparent 55%), linear-gradient(180deg, #2c2c31 0%, #0e0e10 30%, #040405 100%)',
+    trim: 'inset 0 0 0 2px #f3d27a, inset 0 0 0 4px #120c03, inset 0 0 0 5px #b8892b, 0 0 0 1px rgba(243,210,122,.35), 0 20px 44px rgba(0,0,0,.75)',
+    marquee: 'radial-gradient(ellipse at 50% 125%, rgba(253,230,138,.22), transparent 60%), linear-gradient(180deg,#141416,#050505)',
+    marqueeRing: 'inset 0 0 0 1.5px #f3d27a, inset 0 0 0 3px #050505, inset 0 0 0 4px rgba(243,210,122,.5)',
+    marqueeGlass: 'linear-gradient(170deg, rgba(255,255,255,.18), transparent 28%)',
+    bezel: 'linear-gradient(180deg,#fffbeb,#e5c158 30%,#a77a1c 50%,#f3d27a 70%,#7a5a14)',
+    ink: '#fde68a', inkGlow: 'rgba(253,224,71,.6)',
+    deck: 'linear-gradient(180deg, rgba(255,255,255,.07), transparent 40%), linear-gradient(180deg,#1c1c20,#060607)',
+    deckRing: 'inset 0 0 0 1px rgba(243,210,122,.55), 0 2px 0 #000',
+    btnOn: { background: 'linear-gradient(180deg,#fef3c7,#e5c158 45%,#b8892b)', color: '#1c1917', boxShadow: '0 1px 0 #5c3d0a, 0 0 12px rgba(243,210,122,.6)', transform: 'translateY(2px)' },
+    btnOff: { background: 'linear-gradient(180deg,#2a2a2e,#0b0b0c)', color: '#f3d27a', boxShadow: '0 3px 0 #000, inset 0 0 0 1px rgba(243,210,122,.7)' },
+    spin: 'linear-gradient(180deg, rgba(255,255,255,.45), transparent 45%), linear-gradient(180deg,#fef3c7,#e5c158 40%,#a77a1c)', spinEdge: '#5c3d0a', spinGlow: 'rgba(243,210,122,.55)', spinInk: '#1c1917',
+    tray: 'linear-gradient(180deg,#1a1206,#7a5a14 55%,#f3d27a)',
+    rod: 'linear-gradient(90deg,#713f12,#fef3c7 40%,#d4a017 70%,#713f12)',
+    knob: 'radial-gradient(circle at 34% 28%, #fff 0 7%, #fb7185 20%, #be123c 50%, #4c0519 92%)',
+    housing: 'linear-gradient(180deg,#fef3c7,#b8892b 60%,#713f12)',
+    room: 'repeating-conic-gradient(from 180deg at 50% -8%, rgba(243,210,122,.07) 0deg 3deg, transparent 3deg 8deg), radial-gradient(ellipse at 50% 0%, #7c2d12 0%, #1f0d05 45%, #070403 100%)', glow: 'rgba(253,230,138,.25)',
+    carpet: 'linear-gradient(180deg, #f3d27a 0 2px, transparent 2px 5px, rgba(243,210,122,.5) 5px 6px, transparent 6px), linear-gradient(180deg, rgba(0,0,0,.4), transparent 70%), repeating-linear-gradient(90deg, rgba(243,210,122,.1) 0 1px, transparent 1px 22px)', carpetBase: '#4a0d1c',
+    mini: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,.07) 45%, transparent 55%), linear-gradient(180deg,#27272a,#050505)', miniTrim: 'inset 0 0 0 1.5px #f3d27a, inset 0 0 0 3px #120c03, inset 0 0 0 4px rgba(243,210,122,.45), 0 4px 12px rgba(0,0,0,.4)',
   },
 }
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -98,7 +123,7 @@ function Window({ cells, lines = [], size }: { cells: Reel[]; lines?: number[]; 
 }
 
 /** The marquee's bulbs, chasing; faster while it's paying out. One has blown. */
-function Bulbs({ n, dead = [], party = false, size = 8 }: { n: number; dead?: number[]; party?: boolean; size?: number }) {
+function Bulbs({ n, dead = [], party = false, size = 8, pearl = false }: { n: number; dead?: number[]; party?: boolean; size?: number; pearl?: boolean }) {
   return (
     <div className="flex justify-between" aria-hidden>
       {Array.from({ length: n }, (_, i) => (
@@ -106,10 +131,16 @@ function Bulbs({ n, dead = [], party = false, size = 8 }: { n: number; dead?: nu
           width: size, height: size,
           ...(dead.includes(i)
             ? { background: 'radial-gradient(circle at 40% 35%, #a8a29e, #57534e)', boxShadow: 'inset 0 1px 1px rgba(0,0,0,.6)' }
-            : {
-              background: 'radial-gradient(circle at 40% 35%, #fffbeb, #fde047 45%, #f59e0b)', boxShadow: `0 0 ${size * 0.8}px 1px rgba(253,224,71,.75)`,
-              animation: `gc-bulb ${party ? 0.36 : 1.6}s ease-in-out ${(i % (party ? 2 : 4)) * (party ? 0.18 : 0.4)}s infinite`,
-            }),
+            : pearl
+              // Pearl-white and gold, all burning, a slow shimmer (a quick chase while it pays out).
+              ? {
+                background: 'radial-gradient(circle at 38% 32%, #fff, #fef3c7 45%, #e5c158)', boxShadow: `0 0 ${size}px 1px rgba(255,247,220,.8)`,
+                animation: `gc-bulb ${party ? 0.36 : 2.6}s ease-in-out ${(i % (party ? 2 : 6)) * (party ? 0.18 : 0.43)}s infinite`,
+              }
+              : {
+                background: 'radial-gradient(circle at 40% 35%, #fffbeb, #fde047 45%, #f59e0b)', boxShadow: `0 0 ${size * 0.8}px 1px rgba(253,224,71,.75)`,
+                animation: `gc-bulb ${party ? 0.36 : 1.6}s ease-in-out ${(i % (party ? 2 : 4)) * (party ? 0.18 : 0.4)}s infinite`,
+              }),
         }} />
       ))}
     </div>
@@ -137,11 +168,11 @@ function Drum({ faces, spinning, size, index }: { faces: Reel[]; spinning: boole
 }
 
 /** A meter on the cabinet: red-orange LED digits behind smoked glass. */
-function Meter({ label, value }: { label: string; value: number }) {
+function Meter({ label, value, ink = '#fb923c', glow = 'rgba(249,115,22,.85)' }: { label: string; value: number; ink?: string; glow?: string }) {
   return (
     <div className="relative rounded-md bg-black px-1.5 pt-0.5 pb-1 text-right overflow-hidden" style={{ boxShadow: 'inset 0 0 0 1px #3f3f46, inset 0 2px 6px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.12)' }}>
       <div className="text-[8px] tracking-[0.22em] text-amber-100/50 text-left">{label}</div>
-      <div className="font-mono text-[15px] font-bold leading-tight tabular-nums" style={{ color: '#fb923c', textShadow: '0 0 6px rgba(249,115,22,.85)' }}>{fmt(money(value))}</div>
+      <div className="font-mono text-[15px] font-bold leading-tight tabular-nums" style={{ color: ink, textShadow: `0 0 6px ${glow}` }}>{fmt(money(value))}</div>
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(160deg, rgba(255,255,255,.1), transparent 40%)' }} />
     </div>
   )
@@ -268,9 +299,9 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
     const t = m.high ? THEMES.high : THEMES.main
     return (
       <div key={m.machine} className={`relative rounded-t-xl rounded-b-md p-1.5 text-white ${m.mine && m.player ? 'ring-2 ring-signal' : ''}`}
-        style={{ backgroundImage: `${SCRATCHES}, ${t.mini}`, boxShadow: t.miniTrim }}>
-        <div className="rounded-t-lg rounded-b-sm bg-zinc-950 px-1.5 py-1" style={{ boxShadow: 'inset 0 0 0 1px #a16207' }}>
-          <Bulbs n={9} dead={!m.high && m.machine % 3 === 0 ? [m.machine % 9] : []} party={big} size={4} />
+        style={{ backgroundImage: t.mini, boxShadow: t.miniTrim }}>
+        <div className="rounded-t-lg rounded-b-sm bg-zinc-950 px-1.5 py-1" style={{ boxShadow: `inset 0 0 0 1px ${m.high ? '#f3d27a' : '#a16207'}` }}>
+          <Bulbs n={9} dead={!m.high && m.machine % 3 === 0 ? [m.machine % 9] : []} party={big} size={4} pearl={m.high} />
           <div className="flex items-center justify-between text-[10px] leading-4 mt-0.5">
             <span className="text-amber-200/80 font-semibold">#{m.machine}{m.high && <span className="ml-1 text-[8px] tracking-wider">HIGH</span>}</span>
             {m.player && m.win != null && recent && <span className={big ? 'text-amber-300 font-bold' : 'text-white/60'}>{m.win > 0 ? `+${fmt(m.win)}` : '–'}</span>}
@@ -280,7 +311,8 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
           <Window cells={m.player && m.reels?.length === 9 ? m.reels : blankGrid()} lines={m.player && recent ? m.lines ?? [] : []} size={15} />
         </div>
         {m.player ? (
-          <div className="flex items-center gap-1.5 text-xs truncate rounded bg-black/30 px-1 py-0.5">
+          <div className={`flex items-center gap-1.5 text-xs truncate rounded px-1 py-0.5 ${m.high ? 'text-amber-100' : 'bg-black/30'}`}
+            style={m.high ? { background: 'linear-gradient(180deg,rgba(243,210,122,.22),rgba(243,210,122,.08))', boxShadow: 'inset 0 0 0 1px rgba(243,210,122,.45)' } : undefined}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {m.avatar ? <img src={m.avatar} alt="" className="w-4 h-4 rounded-full" /> : <span className="w-4 h-4 rounded-full bg-white/20" />}
             <span className="truncate">{m.mine ? 'You' : m.player}</span>
@@ -305,8 +337,9 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         {mine ? (
           <div className="relative mx-auto gc-motion" style={{ maxWidth: 352, paddingRight: 30, animation: shake ? 'gc-shake .45s ease-in-out 2' : undefined }}>
             {/* The cabinet: on the main floor red enamel gone tired, chrome trim, scratches, a few chips out of the
-                paint; in the high-limit room black lacquer and gold. */}
+                paint; in the high-limit room spotless black lacquer, gold pinstripes, a glint passing over it. */}
             <div className="relative rounded-t-[26px] rounded-b-[14px] p-2.5 pb-3 text-white" style={{ backgroundColor: '#18181b', backgroundImage: theme.body, boxShadow: theme.trim }}>
+              {theme.sheen && <span className="absolute inset-[7px] rounded-t-[20px] rounded-b-[9px] pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1px rgba(243,210,122,.28)' }} aria-hidden />}
               {theme.worn && <>
                 <Chip style={{ left: 4, top: 96, width: 12, height: 9 }} />
                 <Chip style={{ right: 3, top: 210, width: 9, height: 14 }} />
@@ -315,12 +348,12 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               </>}
 
               {/* Marquee: dim glass, a blown bulb, the name in gold. */}
-              <div className="relative rounded-t-[19px] rounded-b-md px-3 pt-2 pb-2 text-center overflow-hidden" style={{ background: 'linear-gradient(180deg,#1c1917,#0c0a09)', boxShadow: 'inset 0 0 0 2px #a16207, inset 0 0 0 3px #451a03, inset 0 0 20px rgba(0,0,0,.85)' }}>
-                <Bulbs n={13} dead={theme.worn ? [8] : []} party={party} />
+              <div className="relative rounded-t-[19px] rounded-b-md px-3 pt-2 pb-2 text-center overflow-hidden" style={{ background: theme.marquee, boxShadow: theme.marqueeRing }}>
+                <Bulbs n={13} dead={theme.worn ? [8] : []} party={party} pearl={theme.pearl} />
                 <div className="my-1 font-display font-black text-[27px] leading-none tracking-wider" style={{ ...GOLD_TEXT, opacity: 0.93, filter: 'drop-shadow(0 0 6px rgba(245,158,11,.45))', animation: party ? 'gc-shine 1.2s linear infinite' : undefined }}>{theme.title}</div>
                 <div className="text-[9px] tracking-[0.35em] text-amber-200/60">★ MACHINE {mine.machine} ★</div>
-                <div className="mt-1"><Bulbs n={13} dead={theme.worn ? [2] : []} party={party} /></div>
-                <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `${SCRATCHES}, linear-gradient(170deg, rgba(255,255,255,.12), transparent 35%)` }} />
+                <div className="mt-1"><Bulbs n={13} dead={theme.worn ? [2] : []} party={party} pearl={theme.pearl} /></div>
+                <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: theme.marqueeGlass }} />
               </div>
 
               {/* The reel glass in its chrome bezel, payline tabs down each side; cracked once, and taped. */}
@@ -353,24 +386,22 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               </div>
 
               <div className="mt-2.5 grid grid-cols-3 gap-1.5">
-                <Meter label="CREDIT" value={state.balance} />
-                <Meter label="BET" value={bet} />
-                <Meter label="WIN" value={winShown} />
+                <Meter label="CREDIT" value={state.balance} ink={theme.ink} glow={theme.inkGlow} />
+                <Meter label="BET" value={bet} ink={theme.ink} glow={theme.inkGlow} />
+                <Meter label="WIN" value={winShown} ink={theme.ink} glow={theme.inkGlow} />
               </div>
 
               {/* The button deck: worn pale where hands rest. */}
-              <div className="relative mt-2.5 rounded-lg p-2" style={{ background: 'radial-gradient(ellipse at 50% 90%, rgba(255,255,255,.12), transparent 55%), linear-gradient(180deg,#3f3f46,#18181b)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.15), 0 2px 0 #000' }}>
+              <div className="relative mt-2.5 rounded-lg p-2" style={{ background: theme.deck, boxShadow: theme.deckRing }}>
                 {/* An old sticker, peeling at a corner. */}
                 {theme.worn && <span className="absolute -left-1.5 -top-2 grid place-items-center w-9 h-9 rounded-full -rotate-12 text-[7px] font-black leading-[1.05] text-red-800 text-center pointer-events-none" aria-hidden
                   style={{ background: `${SCUFFS}, radial-gradient(circle at 70% 30%, #fef9c3, #facc15 70%)`, boxShadow: '1px 2px 3px rgba(0,0,0,.4)', clipPath: 'polygon(0 0,100% 0,100% 72%,72% 100%,0 100%)' }}>5<br />LINES!</span>}
-                <div className="text-[9px] tracking-[0.25em] text-zinc-400 text-center">BET A LINE</div>
+                <div className={`text-[9px] tracking-[0.25em] text-center ${theme.pearl ? 'text-amber-200/70' : 'text-zinc-400'}`}>BET A LINE</div>
                 <div className="flex flex-wrap justify-center gap-1.5 mt-1">
                   {steps.map((b) => (
                     <button key={b} type="button" onClick={() => { sfx.click(); setLineBet(b) }} aria-pressed={lineBet === b} disabled={spinning}
                       className="min-w-11 h-8 px-2 rounded-md font-mono text-xs font-bold transition-transform active:translate-y-[2px]"
-                      style={lineBet === b
-                        ? { background: 'linear-gradient(180deg,#fde68a,#f59e0b)', color: '#1c1917', boxShadow: '0 1px 0 #92400e, 0 0 10px rgba(251,191,36,.7)', transform: 'translateY(2px)' }
-                        : { background: 'linear-gradient(180deg,#f4f4f5,#a1a1aa)', color: '#27272a', boxShadow: '0 3px 0 #52525b' }}>
+                      style={lineBet === b ? theme.btnOn : theme.btnOff}>
                       {fmt(b)}
                     </button>
                   ))}
@@ -384,11 +415,17 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               </div>
 
               {/* The coin tray, with what's been left in it. */}
-              <div ref={tray} className="relative mt-2.5 mx-5 h-8 rounded-b-2xl rounded-t-md" style={{ background: 'linear-gradient(180deg,#09090b,#3f3f46 62%,#a1a1aa)', boxShadow: 'inset 0 6px 8px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.2)' }}>
+              <div ref={tray} className="relative mt-2.5 mx-5 h-8 rounded-b-2xl rounded-t-md" style={{ background: theme.tray, boxShadow: 'inset 0 6px 8px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.2)' }}>
                 <span className="absolute left-[38%] bottom-1"><Coin size={12} /></span>
                 <span className="absolute left-[46%] bottom-1.5"><Coin size={11} /></span>
                 <span className="absolute left-[58%] bottom-1"><Coin size={12} /></span>
               </div>
+              {/* The glint: light running slowly across the lacquer and the glass. */}
+              {theme.sheen && (
+                <div className="absolute inset-0 overflow-hidden rounded-t-[26px] rounded-b-[14px] pointer-events-none" aria-hidden>
+                  <div className="absolute inset-y-0 left-0 w-1/4 gc-motion" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.11), transparent)', animation: 'gc-glint 8s ease-in-out infinite' }} />
+                </div>
+              )}
             </div>
 
             {/* The lever on the cabinet's side: pull it to spin. */}
@@ -396,10 +433,10 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               className="absolute right-[-6px] top-[150px] w-10 h-[170px] disabled:cursor-not-allowed">
               <span className="absolute left-[15px] bottom-[28px] w-[7px] h-[118px] origin-bottom gc-motion"
                 style={{ transform: pulled ? 'perspective(260px) rotateX(-150deg)' : 'none', transition: pulled ? 'transform .18s ease-in' : 'transform .55s cubic-bezier(.3,1.7,.5,1)' }}>
-                <span className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(90deg,#52525b,#f4f4f5 40%,#a1a1aa 70%,#3f3f46)' }} />
-                <span className="absolute -top-[14px] left-1/2 -translate-x-1/2 w-[26px] h-[26px] rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, #fecaca 0 12%, #ef4444 38%, #991b1b 82%)', boxShadow: '0 3px 5px rgba(0,0,0,.55)' }} />
+                <span className="absolute inset-0 rounded-full" style={{ background: theme.rod }} />
+                <span className="absolute -top-[14px] left-1/2 -translate-x-1/2 w-[26px] h-[26px] rounded-full" style={{ background: theme.knob, boxShadow: theme.pearl ? '0 3px 5px rgba(0,0,0,.55), 0 0 0 2px #e5c158' : '0 3px 5px rgba(0,0,0,.55)' }} />
               </span>
-              <span className="absolute left-0 bottom-[12px] w-[27px] h-[34px] rounded-r-lg" style={{ background: `${SCRATCHES}, linear-gradient(180deg,#e4e4e7,#71717a)`, boxShadow: 'inset 0 1px 0 #fff, 0 2px 4px rgba(0,0,0,.55)' }} />
+              <span className="absolute left-0 bottom-[12px] w-[27px] h-[34px] rounded-r-lg" style={{ background: theme.housing, boxShadow: 'inset 0 1px 0 #fff, 0 2px 4px rgba(0,0,0,.55)' }} />
             </button>
 
             <div className="flex items-baseline justify-between mt-2 px-1 text-white">
