@@ -14,6 +14,11 @@ export const NOISE = svg(
   `<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/>` +
   `<feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`)
 
+/** A much finer, fainter grain: plush, cared-for velvet. */
+export const NOISE_FINE = svg(
+  `<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='1' stitchTiles='stitch'/>` +
+  `<feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`)
+
 /** Wood grain, running along: warm browns. */
 export const WOOD = svg(
   `<filter id='w'><feTurbulence type='fractalNoise' baseFrequency='.005 .16' numOctaves='3' seed='4' stitchTiles='stitch'/>` +
@@ -53,6 +58,27 @@ export const RAIL: CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,235,200,.35), inset 0 -2px 4px rgba(0,0,0,.5), 0 10px 24px rgba(0,0,0,.45)',
 }
 
+/** The main floor's rail, its varnish scuffed by years of elbows. */
+export const RAIL_WORN: CSSProperties = {
+  ...RAIL,
+  backgroundImage: `${SCUFFS}, ${RAIL.backgroundImage}`,
+  backgroundSize: '260px 260px, auto, 420px 160px',
+}
+
+/** The high-limit room's velvet: burgundy, plush and spotless. */
+export const VELVET_RED: CSSProperties = {
+  backgroundColor: '#4a0d1c',
+  backgroundImage: `${NOISE_FINE}, radial-gradient(ellipse at 50% 0%, rgba(255,240,220,.16), transparent 55%), radial-gradient(ellipse at 50% 40%, #8a1c40 0%, #5e1029 52%, #2a0612 100%)`,
+  backgroundBlendMode: 'multiply, screen, normal',
+}
+
+/** The high-limit room's rail: piano-black lacquer, a gold inlay line, a deep gloss. */
+export const RAIL_LUXE: CSSProperties = {
+  backgroundColor: '#0c0a09',
+  backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.05) 20%, transparent 38%, transparent 72%, rgba(255,255,255,.07) 90%, rgba(0,0,0,.4)), linear-gradient(135deg, #2a2522, #0c0a09 55%, #1c1917)',
+  boxShadow: 'inset 0 0 0 1px rgba(243,210,122,.95), inset 0 0 0 3px #0c0a09, inset 0 0 0 4px rgba(243,210,122,.45), 0 12px 28px rgba(0,0,0,.55)',
+}
+
 /** Gold lettering. */
 export const GOLD_TEXT: CSSProperties = {
   backgroundImage: 'linear-gradient(90deg,#fde68a,#f59e0b 25%,#fff7ed 50%,#f59e0b 75%,#fde68a)',
@@ -80,6 +106,7 @@ export const CORNER_CSS = `
 @keyframes gc-turn{0%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
 @keyframes gc-drop{from{transform:translateY(-16px) scale(1.25);opacity:0}to{transform:none;opacity:1}}
 @keyframes gc-bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+@keyframes gc-glint{0%,72%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(420%) skewX(-18deg)}}
 @keyframes gc-pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
 @media (prefers-reduced-motion: reduce){.gc-motion{animation:none!important;transition:none!important}}
 `
@@ -87,6 +114,9 @@ export const CORNER_CSS = `
 // ─────────────────────────────────────────────── chips
 /** A casino chip's colours by value: face, edge stripes, lettering. */
 export function chipColors(v: number): { face: string; stripe: string; ink: string } {
+  if (v >= 50) return { face: '#ca8a04', stripe: '#1c1917', ink: '#1c1917' }
+  if (v >= 25) return { face: '#be185d', stripe: '#fdf2f8', ink: '#fff' }
+  if (v >= 10) return { face: '#ea580c', stripe: '#fff7ed', ink: '#fff' }
   if (v >= 5) return { face: '#6d28d9', stripe: '#fde68a', ink: '#fff' }
   if (v >= 2) return { face: '#18181b', stripe: '#f4f4f5', ink: '#fde68a' }
   if (v >= 1) return { face: '#15803d', stripe: '#f4f4f5', ink: '#fff' }
@@ -118,7 +148,9 @@ export function Chip({ value, label, size = 40, style }: { value: number; label?
   )
 }
 
-const DENOMS = [5, 2, 1, 0.5, 0.25, 0.1]
+const DENOMS = [50, 25, 10, 5, 2, 1, 0.5, 0.25, 0.1]
+/** The chips a table offers, between its smallest bet and its limit. */
+export const chipsFor = (min: number, max: number) => [...DENOMS].reverse().filter((c) => c >= min && c <= max)
 /** A stack of chips making up an amount (up to five shown), the amount on the top one. */
 export function ChipStack({ amount, size = 26, label }: { amount: number; size?: number; label?: string }) {
   const chips: number[] = []

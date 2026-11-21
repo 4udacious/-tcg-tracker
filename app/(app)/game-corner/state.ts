@@ -9,6 +9,7 @@ export type Reel = 'SEVEN' | 'BAR' | 'PIKACHU' | 'BALL' | 'CHERRY' | 'BLANK'
 
 export type SlotMachine = {
   machine: number
+  high: boolean                // one of the high-limit row (v117)
   player: string | null
   avatar: string | null
   mine: boolean
@@ -24,6 +25,7 @@ export type RouletteBet = { kind: BetKind; pick: number | null; amount: number; 
 export type BetKind = 'number' | 'red' | 'black' | 'odd' | 'even' | 'low' | 'high' | 'dozen' | 'column'
 
 export type RouletteState = {
+  wheel: number                // 1 the main wheel, 2 the high-limit one (v117)
   round: number
   betting: boolean
   bets_close_at: string
@@ -55,6 +57,7 @@ export type BjSeat = { seat: number; player: string | null; avatar: string | nul
 
 export type BjTable = {
   table: number
+  high: boolean                  // the high-limit table (v117)
   phase: 'betting' | 'playing' | 'done'
   round: number
   bets_close_at: string | null   // betting: when it deals (null until someone bets)
@@ -68,32 +71,46 @@ export type BjTable = {
 
 export type BlackjackState = { mine: { table: number; seat: number } | null; tables: BjTable[] }
 
+export type Caps = { min: number; slots: number; roulette: number; blackjack: number }
+
 export type CornerState = {
   now: string
   open: boolean
-  caps: { min: number; slots: number; roulette: number; blackjack: number }
+  caps: Caps & { high: Caps }      // the main floor's limits, and the high-limit room's
   balance: number
   slots: SlotMachine[]
   roulette: RouletteState
+  roulette_high: RouletteState | null
   blackjack: BlackjackState
 }
+
+/** A room's limits: the main floor's, or the high-limit room's. */
+export const capsFor = (state: CornerState, high: boolean): Caps => (high ? state.caps.high : state.caps)
+
+const normCaps = (c: Caps): Caps => ({ min: num(c.min), slots: num(c.slots), roulette: num(c.roulette), blackjack: num(c.blackjack) })
+const normRoulette = (r: RouletteState, wheel: number): RouletteState => ({
+  ...r,
+  wheel: r.wheel ?? wheel,
+  bets: (r.bets ?? []).map((b) => ({ ...b, amount: num(b.amount) })),
+  last: r.last ? { ...r.last, stake: num(r.last.stake), payout: num(r.last.payout) } : null,
+  history: r.history ?? [],
+})
 
 /** The state as read, with every amount a number. */
 export function normalize(raw: CornerState): CornerState {
   return {
     ...raw,
-    caps: { min: num(raw.caps.min), slots: num(raw.caps.slots), roulette: num(raw.caps.roulette), blackjack: num(raw.caps.blackjack) },
+    // Before v117 there's no high-limit room: its limits read as the main floor's, and there's no second wheel.
+    caps: { ...normCaps(raw.caps), high: normCaps(raw.caps.high ?? raw.caps) },
     balance: num(raw.balance),
-    slots: (raw.slots ?? []).map((m) => ({ ...m, bet: m.bet == null ? null : num(m.bet), win: m.win == null ? null : num(m.win) })),
-    roulette: {
-      ...raw.roulette,
-      bets: (raw.roulette.bets ?? []).map((b) => ({ ...b, amount: num(b.amount) })),
-      last: raw.roulette.last ? { ...raw.roulette.last, stake: num(raw.roulette.last.stake), payout: num(raw.roulette.last.payout) } : null,
-    },
+    slots: (raw.slots ?? []).map((m) => ({ ...m, high: !!m.high, bet: m.bet == null ? null : num(m.bet), win: m.win == null ? null : num(m.win) })),
+    roulette: normRoulette(raw.roulette, 1),
+    roulette_high: raw.roulette_high ? normRoulette(raw.roulette_high, 2) : null,
     blackjack: {
       mine: raw.blackjack?.mine ?? null,
       tables: (raw.blackjack?.tables ?? []).map((t) => ({
         ...t,
+        high: !!t.high,
         dealer: t.dealer ?? [],
         seats: (t.seats ?? []).map((s) => ({
           ...s,

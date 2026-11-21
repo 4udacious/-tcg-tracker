@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, money } from '../vending/tokens'
-import { refusal, type BjHand, type BjSeat, type BjTable, type CornerState } from './state'
+import { capsFor, refusal, type BjHand, type BjSeat, type BjTable, type CornerState } from './state'
 import { canDouble, canSplit, cardName, handTotal, isRed, RANKS, rankOf, revealAt, SUITS, suitOf, totalLabel } from './blackjack'
-import { centerOf, Chip, ChipStack, NOISE, RAIL, VELVET, useCelebration } from './fx'
+import { centerOf, Chip, ChipStack, chipsFor, GOLD_TEXT, NOISE, RAIL_LUXE, RAIL_WORN, SCUFFS, VELVET, VELVET_RED, useCelebration } from './fx'
 import { sfx } from './sfx'
 
 const WORDS = {
@@ -18,32 +18,40 @@ const SIZES = { sm: { w: 24, h: 34, f: 10, step: 12 }, md: { w: 40, h: 57, f: 13
 type Size = keyof typeof SIZES
 /** How far each seat sits down the felt's curve, left to right. */
 const ARC = [0, 12, 18, 12, 0]
-const CHIPS = [0.1, 0.25, 0.5, 1, 2, 5]
 /** The table's outline: square at the dealer's side, rounding away under the players. */
 const TABLE_SHAPE = '22px 22px 50% 50% / 22px 22px 30% 30%'
 const BACK: CSSProperties = {
   backgroundColor: '#b91c1c',
   backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,.35) 0 18%, transparent 19%), repeating-linear-gradient(45deg, rgba(255,255,255,.2) 0 3px, transparent 3px 7px)',
 }
+/** The high-limit table's deck: black backs, a gold lattice. */
+const BACK_LUXE: CSSProperties = {
+  backgroundColor: '#0c0a09',
+  backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(243,210,122,.75) 0 12%, transparent 13%), repeating-linear-gradient(45deg, rgba(243,210,122,.4) 0 1px, transparent 1px 5px), repeating-linear-gradient(-45deg, rgba(243,210,122,.4) 0 1px, transparent 1px 5px)',
+  borderColor: '#e5c158',
+}
+/** Whether the cards on show are the high-limit table's deck. */
+const LuxeDeck = createContext(false)
 
 /**
  * One playing card, or its back (-1). It flies in from the shoe (`from`: where the shoe is, from where the card
  * lands) as it's dealt, or turns over (`turn`) when it's the dealer's face-down card coming up.
  */
 function Card({ c, size, from, turn }: { c: number; size: Size; from: [number, number]; turn?: boolean }) {
+  const luxe = useContext(LuxeDeck)
   const { w, h, f } = SIZES[size]
   const style = {
     width: w, height: h, ['--fx' as string]: `${from[0]}px`, ['--fy' as string]: `${from[1]}px`,
     animation: turn ? 'gc-turn .32s ease-out both' : 'gc-deal .4s cubic-bezier(.2,.8,.3,1) both',
   }
   if (c < 0) {
-    return <div role="img" aria-label="face-down card" className="rounded-[5px] border-2 border-white shadow-md gc-motion" style={{ ...style, ...BACK }} />
+    return <div role="img" aria-label="face-down card" className="rounded-[5px] border-2 border-white shadow-md gc-motion" style={{ ...style, ...(luxe ? BACK_LUXE : BACK) }} />
   }
   const rank = RANKS[rankOf(c)], suit = SUITS[suitOf(c)], color = isRed(c) ? '#dc2626' : '#18181b'
   const face = rankOf(c) >= 10
   return (
-    <div role="img" aria-label={cardName(c)} className="relative rounded-[5px] border border-zinc-300 shadow-md select-none gc-motion"
-      style={{ ...style, color, background: 'linear-gradient(160deg,#ffffff,#f5f5f4)' }}>
+    <div role="img" aria-label={cardName(c)} className="relative rounded-[5px] border shadow-md select-none gc-motion"
+      style={{ ...style, color, background: luxe ? 'linear-gradient(160deg,#fffefa,#f6f1e4)' : 'linear-gradient(160deg,#ffffff,#f5f5f4)', borderColor: luxe ? '#d9bd6a' : '#d4d4d8' }}>
       <span className="absolute left-[3px] top-[2px] font-bold leading-[0.95] text-center"
         style={{ fontSize: size === 'sm' && rank === '10' ? f - 1.5 : f, letterSpacing: rank === '10' ? '-0.08em' : undefined, marginLeft: size === 'sm' && rank === '10' ? -1.5 : 0 }}>
         {rank}{size !== 'sm' && <><br />{suit}</>}
@@ -154,7 +162,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   const { party, celebrate } = useCelebration()
 
   // The table in view: the one picked, else your own, else the liveliest one with a free seat.
-  const busiest = [...bj.tables].sort((a, b) => b.seats.filter((s) => s.player).length - a.seats.filter((s) => s.player).length)
+  const busiest = [...bj.tables.filter((x) => !x.high)].sort((a, b) => b.seats.filter((s) => s.player).length - a.seats.filter((s) => s.player).length)
     .find((t) => t.seats.some((s) => !s.player)) ?? bj.tables[0]
   const t = bj.tables.find((x) => x.table === (view ?? mine?.table ?? busiest?.table)) ?? bj.tables[0]
 
@@ -164,7 +172,9 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   const mySeat = atThis && mine ? t.seats.find((s) => s.seat === mine.seat) : undefined
   const myHands = mySeat?.hands.filter((h) => h.mine) ?? []
   const inHand = bj.tables.some((x) => x.seats.some((s) => s.hands.some((h) => h.mine && h.result == null)))
-  const chips = CHIPS.filter((c) => c >= state.caps.min && c <= state.caps.blackjack)
+  // The table's room: its limits and its chips (the high-limit table's are bigger).
+  const caps = capsFor(state, !!t?.high)
+  const chips = chipsFor(caps.min, caps.blackjack).slice(-6)
 
   // Once the hand is done the dealer's cards turn over one by one, and the results show after the last.
   const doneAt = t?.done_at ? Date.parse(t.done_at) : 0
@@ -253,40 +263,49 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   const dealtShare = Math.min(1, Math.max(0, (312 - t.shoe_left) / 312))
 
   return (
+    <LuxeDeck.Provider value={!!t.high}>
     <div className="space-y-4">
       {party}
-      <nav aria-label="Tables" className="grid grid-cols-3 gap-1.5">
+      <nav aria-label="Tables" className={`grid gap-1.5 ${bj.tables.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         {bj.tables.map((x) => {
-          const n = x.seats.filter((s) => s.player).length
+          const n = x.seats.filter((s) => s.player).length, on = x.table === t.table
           return (
-            <button key={x.table} type="button" onClick={() => { if (x.table !== t.table) sfx.click(); setView(x.table) }} aria-pressed={x.table === t.table}
-              className={`rounded-xl border px-2 py-1.5 text-left ${x.table === t.table ? 'border-ink bg-ink text-white' : 'border-card-border bg-card'}`}>
-              <span className="block text-sm font-semibold">Table {x.table}{mine?.table === x.table && <span className="ml-1 text-signal" aria-label="(yours)">●</span>}</span>
-              <span className={`block text-[11px] ${x.table === t.table ? 'text-white/70' : 'text-muted'}`}>{n}/5 · {n === 0 ? 'empty' : x.phase === 'betting' ? 'betting' : 'playing'}</span>
+            <button key={x.table} type="button" onClick={() => { if (!on) sfx.click(); setView(x.table) }} aria-pressed={on}
+              className={`relative rounded-xl border px-2 py-1.5 text-left min-w-0 ${on ? (x.high ? 'border-amber-500 text-amber-100' : 'border-ink bg-ink text-white') : x.high ? 'border-amber-500/60 bg-card' : 'border-card-border bg-card'}`}
+              style={on && x.high ? { background: 'linear-gradient(180deg,#3b0a17,#1c0509)' } : undefined}>
+              <span className="block text-sm font-semibold truncate">
+                {x.high ? 'High limit' : `Table ${x.table}`}{mine?.table === x.table && <span className="absolute top-1 right-1.5 text-[10px] text-signal" aria-label="(yours)">●</span>}
+              </span>
+              <span className={`block text-[11px] truncate ${on ? 'opacity-70' : 'text-muted'}`}>{n}/5 · {n === 0 ? 'empty' : x.phase === 'betting' ? 'betting' : 'playing'}</span>
             </button>
           )
         })}
       </nav>
 
-      {/* The table: a padded leather rail, stitched, round green velvet. */}
-      <section aria-label={`Table ${t.table}`} className="relative p-[11px]" style={{
+      {/* The table: a padded leather rail, stitched, round green velvet; at the high-limit table black leather and
+          burgundy velvet. */}
+      <section aria-label={t.high ? 'The high-limit table' : `Table ${t.table}`} className="relative p-[11px]" style={{
         borderRadius: TABLE_SHAPE,
-        backgroundColor: '#2b1a12',
-        backgroundImage: `${NOISE}, radial-gradient(ellipse at 50% 8%, rgba(255,235,205,.25), transparent 45%), linear-gradient(180deg,#5b3a29,#2b1a12)`,
+        backgroundColor: t.high ? '#0c0a09' : '#2b1a12',
+        // The main tables' leather is scuffed and grainy; the high-limit table's is glossy black, without a mark.
+        backgroundImage: t.high
+          ? 'linear-gradient(180deg, rgba(255,255,255,.18), transparent 30%), radial-gradient(ellipse at 50% 8%, rgba(255,255,255,.22), transparent 45%), linear-gradient(180deg,#3f3f46,#0c0a09)'
+          : `${SCUFFS}, ${NOISE}, radial-gradient(ellipse at 50% 8%, rgba(255,235,205,.25), transparent 45%), linear-gradient(180deg,#5b3a29,#2b1a12)`,
         boxShadow: '0 14px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,235,205,.3), inset 0 -3px 6px rgba(0,0,0,.6)',
       }}>
-        <div className="absolute inset-[4px] pointer-events-none" style={{ borderRadius: TABLE_SHAPE, border: '1.5px dashed rgba(255,235,205,.3)' }} aria-hidden />
-        <div className="relative px-3 pt-3 pb-5 text-white overflow-hidden" style={{ ...VELVET, borderRadius: TABLE_SHAPE, boxShadow: 'inset 0 0 0 2px #c9a227, inset 0 0 36px rgba(0,0,0,.6)' }}>
+        <div className="absolute inset-[4px] pointer-events-none" style={{ borderRadius: TABLE_SHAPE, border: `1.5px dashed ${t.high ? 'rgba(243,210,122,.65)' : 'rgba(255,235,205,.3)'}` }} aria-hidden />
+        <div className="relative px-3 pt-3 pb-5 text-white overflow-hidden" style={{ ...(t.high ? VELVET_RED : VELVET), borderRadius: TABLE_SHAPE, boxShadow: 'inset 0 0 0 2px #c9a227, inset 0 0 36px rgba(0,0,0,.6)' }}>
           {/* The discard tray (fuller as the shoe empties) and the shoe. */}
           <div className="absolute left-3 top-3 w-9 h-12 rounded-md p-1 flex items-end" aria-label={`${Math.round(dealtShare * 100)}% of the shoe dealt`} style={{ background: 'rgba(0,0,0,.35)', boxShadow: 'inset 0 0 0 1px rgba(253,230,138,.35)' }}>
-            <div className="w-full rounded-[2px]" style={{ height: `${8 + dealtShare * 80}%`, ...BACK, boxShadow: '0 -1px 0 #fff' }} />
+            <div className="w-full rounded-[2px]" style={{ height: `${8 + dealtShare * 80}%`, ...(t.high ? BACK_LUXE : BACK), boxShadow: `0 -1px 0 ${t.high ? '#e5c158' : '#fff'}` }} />
           </div>
-          <div className="absolute right-3 top-3 w-10 h-12 rounded-md" aria-hidden style={{ background: 'linear-gradient(160deg,#52525b,#18181b)', boxShadow: '0 3px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25)' }}>
-            <div className="absolute left-1.5 right-1 top-1.5 h-6 rounded-sm" style={{ ...BACK, transform: 'skewX(-10deg)', boxShadow: '0 0 0 1px #fff' }} />
+          <div className="absolute right-3 top-3 w-10 h-12 rounded-md" aria-hidden style={{ background: 'linear-gradient(160deg,#52525b,#18181b)', boxShadow: `0 3px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25)${t.high ? ', inset 0 0 0 1px #e5c158' : ''}` }}>
+            <div className="absolute left-1.5 right-1 top-1.5 h-6 rounded-sm" style={{ ...(t.high ? BACK_LUXE : BACK), transform: 'skewX(-10deg)', boxShadow: `0 0 0 1px ${t.high ? '#e5c158' : '#fff'}` }} />
             <div className="absolute inset-x-0 bottom-1 text-center text-[6px] text-white/50 tracking-[0.2em]">SHOE</div>
           </div>
 
           <div className="flex flex-col items-center gap-1 min-h-[92px]">
+            {t.high && <span className="text-[11px] font-black tracking-[0.3em] -mb-1" style={GOLD_TEXT}>★ HIGH LIMIT ★</span>}
             <span className="text-[10px] uppercase tracking-[0.25em] text-white/60">Dealer</span>
             {dealer.length > 0 ? <Fan cards={dealer} size="md" from={[110, -10]} turnAt={t.phase === 'done' ? 1 : undefined} />
               : <div className="h-[57px] w-10 rounded-[5px] border border-dashed border-white/20" aria-hidden />}
@@ -316,12 +335,12 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
       {atThis && mySeat ? (
         <section className="rounded-2xl border border-card-border bg-card p-4 space-y-3">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-display font-semibold">Table {t.table} · seat {mySeat.seat}</h2>
+            <h2 className="font-display font-semibold">{t.high ? 'High limit' : `Table ${t.table}`} · seat {mySeat.seat}</h2>
             <button type="button" onClick={() => { sfx.click(); call('leave', 'game_corner_bj_leave') }} disabled={!!busy} className="text-xs text-muted hover:text-ink underline">Leave table</button>
           </div>
 
           {mineDealt && (
-            <div ref={myBox} className="flex flex-wrap justify-center gap-3 rounded-xl py-2" style={{ ...VELVET, boxShadow: 'inset 0 0 0 1px #c9a227, inset 0 0 20px rgba(0,0,0,.5)' }}>
+            <div ref={myBox} className="flex flex-wrap justify-center gap-3 rounded-xl py-2" style={{ ...(t.high ? VELVET_RED : VELVET), boxShadow: 'inset 0 0 0 1px #c9a227, inset 0 0 20px rgba(0,0,0,.5)' }}>
               {myHands.map((h) => {
                 const active = myTurn && t.turn?.hand === h.hand
                 return (
@@ -342,10 +361,10 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
               <div className="flex items-center justify-center gap-2 min-h-12">
                 {stake > 0 ? <><ChipStack amount={stake} size={30} /><span className="text-sm">Your bet <b className="font-mono">{fmt(stake)}</b></span></> : <span className="text-sm text-muted">Tap chips to make your bet.</span>}
               </div>
-              <div className="flex flex-wrap justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={RAIL} role="group" aria-label="Chips">
+              <div className="flex flex-wrap justify-center gap-1 rounded-xl p-1.5 mx-auto w-fit" style={t.high ? RAIL_LUXE : RAIL_WORN} role="group" aria-label="Chips">
                 {chips.map((c) => (
-                  <button key={c} type="button" aria-label={`Add ${fmt(c)}`} disabled={money(stake + c) > state.caps.blackjack}
-                    onClick={() => { sfx.chip(); setStake((s) => Math.min(state.caps.blackjack, money(s + c))) }}
+                  <button key={c} type="button" aria-label={`Add ${fmt(c)}`} disabled={money(stake + c) > caps.blackjack}
+                    onClick={() => { sfx.chip(); setStake((s) => Math.min(caps.blackjack, money(s + c))) }}
                     className="rounded-full transition-transform hover:-translate-y-1 disabled:opacity-40 disabled:hover:translate-y-0">
                     <Chip value={c} size={40} label={fmt(c)} />
                   </button>
@@ -363,7 +382,7 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
                   </button>
                 )}
               </div>
-              <p className="text-center text-[11px] text-muted">{fmt(state.caps.min)} to {fmt(state.caps.blackjack)} a hand.</p>
+              <p className="text-center text-[11px] text-muted">{fmt(caps.min)} to {fmt(caps.blackjack)} a hand{t.high ? ', at the high-limit table' : ''}.</p>
             </div>
           )}
 
@@ -439,5 +458,6 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
         )}
       </section>
     </div>
+    </LuxeDeck.Provider>
   )
 }

@@ -5,7 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { fmt, num } from '../../vending/tokens'
 
-export type GameCornerSettings = { is_open: boolean; min_bet: number | string; slots_max_bet: number | string; roulette_max_bet: number | string; blackjack_max_bet: number | string }
+export type GameCornerSettings = {
+  is_open: boolean; min_bet: number | string; slots_max_bet: number | string; roulette_max_bet: number | string; blackjack_max_bet: number | string
+  // The high-limit room (v117); missing before it.
+  high_min_bet?: number | string; high_slots_max_bet?: number | string; high_roulette_max_bet?: number | string; high_blackjack_max_bet?: number | string
+}
 
 /**
  * The Game Corner (v115): open or closed, and its bets in tokens. The
@@ -21,6 +25,23 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
   const [roulette, setRoulette] = useState(String(fmt(settings.roulette_max_bet)))
   const [blackjack, setBlackjack] = useState(String(fmt(settings.blackjack_max_bet)))
   const [saving, setSaving] = useState(false)
+  const hasHigh = settings.high_min_bet != null
+  const [hMin, setHMin] = useState(String(fmt(settings.high_min_bet ?? 1)))
+  const [hSlots, setHSlots] = useState(String(fmt(settings.high_slots_max_bet ?? 10)))
+  const [hRoulette, setHRoulette] = useState(String(fmt(settings.high_roulette_max_bet ?? 25)))
+  const [hBlackjack, setHBlackjack] = useState(String(fmt(settings.high_blackjack_max_bet ?? 20)))
+
+  async function saveHigh() {
+    const vals = [hMin, hSlots, hRoulette, hBlackjack].map(num)
+    if (vals.some((v) => !(v > 0))) { toast.show('Every amount needs to be more than 0.'); return }
+    if (vals.slice(1).some((v) => v < vals[0])) { toast.show('No limit can be under the smallest bet.'); return }
+    setSaving(true)
+    const { error } = await createClient().rpc('set_game_corner_high_limits', {
+      p_min_bet: vals[0], p_slots_max: vals[1], p_roulette_max: vals[2], p_blackjack_max: vals[3],
+    })
+    setSaving(false)
+    toast.show(error ? `Couldn't save: ${error.message}` : 'High-limit room saved.')
+  }
 
   async function save(nextOpen = open) {
     const toggled = nextOpen !== open
@@ -66,6 +87,22 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
       <button type="button" onClick={() => save()} disabled={saving} className="h-10 px-4 rounded-lg bg-ink text-white text-sm font-medium disabled:opacity-50">
         {saving ? 'Saving…' : 'Save'}
       </button>
+
+      {hasHigh && (
+        <div className="space-y-4 border-t border-card-border pt-4">
+          <div>
+            <h3 className="font-display font-semibold">High-limit room</h3>
+            <p className="text-xs text-muted">Four slot machines (9 to 12), a second roulette wheel and a fourth blackjack table: the same games and odds, with their own smallest bet and limits.</p>
+          </div>
+          {field('Smallest bet', hMin, setHMin, 'On any high-limit game. A slot spin needs it in whole cents across five lines (a multiple of 0.05).')}
+          {field('Slots: most per spin', hSlots, setHSlots, 'One spin of a high-limit machine.')}
+          {field('Roulette: most per spin', hRoulette, setHRoulette, "A member's bets on one spin of the high-limit wheel, all together.")}
+          {field('Blackjack: most per hand', hBlackjack, setHBlackjack, 'The bet on one hand at the high-limit table. Doubling down or splitting can add as much again.')}
+          <button type="button" onClick={saveHigh} disabled={saving} className="h-10 px-4 rounded-lg bg-ink text-white text-sm font-medium disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save high-limit room'}
+          </button>
+        </div>
+      )}
     </section>
   )
 }
