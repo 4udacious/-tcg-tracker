@@ -19,6 +19,7 @@ const PAYS: [Reel[], string, number][] = [
 /** One reel's face. */
 export function Face({ r, size = 40 }: { r: Reel; size?: number }) {
   const s = { width: size, height: size }
+  // eslint-disable-next-line @next/next/no-img-element
   if (r === 'PIKACHU') return <img src="/rpg/a/25.gif" alt="Pikachu" style={{ ...s, imageRendering: 'pixelated', objectFit: 'contain' }} />
   return (
     <svg viewBox="0 0 40 40" style={s} role="img" aria-label={r === 'BLANK' ? 'blank' : r.toLowerCase()}>
@@ -148,6 +149,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               </div>
               {m.player ? (
                 <div className="flex items-center gap-1.5 text-xs truncate">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {m.avatar ? <img src={m.avatar} alt="" className="w-4 h-4 rounded-full" /> : <span className="w-4 h-4 rounded-full bg-card-border" />}
                   <span className="truncate">{m.mine ? 'You' : m.player}</span>
                 </div>

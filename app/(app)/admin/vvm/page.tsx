@@ -7,6 +7,7 @@ import { isRematch } from './supplies'
 import VvmBoxesClient, { type BoxRow } from './VvmBoxesClient'
 import BattlesLiveClient from './BattlesLiveClient'
 import RestockTimeClient from './RestockTimeClient'
+import GameCornerSettingsClient, { type GameCornerSettings } from './GameCornerSettingsClient'
 import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
 import CrashReportsClient, { type CrashRow } from './CrashReportsClient'
 import MoveUsage, { type MoveRow } from './MoveUsage'
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'supplies', label: 'Supplies' },
   { id: 'rematches', label: 'Rematches' },
   { id: 'game', label: 'Game settings' },
+  { id: 'corner', label: 'Game Corner' },
   { id: 'gifts', label: 'Gifts' },
   { id: 'crashes', label: 'Crash reports' },
   { id: 'moves', label: 'Moves' },
@@ -34,7 +36,7 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes, moves] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes, moves, corner] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
@@ -67,6 +69,8 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
       .limit(20),
     // Move usage over the last 30 days (v99), only on the Moves tab; an error (before v99) hides it.
     tab === 'moves' ? supabase.rpc('move_usage_summary', { p_days: 30 }) : Promise.resolve({ data: null, error: null }),
+    // The Game Corner's settings (v115), only on its tab; an error (before v115) hides it.
+    tab === 'corner' ? supabase.from('game_corner_settings').select('*').single() : Promise.resolve({ data: null, error: null }),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -152,6 +156,9 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
           poolDays={(settings as { wild_pool_days?: number | null } | null)?.wild_pool_days ?? null}
         />
       )}
+      {tab === 'corner' && (corner.data
+        ? <GameCornerSettingsClient settings={corner.data as GameCornerSettings} />
+        : <p className="text-sm text-muted">The Game Corner isn’t set up yet (migration v115).</p>)}
       {tab === 'gifts' && !gifts.error && (
         <GiftPokemonClient
           members={((members as GiftMember[] | null) ?? []).map((m) => ({ user_id: m.user_id, username: m.username, display_name: m.display_name }))}
