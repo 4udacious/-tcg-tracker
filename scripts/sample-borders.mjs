@@ -44,7 +44,7 @@ async function sampleEdges(f) {
 
 const entries = []
 for (const f of readdirSync(DIR).filter((x) => x.endsWith('.webp'))) {
-  if (f.startsWith('op')) { edges.push([`/cards/${f}`, await sampleEdges(f)]); continue }
+  if (/^(op|eb)\d/.test(f)) { edges.push([`/cards/${f}`, await sampleEdges(f)]); continue }
   const { data, info } = await sharp(`${DIR}/${f}`)
     .removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const { width: W, height: H, channels: C } = info

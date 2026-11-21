@@ -1,6 +1,7 @@
 /*
  * The card games the machine sells: Pokémon, and the One Piece Card Game (v96).
- * A set's game follows from its code (One Piece sets are op01, op02, ...), so
+ * A set's game follows from its code (One Piece sets are op01, op02, ..., and
+ * the Extra Boosters eb01, eb02, ...), so
  * nothing else needs to carry it. A plain module, not a client one, so server
  * pages and client components can both call it.
  *
@@ -17,10 +18,10 @@ export const GAMES: { id: Game; label: string }[] = [
   { id: 'op', label: 'One Piece' },
 ]
 
-/** A set's game, from its code; a card's from its set code or image path (/cards/op01-001.webp). */
+/** A set's game, from its code; a card's from its set code or image path (/cards/op01-001.webp, /cards/eb01-001.webp). */
 export function gameOf(setCodeOrImage: string | null | undefined): Game {
   const s = setCodeOrImage ?? ''
-  return /^op\d/i.test(s) || /\/cards\/op\d/i.test(s) ? 'op' : 'pkm'
+  return /^(op|eb)\d/i.test(s) || /\/cards\/(op|eb)\d/i.test(s) ? 'op' : 'pkm'
 }
 
 const NAMES: Record<Game, Record<string, string>> = {
