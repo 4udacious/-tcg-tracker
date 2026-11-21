@@ -34,6 +34,40 @@ export type RouletteState = {
   history: number[]
 }
 
+/**
+ * A blackjack hand (v116). Cards are 0-51: rank c % 13 (0 ace, 1-8 two to nine, 9-12 ten to king), suit c / 13
+ * (spades, hearts, diamonds, clubs); -1 is the dealer's face-down card.
+ */
+export type BjHand = {
+  hand: 1 | 2                 // 2: the second hand of a split
+  player: string
+  mine: boolean
+  cards: number[]
+  bet: number                 // doubled, once doubled
+  doubled: boolean
+  split: boolean
+  status: 'betting' | 'playing' | 'stood' | 'bust' | 'blackjack'
+  result: 'blackjack' | 'win' | 'push' | 'lose' | null   // once paid
+  payout: number | null
+}
+
+export type BjSeat = { seat: number; player: string | null; avatar: string | null; mine: boolean; hands: BjHand[] }
+
+export type BjTable = {
+  table: number
+  phase: 'betting' | 'playing' | 'done'
+  round: number
+  bets_close_at: string | null   // betting: when it deals (null until someone bets)
+  turn: { seat: number; hand: number; ends_at: string } | null
+  dealer: number[]
+  done_at: string | null         // done: when the dealer played
+  next_at: string | null         // done: when the next hand's bets open
+  shoe_left: number
+  seats: BjSeat[]
+}
+
+export type BlackjackState = { mine: { table: number; seat: number } | null; tables: BjTable[] }
+
 export type CornerState = {
   now: string
   open: boolean
@@ -41,6 +75,7 @@ export type CornerState = {
   balance: number
   slots: SlotMachine[]
   roulette: RouletteState
+  blackjack: BlackjackState
 }
 
 /** The state as read, with every amount a number. */
@@ -55,6 +90,17 @@ export function normalize(raw: CornerState): CornerState {
       bets: (raw.roulette.bets ?? []).map((b) => ({ ...b, amount: num(b.amount) })),
       last: raw.roulette.last ? { ...raw.roulette.last, stake: num(raw.roulette.last.stake), payout: num(raw.roulette.last.payout) } : null,
     },
+    blackjack: {
+      mine: raw.blackjack?.mine ?? null,
+      tables: (raw.blackjack?.tables ?? []).map((t) => ({
+        ...t,
+        dealer: t.dealer ?? [],
+        seats: (t.seats ?? []).map((s) => ({
+          ...s,
+          hands: (s.hands ?? []).map((h) => ({ ...h, cards: h.cards ?? [], bet: num(h.bet), payout: h.payout == null ? null : num(h.payout) })),
+        })),
+      })),
+    },
   }
 }
 
@@ -68,13 +114,21 @@ const REFUSALS: Record<string, string> = {
   seat_taken: 'Someone is playing that machine.',
   bets_closed: 'No more bets: the wheel is spinning.',
   bad_bet: 'That bet isn’t on the board.',
+  already_bet: 'You’ve already bet on this hand.',
+  in_hand: 'Finish the hand you’re in first.',
+  not_your_turn: 'It isn’t your turn.',
+  cant_double: 'You can double down only on your first two cards.',
+  cant_split: 'You can split only a pair, once.',
+  no_such_seat: 'That seat isn’t there.',
 }
 
-/** What a refused call means, in words. */
-export function refusal(error: { message?: string } | null | undefined): string {
-  const m = error?.message ?? ''
-  const code = Object.keys(REFUSALS).find((k) => m.includes(k))
-  return code ? REFUSALS[code] : 'That didn’t go through. Try again.'
+/** What a refused call means, in words; `words` replaces the wording for a game. */
+export function refusal(error: { message?: string } | null | undefined, words: Record<string, string> = {}): string {
+  const m = (error?.message ?? '').trim()
+  const all = { ...REFUSALS, ...words }
+  // The code is the whole message; failing that, the longest code inside it ('bets_closed' before 'closed').
+  const code = all[m] ? m : Object.keys(all).sort((a, b) => b.length - a.length).find((k) => m.includes(k))
+  return code ? all[code] : 'That didn’t go through. Try again.'
 }
 
 /** Single-zero wheel: the red numbers, and the pockets in order round the wheel. */

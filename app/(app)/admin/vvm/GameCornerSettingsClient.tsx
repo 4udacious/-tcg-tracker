@@ -51,7 +51,7 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="font-display font-semibold">Game Corner</h2>
-          <p className="text-xs text-muted">Slots and roulette at real casino odds (slots return 95%, roulette single-zero). Bets in tokens.</p>
+          <p className="text-xs text-muted">Slots, blackjack and roulette at real casino odds (slots return 95%, roulette single-zero, blackjack 3 to 2 with the dealer standing on 17). Bets in tokens.</p>
           <p className="text-xs text-muted mt-1">{open ? 'Open: members see it on the VVM page and can play.' : 'Closed: hidden from members. Admins still see it, and can play to try it out.'}</p>
         </div>
         <button type="button" onClick={() => save(!open)} disabled={saving}
@@ -62,7 +62,7 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
       {field('Smallest bet', min, setMin, 'On any game.')}
       {field('Slots: most per spin', slots, setSlots, 'One spin of one machine.')}
       {field('Roulette: most per spin', roulette, setRoulette, "A member's bets on one spin, all together.")}
-      {field('Blackjack: most per hand', blackjack, setBlackjack, 'For the blackjack tables, when they open.')}
+      {field('Blackjack: most per hand', blackjack, setBlackjack, 'The bet on one hand. Doubling down or splitting can add as much again.')}
       <button type="button" onClick={() => save()} disabled={saving} className="h-10 px-4 rounded-lg bg-ink text-white text-sm font-medium disabled:opacity-50">
         {saving ? 'Saving…' : 'Save'}
       </button>
