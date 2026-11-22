@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { fmt, num } from '../../vending/tokens'
@@ -9,13 +9,16 @@ export type GameCornerSettings = {
   is_open: boolean; min_bet: number | string; slots_max_bet: number | string; roulette_max_bet: number | string; blackjack_max_bet: number | string
   // The high-limit room (v117); missing before it.
   high_min_bet?: number | string; high_slots_max_bet?: number | string; high_roulette_max_bet?: number | string; high_blackjack_max_bet?: number | string
+  // The background sound's house levels, percent (v119); missing before it.
+  music_level?: number; ambience_level?: number
 }
 
 /**
  * The Game Corner (v115): open or closed, and its bets in tokens. The
  * smallest bet anywhere, the most on one slot spin, and the most a member can
  * have on one roulette spin, all bets together (set_game_corner_settings).
- * Blackjack's is for its tables (part 2).
+ * Blackjack's is for its tables (v116). The high-limit room's own limits
+ * (v117), and the background sound's levels (v119).
  */
 export default function GameCornerSettingsClient({ settings }: { settings: GameCornerSettings }) {
   const toast = useToast()
@@ -30,6 +33,25 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
   const [hSlots, setHSlots] = useState(String(fmt(settings.high_slots_max_bet ?? 10)))
   const [hRoulette, setHRoulette] = useState(String(fmt(settings.high_roulette_max_bet ?? 25)))
   const [hBlackjack, setHBlackjack] = useState(String(fmt(settings.high_blackjack_max_bet ?? 20)))
+
+  // The sound levels save themselves half a second after you stop moving a dial; anyone in the Game Corner hears the
+  // change within a second of that.
+  const hasSound = settings.music_level != null
+  const [musicLevel, setMusicLevel] = useState(settings.music_level ?? 100)
+  const [ambienceLevel, setAmbienceLevel] = useState(settings.ambience_level ?? 100)
+  const [soundNote, setSoundNote] = useState<string | null>(null)
+  const soundTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) { first.current = false; return }
+    if (soundTimer.current) clearTimeout(soundTimer.current)
+    setSoundNote('…')
+    soundTimer.current = setTimeout(async () => {
+      const { error } = await createClient().rpc('set_game_corner_sound', { p_music: musicLevel, p_ambience: ambienceLevel })
+      setSoundNote(error ? `Couldn't save: ${error.message}` : 'Saved')
+    }, 500)
+    return () => { if (soundTimer.current) clearTimeout(soundTimer.current) }
+  }, [musicLevel, ambienceLevel])
 
   async function saveHigh() {
     const vals = [hMin, hSlots, hRoulette, hBlackjack].map(num)
@@ -101,6 +123,28 @@ export default function GameCornerSettingsClient({ settings }: { settings: GameC
           <button type="button" onClick={saveHigh} disabled={saving} className="h-10 px-4 rounded-lg bg-ink text-white text-sm font-medium disabled:opacity-50">
             {saving ? 'Saving…' : 'Save high-limit room'}
           </button>
+        </div>
+      )}
+
+      {hasSound && (
+        <div className="space-y-4 border-t border-card-border pt-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="font-display font-semibold">Sound</h3>
+            <span className="text-xs text-muted" aria-live="polite">{soundNote}</span>
+          </div>
+          <p className="text-xs text-muted -mt-3">How loud the background is for everyone in the Game Corner: 100% is the level it plays at now. Players can still switch either off for themselves.</p>
+          {([['Music', 'The theme over the PA.', musicLevel, setMusicLevel], ['Casino ambience', 'The slots floor and the crowd.', ambienceLevel, setAmbienceLevel]] as const).map(([label, hint, value, set]) => (
+            <label key={label} className="block">
+              <span className="flex items-baseline justify-between">
+                <span className="text-sm font-medium">{label}</span>
+                <span className="font-mono text-sm tabular-nums">{value}%</span>
+              </span>
+              <span className="block text-xs text-muted">{hint}</span>
+              <input type="range" min={0} max={200} step={5} value={value} onChange={(e) => set(Number(e.target.value))}
+                aria-label={`${label} level`} className="mt-2 w-full accent-[var(--signal)]" />
+              <span className="flex justify-between text-[10px] text-muted"><span>Off</span><span>100%</span><span>200%</span></span>
+            </label>
+          ))}
         </div>
       )}
     </section>

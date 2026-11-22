@@ -35,6 +35,14 @@ export function setAmbienceOn(v: boolean) {
 }
 
 let gain: GainNode | null = null
+let trim: GainNode | null = null
+let level = 1
+
+/** The house level for the casino floor (Admin -> VVM -> Game Corner): 1 as set here, 0 silent, 2 twice as loud. */
+export function setAmbienceLevel(x: number) {
+  level = Math.max(0, Math.min(2, x))
+  if (trim) trim.gain.setTargetAtTime(level, trim.context.currentTime, 0.1)
+}
 let src: AudioBufferSourceNode | null = null
 let buf: Promise<AudioBuffer | null> | null = null
 let starting = false
@@ -58,7 +66,8 @@ async function start() {
   const b = await floor(c).catch(() => null)
   starting = false
   if (!b || src || !on || !running()) return
-  gain ??= (() => { const g = c.createGain(); g.gain.value = 0.0001; g.connect(c.destination); return g })()
+  trim ??= (() => { const g = c.createGain(); g.gain.value = level; g.connect(c.destination); return g })()
+  gain ??= (() => { const g = c.createGain(); g.gain.value = 0.0001; g.connect(trim!); return g })()
   // A decoder that keeps AAC's priming puts everything 1024 samples late: the loop points move with it.
   const loop = FLOOR.frames / FLOOR.rate, lead = b.duration - (FLOOR.frames + 2 * FLOOR.rate) / FLOOR.rate >= 1020 / FLOOR.rate ? 1024 / FLOOR.rate : 0
   const s = c.createBufferSource()

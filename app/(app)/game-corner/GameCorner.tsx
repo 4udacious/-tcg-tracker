@@ -9,8 +9,8 @@ import Slots from './Slots'
 import Blackjack from './Blackjack'
 import Roulette from './Roulette'
 import { CORNER_CSS } from './fx'
-import { isMusicOn, isMuted, onMusic, onMuted, setHidden, setMusicOn, setMuted, sfx, unlock, wantSound } from './sfx'
-import { isAmbienceOn, onAmbience, setAmbienceOn } from './ambience'
+import { isMusicOn, isMuted, onMusic, onMuted, setHidden, setMusicLevel, setMusicOn, setMuted, sfx, unlock, wantSound } from './sfx'
+import { isAmbienceOn, onAmbience, setAmbienceLevel, setAmbienceOn } from './ambience'
 
 type Game = 'slots' | 'blackjack' | 'roulette'
 const GAMES: [Game, string][] = [['slots', 'Slots'], ['blackjack', 'Blackjack'], ['roulette', 'Roulette']]
@@ -79,6 +79,9 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
     ['Casino ambience', 'The slots and the crowd', ambience, () => setAmbienceOn(!ambience)],
   ]
   const silent = muted && !music && !ambience
+  // The house levels an admin sets (Admin -> VVM -> Game Corner), followed as they change.
+  useEffect(() => { if (state) setMusicLevel(state.sound.music / 100) }, [state?.sound.music]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (state) setAmbienceLevel(state.sound.ambience / 100) }, [state?.sound.ambience]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // While a game is still showing how it came out (the reels spinning, the ball rolling, the dealer's cards turning),
   // the token count shows what it was before: the server has paid any win already, and the count shouldn't give it away.

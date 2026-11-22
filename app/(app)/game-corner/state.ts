@@ -77,6 +77,7 @@ export type CornerState = {
   now: string
   open: boolean
   caps: Caps & { high: Caps }      // the main floor's limits, and the high-limit room's
+  sound: { music: number; ambience: number }   // the house levels, percent (v119; 100 before it)
   balance: number
   slots: SlotMachine[]
   roulette: RouletteState
@@ -102,6 +103,7 @@ export function normalize(raw: CornerState): CornerState {
     ...raw,
     // Before v117 there's no high-limit room: its limits read as the main floor's, and there's no second wheel.
     caps: { ...normCaps(raw.caps), high: normCaps(raw.caps.high ?? raw.caps) },
+    sound: { music: num(raw.sound?.music ?? 100), ambience: num(raw.sound?.ambience ?? 100) },
     balance: num(raw.balance),
     slots: (raw.slots ?? []).map((m) => ({ ...m, high: !!m.high, bet: m.bet == null ? null : num(m.bet), win: m.win == null ? null : num(m.win) })),
     roulette: normRoulette(raw.roulette, 1),
