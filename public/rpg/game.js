@@ -2060,6 +2060,66 @@ SONGS.rematchIntro = { file: null, loop: true, bpm: 120, div: 4, chordLen: 16, v
     drums: 'P..h..h.S..h..h.'.repeat(6) + 'P..h..h.S..h..hh' + 'P..T..T.TTttSSSS' }] }
 
 /*
+ * The Game Corner's background music (played on the Game Corner page from its rendered file, not in the battle
+ * game). An original tune in the manner of the old handheld game corners: bright, bouncy and a little cheeky, E-flat
+ * major at 144 bpm with a light shuffle, sixteen steps a bar.
+ *   - A slot-machine flourish to start: a glockenspiel run up E-flat major and a B-flat 7 to land on.
+ *   - The tune, twice: a chirpy square lead with glockenspiel on top, the clavinet ticking chords on the off-beats,
+ *     an organ under it all and a walking bass (I-vi-ii-V, then IV and a secondary dominant). The second time ends
+ *     at home.
+ *   - A moodier middle in C minor: a saxophone in long notes over a rolling piano figure and strings, half-time
+ *     drums, a piano flourish into...
+ *   - ...a shout chorus in A-flat: brass in syncopated hits over the 3-3-2 bass, horn stabs and sixteenth hats,
+ *     turning on B-flat 7 back to the top.
+ * 3 s of flourish, then a 53 s loop.
+ */
+const GC_TUNE = bars(
+  '- - Bb4 . Eb5 . G5 . - - Bb5 . . . G5 .', 'C6 . . . Bb5 . G5 . - - Eb5 . F5 . G5 .',
+  'Ab5 . . . G5 . F5 . - - C5 . Eb5 . F5 .', 'G5 . . . . . . . F5 . D5 . Bb4 . . .',
+  '- - Bb4 . Eb5 . G5 . - Bb5 . . D6 . C6 .', 'Bb5 . Ab5 . . . F5 . Ab5 . . . C6 . Eb6 .')
+const GC_CLAV = '..x...x...x..x..'
+SONGS.gameCorner = { file: null, loop: true, bpm: 144, div: 4, chordLen: 16, swing: 0.16, vol: 0.85,
+  leadInst: 'synth', leadVel: 0.75, doubles: [['glock', 1, 0.22]], harmInst: 'epiano', padInst: 'organ',
+  comp: false, glock: false, hats16: false, crash: false, fill: '', clav: GC_CLAV,
+  intro: { chords: ['Eb', 'Bb7'], leadInst: 'glock', leadVel: 0.9, doubles: [['synth', 0, 0.35]], clav: null, crash: true,
+    lead: bars('Eb5 G5 Bb5 Eb6 G5 Bb5 Eb6 G6 Bb5 Eb6 G6 Bb6 G6 . . .', 'F6 . . . D6 . . . Bb5! - Bb5! - - - - -'),
+    bass: bars('Eb2 . . . . . . . Eb2 . . . . . . .', 'Bb1 . . . . . . . Bb1 - Bb1 - - - - -'),
+    drums: 'K...h.h.S...h.h.' + 'K...K...TTttSSSS' },
+  sections: [
+    { // The tune
+      chords: 'Ebmaj7 Cm7 Fm7 Bb7 Ebmaj7 Ab F7 Bb7'.split(' '),
+      lead: [...GC_TUNE, ...bars('D6 . . . C6 . A5 . . . F5 . A5 . C6 .', 'Bb5 . . . . . - - Ab5 . G5 . F5 . D5 .')],
+      bass: bars(walk('Eb2', 'G2', 'Bb2', 'B2'), walk('C2', 'D2', 'Eb2', 'E2'), walk('F2', 'G2', 'Ab2', 'A2'), walk('Bb1', 'D2', 'F2', 'D2'),
+        walk('Eb2', 'G2', 'Bb2', 'G2'), walk('Ab1', 'C2', 'Eb2', 'E2'), walk('F2', 'A2', 'C3', 'A2'), walk('Bb1', 'C2', 'D2', 'Bb1')),
+      drums: 'K.h.S.hKK.h.S.h.'.repeat(7) + 'K.h.S.h.K.hgSSgg' },
+    { // The tune again, brass under it, coming home to E-flat
+      chords: 'Ebmaj7 Cm7 Fm7 Bb7 Ebmaj7 Ab Bb7 Eb'.split(' '), doubles: [['glock', 1, 0.22], ['brass', -1, 0.28]],
+      lead: [...GC_TUNE, ...bars('D6 . . . Bb5 . F5 . Ab5 . . . G5 . F5 .', 'Eb5 . . . . . . . - - G5! - Bb5! - Eb6! -')],
+      bass: bars(walk('Eb2', 'G2', 'Bb2', 'B2'), walk('C2', 'D2', 'Eb2', 'E2'), walk('F2', 'G2', 'Ab2', 'A2'), walk('Bb1', 'D2', 'F2', 'D2'),
+        walk('Eb2', 'G2', 'Bb2', 'G2'), walk('Ab1', 'C2', 'Eb2', 'E2'), walk('Bb1', 'D2', 'F2', 'Ab2'), 'Eb2 . . . Bb1 . . . G1 . . . G1 . . .'),
+      drums: 'K.h.S.hKK.h.S.h.'.repeat(7) + 'K.h.S.h.TTttSSSS' },
+    { // The middle: C minor, a saxophone over a rolling piano, half time
+      chords: 'Cm Ab Fm G7 Cm Ab D7 G7'.split(' '), leadInst: 'sax', leadVel: 0.8, doubles: [], harmInst: 'strings', padInst: 'strings', clav: null,
+      ostinato: '0 2 1 2 3 2 1 2'.split(' '), ostinatoOct: -1, runs: '.......f',
+      lead: bars('Eb5 . . . . . G5 . . . . . C6 . . .', 'Bb5 . . . . . . . Ab5 . . . Eb5 . . .',
+        'F5 . . . . . Ab5 . . . . . C6 . . .', 'B5 . . . . . . . D6 . . . F6 . . .',
+        'Eb6 . . . . . D6 . . . . . C6 . . .', 'Ab5 . . . C6 . . . Eb6 . . . . . . .',
+        'D6 . . . C6 . . . A5 . . . F#5 . . .', 'G5~ . . . . . . . . . . . - - - -'),
+      bass: bars('C2 . . . . . . . G1 . . . . . . .', 'Ab1 . . . . . . . Eb2 . . . . . . .', 'F1 . . . . . . . C2 . . . . . . .', 'G1 . . . . . . . D2 . . . . . . .',
+        'C2 . . . . . . . G1 . . . . . . .', 'Ab1 . . . . . . . Eb2 . . . . . . .', 'D2 . . . . . . . F#1 . . . . . . .', 'G1 . . . . . . . G1 . . . B1 . D2 .'),
+      drums: 'K.h.h.h.S.h.h.h.'.repeat(7) + 'K.h.h.h.S.h.TTtt' },
+    { // The shout chorus: A-flat, brass hits over the 3-3-2, turning on B-flat 7 for the top
+      chords: 'Abmaj7 Bb7 Gm7 Cm7 Fm7 Bb7 Eb Bb7'.split(' '), leadInst: 'brass', leadVel: 0.85, doubles: [['synth', 1, 0.18]],
+      clav: null, stabs: 'x.....x.....x...', hats16: true, crash: true,
+      lead: bars('C6! - C6! - - Eb6 . . C6 . Ab5 . G5 . Ab5 .', 'Bb5 . . . . . - - D6! - D6! - F6 . . .',
+        'G6 . F6 . D6 . Bb5 . - - G5 . Bb5 . D6 .', 'Eb6~ . . . . . . . D6 . C6 . Bb5 . G5 .',
+        'Ab5! - Ab5! - - C6 . . F6 . Eb6 . C6 . Ab5 .', 'Bb5 . . . D6 . . . F6 . . . Ab6 . . .',
+        'G6 . . . F6 . Eb6 . Bb5 . G5 . Bb5 . Eb6 .', 'D6v . . . . . . . - - - - - - - -'),
+      bass: bars(drive('Ab1'), drive('Bb1'), drive('G1'), drive('C2'), drive('F1'), drive('Bb1'), drive('Eb2'), 'Bb1 . . . . . . . Bb1 . D2 . F2 . Ab2 .'),
+      drums: 'K.hKS.hKK.hKS.h.'.repeat(7) + 'K.hKS.hgTTttSSSS' },
+  ] }
+
+/*
  * The Elite Four battle, second version (the first is SONGS.eliteClassic).
  * Where the gym theme drives, this one looms. It's the only battle theme not
  * in straight 4/4: a galloping 12/8 (three steps a beat, div 3), in G minor.

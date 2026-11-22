@@ -9,7 +9,7 @@ import Slots from './Slots'
 import Blackjack from './Blackjack'
 import Roulette from './Roulette'
 import { CORNER_CSS } from './fx'
-import { isMuted, onMuted, setMuted, sfx, unlock } from './sfx'
+import { isMusicOn, isMuted, onMusic, onMuted, setHidden, setMusicOn, setMuted, sfx, unlock, wantMusic } from './sfx'
 
 type Game = 'slots' | 'blackjack' | 'roulette'
 const GAMES: [Game, string][] = [['slots', 'Slots'], ['blackjack', 'Blackjack'], ['roulette', 'Roulette']]
@@ -60,6 +60,16 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
   // Sound: off or on is remembered on this device; any tap wakes the audio (browsers allow it only then).
   const [muted, setMutedState] = useState(false)
   useEffect(() => { setMutedState(isMuted()); return onMuted(setMutedState) }, [])
+  // The music: on while the Game Corner is on screen (from the first tap), paused while the page is out of sight.
+  const [music, setMusicState] = useState(true)
+  useEffect(() => {
+    setMusicState(isMusicOn())
+    const off = onMusic(setMusicState)
+    wantMusic(true)
+    const vis = () => setHidden(document.visibilityState !== 'visible')
+    document.addEventListener('visibilitychange', vis)
+    return () => { off(); wantMusic(false); document.removeEventListener('visibilitychange', vis) }
+  }, [])
 
   return (
     <div className="space-y-4" onPointerDown={unlock}>
@@ -69,7 +79,17 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
           <h1 className="font-display text-xl font-bold">Game Corner</h1>
           <p className="text-xs text-muted">Slots, blackjack and roulette, for tokens. Real casino odds: over time, the house wins.</p>
         </div>
-        <div className="flex items-end gap-3 shrink-0">
+        <div className="flex items-end gap-2 shrink-0">
+          <button type="button" onClick={() => { unlock(); setMusicOn(!music) }}
+            aria-pressed={music} aria-label={music ? 'Music on. Turn it off' : 'Music off. Turn it on'}
+            className="grid place-items-center w-9 h-9 rounded-full border border-card-border bg-card text-muted hover:text-ink">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M9 18V5l11-2v13" />
+              <circle cx="6.5" cy="18" r="2.5" fill="currentColor" stroke="none" />
+              <circle cx="17.5" cy="16" r="2.5" fill="currentColor" stroke="none" />
+              {!music && <path d="M3 3l18 18" />}
+            </svg>
+          </button>
           <button type="button" onClick={() => { unlock(); setMuted(!muted); if (muted) setTimeout(() => sfx.chip(), 30) }}
             aria-pressed={!muted} aria-label={muted ? 'Sound off. Turn it on' : 'Sound on. Turn it off'}
             className="grid place-items-center w-9 h-9 rounded-full border border-card-border bg-card text-muted hover:text-ink">
@@ -78,7 +98,7 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
               {muted ? <path d="M17 9l5 6M22 9l-5 6" /> : <><path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" /></>}
             </svg>
           </button>
-          <div className="text-right">
+          <div className="text-right pl-1">
             <div className="font-mono text-lg font-semibold tabular-nums">{state ? fmt(state.balance) : '…'}</div>
             <div className="text-[10px] uppercase tracking-wide text-muted">tokens</div>
           </div>

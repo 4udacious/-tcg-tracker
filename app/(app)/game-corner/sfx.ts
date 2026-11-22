@@ -2,6 +2,10 @@
  * The Game Corner's sounds, made on the spot with Web Audio: no sound files to fetch or cache. Browsers only let a
  * page make sound after a tap, so nothing plays until unlock() has run on one (the Game Corner calls it on every
  * tap). Off and on is remembered on this device (localStorage, 'gc-sound').
+ *
+ * And its music: SONGS.gameCorner, written in the battle game's music engine (public/rpg/game.js) and rendered with
+ * the others (npm run music:render) to a file listed in public/rpg/music.json, played here as one looping buffer.
+ * It has its own switch ('gc-music'), so the music can be off with the sounds on, or the other way round.
  */
 
 type Listener = (muted: boolean) => void
@@ -12,13 +16,15 @@ let ctx: Ctx | null = null
 let master: GainNode | null = null
 let noiseBuf: AudioBuffer | null = null
 let muted = false
+let musicOn = true
 let loaded = false
 const listeners = new Set<Listener>()
+const musicListeners = new Set<Listener>()
 
 function load() {
   if (loaded) return
   loaded = true
-  try { muted = localStorage.getItem('gc-sound') === 'off' } catch { /* private mode: sound on */ }
+  try { muted = localStorage.getItem('gc-sound') === 'off'; musicOn = localStorage.getItem('gc-music') !== 'off' } catch { /* private mode: both on */ }
 }
 
 export function isMuted() { load(); return muted }
@@ -48,7 +54,93 @@ export function unlock() {
     master.gain.value = muted ? 0 : VOLUME
     master.connect(limit).connect(ctx.destination)
   }
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+  if (ctx.state === 'suspended' && !hidden) ctx.resume().then(startMusic, () => {})
+  else startMusic()
+}
+
+let hidden = false
+/** The page out of sight (another tab, the phone locked): everything pauses, and picks up again on return. */
+export function setHidden(h: boolean) {
+  hidden = h
+  if (!ctx) return
+  if (h) ctx.suspend().catch(() => {})
+  else if (ctx.state === 'suspended') ctx.resume().then(startMusic, () => {})
+}
+
+// ─────────────────────────────────────────────── music
+/** How loud the music sits under the sounds. */
+const MUSIC_VOL = 0.5
+type SongFile = { file: string; mp3?: string; rate: number; samples: number; loopStart: number; loopEnd: number; gain?: number }
+let wanted = false
+let song: Promise<{ buf: AudioBuffer; f: SongFile } | null> | null = null
+let musicSrc: AudioBufferSourceNode | null = null
+let musicGain: GainNode | null = null
+
+export function isMusicOn() { load(); return musicOn }
+export function onMusic(l: Listener) { musicListeners.add(l); return () => { musicListeners.delete(l) } }
+export function setMusicOn(on: boolean) {
+  load()
+  musicOn = on
+  try { localStorage.setItem('gc-music', on ? 'on' : 'off') } catch { /* not remembered */ }
+  musicListeners.forEach((l) => l(on))
+  if (on) startMusic(); else stopMusic()
+}
+
+/** Whether the Game Corner is on screen: the music plays (once sound is allowed, and if it's on) only while it is. */
+export function wantMusic(w: boolean) {
+  wanted = w
+  if (w) startMusic(); else stopMusic()
+}
+
+/** The rendered song, fetched and decoded once: the AAC file, or the MP3 where AAC won't decode. */
+function loadSong(c: Ctx) {
+  song ??= (async () => {
+    const f: SongFile | undefined = await fetch('/rpg/music.json').then((r) => (r.ok ? r.json() : null)).then((j) => j?.songs?.gameCorner)
+    if (!f) return null
+    for (const file of [f.file, f.mp3]) {
+      if (!file) continue
+      try { return { buf: await c.decodeAudioData(await fetch(`/rpg/a/music/${file}`).then((r) => r.arrayBuffer())), f } } catch { /* the next format */ }
+    }
+    return null
+  })().catch(() => null)
+  return song
+}
+
+async function startMusic() {
+  load()
+  const c = ctx
+  if (!wanted || !musicOn || musicSrc || !c || c.state !== 'running') return
+  const got = await loadSong(c)
+  if (!got || !wanted || !musicOn || musicSrc || c.state !== 'running') return
+  const { buf, f } = got
+  musicGain ??= (() => { const g = c.createGain(); g.gain.value = 0; g.connect(c.destination); return g })()   // not through the sounds' switch
+  // A decoder that keeps AAC's priming puts everything 1024 samples late, the loop points too (as in the battle game).
+  const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
+  const src = c.createBufferSource()
+  src.buffer = buf; src.loop = true; src.loopStart = f.loopStart + lead; src.loopEnd = f.loopEnd + lead
+  src.connect(musicGain)
+  const t = c.currentTime + 0.03
+  musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(0.0001, t)
+  musicGain.gain.exponentialRampToValueAtTime(MUSIC_VOL * (f.gain ?? 1), t + 1.5)   // a fade in
+  src.start(t, lead)
+  musicSrc = src
+}
+
+function stopMusic() {
+  const c = ctx, src = musicSrc
+  if (!c || !src || !musicGain) return
+  musicSrc = null
+  musicGain.gain.cancelScheduledValues(c.currentTime)
+  musicGain.gain.setTargetAtTime(0.0001, c.currentTime, 0.12)
+  try { src.stop(c.currentTime + 0.6) } catch { /* already stopped */ }
+}
+
+/** The music dips under a fanfare for `sec`, then comes back up. */
+function duck(sec: number) {
+  const c = ctx
+  if (!c || !musicSrc || !musicGain) return
+  const g = musicGain.gain, full = g.value, t = c.currentTime
+  g.cancelScheduledValues(t); g.setTargetAtTime(full * 0.3, t, 0.05); g.setTargetAtTime(Math.max(full, 0.0001), t + sec, 0.35)
 }
 
 /** The audio, if it may play now. */
@@ -191,6 +283,7 @@ export const sfx = {
   /** A win, by how big: a bet back, a nice win, a big one, the jackpot. */
   win(size: 'back' | 'small' | 'big' | 'jackpot') {
     const c = live(); if (!c) return
+    if (size === 'big' || size === 'jackpot') duck(size === 'jackpot' ? 3.2 : 1.8)
     if (size === 'back') { run(c, [[N.E6, 0], [N.G6, 0.07]], 0.1, 0.045); return }
     if (size === 'small') { run(c, [[N.C6, 0], [N.E6, 0.07], [N.G6, 0.14], [N.C7, 0.21]], 0.12, 0.05); return }
     const fan: [number, number][] = [[N.C5, 0], [N.E5, 0.1], [N.G5, 0.2], [N.C6, 0.3], [N.G5, 0.42], [N.C6, 0.5]]
