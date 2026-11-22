@@ -39,6 +39,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
       },
       {
+        // Sounds for our own pages (the Game Corner's casino floor): each file's
+        // name carries its content's hash, so a new one has a new address and
+        // each can be kept for good.
+        source: "/sounds/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
         // The game's code, as index.html loads it: game.js?v=<the file's hash>.
         // Every update gets a new address, so each one can be kept for good
         // (tests/rpg checks the tag matches the file). index.html itself keeps

@@ -76,7 +76,7 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
   const switches: [string, string, boolean, () => void][] = [
     ['Game sounds', 'Your spins, cards and wins', !muted, () => { setMuted(!muted); if (muted) setTimeout(() => sfx.chip(), 30) }],
     ['Music', 'The theme, over the PA', music, () => setMusicOn(!music)],
-    ['Casino ambience', 'The crowd and the floor', ambience, () => setAmbienceOn(!ambience)],
+    ['Casino ambience', 'The slots and the crowd', ambience, () => setAmbienceOn(!ambience)],
   ]
   const silent = muted && !music && !ambience
 

@@ -6,7 +6,7 @@
  * And its music: SONGS.gameCorner, written in the battle game's music engine (public/rpg/game.js) and rendered with
  * the others (npm run music:render) to a file listed in public/rpg/music.json, played here as one looping buffer
  * through a PA: the house sound system, small speakers up in a big room. It has its own switch ('gc-music'). The
- * casino around you (ambience.ts) shares the room's echo and has a switch of its own.
+ * casino around you (ambience.ts, a recording) has a switch of its own.
  */
 
 type Listener = (muted: boolean) => void
@@ -127,8 +127,8 @@ export function setHidden(h: boolean) {
 }
 
 // ─────────────────────────────────────────────── music
-/** How loud the music goes into the PA (which takes off the lows and highs, so it sits further back). */
-const MUSIC_VOL = 0.85
+/** How loud the music goes into the PA (which takes off the lows and highs, so it sits further back), under the casino. */
+const MUSIC_VOL = 0.64
 type SongFile = { file: string; mp3?: string; rate: number; samples: number; loopStart: number; loopEnd: number; gain?: number }
 let wanted = false
 let song: Promise<{ buf: AudioBuffer; f: SongFile } | null> | null = null
