@@ -187,6 +187,17 @@
    "loopEnd": 0,
    "gain": 1
   },
+  "gameCorner": {
+   "file": "gameCorner.eca6ada4.m4a",
+   "mp3": "gameCorner.485c6d5e.mp3",
+   "sig": "ecdf21ce",
+   "rate": 44100,
+   "samples": 2631300,
+   "loop": true,
+   "loopStart": 3.333333,
+   "loopEnd": 56.666667,
+   "gain": 1
+  },
   "gym": {
    "file": "gym.79bd0775.m4a",
    "mp3": "gym.9cc1132d.mp3",
