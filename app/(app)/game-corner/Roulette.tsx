@@ -114,7 +114,7 @@ function Wheel({ turn, ball, dropped, luxe = false, size = 252 }: { turn: number
  * seconds: 20 to bet, the bell, then the spin. Everyone's chips are on the board, by name, and everyone sees the
  * same ball drop.
  */
-export default function Roulette({ state, skew, onPlayed }: { state: CornerState; skew: number; onPlayed: () => void }) {
+export default function Roulette({ state, skew, onPlayed, onHold }: { state: CornerState; skew: number; onPlayed: () => void; onHold: (balance: number | null) => void }) {
   const [high, setHigh] = useState(false)
   const rt = high && state.roulette_high ? state.roulette_high : state.roulette
   return (
@@ -135,7 +135,7 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
         </nav>
       )}
       {/* Its own table each: switching wheels starts afresh, the ball where that wheel's last landed. */}
-      <Table key={rt.wheel} rt={rt} caps={capsFor(state, rt.wheel === 2)} open={state.open} skew={skew} onPlayed={onPlayed} />
+      <Table key={rt.wheel} rt={rt} caps={capsFor(state, rt.wheel === 2)} open={state.open} balance={state.balance} skew={skew} onPlayed={onPlayed} onHold={onHold} />
     </div>
   )
 }
@@ -144,7 +144,9 @@ export default function Roulette({ state, skew, onPlayed }: { state: CornerState
  * One wheel's table: the main one in a well-used wooden frame on green velvet; the high-limit one spotless, black
  * lacquer inlaid with gold on burgundy velvet, the wheel to match.
  */
-function Table({ rt, caps, open: cornerOpen, skew, onPlayed }: { rt: RouletteState; caps: Caps; open: boolean; skew: number; onPlayed: () => void }) {
+function Table({ rt, caps, open: cornerOpen, balance, skew, onPlayed, onHold }: {
+  rt: RouletteState; caps: Caps; open: boolean; balance: number; skew: number; onPlayed: () => void; onHold: (balance: number | null) => void
+}) {
   const high = rt.wheel === 2
   const chips = chipsFor(caps.min, caps.roulette).slice(-6)
   const [chip, setChip] = useState(chips[0] ?? caps.min)
@@ -161,6 +163,14 @@ function Table({ rt, caps, open: cornerOpen, skew, onPlayed }: { rt: RouletteSta
   const [ball, setBall] = useState(0)
   const [dropped, setDropped] = useState(true)
   const [landed, setLanded] = useState<number | null>(settledNow ? rt.round : null)
+  // The round is paid the moment the bets close, but the ball is still rolling: until it lands, the token count stays
+  // at what it was before the round was paid.
+  const rolling = settledNow && landed !== rt.round
+  const before = useRef(balance)
+  useEffect(() => { if (!rolling) before.current = balance })
+  const hold = rolling ? before.current : null
+  useEffect(() => { onHold(hold) }, [hold, onHold])
+  useEffect(() => () => onHold(null), [onHold])
   const shown = useRef<number | null>(settledNow ? rt.round : null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])

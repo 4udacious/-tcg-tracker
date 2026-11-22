@@ -145,7 +145,7 @@ function Spot({ seat, index, t, settled, canSit, moving, sitting, onSit }: {
  * next hand; everyone sees every seat's cards and the dealer's. Bets open until 15 s after the first (or until
  * everyone sitting there has bet), then turns seat by seat, 20 s each, then the dealer, then the results.
  */
-export default function Blackjack({ state, skew, onPlayed }: { state: CornerState; skew: number; onPlayed: () => void }) {
+export default function Blackjack({ state, skew, onPlayed, onHold }: { state: CornerState; skew: number; onPlayed: () => void; onHold: (balance: number | null) => void }) {
   const bj = state.blackjack
   const mine = bj.mine
   const [view, setView] = useState<number | null>(null)
@@ -192,6 +192,11 @@ export default function Blackjack({ state, skew, onPlayed }: { state: CornerStat
   const mineDealt = myHands.length > 0 && myHands[0].status !== 'betting'
   const myStake = money(myHands.reduce((a, h) => a + h.bet, 0))
   const myBack = money(myHands.reduce((a, h) => a + (h.payout ?? 0), 0))
+  // Your winnings are paid when the hand ends, but the dealer's cards are still turning: the token count leaves them
+  // out until the last has turned.
+  const hold = t?.phase === 'done' && mineDealt && !settled && myBack > 0 ? money(state.balance - myBack) : null
+  useEffect(() => { onHold(hold) }, [hold, onHold])
+  useEffect(() => () => onHold(null), [onHold])
 
   // The sounds of the table, and your results: what changed since the last look at it (nothing on the first look).
   const snap = !t ? null : {

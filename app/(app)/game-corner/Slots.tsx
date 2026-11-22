@@ -183,17 +183,24 @@ function Chip({ style }: { style: React.CSSProperties }) {
   return <span className="absolute pointer-events-none" aria-hidden style={{ background: 'linear-gradient(135deg,#e7e5e4,#78716c)', clipPath: 'polygon(0 35%,35% 0,70% 12%,100% 45%,78% 82%,40% 100%,8% 78%)', opacity: 0.85, ...style }} />
 }
 
+const WORDS = { room_full: 'Every machine in this room is taken. Try the other room.', not_seated: 'Finding you a machine…' }
+
 /**
- * The slots: a row of eight machines (and, behind a velvet rope, four high-limit ones), each a 3x3 window with five paylines (the three rows and the two diagonals),
- * all played every spin, the bet split evenly across them. Sit at a free one (or one nobody has touched for 2
- * minutes), bet, pull the lever. Everyone sees who's at each machine and their last spin, so you're playing beside
- * the others, and hears their big wins down the row.
+ * The slots, in two rooms: the main floor (eight machines) and the high-limit room (four), picked like the roulette
+ * wheels and the blackjack tables. Pick a room and a free machine there is yours (game_corner_slot_take, v118); it
+ * stays yours while the Game Corner is open, and is free again 2 minutes after. Each machine is a 3x3 window with five
+ * paylines (the three rows and the two diagonals), all played every spin, the bet split evenly across them. Below
+ * yours, the machines others in the room are at, appearing as they sit down, with their last spins; you hear their
+ * big wins. While the reels spin, the token count stays where it was until they stop (onHold).
  */
-export default function Slots({ state, onPlayed }: { state: CornerState; onPlayed: () => void }) {
+export default function Slots({ state, onPlayed, onHold }: { state: CornerState; onPlayed: () => void; onHold: (balance: number | null) => void }) {
   const mine = state.slots.find((m) => m.mine && m.player)
-  const theme = mine?.high ? THEMES.high : THEMES.main
-  // A bet per line, and five lines: the spin costs five times it, within the machine's room's smallest bet and limit.
-  const caps = capsFor(state, !!mine?.high)
+  const [room, setRoom] = useState<'main' | 'high'>(mine?.high ? 'high' : 'main')
+  const high = room === 'high'
+  const here = mine && mine.high === high ? mine : undefined
+  const theme = high ? THEMES.high : THEMES.main
+  // A bet per line, and five lines: the spin costs five times it, within the room's smallest bet and limit.
+  const caps = capsFor(state, high)
   const steps = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].filter((b) => money(b * LINES) >= caps.min && money(b * LINES) <= caps.slots)
   const [lineBet, setLineBet] = useState(steps[0] ?? 0.02)
   const bet = money(lineBet * LINES)
@@ -207,12 +214,34 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
   const [party, setParty] = useState(false)
   const [shake, setShake] = useState(false)
   const [showPays, setShowPays] = useState(false)
-  const [sitting, setSitting] = useState<number | null>(null)
+  const [hold, setHold] = useState<number | null>(null)
   const tray = useRef<HTMLDivElement>(null)
   const { party: coins, celebrate } = useCelebration()
   const winShown = useCountUp(win ?? 0, win && win > bet * 10 ? 2200 : 900)
 
   useEffect(() => { if (!steps.includes(lineBet) && steps.length) setLineBet(steps[0]) }, [steps, lineBet])
+  // The token count holds while the reels spin (it has the win in it as soon as the machine answers).
+  useEffect(() => { onHold(hold) }, [hold, onHold])
+  useEffect(() => () => onHold(null), [onHold])
+
+  // A machine in the room you picked: yours already, or the first free one (asked for once a pick; picking again asks again).
+  const [asked, setAsked] = useState<{ room: string; n: number } | null>(null)
+  const [pick, setPick] = useState(0)
+  useEffect(() => {
+    if (!state.open || here || (asked?.room === room && asked.n === pick)) return
+    setAsked({ room, n: pick })
+    setNote(null)
+    createClient().rpc('game_corner_slot_take', { p_high: high }).then(({ error }) => {
+      if (error) setNote(refusal(error, WORDS)); else { setWin(null); setPaid([]); setCells(blankGrid()); onPlayed() }
+    })
+  }, [room, pick, here, asked, high, state.open, onPlayed])
+  // Lost your machine (away too long, and someone took it)? Find another in the same room.
+  const seatedIn = useRef<string | null>(null)
+  useEffect(() => {
+    if (here) seatedIn.current = room
+    else if (seatedIn.current === room) { seatedIn.current = null; setPick((n) => n + 1) }
+  }, [here, room])
+  const choose = (r: 'main' | 'high') => { if (spinning) return; if (r !== room) sfx.click(); setRoom(r); setPick((n) => n + 1) }
 
   // A neighbour's big win down the row: a faint jingle (not on the first look, and not your own).
   const seen = useRef<Map<number, string | null> | null>(null)
@@ -226,28 +255,16 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
     }
   }, [state.slots])
 
-  async function sit(machine: number) {
-    sfx.click()
-    setSitting(machine); setNote(null)
-    const { error } = await createClient().rpc('game_corner_slot_sit', { p_machine: machine })
-    setSitting(null)
-    if (error) setNote(refusal(error)); else { setWin(null); setPaid([]); setCells(blankGrid()); onPlayed() }
-  }
-  async function leave() {
-    sfx.click()
-    await createClient().rpc('game_corner_slot_leave')
-    onPlayed()
-  }
-
   async function spin(lever: boolean) {
-    if (spinning || !state.open || state.balance < bet) return
+    if (spinning || !here || !state.open || state.balance < bet) return
     if (lever) { setPulled(true); sfx.lever(); setTimeout(() => setPulled(false), 260) } else sfx.click()
     setSpinning(true); setNote(null); setWin(null); setPaid([]); setParty(false); setMoving(3)
+    setHold(money(state.balance - bet))
     const whir = sfx.reels()
     const started = Date.now()
     const { data, error } = await createClient().rpc('game_corner_slot_spin', { p_bet: bet })
     await wait(Math.max(0, (lever ? 1000 : 850) - (Date.now() - started)))
-    if (error || !data) { whir(); setMoving(0); setSpinning(false); setNote(refusal(error)); return }
+    if (error || !data) { whir(); setMoving(0); setSpinning(false); setHold(null); setNote(refusal(error, WORDS)); return }
     const res = data as { reels: Reel[]; win: number; lines: { line: number; mult: number; win: number }[] }
     setCells(res.reels)
     // If the first two reels line up something good on a payline, the last one takes its time.
@@ -261,7 +278,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
     whir()
     const lines = res.lines.map((l) => ({ ...l, mult: num(l.mult), win: num(l.win) }))
     const w = num(res.win)
-    setPaid(lines); setWin(w); setSpinning(false); onPlayed()
+    setPaid(lines); setWin(w); setSpinning(false); setHold(null); onPlayed()
     // How it pays out: the bigger, the louder.
     const from = centerOf(tray.current)
     if (w <= 0) return
@@ -280,7 +297,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
 
   const result = win == null ? null : win === 0 ? 'No luck this time.' : win > bet ? `You win ${fmt(win)} tokens!` : `${fmt(win)} back.`
   const lit = spinning ? [] : paid.map((p) => p.line)
-  const canSpin = !spinning && state.open && state.balance >= bet
+  const canSpin = !spinning && !!here && state.open && state.balance >= bet
   // The reel glass: three drums, the gap between them, and where each payline crosses.
   const size = 44, cell = size + Math.round(size * 0.3), drum = cell + 4, gap = 5
   const span = { w: drum * 3 + gap * 2, h: cell * 3 }
@@ -292,14 +309,14 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         : { background: '#1c1917', color: LINE_COLOR[line - 1], boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.12)' }}>{line}</span>
   )
 
-  /** A machine in a row: its marquee, its last spin, who's at it (or a place to sit). */
+  /** Someone else's machine in the room: its marquee, its last spin, who's at it. */
   const cabinet = (m: SlotMachine) => {
     const recent = m.at && Date.now() - Date.parse(m.at) < 6000
     const big = !!(recent && m.win != null && m.bet != null && m.win > m.bet)
     const t = m.high ? THEMES.high : THEMES.main
     return (
-      <div key={m.machine} className={`relative rounded-t-xl rounded-b-md p-1.5 text-white ${m.mine && m.player ? 'ring-2 ring-signal' : ''}`}
-        style={{ backgroundImage: t.mini, boxShadow: t.miniTrim }}>
+      <div key={m.machine} className="relative rounded-t-xl rounded-b-md p-1.5 text-white gc-motion"
+        style={{ backgroundImage: t.mini, boxShadow: t.miniTrim, animation: 'gc-pop .35s ease-out' }}>
         <div className="rounded-t-lg rounded-b-sm bg-zinc-950 px-1.5 py-1" style={{ boxShadow: `inset 0 0 0 1px ${m.high ? '#f3d27a' : '#a16207'}` }}>
           <Bulbs n={9} dead={!m.high && m.machine % 3 === 0 ? [m.machine % 9] : []} party={big} size={4} pearl={m.high} />
           <div className="flex items-center justify-between text-[10px] leading-4 mt-0.5">
@@ -310,31 +327,37 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         <div className="flex justify-center my-1.5 rounded-md p-1 bg-zinc-900" style={{ boxShadow: `inset 0 0 0 1px ${m.high ? '#d4a017' : '#71717a'}` }}>
           <Window cells={m.player && m.reels?.length === 9 ? m.reels : blankGrid()} lines={m.player && recent ? m.lines ?? [] : []} size={15} />
         </div>
-        {m.player ? (
-          <div className={`flex items-center gap-1.5 text-xs truncate rounded px-1 py-0.5 ${m.high ? 'text-amber-100' : 'bg-black/30'}`}
-            style={m.high ? { background: 'linear-gradient(180deg,rgba(243,210,122,.22),rgba(243,210,122,.08))', boxShadow: 'inset 0 0 0 1px rgba(243,210,122,.45)' } : undefined}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {m.avatar ? <img src={m.avatar} alt="" className="w-4 h-4 rounded-full" /> : <span className="w-4 h-4 rounded-full bg-white/20" />}
-            <span className="truncate">{m.mine ? 'You' : m.player}</span>
-          </div>
-        ) : (
-          <button type="button" onClick={() => sit(m.machine)} disabled={sitting != null || !state.open}
-            className="w-full h-7 rounded-md text-xs font-bold text-zinc-900 disabled:opacity-50"
-            style={{ background: 'linear-gradient(180deg,#fde68a,#d97706)', boxShadow: '0 2px 0 #78350f' }}>
-            {sitting === m.machine ? 'Sitting…' : mine ? 'Move here' : 'Sit here'}
-          </button>
-        )}
+        <div className={`flex items-center gap-1.5 text-xs truncate rounded px-1 py-0.5 ${m.high ? 'text-amber-100' : 'bg-black/30'}`}
+          style={m.high ? { background: 'linear-gradient(180deg,rgba(243,210,122,.22),rgba(243,210,122,.08))', boxShadow: 'inset 0 0 0 1px rgba(243,210,122,.45)' } : undefined}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {m.avatar ? <img src={m.avatar} alt="" className="w-4 h-4 rounded-full" /> : <span className="w-4 h-4 rounded-full bg-white/20" />}
+          <span className="truncate">{m.player}</span>
+        </div>
       </div>
     )
   }
 
+  const others = state.slots.filter((m) => m.high === high && m.player && !m.mine)
   return (
     <div className="space-y-4">
       {coins}
+      <nav aria-label="Rooms" className="grid grid-cols-2 gap-1.5">
+        {([false, true] as const).map((h) => {
+          const c = capsFor(state, h), on = high === h, n = state.slots.filter((m) => m.high === h && m.player).length
+          return (
+            <button key={String(h)} type="button" aria-pressed={on} onClick={() => choose(h ? 'high' : 'main')} disabled={spinning}
+              className={`rounded-xl border px-3 py-1.5 text-left disabled:cursor-not-allowed ${on ? (h ? 'border-amber-500 text-amber-100' : 'border-ink bg-ink text-white') : 'border-card-border bg-card'}`}
+              style={on && h ? { background: 'linear-gradient(180deg,#3b0a17,#1c0509)' } : undefined}>
+              <span className="block text-sm font-semibold">{h ? 'High limit' : 'Main floor'}</span>
+              <span className={`block text-[11px] ${on ? 'opacity-70' : 'text-muted'}`}>{fmt(c.min)} to {fmt(c.slots)} a spin · {n} playing</span>
+            </button>
+          )
+        })}
+      </nav>
       {/* The room: a dim casino, the machine glowing, carpet underfoot. */}
       <section className="relative overflow-hidden rounded-2xl px-3 pt-4" style={{ background: theme.room }}>
         <div className="absolute left-1/2 top-16 -translate-x-1/2 w-72 h-72 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${theme.glow}, transparent 65%)` }} aria-hidden />
-        {mine ? (
+        {here ? (
           <div className="relative mx-auto gc-motion" style={{ maxWidth: 352, paddingRight: 30, animation: shake ? 'gc-shake .45s ease-in-out 2' : undefined }}>
             {/* The cabinet: on the main floor red enamel gone tired, chrome trim, scratches, a few chips out of the
                 paint; in the high-limit room spotless black lacquer, gold pinstripes, a glint passing over it. */}
@@ -351,7 +374,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               <div className="relative rounded-t-[19px] rounded-b-md px-3 pt-2 pb-2 text-center overflow-hidden" style={{ background: theme.marquee, boxShadow: theme.marqueeRing }}>
                 <Bulbs n={13} dead={theme.worn ? [8] : []} party={party} pearl={theme.pearl} />
                 <div className="my-1 font-display font-black text-[27px] leading-none tracking-wider" style={{ ...GOLD_TEXT, opacity: 0.93, filter: 'drop-shadow(0 0 6px rgba(245,158,11,.45))', animation: party ? 'gc-shine 1.2s linear infinite' : undefined }}>{theme.title}</div>
-                <div className="text-[9px] tracking-[0.35em] text-amber-200/60">★ MACHINE {mine.machine} ★</div>
+                <div className="text-[9px] tracking-[0.35em] text-amber-200/60">★ MACHINE {here.machine} ★</div>
                 <div className="mt-1"><Bulbs n={13} dead={theme.worn ? [2] : []} party={party} pearl={theme.pearl} /></div>
                 <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: theme.marqueeGlass }} />
               </div>
@@ -386,7 +409,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               </div>
 
               <div className="mt-2.5 grid grid-cols-3 gap-1.5">
-                <Meter label="CREDIT" value={state.balance} ink={theme.ink} glow={theme.inkGlow} />
+                <Meter label="CREDIT" value={hold ?? state.balance} ink={theme.ink} glow={theme.inkGlow} />
                 <Meter label="BET" value={bet} ink={theme.ink} glow={theme.inkGlow} />
                 <Meter label="WIN" value={winShown} ink={theme.ink} glow={theme.inkGlow} />
               </div>
@@ -408,7 +431,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
                 </div>
                 <button type="button" onClick={() => spin(false)} disabled={!canSpin}
                   className="mt-2 w-full h-12 rounded-xl font-display font-black text-xl tracking-wider transition-transform active:translate-y-[3px] disabled:opacity-60"
-                  style={{ background: theme.spin, color: theme.spinInk, boxShadow: canSpin ? `0 4px 0 ${theme.spinEdge}, 0 0 14px ${theme.spinGlow}` : `0 4px 0 ${theme.spinEdge}`, textShadow: mine.high ? '0 1px 0 rgba(255,255,255,.5)' : `0 1px 0 ${theme.spinEdge}` }}>
+                  style={{ background: theme.spin, color: theme.spinInk, boxShadow: canSpin ? `0 4px 0 ${theme.spinEdge}, 0 0 14px ${theme.spinGlow}` : `0 4px 0 ${theme.spinEdge}`, textShadow: high ? '0 1px 0 rgba(255,255,255,.5)' : `0 1px 0 ${theme.spinEdge}` }}>
                   {state.balance < bet ? 'NOT ENOUGH TOKENS' : spinning ? 'SPINNING…' : 'SPIN'}
                   <span className="block text-[10px] font-sans font-semibold tracking-normal -mt-1 opacity-80">{LINES} lines × {fmt(lineBet)} = {fmt(bet)}</span>
                 </button>
@@ -439,10 +462,7 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
               <span className="absolute left-0 bottom-[12px] w-[27px] h-[34px] rounded-r-lg" style={{ background: theme.housing, boxShadow: 'inset 0 1px 0 #fff, 0 2px 4px rgba(0,0,0,.55)' }} />
             </button>
 
-            <div className="flex items-baseline justify-between mt-2 px-1 text-white">
-              <p className={`text-sm min-h-5 ${win && win > bet ? 'text-amber-300 font-semibold' : 'text-white/70'}`}>{spinning ? 'Spinning…' : note ?? result ?? 'Pull the lever, or press SPIN.'}</p>
-              <button type="button" onClick={leave} className="text-xs text-white/60 hover:text-white underline shrink-0">Leave seat</button>
-            </div>
+            <p className={`mt-2 px-1 text-sm min-h-5 ${win && win > bet ? 'text-amber-300 font-semibold' : 'text-white/70'}`}>{spinning ? 'Spinning…' : note ?? result ?? 'Pull the lever, or press SPIN.'}</p>
             {!spinning && paid.length > 0 && (
               <ul className="text-xs space-y-0.5 px-1 text-white/85">
                 {paid.map((p) => (
@@ -456,14 +476,16 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
             )}
           </div>
         ) : (
-          <p className="relative text-sm text-white/80 text-center py-6">Pick a free machine below and sit down. It’s yours while you play; after 2 minutes away, it’s free again.</p>
+          <div className="relative text-sm text-white/80 text-center py-8 space-y-2">
+            <p>{!state.open ? 'The slots are closed for now.' : note ?? 'Finding you a machine…'}</p>
+            {note && state.open && <button type="button" onClick={() => setPick((n) => n + 1)} className="text-xs underline text-white/70 hover:text-white">Try again</button>}
+          </div>
         )}
-        {!mine && note && <p className="relative text-sm text-white/70 text-center pb-3">{note}</p>}
         {/* Carpet. */}
         <div className="relative -mx-3 mt-4 h-10" aria-hidden style={{ backgroundColor: theme.carpetBase, backgroundImage: theme.carpet }} />
       </section>
 
-      {mine && (
+      {here && (
         <section className="rounded-2xl border border-card-border bg-card p-3">
           <button type="button" onClick={() => setShowPays((v) => !v)} aria-expanded={showPays} className="w-full text-left text-sm font-semibold flex justify-between">
             What pays <span className="text-muted font-normal">{showPays ? 'Hide' : 'Show'}</span>
@@ -495,31 +517,11 @@ export default function Slots({ state, onPlayed }: { state: CornerState; onPlaye
         </section>
       )}
 
-      {/* The rows: small cabinets, each with whoever's at it and their last spin. The main floor's eight, then the
-          high-limit room's, behind a velvet rope. */}
-      <section aria-label="The main floor's machines" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {state.slots.filter((m) => !m.high).map(cabinet)}
+      {/* Who else is here: their machines appear as they sit down. */}
+      <section aria-label={high ? 'Others in the high-limit room' : 'Others on the main floor'} className="space-y-2">
+        <h2 className="font-display font-semibold text-sm">{others.length ? `Also playing ${high ? 'high limit' : 'here'}` : `Nobody else is playing ${high ? 'high limit' : 'here'} right now.`}</h2>
+        {others.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{others.map(cabinet)}</div>}
       </section>
-      {state.slots.some((m) => m.high) && (
-        <section aria-label="The high-limit machines" className="rounded-2xl p-3 space-y-2.5" style={{ background: THEMES.high.room }}>
-          <div className="text-center">
-            <div className="font-display font-black text-lg tracking-[0.2em]" style={{ ...GOLD_TEXT, animation: 'gc-shine 3s linear infinite' }}>HIGH LIMIT</div>
-            <div className="text-[11px] text-amber-100/70">{fmt(state.caps.high.min)} to {fmt(state.caps.high.slots)} a spin</div>
-          </div>
-          {/* The velvet rope, between two brass posts. */}
-          <div className="relative h-5 mx-1" aria-hidden>
-            <span className="absolute left-0 top-0 w-3 h-5 rounded-t-full" style={{ background: 'linear-gradient(90deg,#713f12,#fde68a,#a16207)' }} />
-            <span className="absolute right-0 top-0 w-3 h-5 rounded-t-full" style={{ background: 'linear-gradient(90deg,#713f12,#fde68a,#a16207)' }} />
-            <svg className="absolute inset-x-2 top-1 h-4 w-[calc(100%-1rem)]" viewBox="0 0 100 16" preserveAspectRatio="none">
-              <path d="M0 2 Q50 18 100 2" stroke="#9f1239" strokeWidth="3.5" fill="none" vectorEffect="non-scaling-stroke" />
-              <path d="M0 1.5 Q50 16 100 1.5" stroke="rgba(255,255,255,.25)" strokeWidth="1" fill="none" vectorEffect="non-scaling-stroke" />
-            </svg>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {state.slots.filter((m) => m.high).map(cabinet)}
-          </div>
-        </section>
-      )}
     </div>
   )
 }

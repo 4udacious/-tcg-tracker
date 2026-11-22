@@ -80,6 +80,11 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
   ]
   const silent = muted && !music && !ambience
 
+  // While a game is still showing how it came out (the reels spinning, the ball rolling, the dealer's cards turning),
+  // the token count shows what it was before: the server has paid any win already, and the count shouldn't give it away.
+  const [held, setHeld] = useState<number | null>(null)
+  useEffect(() => { setHeld(null) }, [game])
+
   return (
     <div className="space-y-4" onPointerDown={unlock}>
       <style>{CORNER_CSS}</style>
@@ -118,7 +123,7 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
             )}
           </div>
           <div className="text-right pl-1">
-            <div className="font-mono text-lg font-semibold tabular-nums">{state ? fmt(state.balance) : '…'}</div>
+            <div className="font-mono text-lg font-semibold tabular-nums">{state ? fmt(held ?? state.balance) : '…'}</div>
             <div className="text-[10px] uppercase tracking-wide text-muted">tokens</div>
           </div>
         </div>
@@ -145,11 +150,11 @@ export default function GameCorner({ admin = false }: { admin?: boolean }) {
       {!state ? (
         <div className="h-64 rounded-2xl bg-card border border-card-border animate-pulse" aria-hidden />
       ) : game === 'slots' ? (
-        <Slots state={admin ? { ...state, open: true } : state} onPlayed={played} />
+        <Slots state={admin ? { ...state, open: true } : state} onPlayed={played} onHold={setHeld} />
       ) : game === 'blackjack' ? (
-        <Blackjack state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} />
+        <Blackjack state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} onHold={setHeld} />
       ) : (
-        <Roulette state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} />
+        <Roulette state={admin ? { ...state, open: true } : state} skew={skew} onPlayed={played} onHold={setHeld} />
       )}
     </div>
   )
