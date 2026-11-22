@@ -87,7 +87,10 @@ function VvmLoading({ done }: { done: boolean }) {
  *
  * Leaving the tab saves the game and gives up the machine if you held it.
  */
-export default function VvmGame({ userId, initialBuys, gameCorner = null }: { userId: string; initialBuys: RecentBuy[]; gameCorner?: 'open' | 'admins' | null }) {
+export default function VvmGame({ userId, initialBuys, gameCorner = null, attract = [] }: {
+  userId: string; initialBuys: RecentBuy[]; gameCorner?: 'open' | 'admins' | null
+  attract?: string[]   // the idle screen's packs: the art of the sets stocked most recently (vending_attract_packs)
+}) {
   const frame = useRef<HTMLIFrameElement>(null)
   const api = useRef<VvmApi | null>(null)
   const [buys, setBuys] = useState(initialBuys)
@@ -124,18 +127,20 @@ export default function VvmGame({ userId, initialBuys, gameCorner = null }: { us
   }, [poll])
 
   // The machine loading: the frame's page (its code, then the pack art on the machine's screen) arrives in pieces, and
-  // before its code runs it's the game's bare layout. A cover hides all that until the page has loaded, or 12 s at most.
+  // even once it has, the game starts from a bare screen while it loads your save and reads the machine. A cover hides
+  // all that until the game says the machine is on screen as it is (vvmShown in game.js), or 12 s at most.
   const [ready, setReady] = useState(false)
   const [covered, setCovered] = useState(true)
-  const loaded = useCallback(() => {
-    // (The frame's first, blank page loads too: only the game's counts.)
-    try { if (frame.current?.contentWindow?.location.pathname.startsWith('/rpg/') && frame.current.contentDocument?.readyState === 'complete') setReady(true) } catch { setReady(true) }
-  }, [])
   useEffect(() => {
-    loaded()   // already loaded before this page came to life
+    const shown = (e: MessageEvent) => {
+      if (e.origin === window.location.origin && e.source === frame.current?.contentWindow && (e.data as { vvm?: string } | null)?.vvm === 'shown') setReady(true)
+    }
+    window.addEventListener('message', shown)
+    // Already said before this page came to life.
+    try { if ((frame.current?.contentWindow as (Window & { __vvmShown?: boolean }) | null)?.__vvmShown) setReady(true) } catch { setReady(true) }
     const t = setTimeout(() => setReady(true), 12000)
-    return () => clearTimeout(t)
-  }, [loaded])
+    return () => { window.removeEventListener('message', shown); clearTimeout(t) }
+  }, [])
   useEffect(() => { if (ready) { const t = setTimeout(() => setCovered(false), 350); return () => clearTimeout(t) } }, [ready])
 
   return (
@@ -143,10 +148,9 @@ export default function VvmGame({ userId, initialBuys, gameCorner = null }: { us
       <div className="relative -mx-4 -mt-4">
         <iframe
           ref={frame}
-          src={`/rpg/index.html?app=1&embed=1&u=${encodeURIComponent(userId)}`}
+          src={`/rpg/index.html?app=1&embed=1&u=${encodeURIComponent(userId)}${attract.length ? `&attract=${attract.join(',')}` : ''}`}
           title="The VVM"
           allow="autoplay; vibrate"
-          onLoad={loaded}
           className="block w-full border-0 bg-[#eef1f6]"
           style={{ height: 'calc(100dvh - 56px - 64px - env(safe-area-inset-bottom))', touchAction: 'manipulation' }}
         />

@@ -4654,6 +4654,16 @@ const APP = (() => {
  * the machine is the game's own simulation.
  */
 const vvm = () => { if (!APP.on) return null; try { return window.parent !== window ? window.parent.__vvmApi ?? null : null } catch { return null } }
+/**
+ * In the app: tells the VVM page the machine is on screen as it really is (your save loaded, the machine's state read).
+ * The page's loading cover stays up until then, over the bare screen the game starts from. Once; the page also looks
+ * for the flag, in case this came before it was listening.
+ */
+function vvmShown() {
+  if (!APP.on || window.__vvmShown) return
+  window.__vvmShown = true
+  try { if (window.parent !== window) window.parent.postMessage({ vvm: 'shown' }, location.origin) } catch {}
+}
 /*
  * In the app, the game is a frame on a page that scrolls, under a sticky
  * header and above a fixed tab bar, so part of the frame can be hidden behind
@@ -4882,15 +4892,29 @@ addEventListener('keyup', (e) => { const k = KEYS[e.key]; if (k) release(k) })
 const ATTRACT_PACKS = ['jungle-scyther', 'gym-heroes-brock', 'fossil-lapras', 'team-rocket-giovanni', 'gym-challenge-koga', 'jungle-flareon', 'gym-heroes-misty', 'fossil-zapdos',
   'team-rocket-dark-gyarados', 'gym-challenge-blaine', 'jungle-wigglytuff', 'gym-heroes-lt-surge', 'fossil-aerodactyl', 'team-rocket-jessie-james',
   'gym-challenge-sabrina', 'gym-heroes-erika', 'team-rocket-rocket-gang', 'gym-challenge-giovanni']
+/**
+ * The idle screen's packs. In the app, the VVM page names them in the frame's address (attract=, the wrappers of the
+ * six sets stocked most recently, vending_attract_packs): small copies of public/packs in /rpg/a/attract (made by
+ * scripts/import-pack-art.mjs), or the full-size one if a small copy is missing. On its own, the vintage few above.
+ */
+const ATTRACT_FROM_APP = (new URLSearchParams(location.search).get('attract') ?? '').split(',').filter((n) => /^[a-z0-9-]{1,80}$/.test(n)).slice(0, 40)
 ;(() => {
+  const srcs = ATTRACT_FROM_APP.length ? ATTRACT_FROM_APP.map((n) => `/rpg/a/attract/${n}.webp`) : ATTRACT_PACKS.map((f) => ART['pack:' + f])
+  // Dealt across four rows; fewer than four packs go round again, so every row has one.
   const rows = [[], [], [], []]
-  ATTRACT_PACKS.forEach((f, i) => rows[i % 4].push(f))
+  for (let i = 0; i < Math.max(4, srcs.length); i++) rows[i % 4].push(srcs[i % srcs.length])
   $('attractRows').innerHTML = rows.map((files, i) => {
     // Each strip slides by half its width, so a half must be wider than the screen: repeat, then double.
     const base = Array.from({ length: Math.max(1, Math.ceil(10 / files.length)) }, () => files).flat()
-    const imgs = [...base, ...base].map((f) => `<img src="${ART['pack:' + f]}" alt="">`).join('')
+    const imgs = [...base, ...base].map((f) => `<img src="${f}" alt="">`).join('')
     return `<div class="row"><div class="strip" style="animation:${i % 2 ? 'driftR' : 'driftL'} ${21 + i * 5}s linear infinite">${imgs}</div></div>`
   }).join('')
+  // No small copy: the full-size art. No art at all: left out.
+  for (const img of $('attractRows').querySelectorAll('img')) img.addEventListener('error', () => {
+    const m = /^\/rpg\/a\/attract\/([a-z0-9-]+)\.webp$/.exec(img.getAttribute('src') ?? '')
+    if (m && ATTRACT_FROM_APP.length) img.src = `/packs/${m[1]}.webp`
+    else img.style.display = 'none'
+  })
 })()
 for (const [id, k] of [['maintLogo', 'logo'], ['maintQr', 'qr'], ['maintArt', 'art']]) $(id).src = ART['maint:' + k]
 function fit() { const sc = $('screen'), sw = $('sw'); if (sc && sw) sc.style.setProperty('--z', String(sw.clientWidth / 320)) }
@@ -11437,10 +11461,11 @@ async function run(id) {
       cloudReady = true
       if (!live()) return
       if (loaded) resumed(loaded)
-      if (!vvm()) return
+      if (!vvm()) return vvmShown()
       CRUMBS.sendCrash()   // the last session died mid-battle: tell the server where
-      await syncMachine(); if (loaded) await collectItems()
-    })().catch(() => { cloudReady = true })
+      await syncMachine(); vvmShown()
+      if (loaded) await collectItems()   // after the cover's gone, so the drop into the tray is seen
+    })().catch(() => { cloudReady = true; vvmShown() })
     setInterval(() => { if (live() && vvm() && homeState === 'idle' && !busy) syncMachine() }, 8000)
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && live() && vvm() && !busy) { syncMachine(); collectItems() } })
   }

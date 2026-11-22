@@ -1,5 +1,7 @@
 // Trims the surround off a photo of a booster wrapper and writes it into
-// public/packs at the same width as the rest of them.
+// public/packs at the same width as the rest of them, and a small copy into
+// public/rpg/a/attract for the VVM's idle screen (which shows the packs of the
+// sets stocked most recently).
 //
 //   node scripts/import-pack-art.mjs <source> <name.webp> [<source> <name> ...]
 //
@@ -11,6 +13,7 @@ import { statSync } from 'node:fs'
 
 const OUT = 'public/packs'
 const WIDTH = 366
+const ATTRACT = 'public/rpg/a/attract', ATTRACT_HEIGHT = 180
 const args = process.argv.slice(2)
 if (args.length === 0 || args.length % 2 !== 0) {
   throw new Error('usage: import-pack-art.mjs <source> <name.webp> [...]')
@@ -39,6 +42,7 @@ for (let i = 0; i < args.length; i += 2) {
     .webp({ quality: 86, effort: 5 })
     .toBuffer()
   await sharp(out).toFile(`${OUT}/${name}`)
+  await sharp(out).resize({ height: ATTRACT_HEIGHT }).webp({ quality: 80, effort: 5 }).toFile(`${ATTRACT}/${name}`)
 
   const meta = await sharp(out).metadata()
   console.log(
