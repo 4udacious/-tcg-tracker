@@ -485,6 +485,52 @@ test('in the app: wild pools last as many days as the admin set (pool_days), cou
   } finally { await g.close() }
 })
 
+test('in the app: the idle screen scrolls the packs the VVM page names, and the game tells the page once the machine is on screen as it is, not before', async () => {
+  const g = await openGame()
+  try {
+    const { page } = g
+    await page.evaluate(() => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+      // A slow network: the save and the machine each take a moment, and the page's cover has to wait for both.
+      window.__vvmApi = {
+        async machine() { await wait(500); return { status: 'idle', cycle_no: 7, seconds_left: 300, frozen: false, holder_id: null, holder_name: null, holder_expires: null, me: 'u1', cooldown_until: null, balance: 5, wild: true, trainers: false, heal_price: 0.5, find_chance: 0, pool_days: 7,
+          packs: [], tickets: [], supplies: [], boxes: [] } },
+        async balance() { return 5 }, async claim() { return { ok: true } }, async heartbeat() {}, async release() {}, async checkout() { return { ok: false } }, async takeItems() { return [] },
+        async awardPack() { return { ok: false } }, async awardTokens() { return { ok: false } }, async awardMilestone() { return { ok: false } },
+        async loadSave() { await wait(700); return null }, async putSave(d, rev) { return { ok: true, reason: 'ok', rev: (rev ?? 0) + 1, data: null } }, async deleteSave() {},
+        async wildSeed() { return { report: null, machines: [{ code: 'TAC-07', venue: 'Safeway', city: 'Tacoma' }] } }, async buyHeal() { return { ok: false } },
+      }
+      const m = individual(speciesByName('CHARMANDER'), 8, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
+      localStorage.setItem('vvm-save:u1', JSON.stringify({ v: 1, at: Date.now(), party: [m], box: [], bag: { ball: 1 }, wallet: 5, badges: [], champion: false, eliteStep: 0, gifted: true, roam: {}, weekShift: 0, reports: {} }))
+      // What the frame shows at the moment it says it's ready.
+      window.__shown = []
+      addEventListener('message', (e) => {
+        if (e.data?.vvm !== 'shown') return
+        const w = document.getElementById('game').contentWindow, d = w.document
+        window.__shown.push({ from: e.source === w, home: d.getElementById('home').style.display, machine: !!w.__vvm.realShelf, save: !d.getElementById('tools').hidden })
+      })
+      // Two real packs, one with no art anywhere, and two names that aren't names at all.
+      const f = document.createElement('iframe'); f.id = 'game'; f.style.cssText = 'width:420px;height:900px'
+      f.src = '/rpg/index.html?app=1&u=u1&attract=fossil-lapras,neo-revelation-entei,no-such-pack,bad%20name,..%2Fx'
+      RUN++; document.body.replaceChildren(f)
+    })
+    const frame = await (await page.waitForSelector('#game')).contentFrame()
+    // Before the save and the machine are in, nothing's been said.
+    await frame.waitForFunction(() => document.getElementById('home').style.display === 'block', null, { timeout: 15000 })
+    assert.deepEqual(await page.evaluate(() => window.__shown), [], 'not while the save and the machine are still on their way')
+    await frame.waitForFunction(() => window.__vvm && window.__vvm.realShelf, null, { timeout: 15000 })
+    await page.waitForTimeout(800)
+    assert.deepEqual(await page.evaluate(() => window.__shown), [{ from: true, home: 'block', machine: true, save: true }], 'once, with the idle screen up, the save loaded and the machine read')
+    assert.equal(await frame.evaluate(() => window.__vvmShown), true, 'and the flag, for a page that came to life after')
+    const packs = await frame.evaluate(() => ({
+      rows: document.querySelectorAll('#attractRows .row').length,
+      shown: [...new Set([...document.querySelectorAll('#attractRows img')].filter((i) => i.style.display !== 'none').map((i) => i.getAttribute('src')))].sort(),
+    }))
+    assert.deepEqual(packs, { rows: 4, shown: ['/rpg/a/attract/fossil-lapras.webp', '/rpg/a/attract/neo-revelation-entei.webp'] }, 'the named packs, small copies, across all four rows; no art, left out')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('the Box: party to Box, Box to party, and a swap with a full party', async () => {
   const g = await openGame()
   try {

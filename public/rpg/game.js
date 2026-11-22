@@ -4654,6 +4654,16 @@ const APP = (() => {
  * the machine is the game's own simulation.
  */
 const vvm = () => { if (!APP.on) return null; try { return window.parent !== window ? window.parent.__vvmApi ?? null : null } catch { return null } }
+/**
+ * In the app: tells the VVM page the machine is on screen as it really is (your save loaded, the machine's state read).
+ * The page's loading cover stays up until then, over the bare screen the game starts from. Once; the page also looks
+ * for the flag, in case this came before it was listening.
+ */
+function vvmShown() {
+  if (!APP.on || window.__vvmShown) return
+  window.__vvmShown = true
+  try { if (window.parent !== window) window.parent.postMessage({ vvm: 'shown' }, location.origin) } catch {}
+}
 /*
  * In the app, the game is a frame on a page that scrolls, under a sticky
  * header and above a fixed tab bar, so part of the frame can be hidden behind
@@ -11451,10 +11461,11 @@ async function run(id) {
       cloudReady = true
       if (!live()) return
       if (loaded) resumed(loaded)
-      if (!vvm()) return
+      if (!vvm()) return vvmShown()
       CRUMBS.sendCrash()   // the last session died mid-battle: tell the server where
-      await syncMachine(); if (loaded) await collectItems()
-    })().catch(() => { cloudReady = true })
+      await syncMachine(); vvmShown()
+      if (loaded) await collectItems()   // after the cover's gone, so the drop into the tray is seen
+    })().catch(() => { cloudReady = true; vvmShown() })
     setInterval(() => { if (live() && vvm() && homeState === 'idle' && !busy) syncMachine() }, 8000)
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && live() && vvm() && !busy) { syncMachine(); collectItems() } })
   }
