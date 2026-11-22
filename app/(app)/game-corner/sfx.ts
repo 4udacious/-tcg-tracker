@@ -134,6 +134,14 @@ let wanted = false
 let song: Promise<{ buf: AudioBuffer; f: SongFile } | null> | null = null
 let musicSrc: AudioBufferSourceNode | null = null
 let musicGain: GainNode | null = null
+let musicTrim: GainNode | null = null
+let musicLevel = 1
+
+/** The house level for the music (Admin -> VVM -> Game Corner): 1 as set here, 0 silent, 2 twice as loud. */
+export function setMusicLevel(x: number) {
+  musicLevel = Math.max(0, Math.min(2, x))
+  if (musicTrim && ctx) musicTrim.gain.setTargetAtTime(musicLevel, ctx.currentTime, 0.1)
+}
 
 export function isMusicOn() { load(); return musicOn }
 export function onMusic(l: Listener) { musicListeners.add(l); return () => { musicListeners.delete(l) } }
@@ -173,7 +181,9 @@ async function startMusic() {
   const got = await loadSong(c)
   if (!got || !wanted || !musicOn || musicSrc || c.state !== 'running') return
   const { buf, f } = got
-  musicGain ??= (() => { const g = c.createGain(); g.gain.value = 0; g.connect(pa(c)); return g })()   // through the PA, not the sounds' switch
+  // Through the house level, then the PA (not through the sounds' switch).
+  musicTrim ??= (() => { const g = c.createGain(); g.gain.value = musicLevel; g.connect(pa(c)); return g })()
+  musicGain ??= (() => { const g = c.createGain(); g.gain.value = 0; g.connect(musicTrim!); return g })()
   // A decoder that keeps AAC's priming puts everything 1024 samples late, the loop points too (as in the battle game).
   const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
   const src = c.createBufferSource()
