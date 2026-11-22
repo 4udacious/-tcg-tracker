@@ -128,7 +128,7 @@ export function setHidden(h: boolean) {
 
 // ─────────────────────────────────────────────── music
 /** How loud the music goes into the PA (which takes off the lows and highs, so it sits further back), under the casino. */
-const MUSIC_VOL = 0.64
+const MUSIC_VOL = 0.32
 type SongFile = { file: string; mp3?: string; rate: number; samples: number; loopStart: number; loopEnd: number; gain?: number }
 let wanted = false
 let song: Promise<{ buf: AudioBuffer; f: SongFile } | null> | null = null
