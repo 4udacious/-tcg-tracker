@@ -4,8 +4,9 @@
  * tap). Off and on is remembered on this device (localStorage, 'gc-sound').
  *
  * And its music: SONGS.gameCorner, written in the battle game's music engine (public/rpg/game.js) and rendered with
- * the others (npm run music:render) to a file listed in public/rpg/music.json, played here as one looping buffer.
- * It has its own switch ('gc-music'), so the music can be off with the sounds on, or the other way round.
+ * the others (npm run music:render) to a file listed in public/rpg/music.json, played here as one looping buffer
+ * through a PA: the house sound system, small speakers up in a big room. It has its own switch ('gc-music'). The
+ * casino around you (ambience.ts) shares the room's echo and has a switch of its own.
  */
 
 type Listener = (muted: boolean) => void
@@ -54,8 +55,66 @@ export function unlock() {
     master.gain.value = muted ? 0 : VOLUME
     master.connect(limit).connect(ctx.destination)
   }
-  if (ctx.state === 'suspended' && !hidden) ctx.resume().then(startMusic, () => {})
-  else startMusic()
+  if (ctx.state === 'suspended' && !hidden) ctx.resume().then(started, () => {})
+  else started()
+}
+
+const startHooks = new Set<() => void>(), stopHooks = new Set<() => void>()
+/** For the ambience: called whenever the room's sound may (re)start, and when the Game Corner goes. */
+export function onStart(fn: () => void) { startHooks.add(fn); return () => { startHooks.delete(fn) } }
+export function onStop(fn: () => void) { stopHooks.add(fn); return () => { stopHooks.delete(fn) } }
+function started() { startMusic(); startHooks.forEach((f) => f()) }
+/** The audio, if the Game Corner is on screen and sound is allowed and running. */
+export function running(): Ctx | null { return wanted && ctx && ctx.state === 'running' && !hidden ? ctx : null }
+
+let roomIn: GainNode | null = null
+/**
+ * The room: a big hall's echo (an impulse response made of decaying noise, darkened), shared by the PA and the
+ * casino's noises, so they sit in one place. Returns its input.
+ */
+export function room(c: Ctx): AudioNode {
+  if (roomIn) return roomIn
+  const sec = 2.6, rate = c.sampleRate, len = Math.floor(sec * rate), ir = c.createBuffer(2, len, rate)
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch)
+    let lp = 0
+    for (let i = 0; i < len; i++) {
+      const k = i / len, t = i / rate
+      // Darker as it dies away: the noise smoothed more and more.
+      lp += (Math.random() * 2 - 1 - lp) * (0.9 - 0.8 * k)
+      d[i] = lp * Math.pow(1 - k, 2.4) * Math.min(1, t / 0.015)
+    }
+  }
+  const conv = c.createConvolver(); conv.buffer = ir; conv.normalize = true
+  const tone = c.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 4500
+  const out = c.createGain(); out.gain.value = 0.9
+  roomIn = c.createGain()
+  roomIn.connect(conv).connect(tone).connect(out).connect(c.destination)
+  return roomIn
+}
+
+let paIn: GainNode | null = null
+/**
+ * The PA the music comes through: no lows and few highs (small speakers), a honky midrange, a touch of overdrive,
+ * a few milliseconds late (it's across the room), and much of it heard off the walls.
+ */
+function pa(c: Ctx): AudioNode {
+  if (paIn) return paIn
+  paIn = c.createGain()
+  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 380; hp.Q.value = 0.8
+  const mid = c.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 1700; mid.Q.value = 1.1; mid.gain.value = 6
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3600; lp.Q.value = 0.9
+  const drive = c.createWaveShaper(); drive.oversample = '2x'
+  const curve = new Float32Array(1024)
+  for (let i = 0; i < curve.length; i++) { const x = (i / (curve.length - 1)) * 2 - 1; curve[i] = Math.tanh(1.8 * x) / Math.tanh(1.8) }
+  drive.curve = curve
+  const late = c.createDelay(0.1); late.delayTime.value = 0.03
+  const dry = c.createGain(); dry.gain.value = 0.5
+  const wet = c.createGain(); wet.gain.value = 0.55
+  paIn.connect(hp).connect(mid).connect(lp).connect(drive)
+  drive.connect(late).connect(dry).connect(c.destination)
+  drive.connect(wet).connect(room(c))
+  return paIn
 }
 
 let hidden = false
@@ -64,12 +123,12 @@ export function setHidden(h: boolean) {
   hidden = h
   if (!ctx) return
   if (h) ctx.suspend().catch(() => {})
-  else if (ctx.state === 'suspended') ctx.resume().then(startMusic, () => {})
+  else if (ctx.state === 'suspended') ctx.resume().then(started, () => {})
 }
 
 // ─────────────────────────────────────────────── music
-/** How loud the music sits under the sounds. */
-const MUSIC_VOL = 0.5
+/** How loud the music goes into the PA (which takes off the lows and highs, so it sits further back). */
+const MUSIC_VOL = 0.85
 type SongFile = { file: string; mp3?: string; rate: number; samples: number; loopStart: number; loopEnd: number; gain?: number }
 let wanted = false
 let song: Promise<{ buf: AudioBuffer; f: SongFile } | null> | null = null
@@ -86,10 +145,11 @@ export function setMusicOn(on: boolean) {
   if (on) startMusic(); else stopMusic()
 }
 
-/** Whether the Game Corner is on screen: the music plays (once sound is allowed, and if it's on) only while it is. */
-export function wantMusic(w: boolean) {
+/** Whether the Game Corner is on screen: the music and the ambience play (once sound is allowed, and if on) only while it is. */
+export function wantSound(w: boolean) {
   wanted = w
-  if (w) startMusic(); else stopMusic()
+  if (w) started()
+  else { stopMusic(); stopHooks.forEach((f) => f()) }
 }
 
 /** The rendered song, fetched and decoded once: the AAC file, or the MP3 where AAC won't decode. */
@@ -113,7 +173,7 @@ async function startMusic() {
   const got = await loadSong(c)
   if (!got || !wanted || !musicOn || musicSrc || c.state !== 'running') return
   const { buf, f } = got
-  musicGain ??= (() => { const g = c.createGain(); g.gain.value = 0; g.connect(c.destination); return g })()   // not through the sounds' switch
+  musicGain ??= (() => { const g = c.createGain(); g.gain.value = 0; g.connect(pa(c)); return g })()   // through the PA, not the sounds' switch
   // A decoder that keeps AAC's priming puts everything 1024 samples late, the loop points too (as in the battle game).
   const lead = buf.duration - f.samples / f.rate >= 1020 / f.rate ? 1024 / f.rate : 0
   const src = c.createBufferSource()
