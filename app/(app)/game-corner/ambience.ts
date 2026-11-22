@@ -14,7 +14,7 @@ type Listener = (on: boolean) => void
 /** The recording: AAC, MP3, and the loop's length (the guard after it isn't part of the loop). */
 const FLOOR = { m4a: '/sounds/casino-floor.735c7b52.m4a', mp3: '/sounds/casino-floor.95f94369.mp3', frames: 4305571, rate: 44100 }
 /** How loud the floor is. */
-const LEVEL = 1
+const LEVEL = 0.6
 
 let on = true
 let loaded = false
