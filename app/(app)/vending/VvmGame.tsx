@@ -87,7 +87,10 @@ function VvmLoading({ done }: { done: boolean }) {
  *
  * Leaving the tab saves the game and gives up the machine if you held it.
  */
-export default function VvmGame({ userId, initialBuys, gameCorner = null }: { userId: string; initialBuys: RecentBuy[]; gameCorner?: 'open' | 'admins' | null }) {
+export default function VvmGame({ userId, initialBuys, gameCorner = null, attract = [] }: {
+  userId: string; initialBuys: RecentBuy[]; gameCorner?: 'open' | 'admins' | null
+  attract?: string[]   // the idle screen's packs: the art of the sets stocked most recently (vending_attract_packs)
+}) {
   const frame = useRef<HTMLIFrameElement>(null)
   const api = useRef<VvmApi | null>(null)
   const [buys, setBuys] = useState(initialBuys)
@@ -143,7 +146,7 @@ export default function VvmGame({ userId, initialBuys, gameCorner = null }: { us
       <div className="relative -mx-4 -mt-4">
         <iframe
           ref={frame}
-          src={`/rpg/index.html?app=1&embed=1&u=${encodeURIComponent(userId)}`}
+          src={`/rpg/index.html?app=1&embed=1&u=${encodeURIComponent(userId)}${attract.length ? `&attract=${attract.join(',')}` : ''}`}
           title="The VVM"
           allow="autoplay; vibrate"
           onLoad={loaded}
