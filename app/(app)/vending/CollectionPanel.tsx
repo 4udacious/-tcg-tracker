@@ -305,6 +305,9 @@ const BINDERS: Record<string, Binder> = {
   // red, kept clear of Gym Heroes' orange further down the shelf.
   base4: { cover: '/packs/base-set-2-mewtwo.webp',    spine: '#7f1d1d', body: '#b91c1c', foil: '#fde68a', fit: 'contain' },
   base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
+  // Legendary Collection: no binder art yet, so the legendary birds' wrapper stands in. Indigo, for the
+  // wrappers' purple-blue foil, kept clear of Neo Genesis's navy and Gym Challenge's violet; the logo's gold.
+  base6: { cover: '/packs/legendary-collection-birds.webp', spine: '#312e81', body: '#4338ca', foil: '#fcd34d', fit: 'contain' },
   // Vivid orange rather than Fossil's brown-amber: the two covers are both
   // warm, and the binder bodies are what tells them apart down the shelf.
   gym1:  { cover: '/binders/gym-heroes.webp',         spine: '#c2410c', body: '#ea580c', foil: '#fde68a', fit: 'cover' },
@@ -330,6 +333,9 @@ const BINDERS: Record<string, Binder> = {
   // under the logo, on the silver-blue of its sea-city tiles.
   ecard1: { cover: '/binders/expedition.webp', spine: '#7c2d12', body: '#dc4a14', foil: '#fde68a', fit: 'cover', pos: '50% 0%' },
   ecard2: { cover: '/binders/aquapolis.webp',  spine: '#1e3a5f', body: '#3b6ea5', foil: '#e0f2fe', fit: 'cover', pos: '50% 50%' },
+  // Skyridge: no binder art yet, so its Ho-Oh wrapper stands in. The wrapper's bottle green as emerald,
+  // kept clear of Jungle's green and Neo Discovery's teal, with its mint triangles for the foil.
+  ecard3: { cover: '/packs/skyridge-ho-oh.webp', spine: '#022c22', body: '#065f46', foil: '#6ee7b7', fit: 'contain' },
   // EX Ruby & Sapphire (v106): its binder, Blaziken and Swampert on the
   // cover's split of ruby red and sapphire blue: a ruby spine, a sapphire
   // body, and the EX logo's gold for the foil.
