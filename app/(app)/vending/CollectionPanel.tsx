@@ -353,6 +353,7 @@ const BINDERS: Record<string, Binder> = {
   op06:  { cover: '', label: 'OP-06', spine: '#0a0a0a', body: '#262626', foil: '#ef4444', fit: 'contain' },   // Wings of the Captain: black, with its title's red
   eb01:  { cover: '', label: 'EB-01', spine: '#9d174d', body: '#f9a8d4', foil: '#38bdf8', fit: 'contain' },   // Memorial Collection: cherry-blossom pink, Chopper's blue hat
   eb02:  { cover: '', label: 'EB-02', spine: '#1e3a8a', body: '#e7dcc4', foil: '#1d4ed8', fit: 'contain' },   // Anime 25th Collection: sketch-paper cream, its navy edge
+  eb03:  { cover: '', label: 'EB-03', spine: '#7f1d1d', body: '#b91c1c', foil: '#fcd34d', fit: 'contain' },   // Heroines Edition: the stage's red curtain, its gold title
   si1:   { cover: '/binders/southern-islands.webp',     spine: '#164e63', body: '#0e7490', foil: '#fb923c', fit: 'cover', pos: '35% 50%',
            // A 3×6 binder: the 18 cards as two 9-pocket pages (1-9, 10-18), every card in its own pocket.
            pockets: { count: 18, cols: 3, page: 9 } },
