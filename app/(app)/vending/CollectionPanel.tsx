@@ -301,9 +301,10 @@ const BINDERS: Record<string, Binder> = {
   // Amber, chosen when Base Set took blue, happens to match the kraft-paper
   // artwork exactly.
   base3: { cover: '/binders/fossil.webp',             spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'cover' },
-  // No binder art yet, so a wrapper stands in. Red for the wrappers' own
-  // red, kept clear of Gym Heroes' orange further down the shelf.
-  base4: { cover: '/packs/base-set-2-mewtwo.webp',    spine: '#7f1d1d', body: '#b91c1c', foil: '#fde68a', fit: 'contain' },
+  // The real Base Set 2 binder: Mewtwo on periwinkle, with the set's Poke Ball "2". Its periwinkle body is lighter
+  // than Base Set's royal blue; the foil takes the Poke Ball's red. Held left of centre so the "2" and Mewtwo stay in
+  // the narrow window.
+  base4: { cover: '/binders/base-set-2.webp',         spine: '#2c4a86', body: '#5b86cc', foil: '#f87171', fit: 'cover', pos: '20% 50%' },
   base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
   // Vivid orange rather than Fossil's brown-amber: the two covers are both
   // warm, and the binder bodies are what tells them apart down the shelf.
