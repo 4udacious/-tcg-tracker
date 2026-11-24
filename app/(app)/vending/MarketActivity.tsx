@@ -9,7 +9,7 @@ interface Notice {
   id: number
   listing_id: number | null
   /** 'announcement' is news about the market itself, with its own message. */
-  kind: 'sold' | 'bought' | 'outbid' | 'expired' | 'announcement'
+  kind: 'sold' | 'bought' | 'outbid' | 'expired' | 'announcement' | 'bid'
   amount: number | null
   fee: number | null
   other_name: string | null
@@ -51,6 +51,8 @@ function label(n: Notice): string {
       return `You bought ${what} from ${who} for ${fmt(n.amount ?? 0)}.`
     case 'outbid':
       return `${who} outbid you on ${what} at ${fmt(n.amount ?? 0)}. Your tokens are back.`
+    case 'bid':
+      return `${who} bid ${fmt(n.amount ?? 0)} on ${what}.`
     case 'expired':
       return `${what} ended without a sale and is back in your collection.`
     case 'announcement':

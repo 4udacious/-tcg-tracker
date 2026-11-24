@@ -494,7 +494,8 @@ export default function TradesPanel({
 
   const unseen = offers.filter((o) => o.unseen).length
   const waiting = offers.filter((o) => o.incoming && o.status === 'pending').length
-  const [tab, setTab] = useState<'browse' | 'mine' | 'offers'>(initialBinder ? 'browse' : waiting > 0 ? 'offers' : 'browse')
+  // Straight to Offers when something there is waiting for you or new to you (an answer to yours), as the bell links here.
+  const [tab, setTab] = useState<'browse' | 'mine' | 'offers'>(initialBinder ? 'browse' : waiting > 0 || unseen > 0 ? 'offers' : 'browse')
   const [viewing, setViewing] = useState<Binder | null>(initialBinder && initialBinder.user_id !== userId ? initialBinder : null)
   const [compose, setCompose] = useState<{ to: Member & { id: string }; want: TradeItem[]; offerable: TradeItem[]; give?: TradeItem[]; tokensGive?: number; tokensGet?: number; counterOf?: number } | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
