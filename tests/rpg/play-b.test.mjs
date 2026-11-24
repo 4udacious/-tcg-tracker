@@ -68,24 +68,28 @@ test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to he
 test('EXP: a Pokémon switched out after facing the foe still gets three quarters of it, more than the EXP. SHARE\'s half', { skip: quick }, async () => {
   const g = await openGame()
   try {
-    const { page, bot, log } = g
+    const { page, bot } = g
     await bot.finishTutorial()
     // The starter leads; a strong second Pokémon comes in on the first turn and finishes the wild one. No EXP. SHARE.
     await page.evaluate(() => {
       const v = window.__vvm, m = individual(speciesByName('MACHAMP'), 40, Math.random)
       learnAtLevel(m); m.hp = m.stats.hp; v.party.splice(1, 9, m); delete v.bag.expshare
       for (const p of v.party) p.hp = p.stats.hp
+      // Every line the message box shows, as it shows it: the two EXP lines come quickly, and the bot's log samples
+      // could miss one.
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
     })
     const [lead, second] = await page.evaluate(() => window.__vvm.party.map((m) => m.name))
     const shown = (sel) => page.evaluate((sel) => { const b = document.querySelector(sel); return !!(b && b.offsetParent && b.closest('.panel')?.style.display !== 'none') }, sel)
-    let from = 0
-    const gained = (name) => { const l = log.slice(from).find((x) => x.startsWith(`${name} gained`) && /EXP\. Points!/.test(x)); return l ? +l.match(/(\d+) EXP\. Points!/)[1] : null }
+    let lines = []
+    const gained = (name) => { const l = lines.find((x) => x.startsWith(`${name} gained`) && /EXP\. Points!/.test(x)); return l ? +l.match(/(\d+) EXP\. Points!/)[1] : null }
     // A wild one can also leave without fainting (it flees, say): then there's no EXP to check, and it's tried again.
     for (let attempt = 0; attempt < 3 && !gained(second); attempt++) {
       await page.evaluate(() => { for (const p of window.__vvm.party) p.hp = p.stats.hp })
       for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
       await page.selectOption('#nextTap', 'wild'); await page.evaluate(() => document.activeElement?.blur())
-      from = log.length   // this battle's lines only (the tutorial's EXP is earlier)
+      await page.evaluate(() => { window.__said.length = 0 })   // this battle's lines only (the tutorial's EXP is earlier)
       let fought = false
       for (let t = 0; t < 5 && !fought; t++) {
         await page.evaluate(() => document.getElementById('home').click())
@@ -99,6 +103,7 @@ test('EXP: a Pokémon switched out after facing the foe still gets three quarter
       for (let i = 0; i < 20 && !(await shown('#pParty [data-act="p1"]')); i++) await page.waitForTimeout(150)
       await page.dispatchEvent('#pParty [data-act="p1"]', 'pointerdown')
       for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+      lines = await page.evaluate(() => window.__said.slice())
     }
     const full = gained(second), part = gained(lead)
     assert.ok(full > 0, `${second}, out when the foe fell, got its EXP (${full})`)

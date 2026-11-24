@@ -150,6 +150,8 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
       const v = window.__vvm
       const m = individual(speciesByName('SNORLAX'), 100, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       v.party.splice(0, v.party.length, m); v.bag.ball = 20; window.__forceShakes = 0
+      // No other trainers' taps: one could meet the same legendary mid-battle and chip it, throw at it, or knock it out.
+      window.__noOthers = true
       // Every line the battle says, kept as it finishes typing (a sampled read can miss a quick one).
       const said = window.__said = [], msg = document.getElementById('msg')
       new MutationObserver(() => { if (said.at(-1) !== msg.textContent) said.push(msg.textContent) }).observe(msg, { childList: true, subtree: true, characterData: true })
@@ -183,9 +185,10 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
     const r = await page.evaluate(() => Object.fromEntries(Object.entries(window.__vvm.ROAM).map(([k, m]) => [k, { turn: m.turn, balls: m.balls ?? 0, hp: m.hp }])))
     const said = await page.evaluate(() => window.__said.slice())
     const name = Object.keys(r).find((k) => r[k].turn != null), met = r[name]
-    assert.ok(said.some((t) => /fled!/.test(t)), 'it fled')
+    const lines = said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)).slice(-16).join(' | ')   // as each finished typing
+    assert.ok(said.some((t) => /fled!/.test(t)), `it fled (the battle's last lines: ${lines})`)
     assert.equal(met.turn, 4, 'after four turns of attacking')
-    assert.equal(met.balls - before[name], 5, 'a ball each turn, and one more as it fled: all five remembered')
+    assert.equal(met.balls - before[name], 5, `a ball each turn, and one more as it fled: all five remembered (${lines})`)
     assert.ok(said.some((t) => /is tiring!/.test(t)), 'and you\'re told each one helps')
     // The count is saved with it, for whoever meets it next.
     const saved = await page.waitForFunction((n) => JSON.parse(localStorage.getItem('vvm-save') ?? '{}').roam?.[n]?.balls, name, { timeout: 15000 }).then((h) => h.jsonValue()).catch(() => null)
@@ -195,7 +198,7 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
     await meetLegend()
     await throwBalls(7)
     const asleep = await page.evaluate(() => ({ said: window.__said.slice() }))
-    assert.ok(await bot.inBattle(), 'still there after seven balls')
+    assert.ok(await bot.inBattle(), `still there after seven balls (the battle's last lines: ${asleep.said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)).slice(-16).join(' | ')})`)
     assert.ok(!asleep.said.some((t) => /fled!/.test(t)) && asleep.said.some((t) => /fast asleep/.test(t)), 'asleep, and it never ran')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }

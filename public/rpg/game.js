@@ -11515,7 +11515,7 @@ async function run(id) {
   /** Other trainers use the same machine every few seconds, once you're past the tutorial. */
   const othersLoop = () => {
     if (vvm()) return   // in the app the other trainers are real (see syncMachine)
-    const tick = () => { if (!live()) return; if (tutorialDone) otherTaps(OTHERS[Math.floor(Math.random() * OTHERS.length)]); setTimeout(tick, 5000 + Math.random() * 5000) }
+    const tick = () => { if (!live()) return; if (tutorialDone && !window.__noOthers) otherTaps(OTHERS[Math.floor(Math.random() * OTHERS.length)]); setTimeout(tick, 5000 + Math.random() * 5000) }   // __noOthers: testing only
     setTimeout(tick, 3000)
   }
   /*
