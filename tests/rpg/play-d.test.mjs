@@ -69,17 +69,19 @@ test('a shiny wild Pokémon: its own sprite, a sparkle and its own announcement'
 test('a wild Ditto transforms on its first turn, into your Pokémon', { skip: quick }, async () => {
   const g = await openGame()
   try {
-    const { page, bot, log } = g
+    const { page, bot } = g
     await bot.finishTutorial()
     await page.evaluate(() => {
       const m = individual(speciesByName('CHARMANDER'), 20, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       m.stats.atk = m.stats.spa = 1   // weak hits, so the Ditto always lives to take its first turn
       window.__vvm.party.splice(0, 9, m); window.__forceWild = 'DITTO'
+      // Every line the message box shows, as it shows it (the bot's log samples could miss a quick one).
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
     })
-    const from = log.length
     assert.ok(await bot.encounter('wild'), 'a wild battle started')
-    // The log can catch a line mid-typewriter; keep each line once it's whole (the next one doesn't just continue it).
-    const seen = log.slice(from), lines = seen.filter((l, i) => !(seen[i + 1] ?? '').startsWith(l)), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
+    // Each line once it's whole (the next one doesn't just continue it).
+    const seen = await page.evaluate(() => window.__said.slice()), lines = seen.filter((l, i) => !(seen[i + 1] ?? '').startsWith(l)), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
     assert.match(firstFoe ?? '', /TRANSFORM/, 'the first thing the wild Ditto does is Transform')
     assert.ok(lines.some((l) => /DITTO transformed/.test(l) && /CHARMANDER/.test(l)), 'it transformed into your Charmander')
     assert.ok(!lines.some((l) => /The wild DITTO used/.test(l) && /TACKLE/.test(l)), 'and then fought with fire moves, not Tackle')
