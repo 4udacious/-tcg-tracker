@@ -8,7 +8,7 @@ import { NOTICES_READ_EVENT } from '@/lib/events'
 
 /**
  * Everything waiting on you, in one place: grades back from WAPC, cards back
- * from the cleaners, market activity, the latest market announcement, token
+ * from the cleaners, market activity, trade offers and answers, the latest market announcement, token
  * bonuses from the admins, and this fortnight's interest check bonus (a new
  * period to update your list for, or tokens ready to claim).
  * Replaces the count on the VVM tab and the announcement banner.
@@ -16,6 +16,21 @@ import { NOTICES_READ_EVENT } from '@/lib/events'
 export type MemberNotice = { id: number; kind: string; amount: number | null; message: string | null; created_at: string }
 /** This fortnight's interest check bonus, while it's still to be had: `updated` once your list has been touched this period. */
 export type InterestNotice = { amount: number; period: string; ends: string; updated: boolean }
+/** A trade that needs a look (trade_updates, v126): an offer or counter to you, or an answer to yours. */
+export type TradeUpdate = { offer_id: number; kind: 'offer' | 'counter' | 'accepted' | 'declined' | 'failed' | 'countered'; other_name: string | null; at: string }
+
+/** What happened, in words, and what to do about it. */
+function tradeLine(t: TradeUpdate): [string, string] {
+  const who = t.other_name ?? 'A member'
+  switch (t.kind) {
+    case 'offer': return [`${who} sent you a trade offer`, 'Have a look and accept, counter or decline']
+    case 'counter': return [`${who} countered your trade offer`, 'Their new offer is waiting for you']
+    case 'countered': return [`${who} countered your trade offer`, 'See what they came back with']
+    case 'accepted': return [`${who} accepted your trade`, 'The swap is done: check your collection']
+    case 'declined': return [`${who} declined your trade offer`, 'Nothing changed hands']
+    case 'failed': return [`Your trade with ${who} couldn't go through`, 'Something in it was no longer available']
+  }
+}
 
 /** "Ends Nov 14" for a period's last day (period_ends is the day after it). */
 function endsLabel(iso: string) {
@@ -24,13 +39,14 @@ function endsLabel(iso: string) {
 }
 const dismissKey = (period: string) => `interest-notice-dismissed:${period}`
 
-export default function NotificationBell({ grades, cleans, marketUnread, announcement, notices, interest }: {
+export default function NotificationBell({ grades, cleans, marketUnread, announcement, notices, interest, trades = [] }: {
   grades: number
   cleans: number
   marketUnread: number
   announcement: { id: number; message: string } | null
   notices: MemberNotice[]
   interest: InterestNotice | null
+  trades?: TradeUpdate[]
 }) {
   const router = useRouter()
   const [news, setNews] = useState(announcement)
@@ -71,7 +87,7 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
     setDismissed(true)
   }
 
-  const total = grades + cleans + unread + (news ? 1 : 0) + notices.length + (showInterest ? 1 : 0)
+  const total = grades + cleans + unread + (news ? 1 : 0) + notices.length + (showInterest ? 1 : 0) + trades.length
 
   function markNewsRead() {
     if (!news) return
@@ -149,14 +165,30 @@ export default function NotificationBell({ grades, cleans, marketUnread, announc
               <span className="block text-xs text-muted">See how they came out</span>
             </MenuLink>
           )}
+          {trades.slice(0, 5).map((t) => {
+            const [line, sub] = tradeLine(t)
+            return (
+              <MenuLink key={`trade-${t.offer_id}-${t.kind}`} href="/trades" onSelect={close}
+                icon={<span className="w-5 h-5 rounded-full bg-violet-500 text-white text-[11px] font-bold flex items-center justify-center" aria-hidden>⇄</span>}>
+                {line}
+                <span className="block text-xs text-muted">{sub}</span>
+              </MenuLink>
+            )
+          })}
+          {trades.length > 5 && (
+            <MenuLink href="/trades" onSelect={close}
+              icon={<span className="w-5 h-5 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center" aria-hidden>+{trades.length - 5}</span>}>
+              {`${trades.length - 5} more trade update${trades.length - 5 === 1 ? '' : 's'}`}
+            </MenuLink>
+          )}
           {unread > 0 && (
             <MenuLink href="/market" onSelect={close} icon={<span className="w-5 h-5 rounded-full bg-signal text-white text-[10px] font-bold flex items-center justify-center">{unread > 9 ? '9+' : unread}</span>}>
               {unread === 1 ? 'A market update' : `${unread} market updates`}
-              <span className="block text-xs text-muted">Sales, bids and outbids</span>
+              <span className="block text-xs text-muted">Sales, bids on your listings and outbids</span>
             </MenuLink>
           )}
           {total > 0 && <MenuDivider />}
-          <p className="px-3 pb-2 pt-1 text-[11px] text-muted">Grades, cleaning, the market, bonuses and the interest check post here as they happen.</p>
+          <p className="px-3 pb-2 pt-1 text-[11px] text-muted">Grades, cleaning, the market, trades, bonuses and the interest check post here as they happen.</p>
         </>
       )}
     </Menu>
