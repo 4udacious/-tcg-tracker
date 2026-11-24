@@ -16,6 +16,7 @@ const SET_NAMES: Record<string, string> = {
   base3: 'Fossil',
   base4: 'Base Set 2',
   base5: 'Team Rocket',
+  base6: 'Legendary Collection',
   gym1: 'Gym Heroes',
   gym2: 'Gym Challenge',
   neo1: 'Neo Genesis',
@@ -24,6 +25,7 @@ const SET_NAMES: Record<string, string> = {
   neo4: 'Neo Destiny',
   ecard1: 'Expedition',
   ecard2: 'Aquapolis',
+  ecard3: 'Skyridge',
   ex1: 'EX Ruby & Sapphire',
   // One Piece Card Game (v96).
   op01: 'Romance Dawn',
