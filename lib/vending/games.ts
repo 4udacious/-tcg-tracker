@@ -25,7 +25,7 @@ export function gameOf(setCodeOrImage: string | null | undefined): Game {
 }
 
 const NAMES: Record<Game, Record<string, string>> = {
-  pkm: { C: 'Common', U: 'Uncommon', R: 'Rare', H: 'Holo Rare', S: 'Secret Rare' },
+  pkm: { C: 'Common', U: 'Uncommon', R: 'Rare', H: 'Holo Rare', S: 'Secret Rare', V: 'Reverse Holo' },
   op: { C: 'Common', U: 'Uncommon', R: 'Rare', H: 'Super Rare', S: 'Secret Rare', L: 'Leader', P: 'Parallel' },
 }
 
@@ -34,8 +34,14 @@ export function rarityName(rarity: string, setCodeOrImage?: string | null): stri
   return NAMES[gameOf(setCodeOrImage)][rarity] ?? rarity
 }
 
-/** The pulls worth a fanfare: a holo or Super Rare, a secret rare, or a One Piece parallel. */
+/**
+ * The pulls worth a fanfare: a holo or Super Rare, a secret rare, or a One Piece parallel. Not a reverse holo (V,
+ * v125): one comes in every pack of the sets that have them.
+ */
 export const isHit = (rarity: string) => rarity === 'H' || rarity === 'S' || rarity === 'P'
+
+/** A Pokémon reverse holo (v125): its own card, '<number>_rh', the card's art with a foil around the picture. */
+export const isReverse = (rarity: string) => rarity === 'V'
 
 /**
  * Card numbers in binder order: 1, 2 ... 10, then a card's parallels after it
