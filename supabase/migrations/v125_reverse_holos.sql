@@ -2,8 +2,9 @@
 -- Expedition (ecard1), Aquapolis (ecard2), Skyridge (ecard3) and EX Ruby & Sapphire (ex1). 667 cards.
 --
 -- Each is a card of its own: rarity V ("Reverse Holo"), numbered after its card with _rh ('3_rh' beside Charizard's
--- '3'), so it sorts beside it, collects and trades separately, and has its own art (/cards/base6-3_rh.webp: the
--- card's art with the set's reverse foil laid around the picture). Every numbered card in these sets had one except
+-- '3'), so it sorts beside it, collects and trades separately, and has its own art (/cards/base6-3_rh.webp):
+-- Legendary Collection's are scans of the real cards; the other sets' are the card's art with the set's reverse foil
+-- laid around the picture. Every numbered card in these sets had one except
 -- Expedition's six basic Energy, Aquapolis's three Crystal Pokemon and EX Ruby & Sapphire's eight Pokemon-ex (from
 -- TCGplayer's and PriceCharting's records); the e-Card sets' H-numbered holos are holo versions, not reverses.
 -- Legendary Collection 110, Expedition 159, Aquapolis 147, Skyridge 150, EX Ruby & Sapphire 101. Names come from the cards
