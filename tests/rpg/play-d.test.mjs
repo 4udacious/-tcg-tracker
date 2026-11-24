@@ -126,6 +126,7 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
         const m = individual(speciesByName('MACHOP'), 20, Math.random); learnAtLevel(m)
         Object.assign(m.stats, { hp: 2000, atk: Math.ceil(m.stats.atk / 3), spa: Math.ceil(m.stats.spa / 3) }); m.hp = m.stats.hp; m.status = st   // weak hits, so the foe lives to attack
         window.__vvm.party.splice(0, 9, m); window.__forceWild = 'RATTATA'; window.__autoParry = true
+        GUARD.regen = GUARD.max   // the guard never runs out here (a broken one greys the buttons too): this is about the status
         // How the defend buttons looked whenever they were up: greyed out (locked) or not.
         window.__defendLooks = new Set(); clearInterval(window.__defendWatch)
         window.__defendWatch = setInterval(() => { const p = document.getElementById('pDefend'); if (p.style.display === 'block') window.__defendLooks.add(p.classList.contains('locked') ? 'locked' : 'live') }, 20)
@@ -136,7 +137,7 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
       return { attacked, hp: await page.evaluate(() => window.__vvm.party[0].hp), looks: await page.evaluate(() => [...window.__defendLooks].sort()) }
     }
     const healthy = await fight(null)
-    if (healthy.attacked) { assert.equal(healthy.hp, 2000, 'healthy: every PERFECT parry takes no damage'); assert.deepEqual(healthy.looks, ['live'], 'healthy: the defend buttons are live') }
+    if (healthy.attacked) { assert.ok(healthy.hp > 1900, `healthy: every PERFECT parry lets only a sliver through (${healthy.hp}/2000)`); assert.deepEqual(healthy.looks, ['live'], 'healthy: the defend buttons are live') }
     let para = { attacked: false }
     for (let i = 0; i < 4 && !para.attacked; i++) para = await fight('par')   // until the Rattata lands an attack (not just Tail Whip)
     assert.ok(para.attacked, 'the Rattata attacked the paralyzed Pokémon')

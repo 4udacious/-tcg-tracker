@@ -171,3 +171,57 @@ test('2v2: when one trainer of a tag team runs out, their partner sends in anoth
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
+
+test('guard, heavy blows and stun, played: a red ring dodged fills the stun bar until the foe is stunned (1v1); a guard spent to nothing breaks (2v2)', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 60, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 6000 }); m.hp = 6000; return m }
+      v.party.splice(0, 9, mk('MACHAMP'), mk('ARCANINE')); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
+      window.__autoParry = true   // testing: a PERFECT parry, jump or (a red ring) dodge every time
+      window.__rules = { HEAVY: { ...HEAVY }, STUN: { ...STUN }, GUARD: { ...GUARD } }
+      // Every pop and line as it shows (they pass quicker than the bot's samples), and the guard and stun bars' widths.
+      window.__pops = []; window.__said = []; window.__bars = { guard: [], stun: [] }
+      new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('pop')) window.__pops.push(n.textContent) }).observe(document.body, { childList: true, subtree: true })
+      const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
+      setInterval(() => { for (const [k, sel] of [['guard', '#pguard, .gd2 i'], ['stun', '#estun, .sd2 i']]) for (const el of document.querySelectorAll(sel)) if (el.offsetParent) window.__bars[k].push(parseFloat(el.style.width) || 0) }, 40)
+    })
+    // A rematch with the rules bent so each thing happens soon; once it has, the party hits hard enough to finish.
+    const fight = async (id, duo, bend, seen) => {
+      await page.evaluate(([id, duo, bend]) => {
+        const rules = { HEAVY, STUN, GUARD }
+        for (const k in rules) Object.assign(rules[k], window.__rules[k], bend[k])
+        for (const m of window.__vvm.party) { m.stats = statsAt(m, m.level); Object.assign(m.stats, { hp: 6000 }); m.hp = 6000; m.status = null }
+        window.__pops.length = 0; window.__said.length = 0; window.__bars.guard.length = 0; window.__bars.stun.length = 0
+        window.__rm = false; window.__vvm.rematchBattle(id, duo).then(() => { window.__rm = true })
+      }, [id, duo, bend])
+      let done = false
+      for (let i = 0; i < 1200 && !(await page.evaluate(() => window.__rm)); i++) {
+        await bot.step()
+        if (!done && (await page.evaluate(seen))) { done = true; await page.evaluate(() => { for (const m of window.__vvm.party) m.stats.atk = m.stats.spa = 9000 }) }
+      }
+      return page.evaluate(() => ({ pops: [...window.__pops], said: [...window.__said], guard: [...window.__bars.guard], stun: [...window.__bars.stun], done: window.__rm }))
+    }
+    // 1v1: every strong single blow heavy, and a small stun bar.
+    const one = await fight('gym_5', false, { HEAVY: { chance: 1, hard: 1, power: 0 }, STUN: { hard: 25, max: 25 } },
+      () => window.__pops.includes('STUNNED!') && window.__pops.includes('PERFECT DODGE!'))
+    assert.ok(one.done, '1v1: the rematch finished')
+    assert.ok(one.pops.includes('HEAVY! DODGE IT'), `1v1: a red ring, called out (${one.pops.slice(0, 30).join(' | ')})`)
+    assert.ok(one.pops.includes('PERFECT DODGE!'), '1v1: dodged, PERFECT')
+    assert.ok(one.pops.includes('STUNNED!'), '1v1: the foe stunned')
+    assert.ok(one.said.some((l) => /is stunned/.test(l)), `1v1: and told so (${one.said.filter((l) => /stun/i.test(l)).join(' | ')})`)
+    assert.ok(one.stun.some((w) => w >= 100), '1v1: the stun bar filled')
+    // 2v2: no heavy blows, and one PERFECT parry spends the whole guard.
+    const two = await fight('gym_2', true, { HEAVY: { chance: 0, hard: 0 }, GUARD: { perfect: 150 } },
+      () => window.__pops.some((p) => /GUARD BROKEN/.test(p)))
+    assert.ok(two.done, '2v2: the rematch finished')
+    assert.ok(two.pops.includes('GUARD BREAK!'), `2v2: the guard broke (${two.pops.slice(0, 30).join(' | ')})`)
+    assert.ok(two.pops.some((p) => /GUARD BROKEN: CAN'T DEFEND/.test(p)), '2v2: and the next hit couldn\'t be defended')
+    assert.ok(two.guard.some((w) => w === 0) && two.guard.some((w) => w >= 50), '2v2: the guard bar emptied, then came back')
+    assert.ok(two.stun.some((w) => w > 0), '2v2: your strikes filled a foe\'s stun bar')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})

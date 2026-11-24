@@ -333,6 +333,51 @@ test('battle rules', async () => {
   } finally { await g.close() }
 })
 
+test('guard, heavy blows and stun: the rules (GUARD, HEAVY, STUN)', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const heavy = (btn, dt) => { const x = defendResult(btn && { btn }, dt, false, 1, true); return `${x.r}${x.perfect ? '*' : ''}${x.broke ? '!' : ''}` }
+      const strong = { power: 90, type: 'normal' }, yes = () => 0, no = () => 0.99
+      return {
+        heavy: [heavy('b', 40), heavy('b', 150), heavy('b', 200), heavy('a', 20), heavy('a', 200), heavy(null, 0)],
+        taken: { perfect: takenOf({ r: 'parry', perfect: true }), parry: takenOf({ r: 'parry' }), dodged: takenOf({ r: 'dodge', perfect: true }, true),
+          parriedHeavy: takenOf({ r: 'parry' }, true), missedHeavy: takenOf({ r: 'miss' }, true), miss: takenOf({ r: 'miss' }) },
+        guard: { perfect: guardCost({ r: 'parry', perfect: true }), parry: guardCost({ r: 'parry' }), jump: guardCost({ r: 'jump' }), dodge: guardCost({ r: 'dodge' }),
+          miss: guardCost({ r: 'miss' }), heavyParry: guardCost({ r: 'parry' }, true), heavyDodge: guardCost({ r: 'dodge' }, true) },
+        stun: { perfectParry: stunFromDefend({ r: 'parry', perfect: true }), parry: stunFromDefend({ r: 'parry' }), dodged: stunFromDefend({ r: 'dodge' }, true),
+          perfectDodge: stunFromDefend({ r: 'dodge', perfect: true }, true), parriedHeavy: stunFromDefend({ r: 'parry' }, true),
+          strikes: ['PERFECT', 'GREAT', 'GOOD', 'MISS'].map((l) => stunFromStrike(l, 1)), superEff: stunFromStrike('GOOD', 2) },
+        rolls: { strong: heavyRoll(strong, null, yes), unlucky: heavyRoll(strong, null, no), weak: heavyRoll({ power: 40 }, null, yes),
+          low: heavyRoll({ ...strong, kind: 'low' }, null, yes), fast: heavyRoll({ ...strong, fast: true }, null, yes), multi: heavyRoll({ ...strong, hits: 2 }, null, yes),
+          rampage: heavyRoll({ ...strong, rampage: true }, null, yes), released: heavyRoll({ power: 150, charge: true }, null, no, true) },
+        GUARD, HEAVY, STUN, max: [stunMax(null), stunMax(GYMS[0])],
+      }
+    })
+    assert.deepEqual(r.heavy, ['dodge*', 'dodge', 'miss', 'parry!', 'miss', 'miss'], 'a heavy blow: dodged (PERFECT up close), or parried and your guard breaks')
+    const t = r.taken
+    assert.ok(t.perfect > 0 && t.perfect < t.parry, 'a PERFECT parry lets a sliver through, less than a plain one')
+    assert.equal(t.dodged, 0, 'a dodged heavy blow does nothing')
+    assert.ok(t.missedHeavy > t.miss && t.parriedHeavy === t.missedHeavy, 'one that lands hits harder than a normal hit, parried or not')
+    const gd = r.guard
+    assert.ok(gd.perfect > 0 && gd.perfect < gd.parry && gd.jump > 0 && gd.dodge < 0 && gd.miss === 0, `parries and jumps spend guard, a PERFECT one less; a dodge wins some back (${JSON.stringify(gd)})`)
+    assert.ok(gd.heavyParry === Infinity && gd.heavyDodge < 0, 'parrying a heavy blow breaks your guard outright')
+    assert.ok(r.GUARD.regen < gd.perfect, 'a PERFECT parry every turn still wears the guard down: you have to dodge now and then')
+    assert.ok(r.GUARD.broken > 1 && r.GUARD.back > 0 && r.GUARD.back < r.GUARD.max, 'a broken guard: the next hit lands harder, then the bar comes back part full')
+    const st = r.stun
+    assert.ok(st.perfectParry > 0 && st.parry === 0, 'a PERFECT parry fills the attacker\'s stun bar; a plain one doesn\'t')
+    assert.ok(st.perfectDodge > st.dodged && st.dodged > 0 && st.parriedHeavy === 0, 'a dodged heavy blow fills it, a PERFECT dodge most')
+    assert.ok(st.strikes[0] > st.strikes[1] && st.strikes[1] > 0 && st.strikes[2] === 0 && st.strikes[3] === 0 && st.superEff > 0, `your PERFECT and GREAT strikes fill it, and super-effective ones (${st.strikes})`)
+    assert.ok(r.max[1] > r.max[0], 'a leader\'s stun bar takes more to fill')
+    assert.ok(r.STUN.mult > 1 && r.STUN.decay > 0, 'stunned, it takes more; the bar drains a little each turn')
+    assert.deepEqual(r.rolls, { strong: true, unlucky: false, weak: false, low: false, fast: false, multi: false, rampage: false, released: true },
+      'heavy: a strong single blow now and then, a charged one always; never a low, quick or multi-hit one (a rampage\'s last hit is, by its own rule)')
+    assert.ok(r.HEAVY.hard > r.HEAVY.chance, 'leaders throw them more often')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', async () => {
   const g = await openGame()
   try {
