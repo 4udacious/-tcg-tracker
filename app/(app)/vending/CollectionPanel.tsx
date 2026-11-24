@@ -306,9 +306,10 @@ const BINDERS: Record<string, Binder> = {
   // the narrow window.
   base4: { cover: '/binders/base-set-2.webp',         spine: '#2c4a86', body: '#5b86cc', foil: '#f87171', fit: 'cover', pos: '20% 50%' },
   base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
-  // Legendary Collection: no binder art yet, so the legendary birds' wrapper stands in. Indigo, for the
-  // wrappers' purple-blue foil, kept clear of Neo Genesis's navy and Gym Challenge's violet; the logo's gold.
-  base6: { cover: '/packs/legendary-collection-birds.webp', spine: '#312e81', body: '#4338ca', foil: '#fcd34d', fit: 'contain' },
+  // Legendary Collection: its cover, Pikachu, Charizard and Blastoise against the set's fireworks. Indigo, for the
+  // fireworks' purple-blue, kept clear of Neo Genesis's navy and Gym Challenge's violet; the logo's gold for the foil.
+  // Held a little right so the Pokemon logo stays whole.
+  base6: { cover: '/binders/legendary-collection.webp', spine: '#312e81', body: '#4338ca', foil: '#fcd34d', fit: 'cover', pos: '60% 50%' },
   // Vivid orange rather than Fossil's brown-amber: the two covers are both
   // warm, and the binder bodies are what tells them apart down the shelf.
   gym1:  { cover: '/binders/gym-heroes.webp',         spine: '#c2410c', body: '#ea580c', foil: '#fde68a', fit: 'cover' },
