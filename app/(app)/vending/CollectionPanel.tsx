@@ -301,9 +301,10 @@ const BINDERS: Record<string, Binder> = {
   // Amber, chosen when Base Set took blue, happens to match the kraft-paper
   // artwork exactly.
   base3: { cover: '/binders/fossil.webp',             spine: '#78350f', body: '#92400e', foil: '#fcd34d', fit: 'cover' },
-  // No binder art yet, so a wrapper stands in. Red for the wrappers' own
-  // red, kept clear of Gym Heroes' orange further down the shelf.
-  base4: { cover: '/packs/base-set-2-mewtwo.webp',    spine: '#7f1d1d', body: '#b91c1c', foil: '#fde68a', fit: 'contain' },
+  // The real Base Set 2 binder: Mewtwo on periwinkle, with the set's Poke Ball "2". Its periwinkle body is lighter
+  // than Base Set's royal blue; the foil takes the Poke Ball's red. Held left of centre so the "2" and Mewtwo stay in
+  // the narrow window.
+  base4: { cover: '/binders/base-set-2.webp',         spine: '#2c4a86', body: '#5b86cc', foil: '#f87171', fit: 'cover', pos: '20% 50%' },
   base5: { cover: '/binders/team-rocket.webp',        spine: '#1c1917', body: '#292524', foil: '#f87171', fit: 'cover' },
   // Legendary Collection: no binder art yet, so the legendary birds' wrapper stands in. Indigo, for the
   // wrappers' purple-blue foil, kept clear of Neo Genesis's navy and Gym Challenge's violet; the logo's gold.
@@ -318,11 +319,12 @@ const BINDERS: Record<string, Binder> = {
   // darker than Base Set's royal blue. Held left of centre so the logo and
   // Lugia's head survive the narrow window.
   neo1:  { cover: '/binders/neo-genesis.webp',        spine: '#141b4d', body: '#1e2a74', foil: '#e2e8f0', fit: 'cover', pos: '20% 50%' },
-  // No binder art yet for the next two Neo sets, so a wrapper stands in.
-  // Neo Discovery: deep teal, for the ruins' night sky, kept clear of Jungle's green.
-  neo2:  { cover: '/packs/neo-discovery-umbreon.webp',  spine: '#134e4a', body: '#0f766e', foil: '#99f6e4', fit: 'contain' },
-  // Neo Revelation: burgundy, for the burned tower's brick, kept clear of Base Set 2's red.
-  neo3:  { cover: '/packs/neo-revelation-suicune.webp', spine: '#4c0519', body: '#881337', foil: '#fecdd3', fit: 'contain' },
+  // Neo Discovery: its cover, Umbreon on the ruins at sunset. The deep teal stays (kept clear of Jungle's green), and
+  // the foil takes the sunset's orange. Centred a little left so Umbreon and the logo fill the narrow window.
+  neo2:  { cover: '/binders/neo-discovery.webp',        spine: '#134e4a', body: '#0f766e', foil: '#fb923c', fit: 'cover', pos: '45% 50%' },
+  // Neo Revelation: its cover, Entei before the burned tower's stone. The burgundy stays (kept clear of Base Set 2),
+  // and the foil takes the neo logo's orange. Held a little right so the Pokemon logo stays whole.
+  neo3:  { cover: '/binders/neo-revelation.webp',       spine: '#4c0519', body: '#881337', foil: '#fdba74', fit: 'cover', pos: '70% 50%' },
   // The real Neo Destiny binder: Celebi bursting out of magenta and gold rays.
   // Fuchsia body, kept clear of Neo Revelation's burgundy, with the rays' gold
   // for the foil. Held a little left of centre so the logo stays in frame.
