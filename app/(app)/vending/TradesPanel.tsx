@@ -127,7 +127,7 @@ function collectionItems(collection: CollectionCard[], packs: UnopenedPack[], bo
 
 /* ───────────── sorting and quick picks ───────────── */
 
-const RANK = 'CURLHPS'
+const RANK = 'CUVRLHPS'   // a reverse holo (V) above an uncommon
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'set', label: 'Set & number' }, { key: 'name', label: 'Name' }, { key: 'rarity', label: 'Rarity' },
   { key: 'grade', label: 'Grade' }, { key: 'newest', label: 'Newest' },

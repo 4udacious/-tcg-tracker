@@ -271,8 +271,8 @@ const TICKET_RARITY_COLOR: Record<string, string> = {
   legendary: '#F6A609',
 }
 
-/** Rarities from least to most special (the reveal's best pull), across both games. */
-const RANK = 'CURLHPS'
+/** Rarities from least to most special (the reveal's best pull), across both games; a reverse holo (V) above an uncommon. */
+const RANK = 'CUVRLHPS'
 
 /**
  * Binder styling per set.
@@ -444,6 +444,7 @@ function rarityRing(r: string): string {
     case 'L': return 'ring-1 ring-amber-300'   // a One Piece Leader
     case 'R': return 'ring-1 ring-sky-400'
     case 'U': return 'ring-1 ring-emerald-400'
+    case 'V': return 'ring-1 ring-slate-300 shadow-[0_0_6px_rgba(203,213,225,0.55)]'   // a Pokémon reverse holo
     default: return 'ring-1 ring-black/10'
   }
 }
@@ -1513,7 +1514,7 @@ export default function CollectionPanel({
             <div className="text-center" onClick={(e) => e.stopPropagation()}>
               <p className="text-white font-semibold text-sm">{c.name}</p>
               <p className={`text-xs font-medium ${
-                c.rarity === 'H' ? 'text-amber-300' : c.rarity === 'S' ? 'text-fuchsia-300' : c.rarity === 'P' ? 'text-sky-300' : 'text-white/50'
+                c.rarity === 'H' ? 'text-amber-300' : c.rarity === 'S' ? 'text-fuchsia-300' : c.rarity === 'P' ? 'text-sky-300' : c.rarity === 'V' ? 'text-slate-200' : 'text-white/50'
               }`}>
                 {rarityName(c.rarity, c.set_code)} · #{c.number}
               </p>
@@ -2220,9 +2221,9 @@ export default function CollectionPanel({
                     <div key={`cap${idx}`} className={last ? 'vm-caption-in' : undefined}>
                       <p className={`font-semibold ${special ? 'text-base' : 'text-sm'} text-white`}>{card.name}</p>
                       <p className={`text-xs font-medium ${
-                        card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : card.rarity === 'P' ? 'text-sky-300' : 'text-white/50'
+                        card.rarity === 'H' ? 'text-amber-300' : card.rarity === 'S' ? 'text-fuchsia-300' : card.rarity === 'P' ? 'text-sky-300' : card.rarity === 'V' ? 'text-slate-200' : 'text-white/50'
                       }`}>
-                        {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? `✦ ${rarityName('H', card.image_url).toUpperCase()} ✦` : card.rarity === 'P' ? '◆ PARALLEL ◆' : rarityName(card.rarity, card.image_url)}
+                        {card.rarity === 'S' ? '★ SECRET RARE ★' : card.rarity === 'H' ? `✦ ${rarityName('H', card.image_url).toUpperCase()} ✦` : card.rarity === 'P' ? '◆ PARALLEL ◆' : card.rarity === 'V' ? '◇ REVERSE HOLO ◇' : rarityName(card.rarity, card.image_url)}
                       </p>
                     </div>
                   )}
