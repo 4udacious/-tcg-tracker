@@ -353,6 +353,8 @@ test('guard, heavy blows and stun: the rules (GUARD, HEAVY, STUN)', async () => 
           low: heavyRoll({ ...strong, kind: 'low' }, null, yes), fast: heavyRoll({ ...strong, fast: true }, null, yes), multi: heavyRoll({ ...strong, hits: 2 }, null, yes),
           rampage: heavyRoll({ ...strong, rampage: true }, null, yes), released: heavyRoll({ power: 150, charge: true }, null, no, true) },
         GUARD, HEAVY, STUN, max: [stunMax(null), stunMax(GYMS[0])],
+        lesson: (() => { const T = lessonTrainer(); return { parry: T.parry, restores: T.restores, fullHeals: T.fullHeals, tellRate: T.tellRate, stun: stunMax(T), lesson: T.lesson,
+          moves: T.movesFor({ name: 'PORYGON' })?.length ?? 0, notes: !!ITEMS.notes?.lesson, lines: Object.values(LESSON_LINES).every((ls) => ls.length && ls.every((l) => typeof l === 'string' && l.length < 110)) } })(),
         brick: [stunFromStrike('GOOD', 1, 'BRICK BREAK'), stunFromStrike('GOOD', 1, 'KARATE CHOP'), stunFromStrike('PERFECT', 1, 'BRICK BREAK')],
         // A pair's picker (2v2): two foes alike, the second's guard broken.
         exposedPick: (() => {
@@ -389,6 +391,10 @@ test('guard, heavy blows and stun: the rules (GUARD, HEAVY, STUN)', async () => 
     assert.deepEqual(r.rolls, { strong: true, unlucky: false, weak: false, low: false, fast: false, multi: false, rampage: false, released: true },
       'heavy: a strong single blow now and then, a charged one always; never a low, quick or multi-hit one (a rampage\'s last hit is, by its own rule)')
     assert.ok(r.HEAVY.hard > r.HEAVY.chance, 'leaders throw them more often')
+    const ls = r.lesson
+    assert.deepEqual({ parry: ls.parry, restores: ls.restores, fullHeals: ls.fullHeals, tellRate: ls.tellRate, lesson: ls.lesson, notes: ls.notes, lines: ls.lines },
+      { parry: 0, restores: 0, fullHeals: 0, tellRate: 0, lesson: true, notes: true, lines: true }, "Alex's lesson: no parries, Full Restores, Full Heals or tells; his notes a key item; every line fits")
+    assert.ok(ls.stun < r.STUN.max && ls.moves > 0, `a small stun bar for the lesson (${ls.stun}), Porygon with its moves`)
     assert.ok(r.brick[0] > 0 && r.brick[1] === 0 && r.brick[2] > r.brick[0], `Brick Break rattles: it fills the stun bar even on a GOOD hit (${r.brick})`)
     assert.ok(r.GUARD.mend > 0 && r.GUARD.chip > 0, 'DEF moves mend the guard; a foe\'s DEF drops chip it')
     assert.deepEqual(r.exposedPick, [true, true], 'a pair goes for the Pokémon whose guard is broken')
