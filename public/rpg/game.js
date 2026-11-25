@@ -10660,7 +10660,7 @@ async function run(id) {
         const { skip } = ST(foe).stunned; ST(foe).stunned = null; ST(foe).stun = 0; paintBars()
         if (skip) {
           sfx('flinch'); anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(0)' }], { duration: 260, iterations: 2 })
-          await say(who(foe), "is stunned and can't move!", 400); foe.turn++; return
+          await say(who(foe), "is stunned and can't move!", 400); return   // not a turn it took: like sleep, it doesn't count towards a roaming legendary's LEGEND_TURNS
         }
       }
       if (kind === 'trainer' && !demoNoBlunder && (await blunder(trainer, foe))) return
