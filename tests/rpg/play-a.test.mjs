@@ -71,9 +71,12 @@ test('the EXP. SHARE switches off and on from the Bag, and after Alex\'s last ba
 test('CPU trainers use a Full Heal on a Pokémon with a status, instead of moving', { skip: quick }, async () => {
   const g = await openGame()
   try {
-    const { page, bot, log } = g
+    const { page, bot } = g
     await bot.finishTutorial()
     await page.evaluate(() => {
+      // Every line the message box shows, as it shows it (the bot's log samples could miss a quick one).
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
       for (const t of [MOVEDEX, SUPPORT]) for (const k in t) t[k].cost = 0
       const m = individual(speciesByName('CHARMANDER'), 40, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       m.moves = ['SCRATCH', 'TOXIC', 'THUNDER WAVE', 'WILL-O-WISP']; m.learned = [...new Set([...m.learned, ...m.moves])]
@@ -84,10 +87,10 @@ test('CPU trainers use a Full Heal on a Pokémon with a status, instead of movin
     // A status has to land first (some Pokémon shrug some off), so up to three battles until one does.
     let lines = []
     for (let i = 0; i < 3 && !lines.some((l) => /used\s*a FULL HEAL!/.test(l)); i++) {
-      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } })
-      const from = log.length
+      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } window.__said.length = 0 })
       assert.ok(await bot.encounter('scalper', 500), 'a trainer battle happened')
-      lines = log.slice(from)
+      // Each line once it's whole (the next one doesn't just continue it).
+      lines = await page.evaluate(() => window.__said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)))
       assert.ok(lines.filter((l) => /used\s*a FULL HEAL!$/.test(l)).length <= 1, 'a regular trainer has just one')
     }
     assert.ok(lines.some((l) => /used\s*a FULL HEAL!/.test(l)), 'the trainer used a Full Heal')

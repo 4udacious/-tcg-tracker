@@ -21,7 +21,9 @@
 // matchup mid-battle (the leaders' is in), Move Discs, Revives. A leader's
 // parries by your timing, and the counter after a PERFECT one, are in. So are
 // guard, heavy blows and stun (GUARD, HEAVY, STUN): your guard spent and won
-// back, red rings dodged (or parried from habit), and the foes' stun bars.
+// back, red rings dodged (or parried from habit), and the foes' stun bars
+// (Brick Break's extra too; not the stat moves' effects on guard, which are
+// left out with the rest of their effects).
 //
 // A double battle is a 2v2 (duoBattle below): your first two against one of
 // each pair's, with the shared PP pool, spread moves, their partner-aware
@@ -147,7 +149,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
           const parried = !stunned && leaderParries(T, foe, label(dt), conf > 0, R)
           if (parried === 'perfect') { countered = true; continue }
           foe.hp = Math.max(0, foe.hp - damage(me, foe, mv, g.mult * (parried ? DEFEND_TAKEN.parry : 1) * (stunned ? STUN.mult : 1)))
-          if (!parried) fill(stuns, foe, T, stunFromStrike(label(dt), gameMult(mv.type, foe.types)), false)
+          if (!parried) fill(stuns, foe, T, stunFromStrike(label(dt), gameMult(mv.type, foe.types), mv.name), false)
         }
         if (countered && foe.hp > 0) me.hp = Math.max(1, me.hp - Math.max(1, Math.round(damage(foe, me, MOVEDEX.TACKLE, 1) * LEADER_COUNTER)))
         if ((mv.cost ?? 0) === 0 && clean) pp = Math.min(5, pp + 1)
@@ -165,14 +167,15 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
       // The toughest leaders pull a Pokémon out of a bad matchup: the game's own rule (switchPick).
       if (switches > 0 && roster.length > 1 && !charged && (T.switchSure || R() < 0.7)) {
         const to = switchPick(foe, roster.slice(0, -1), me, me.sim, (f) => movesFor(f, false))
-        if (to) { switches--; roster.splice(roster.indexOf(to), 1); roster.splice(roster.length - 1, 0, foe); next(to); continue }
+        if (to) { switches--; stuns.delete(foe); roster.splice(roster.indexOf(to), 1); roster.splice(roster.length - 1, 0, foe); next(to); continue }   // its stun goes with it
       }
       // Them: a Full Restore when low (the last kept for the last Pokémon), else usually their hardest-hitting move.
       if (restores > 0 && (!roster.length || restores > 1) && foe.hp < foe.stats.hp * 0.35) { restores--; foe.hp = foe.stats.hp; continue }
-      if (!charged && R() < 0.25 * 0.5) continue   // now and then a stat move instead (left out: its effect)
+      const exposed = guardOf(guards, me).broken   // your guard broken: a leader goes for its hardest hit
+      if (!charged && !exposed && R() < 0.25 * 0.5) continue   // now and then a stat move instead (left out: its effect)
       const score = (m) => (m.power ?? 0) * (m.hits ?? 1) * soften(gameMult(m.type, me.types)) * (foe.types.includes(m.type) ? 1.5 : 1)
       const ranked = fm.filter((m) => !m.splash).slice().sort((a, b) => score(b) - score(a))
-      const mv = charged ?? ranked[R() < 0.7 ? 0 : Math.min(1, ranked.length - 1)]
+      const mv = charged ?? ranked[exposed || R() < 0.7 ? 0 : Math.min(1, ranked.length - 1)]
       if (mv.charge && charged !== mv) { charged = mv; continue }
       const released = charged === mv; charged = null
       const heavy = heavyRoll(mv, T, R, released)
@@ -242,7 +245,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
         if (restores[crew.indexOf(f.T)] > 0 && f.m.hp < f.m.stats.hp * 0.35) { restores[crew.indexOf(f.T)]--; acts.push({ who: f.m, slot: f, restore: true, prio: 6 }); continue }
         if (!f.statused && R() < 0.1) { f.statused = true; continue }   // a stat move now and then (its effect left out)
         const partner = field.find((g, j) => j !== i && g.m.hp > 0)?.m
-        const p = duoSmartPick(f.m, pairMoves(f.T, f.m, !!f.m.pairAce), up(mine), partner, R)
+        const p = duoSmartPick(f.m, pairMoves(f.T, f.m, !!f.m.pairAce), up(mine), partner, R, new Set(up(mine).filter((m) => guardOf(guards, m).broken)))
         if (p) acts.push({ who: f.m, slot: f, mv: p.mv, target: p.target, prio: p.mv.prio ?? (p.mv.fast ? 1 : 0) })
       }
       acts.forEach((a) => { a.roll = R() })
@@ -265,7 +268,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
             const parried = !stunned && leaderParries(f.T, f.m, label(dt), false, R)
             if (parried === 'perfect') { parriers.add(f.m); continue }
             f.m.hp = Math.max(0, f.m.hp - damage(a.who, f.m, a.mv, g.mult * mult * (parried ? DEFEND_TAKEN.parry : 1) * (stunned ? STUN.mult : 1)))
-            if (!parried) fill(stuns, f.m, f.T, stunFromStrike(label(dt), gameMult(a.mv.type, f.m.types)), false)
+            if (!parried) fill(stuns, f.m, f.T, stunFromStrike(label(dt), gameMult(a.mv.type, f.m.types), a.mv.name), false)
           }
           // Each that PERFECT parried counters, never for the knockout.
           for (const m of parriers) if (m.hp > 0) a.who.hp = Math.max(1, a.who.hp - Math.max(1, Math.round(damage(m, a.who, MOVEDEX.TACKLE, 1) * LEADER_COUNTER)))

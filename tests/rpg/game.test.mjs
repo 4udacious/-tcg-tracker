@@ -353,6 +353,21 @@ test('guard, heavy blows and stun: the rules (GUARD, HEAVY, STUN)', async () => 
           low: heavyRoll({ ...strong, kind: 'low' }, null, yes), fast: heavyRoll({ ...strong, fast: true }, null, yes), multi: heavyRoll({ ...strong, hits: 2 }, null, yes),
           rampage: heavyRoll({ ...strong, rampage: true }, null, yes), released: heavyRoll({ power: 150, charge: true }, null, no, true) },
         GUARD, HEAVY, STUN, max: [stunMax(null), stunMax(GYMS[0])],
+        brick: [stunFromStrike('GOOD', 1, 'BRICK BREAK'), stunFromStrike('GOOD', 1, 'KARATE CHOP'), stunFromStrike('PERFECT', 1, 'BRICK BREAK')],
+        // A pair's picker (2v2): two foes alike, the second's guard broken.
+        exposedPick: (() => {
+          const mk = () => { const m = individual(speciesByName('MACHOP'), 30, () => 0.5); m.hp = m.stats.hp; return m }
+          const a = individual(speciesByName('MACHAMP'), 30, () => 0.5), x = mk(), y = mk(), mv = [{ name: 'KARATE CHOP', ...MOVEDEX['KARATE CHOP'] }]
+          return [duoSmartPick(a, mv, [x, y], null, () => 0, new Set([y]))?.target === y, duoSmartPick(a, mv, [x, y], null, () => 0, new Set([x]))?.target === x]
+        })(),
+        // The defence log (v127): each ring counted once, a heavy one's apart.
+        log: (() => {
+          MOVE_LOG.reset()
+          for (const [res, heavy] of [[{ r: 'parry', perfect: true }], [{ r: 'parry' }], [{ r: 'jump', perfect: true }], [{ r: 'dodge' }], [{ r: 'miss' }],
+            [{ r: 'dodge', perfect: true }, true], [{ r: 'parry', broke: true }, true], [{ r: 'miss' }, true]]) MOVE_LOG.ring(res, heavy)
+          MOVE_LOG.guardBreak(); MOVE_LOG.stun(); MOVE_LOG.stun()
+          const d = MOVE_LOG.peekDefence(); MOVE_LOG.reset(); return d
+        })(),
       }
     })
     assert.deepEqual(r.heavy, ['dodge*', 'dodge', 'miss', 'parry!', 'miss', 'miss'], 'a heavy blow: dodged (PERFECT up close), or parried and your guard breaks')
@@ -374,6 +389,11 @@ test('guard, heavy blows and stun: the rules (GUARD, HEAVY, STUN)', async () => 
     assert.deepEqual(r.rolls, { strong: true, unlucky: false, weak: false, low: false, fast: false, multi: false, rampage: false, released: true },
       'heavy: a strong single blow now and then, a charged one always; never a low, quick or multi-hit one (a rampage\'s last hit is, by its own rule)')
     assert.ok(r.HEAVY.hard > r.HEAVY.chance, 'leaders throw them more often')
+    assert.ok(r.brick[0] > 0 && r.brick[1] === 0 && r.brick[2] > r.brick[0], `Brick Break rattles: it fills the stun bar even on a GOOD hit (${r.brick})`)
+    assert.ok(r.GUARD.mend > 0 && r.GUARD.chip > 0, 'DEF moves mend the guard; a foe\'s DEF drops chip it')
+    assert.deepEqual(r.exposedPick, [true, true], 'a pair goes for the Pokémon whose guard is broken')
+    assert.deepEqual(r.log, { rings: 8, perfect: 2, parries: 2, jumps: 1, dodges: 1, misses: 2, heavy: 3, heavy_dodged: 1, heavy_parried: 1, guard_breaks: 1, stuns: 2 },
+      'the defence log counts every ring once: PERFECT ones among the parries and jumps, heavy ones apart')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })
@@ -1830,7 +1850,7 @@ test('a roaming legendary gets easier to catch with every ball thrown at it, a q
   } finally { await g.close() }
 })
 
-test('a wild Pokémon is easier to catch at low HP and with a status: asleep or frozen ×2.5, paralyzed, burned or poisoned ×1.5', async () => {
+test('a wild Pokémon is easier to catch at low HP and with a status: asleep or frozen ×2.5, paralyzed, burned or poisoned ×1.5; stunned, ×1.5 more', async () => {
   const g = await openGame()
   try {
     await g.page.waitForTimeout(800)
@@ -1842,6 +1862,7 @@ test('a wild Pokémon is easier to catch at low HP and with a status: asleep or 
         full, low,
         status: ['slp', 'frz', 'par', 'brn', 'psn', 'tox'].map((s) => catchP(mon(100, s)) / full),
         lowSlp: catchP(mon(10, 'slp')), capped: shakeOdds({ max: 100, hp: 1, capture: 255, status: 'slp' }, 'great', 1.8),
+        stunned: shakeOdds(mon(100), 'ball', 1, true) ** 4 / full, stunnedSlp: shakeOdds(mon(100, 'slp'), 'ball', 1, true) ** 4 / full,
       }
     })
     assert.ok(r.low > r.full * 2, `low HP helps (${r.full.toFixed(3)} → ${r.low.toFixed(3)})`)
@@ -1850,6 +1871,8 @@ test('a wild Pokémon is easier to catch at low HP and with a status: asleep or 
     assert.ok([brn, psn, tox].every((x) => Math.abs(x - par) < 1e-9) && par > 1, 'paralysis, burn and poison help, and equally')
     assert.ok(r.lowSlp > r.low && r.lowSlp > r.status[0] * r.full, 'low HP and sleep stack')
     assert.equal(r.capped, 1, 'never above certain')
+    assert.ok(Math.abs(r.stunned - par) < 1e-9, `stunned (STUN): as much help as paralysis (${r.stunned.toFixed(3)})`)
+    assert.ok(r.stunnedSlp > slp, 'and on top of a status')
   } finally { await g.close() }
 })
 
@@ -2258,7 +2281,8 @@ test('double battles: a pair picks attacks to finish what the partner started, a
     const { page } = g
     await page.click('#mPlay'); await page.waitForTimeout(500)
     const r = await page.evaluate(() => {
-      const mk = (n, lv = 60) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; return m }
+      // Middling IVs and nature for all (random ones failed this now and then, an unlucky Gyarados against lucky Arcanine).
+      const mk = (n, lv = 60) => { const m = individual(speciesByName(n), lv, () => 0.5); m.hp = m.stats.hp; return m }
       const surf = { ...MOVEDEX.SURF, name: 'SURF', kind: 'strike' }, tackle = { ...MOVEDEX.TACKLE, name: 'TACKLE', kind: 'strike' }
       const user = mk('GYARADOS'), a = mk('ARCANINE'), b = mk('ARCANINE')
       // Surf hits both of yours (SPREAD): worth it beside a Water type, not beside a Fire type it would hurt.

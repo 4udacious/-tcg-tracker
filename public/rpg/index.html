@@ -1021,6 +1021,9 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .ring.feint { animation: feintFlicker .12s steps(2) infinite; border-color: #fb923c !important; }
 /* A heavy blow (HEAVY): a thick red ring. Dodge it, don't parry. */
 .ring.heavy { border: 5px solid #ef4444 !important; box-shadow: 0 0 0 2px rgba(15,23,42,.8), 0 0 14px rgba(239,68,68,.95), inset 0 0 10px rgba(252,165,165,.7) !important; }
+/* Not only red: a heavy ring is a double ring, its inner one throbbing, so it reads by shape too (colour-blind players). */
+.ring.heavy::after { content: ''; position: absolute; inset: 4px; border: 3px solid #fecaca; border-radius: 50%; box-shadow: 0 0 0 1px rgba(15,23,42,.7); animation: heavyThrob .16s ease-in-out infinite alternate; }
+@keyframes heavyThrob { from { opacity: 1; } to { opacity: .35; } }
 @keyframes feintFlicker { 50% { opacity: .25; } }
 
 /* Evolution items in the Bag, and the Bond meter on the stat page. */
@@ -1318,6 +1321,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=2cf42bc1b7"></script>
+<script src="/rpg/game.js?v=d9f97b246e"></script>
 </body>
 </html>
