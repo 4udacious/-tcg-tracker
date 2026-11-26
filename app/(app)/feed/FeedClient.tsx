@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
+import { Sheet } from '@/components/ui/Sheet'
 
 /** One row of v74's home_feed. */
 export type FeedItem = {
@@ -61,6 +62,17 @@ const KIND_ICON: Record<string, string> = {
   interest: '📋', member: '👋', comment: '💬', showcase: '🖼️', battle: '⚔️',
 }
 
+/** Where a row's link goes, in words, for the enlarged photo's button. */
+function goesTo(item: FeedItem): string {
+  if (item.href.startsWith('/members/')) return item.actor_name ? `See ${item.actor_name}'s profile` : 'See their profile'
+  if (item.href.startsWith('/market')) return 'Go to the market'
+  if (item.href.startsWith('/vending')) return 'Go to the VVM'
+  if (item.href.startsWith('/timers')) return 'Go to timers'
+  return 'Open'
+}
+
+const isSprite = (url: string) => url.endsWith('.gif')
+
 function ago(iso: string, now: number): string {
   const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
   if (s < 60) return 'just now'
@@ -88,6 +100,8 @@ export default function FeedClient({ initialItems, initialHighlights }: { initia
   const [now, setNow] = useState(() => Date.now())
   const toast = useToast()
   const pending = useRef(new Set<string>())
+  // The row whose photo is open, enlarged.
+  const [zoom, setZoom] = useState<FeedItem | null>(null)
 
   // Refresh the newest page and the strip every minute while the tab is
   // visible, and straight away when it comes back into view. Older pages the
@@ -222,7 +236,7 @@ export default function FeedClient({ initialItems, initialHighlights }: { initia
       ) : (
         <ul className="space-y-2">
           {shown.map((item) => (
-            <FeedRow key={item.ref} item={item} now={now} onReact={react} />
+            <FeedRow key={item.ref} item={item} now={now} onReact={react} onZoom={setZoom} />
           ))}
         </ul>
       )}
@@ -239,11 +253,35 @@ export default function FeedClient({ initialItems, initialHighlights }: { initia
           {loadingMore ? 'Loading…' : 'Look further back'}
         </button>
       )}
+
+      {/* A photo, enlarged: a card you haven't seen before, a product, a Pokémon. */}
+      <Sheet open={!!zoom} onClose={() => setZoom(null)} title={zoom ? `${zoom.actor_name ? `${zoom.actor_name} ` : ''}${zoom.title}` : ''}
+        footer={zoom && (
+          <Link href={zoom.href} onClick={() => setZoom(null)}
+            className="block w-full text-center text-sm font-semibold rounded-xl py-2.5 bg-ink text-white hover:bg-ink/90 transition-colors">
+            {goesTo(zoom)}
+          </Link>
+        )}>
+        {zoom?.image_url && (
+          <div className="space-y-3">
+            <div className={`flex justify-center rounded-xl py-3 ${PORTRAIT.has(zoom.kind) ? '' : 'bg-white border border-card-border'}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={zoom.image_url} alt={zoom.title}
+                className={isSprite(zoom.image_url)
+                  ? 'w-48 h-48 object-contain [image-rendering:pixelated]'
+                  : PORTRAIT.has(zoom.kind)
+                    ? 'w-full max-w-[300px] max-h-[62vh] object-contain rounded-xl'
+                    : 'w-full max-w-[300px] max-h-[56vh] object-contain'} />
+            </div>
+            {zoom.detail && <p className="text-sm text-muted text-center">{zoom.detail}</p>}
+          </div>
+        )}
+      </Sheet>
     </div>
   )
 }
 
-function FeedRow({ item, now, onReact }: { item: FeedItem; now: number; onReact: (i: FeedItem, e: 'fire' | 'thumbs') => void }) {
+function FeedRow({ item, now, onReact, onZoom }: { item: FeedItem; now: number; onReact: (i: FeedItem, e: 'fire' | 'thumbs') => void; onZoom: (i: FeedItem) => void }) {
   const portrait = PORTRAIT.has(item.kind)
   return (
     <li className={`rounded-xl border px-3 py-3 ${
@@ -285,11 +323,13 @@ function FeedRow({ item, now, onReact }: { item: FeedItem; now: number; onReact:
         </Link>
 
         {item.image_url && (
-          <Link href={item.href} className="shrink-0" tabIndex={-1} aria-hidden>
+          // The photo opens it enlarged (the row's text is still the link).
+          <button type="button" onClick={() => onZoom(item)} aria-label={`Enlarge the photo: ${item.title}`}
+            className="shrink-0 rounded-md cursor-zoom-in hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-signal">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.image_url} alt="" loading="lazy"
-              className={`${portrait ? (item.big ? 'w-16 h-[5.5rem]' : 'w-11 h-[3.9rem]') : 'w-12 h-12'} object-contain rounded-md ${portrait ? '' : 'bg-white border border-card-border'} ${item.image_url.endsWith('.gif') ? '[image-rendering:pixelated]' : ''}`} />
-          </Link>
+              className={`${portrait ? (item.big ? 'w-16 h-[5.5rem]' : 'w-11 h-[3.9rem]') : 'w-12 h-12'} object-contain rounded-md ${portrait ? '' : 'bg-white border border-card-border'} ${isSprite(item.image_url) ? '[image-rendering:pixelated]' : ''}`} />
+          </button>
         )}
       </div>
 
