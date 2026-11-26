@@ -16,6 +16,7 @@ import { playPackSound } from './packSounds'
 import { fmt } from './tokens'
 import HoloMark, { rarityLabel } from './HoloMark'
 import { compareCardNumbers, GAMES, gameOf, isHit, rarityName, type Game } from '@/lib/vending/games'
+import { compareSets, eraOf, shelvesOf } from '@/lib/vending/eras'
 import SupplyIcon from '@/components/SupplyIcon'
 import EmblemInventory from './EmblemInventory'
 import LcsSheet from './LcsSheet'
@@ -23,6 +24,8 @@ import type { BattleEmblemData } from './BattleEmblem'
 
 export interface UnopenedPack {
   id: number
+  /** Its set (vending_packs.set_code): how the Unopened list groups packs. */
+  set_code?: string | null
   set_name: string
   pack_name: string
   image_url: string
@@ -442,6 +445,65 @@ function BinderCover({
   )
 }
 
+/**
+ * One era's binders (lib/vending/eras: Wizards of the Coast, EX; One Piece's
+ * Booster Packs and Extra Boosters) on a shelf: each set's binder standing
+ * spine-out on a plank in release order, in its own colours, the empty ones
+ * faded. A tap opens the shelf, to choose a binder.
+ */
+function EraShelf({ name, sub, sets, owned, onOpen }: {
+  name: string
+  sub: string
+  sets: SetTotal[]
+  owned: (setCode: string) => number
+  onOpen: () => void
+}) {
+  const have = sets.reduce((n, s) => n + owned(s.set_code), 0)
+  const total = sets.reduce((n, s) => n + s.total, 0)
+  const pct = total > 0 ? Math.round((have / total) * 100) : 0
+  const binders = `${sets.length} binder${sets.length === 1 ? '' : 's'}`
+  return (
+    <button
+      onClick={onOpen}
+      className="group w-full text-left bg-card border border-card-border rounded-2xl p-3 space-y-2 transition-colors hover:border-ink/20"
+      aria-label={`${name}: ${binders}, ${have} of ${total} cards. Opens the shelf.`}
+    >
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-semibold text-sm leading-tight truncate">{name}</p>
+          <p className="font-mono text-[10px] text-muted">{sub} · {binders}</p>
+        </div>
+        <span className="font-mono text-[10px] text-muted shrink-0">{have}/{total}</span>
+        <svg className="w-4 h-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+      <div aria-hidden>
+        <div className="flex items-end gap-[3px] h-[72px] px-2">
+          {sets.map((s, i) => {
+            const t = BINDERS[s.set_code] ?? DEFAULT_BINDER
+            return (
+              <span
+                key={s.set_code}
+                className={`relative flex-1 max-w-[26px] rounded-t-[3px] shadow-sm transition-transform group-hover:-translate-y-0.5 ${owned(s.set_code) ? '' : 'opacity-45 saturate-50'}`}
+                style={{ height: `${86 + (i % 3) * 7}%`, background: `linear-gradient(90deg, ${t.spine} 0 28%, ${t.body} 28% 100%)` }}
+              >
+                <span className="absolute inset-x-[3px] top-2 h-[3px] rounded-full" style={{ background: t.foil }} />
+                <span className="absolute left-1/2 -translate-x-1/2 top-[40%] w-[5px] h-[5px] rounded-full border" style={{ borderColor: t.foil }} />
+                <span className="absolute inset-x-[3px] bottom-2.5 h-[3px] rounded-full" style={{ background: t.foil }} />
+              </span>
+            )
+          })}
+        </div>
+        <div className="h-2.5 rounded-[3px] shadow-[0_2px_4px_rgba(0,0,0,0.2)]" style={{ background: 'linear-gradient(#a16207, #713f12)' }} />
+      </div>
+      <div className="h-1 rounded-full bg-ink/10 overflow-hidden">
+        <div className="h-full rounded-full bg-signal" style={{ width: `${pct}%` }} />
+      </div>
+    </button>
+  )
+}
+
 /** Border treatment per rarity. Holo and secret get the loud ones. */
 function rarityRing(r: string): string {
   switch (r) {
@@ -542,17 +604,38 @@ export default function CollectionPanel({
    * meant to read as. Packs stay in acquisition order inside their stack.
    */
   const packStacks = useMemo(() => {
-    const map = new Map<string, { art: string; set_name: string; pack_name: string; packs: UnopenedPack[] }>()
+    const map = new Map<string, { art: string; set_code: string | null; set_name: string; pack_name: string; packs: UnopenedPack[] }>()
     for (const p of visiblePacks) {
       const got = map.get(p.image_url)
       if (got) got.packs.push(p)
       else map.set(p.image_url, {
-        art: p.image_url, set_name: p.set_name, pack_name: p.pack_name, packs: [p],
+        art: p.image_url, set_code: p.set_code ?? null, set_name: p.set_name, pack_name: p.pack_name, packs: [p],
       })
     }
     return [...map.values()].sort((a, b) =>
       a.set_name.localeCompare(b.set_name) || a.pack_name.localeCompare(b.pack_name))
   }, [visiblePacks])
+
+  // The stacks by set: one expandable category each, in shelf order (eras, then release order).
+  const packSets = useMemo(() => {
+    const map = new Map<string, { key: string; set_code: string | null; set_name: string; stacks: typeof packStacks; count: number }>()
+    for (const s of packStacks) {
+      const key = s.set_code ?? s.set_name
+      const got = map.get(key)
+      if (got) { got.stacks.push(s); got.count += s.packs.length }
+      else map.set(key, { key, set_code: s.set_code, set_name: s.set_name, stacks: [s], count: s.packs.length })
+    }
+    return [...map.values()].sort((a, b) =>
+      (a.set_code && b.set_code ? compareSets(a.set_code, b.set_code) : 0) || a.set_name.localeCompare(b.set_name))
+  }, [packStacks])
+  // Which sets' packs are showing. With only one set there's nothing to choose between, so it's open.
+  const [packSetsOpen, setPackSetsOpen] = useState<Set<string>>(() => new Set())
+  const packSetOpen = (key: string) => packSets.length === 1 || packSetsOpen.has(key)
+  const togglePackSet = (key: string) => setPackSetsOpen((prev) => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key); else next.add(key)
+    return next
+  })
 
   // Which stack is open in the picker, by art. Held as the key rather than
   // the stack so it survives a pack being opened out from under it.
@@ -564,6 +647,8 @@ export default function CollectionPanel({
   const [patch, setPatch] = useState<Record<number, Partial<CardCopy>>>({})
   // The vault is a peer of the shelf, not a binder inside it.
   const [shelf, setShelf] = useState<'binders' | 'vault'>('binders')
+  // An era's shelf, open to choose one of its binders (by era id).
+  const [eraOpen, setEraOpen] = useState<string | null>(null)
   const [lcsOpen, setLcsOpen] = useState(false)
   // Which game's binders and vault are showing: Pokémon or One Piece (v96).
   const [game, setGame] = useState<Game>('pkm')
@@ -681,6 +766,9 @@ export default function CollectionPanel({
   // The Collection shows one game at a time; the switch only appears once there's a second game's sets.
   const games = GAMES.filter((g) => shownSets.some((s) => gameOf(s.set_code) === g.id))
   const gameSets = shownSets.filter((s) => gameOf(s.set_code) === game)
+  // The binders as shelves, one per era (Wizards of the Coast, EX; One Piece's Booster Packs, Extra Boosters).
+  const shelves = shelvesOf(gameSets)
+  const openShelf = shelves.find((x) => x.era.id === eraOpen) ?? null
   const gameCards = collection.filter((c) => gameOf(c.set_code) === game)
   const gameSlabs = slabs.map((x, i) => ({ ...x, i })).filter((x) => gameOf(x.card.set_code) === game)
   const totalCards = gameCards.reduce((n, c) => n + c.copies.length, 0)
@@ -964,8 +1052,39 @@ export default function CollectionPanel({
             No unopened packs. Buy some from the machine.
           </p>
         ) : (
-          <ul className="grid grid-cols-3 gap-2">
-            {packStacks.map((s) => (
+          <ul className="space-y-2">
+            {packSets.map((g) => {
+              const open = packSetOpen(g.key)
+              const era = g.set_code ? eraOf(g.set_code) : null
+              return (
+                <li key={g.key} className="bg-card border border-card-border rounded-xl">
+                  <button
+                    onClick={() => togglePackSet(g.key)}
+                    aria-expanded={open}
+                    className="w-full flex items-center gap-3 p-2.5 text-left"
+                  >
+                    {/* A little fan of the set's wrappers. */}
+                    <span className="relative w-12 h-14 shrink-0" aria-hidden>
+                      {g.stacks.slice(0, 3).map((s, i, all) => (
+                        <img key={s.art} src={s.art} alt="" loading="lazy"
+                          className="absolute inset-y-0 left-1/2 w-8 h-full object-contain drop-shadow-sm"
+                          style={{ transform: `translateX(-50%) rotate(${(i - (all.length - 1) / 2) * 12}deg)`, zIndex: i === Math.floor(all.length / 2) ? 2 : 1 }} />
+                      ))}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold leading-snug truncate">{g.set_name}</span>
+                      <span className="block font-mono text-[10px] text-muted truncate">
+                        {era ? `${era.name} · ` : ''}{g.stacks.length > 1 ? `${g.stacks.length} wrappers` : g.stacks[0].pack_name}
+                      </span>
+                    </span>
+                    <span className="shrink-0 min-w-[1.5rem] rounded-full bg-signal text-white text-[11px] font-bold text-center px-1.5 py-0.5">{g.count}</span>
+                    <svg className={`w-4 h-4 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {open && (
+          <ul className="grid grid-cols-3 gap-2 px-2.5 pb-2.5">
+            {g.stacks.map((s) => (
               <li key={s.art}>
                 <button
                   onClick={() => setOpenStack(s.art)}
@@ -1000,10 +1119,15 @@ export default function CollectionPanel({
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted text-center truncate">{s.set_name}</p>
+                  <p className="text-[10px] text-muted text-center truncate">{s.pack_name}</p>
                 </button>
               </li>
             ))}
+          </ul>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </section>
@@ -1328,20 +1452,11 @@ export default function CollectionPanel({
           uniqueCards === 0 && visiblePacks.length === 0 ? (
             <p className="text-sm text-muted">Nothing collected yet. Open a pack to start.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              {gameSets.map((s) => {
-                const owned = bySet.get(s.set_code)?.length ?? 0
-                return (
-                  <BinderCover
-                    key={s.set_code}
-                    setCode={s.set_code}
-                    setName={s.set_name}
-                    owned={owned}
-                    total={s.total}
-                    onOpen={() => setOpenBinder(s.set_code)}
-                  />
-                )
-              })}
+            <div className="space-y-3 pt-1">
+              {shelves.map(({ era, sets }) => (
+                <EraShelf key={era.id} name={era.name} sub={era.sub} sets={sets}
+                  owned={(code) => bySet.get(code)?.length ?? 0} onOpen={() => setEraOpen(era.id)} />
+              ))}
             </div>
           )
         ) : (
@@ -1353,7 +1468,8 @@ export default function CollectionPanel({
             return (
               <div className="space-y-2">
                 <button
-                  onClick={() => setOpenBinder(null)}
+                  // Back to its era's shelf, open, to choose another binder there (or close it for every shelf).
+                  onClick={() => { const era = eraOf(openBinder).id; setOpenBinder(null); setEraOpen(era) }}
                   className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink transition-colors"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1734,6 +1850,33 @@ export default function CollectionPanel({
           </div>
         )
       })()}
+
+      {/* ── An era's shelf, open: choose a binder ── */}
+      <Sheet open={!!openShelf && openBinder === null} onClose={() => setEraOpen(null)} title={openShelf?.era.name ?? ''} wide>
+        {openShelf && (() => {
+          const have = openShelf.sets.reduce((n, s) => n + (bySet.get(s.set_code)?.length ?? 0), 0)
+          const total = openShelf.sets.reduce((n, s) => n + s.total, 0)
+          return (
+            <div className="space-y-3">
+              <p className="font-mono text-[10px] text-muted">
+                {openShelf.era.sub} · {openShelf.sets.length} binder{openShelf.sets.length === 1 ? '' : 's'} · {have}/{total} cards
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {openShelf.sets.map((s) => (
+                  <BinderCover
+                    key={s.set_code}
+                    setCode={s.set_code}
+                    setName={s.set_name}
+                    owned={bySet.get(s.set_code)?.length ?? 0}
+                    total={s.total}
+                    onOpen={() => { setEraOpen(null); setOpenBinder(s.set_code) }}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+      </Sheet>
 
       {/* ── Pick a pack out of the stack ──
           The packs in a stack are interchangeable, so the thing that makes

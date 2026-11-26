@@ -72,15 +72,16 @@ export async function loadBalance(supabase: SupabaseClient) {
 export async function loadPacks(supabase: SupabaseClient, userId: string): Promise<UnopenedPack[]> {
   const { data } = await supabase
     .from('user_packs')
-    .select('id, acquired_at, vending_packs(set_name, pack_name, image_url)')
+    .select('id, acquired_at, vending_packs(set_code, set_name, pack_name, image_url)')
     .eq('user_id', userId)
     .is('opened_at', null)
     .is('market_listing_id', null)
     .order('acquired_at')
-  type PackRow = { id: number; acquired_at: string; vending_packs: { set_name: string; pack_name: string; image_url: string } | { set_name: string; pack_name: string; image_url: string }[] | null }
+  type Pack = { set_code: string | null; set_name: string; pack_name: string; image_url: string }
+  type PackRow = { id: number; acquired_at: string; vending_packs: Pack | Pack[] | null }
   return ((data as PackRow[] | null) ?? []).map((r) => {
     const p = one(r.vending_packs)
-    return { id: r.id, set_name: p?.set_name ?? '', pack_name: p?.pack_name ?? '', image_url: p?.image_url ?? '', acquired_at: r.acquired_at }
+    return { id: r.id, set_code: p?.set_code ?? null, set_name: p?.set_name ?? '', pack_name: p?.pack_name ?? '', image_url: p?.image_url ?? '', acquired_at: r.acquired_at }
   })
 }
 
