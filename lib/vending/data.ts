@@ -34,6 +34,8 @@ const SET_NAMES: Record<string, string> = {
   op04: 'Kingdoms of Intrigue',
   op05: 'Awakening of the New Era',
   op06: 'Wings of the Captain',
+  op07: '500 Years in the Future',
+  op08: 'Two Legends',
   eb01: 'Memorial Collection',
   eb02: 'Anime 25th Collection',
   eb03: 'Heroines Edition',

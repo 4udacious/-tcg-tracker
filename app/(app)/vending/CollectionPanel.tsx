@@ -355,6 +355,8 @@ const BINDERS: Record<string, Binder> = {
   op04:  { cover: '', label: 'OP-04', spine: '#a16207', body: '#ca8a04', foil: '#fef3c7', fit: 'contain' },   // Kingdoms of Intrigue: yellow
   op05:  { cover: '', label: 'OP-05', spine: '#1e3a5f', body: '#5b8fc7', foil: '#f8fafc', fit: 'contain' },   // Awakening of the New Era: Gear 5 white and sky blue
   op06:  { cover: '', label: 'OP-06', spine: '#0a0a0a', body: '#262626', foil: '#ef4444', fit: 'contain' },   // Wings of the Captain: black, with its title's red
+  op07:  { cover: '', label: 'OP-07', spine: '#991b1b', body: '#facc15', foil: '#b91c1c', fit: 'contain' },   // 500 Years in the Future: the map's yellow, Luffy's red suit
+  op08:  { cover: '', label: 'OP-08', spine: '#134e4a', body: '#0f766e', foil: '#bae6fd', fit: 'contain' },   // Two Legends: sea green, Whitebeard's lightning
   eb01:  { cover: '', label: 'EB-01', spine: '#9d174d', body: '#f9a8d4', foil: '#38bdf8', fit: 'contain' },   // Memorial Collection: cherry-blossom pink, Chopper's blue hat
   eb02:  { cover: '', label: 'EB-02', spine: '#1e3a8a', body: '#e7dcc4', foil: '#1d4ed8', fit: 'contain' },   // Anime 25th Collection: sketch-paper cream, its navy edge
   eb03:  { cover: '', label: 'EB-03', spine: '#7f1d1d', body: '#b91c1c', foil: '#fcd34d', fit: 'contain' },   // Heroines Edition: the stage's red curtain, its gold title
