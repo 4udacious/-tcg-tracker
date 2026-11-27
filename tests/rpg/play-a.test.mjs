@@ -71,9 +71,12 @@ test('the EXP. SHARE switches off and on from the Bag, and after Alex\'s last ba
 test('CPU trainers use a Full Heal on a Pokémon with a status, instead of moving', { skip: quick }, async () => {
   const g = await openGame()
   try {
-    const { page, bot, log } = g
+    const { page, bot } = g
     await bot.finishTutorial()
     await page.evaluate(() => {
+      // Every line the message box shows, as it shows it (the bot's log samples could miss a quick one).
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
       for (const t of [MOVEDEX, SUPPORT]) for (const k in t) t[k].cost = 0
       const m = individual(speciesByName('CHARMANDER'), 40, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       m.moves = ['SCRATCH', 'TOXIC', 'THUNDER WAVE', 'WILL-O-WISP']; m.learned = [...new Set([...m.learned, ...m.moves])]
@@ -84,10 +87,10 @@ test('CPU trainers use a Full Heal on a Pokémon with a status, instead of movin
     // A status has to land first (some Pokémon shrug some off), so up to three battles until one does.
     let lines = []
     for (let i = 0; i < 3 && !lines.some((l) => /used\s*a FULL HEAL!/.test(l)); i++) {
-      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } })
-      const from = log.length
+      await page.evaluate(() => { for (const m of window.__vvm.party) { m.hp = m.stats.hp; m.status = null } window.__said.length = 0 })
       assert.ok(await bot.encounter('scalper', 500), 'a trainer battle happened')
-      lines = log.slice(from)
+      // Each line once it's whole (the next one doesn't just continue it).
+      lines = await page.evaluate(() => window.__said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)))
       assert.ok(lines.filter((l) => /used\s*a FULL HEAL!$/.test(l)).length <= 1, 'a regular trainer has just one')
     }
     assert.ok(lines.some((l) => /used\s*a FULL HEAL!/.test(l)), 'the trainer used a Full Heal')
@@ -150,6 +153,8 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
       const v = window.__vvm
       const m = individual(speciesByName('SNORLAX'), 100, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       v.party.splice(0, v.party.length, m); v.bag.ball = 20; window.__forceShakes = 0
+      // No other trainers' taps: one could meet the same legendary mid-battle and chip it, throw at it, or knock it out.
+      window.__noOthers = true
       // Every line the battle says, kept as it finishes typing (a sampled read can miss a quick one).
       const said = window.__said = [], msg = document.getElementById('msg')
       new MutationObserver(() => { if (said.at(-1) !== msg.textContent) said.push(msg.textContent) }).observe(msg, { childList: true, subtree: true, characterData: true })
@@ -183,9 +188,10 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
     const r = await page.evaluate(() => Object.fromEntries(Object.entries(window.__vvm.ROAM).map(([k, m]) => [k, { turn: m.turn, balls: m.balls ?? 0, hp: m.hp }])))
     const said = await page.evaluate(() => window.__said.slice())
     const name = Object.keys(r).find((k) => r[k].turn != null), met = r[name]
-    assert.ok(said.some((t) => /fled!/.test(t)), 'it fled')
+    const lines = said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)).slice(-16).join(' | ')   // as each finished typing
+    assert.ok(said.some((t) => /fled!/.test(t)), `it fled (the battle's last lines: ${lines})`)
     assert.equal(met.turn, 4, 'after four turns of attacking')
-    assert.equal(met.balls - before[name], 5, 'a ball each turn, and one more as it fled: all five remembered')
+    assert.equal(met.balls - before[name], 5, `a ball each turn, and one more as it fled: all five remembered (${lines})`)
     assert.ok(said.some((t) => /is tiring!/.test(t)), 'and you\'re told each one helps')
     // The count is saved with it, for whoever meets it next.
     const saved = await page.waitForFunction((n) => JSON.parse(localStorage.getItem('vvm-save') ?? '{}').roam?.[n]?.balls, name, { timeout: 15000 }).then((h) => h.jsonValue()).catch(() => null)
@@ -195,7 +201,7 @@ test('a roaming legendary stays for 4 turns before it flees (unless it can\'t mo
     await meetLegend()
     await throwBalls(7)
     const asleep = await page.evaluate(() => ({ said: window.__said.slice() }))
-    assert.ok(await bot.inBattle(), 'still there after seven balls')
+    assert.ok(await bot.inBattle(), `still there after seven balls (the battle's last lines: ${asleep.said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)).slice(-16).join(' | ')})`)
     assert.ok(!asleep.said.some((t) => /fled!/.test(t)) && asleep.said.some((t) => /fast asleep/.test(t)), 'asleep, and it never ran')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }

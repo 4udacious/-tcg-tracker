@@ -60,6 +60,8 @@ const SFX = {
   thud:     { file: null, synth: (ac, o, t) => { tone(ac, o, t, { type: 'sine', f: 150, f1: 50, dur: .22, vol: .5 }); noise(ac, o, t, { dur: .15, vol: .35, f: 600 }) } },
   parry:    { file: null, synth: (ac, o, t) => { tone(ac, o, t, { type: 'triangle', f: 1760, dur: .38, vol: .3 }); tone(ac, o, t, { type: 'triangle', f: 2637, dur: .26, vol: .16 }); noise(ac, o, t, { dur: .04, vol: .2, filter: 'highpass', f: 6000 }) } },
   dodge:    { file: null, synth: (ac, o, t) => noise(ac, o, t, { dur: .2, vol: .22, filter: 'bandpass', f: 1200, f1: 4200, q: 1.2 }) },
+  // A heavy blow winding up (HEAVY): two warning beeps over a rising rumble, so you hear it's not one to parry.
+  heavy:    { file: null, synth: (ac, o, t) => { tone(ac, o, t, { type: 'square', f: 494, dur: .07, vol: .09 }); tone(ac, o, t + .12, { type: 'square', f: 494, dur: .07, vol: .09 }); tone(ac, o, t, { type: 'sawtooth', f: 70, f1: 190, dur: .45, vol: .2 }); noise(ac, o, t, { dur: .45, vol: .18, filter: 'lowpass', f: 250, f1: 1400 }) } },
   jump:     { file: null, synth: (ac, o, t) => tone(ac, o, t, { f: 300, f1: 900, dur: .17, vol: .14 }) },
   pp:       { file: null, synth: (ac, o, t) => tone(ac, o, t, { f: 1046, f1: 1568, dur: .1, vol: .08 }) },
   perfect:  { file: null, synth: (ac, o, t) => { tone(ac, o, t, { f: 1319, dur: .08, vol: .12 }); tone(ac, o, t + .07, { f: 1976, dur: .16, vol: .12 }) } },
@@ -2881,21 +2883,92 @@ const strikeRing = (net) => ({ speed: 1 - 0.15 * -net, tight: 1 - 0.2 * -net }) 
 const defendRing = (net) => ({ speed: 1 + 0.15 * -net, wide: 1 + 0.2 * -net })    // their ring on you: slower, wider windows
 /**
  * Defending, by how close to the hit you press (ms either side, before
- * defendRing's `wide`): a PERFECT parry or jump blocks it all, a good one
- * most of it, a dodge some of it. Parries and jumps earn the PP either way;
- * only PERFECT parries on every hit earn the counter.
+ * defendRing's `wide`): a PERFECT parry or jump blocks all but a tenth of it,
+ * a good one most of it, a dodge some of it. Parries
+ * and jumps earn the PP either way; only PERFECT parries on every hit earn the
+ * counter. A heavy blow (HEAVY) is different: see below.
  */
 const DEFEND_MS = { perfect: 35, parry: 90, dodge: 170, jump: 190 }
-const DEFEND_TAKEN = { miss: 1, dodge: 0.4, parry: 0.2, jump: 0.2, perfect: 0 }
-/** 'parry' / 'jump' / 'dodge' / 'miss' for a press `dt` ms off the hit, and whether it was PERFECT. */
-function defendResult(first, dt, low, wide) {
+const DEFEND_TAKEN = { miss: 1, dodge: 0.4, parry: 0.2, jump: 0.2, perfect: 0.1 }
+/**
+ * 'parry' / 'jump' / 'dodge' / 'miss' for a press `dt` ms off the hit, and whether it was PERFECT. A heavy blow
+ * can't be parried (a parry there is `broke`: it breaks your guard) and a dodge of one can be PERFECT.
+ */
+function defendResult(first, dt, low, wide, heavy = false) {
   const d = Math.abs(dt), perfect = d <= DEFEND_MS.perfect * wide
   if (low) return first?.btn === 'up' && d <= DEFEND_MS.jump * wide ? { r: 'jump', perfect } : { r: 'miss' }
+  if (heavy) {
+    if (first?.btn === 'b' && d <= DEFEND_MS.dodge * wide) return { r: 'dodge', perfect: d <= HEAVY.perfectMs * wide }
+    if (first?.btn === 'a' && d <= DEFEND_MS.parry * wide) return { r: 'parry', perfect: false, broke: true }
+    return { r: 'miss' }
+  }
   if (first?.btn === 'a' && d <= DEFEND_MS.parry * wide) return { r: 'parry', perfect }
   if (first?.btn === 'b' && d <= DEFEND_MS.dodge * wide) return { r: 'dodge' }
   return { r: 'miss' }
 }
-const takenOf = ({ r, perfect }) => (perfect ? DEFEND_TAKEN.perfect : DEFEND_TAKEN[r])
+/** How much of a hit gets through: a heavy blow dodged, none of it; otherwise (parried or not) HEAVY.hit. */
+const takenOf = ({ r, perfect }, heavy = false) => (heavy ? (r === 'dodge' ? 0 : HEAVY.hit) : perfect ? DEFEND_TAKEN.perfect : DEFEND_TAKEN[r])
+/*
+ * Guard, heavy blows and stun: so a perfect player still has something to
+ * manage, and a reason to dodge.
+ *
+ * GUARD: each of your Pokémon has a guard bar for the battle (under its HP).
+ * Every parry or jump spends some of it, a PERFECT one less; a dodge spends
+ * none and wins a little back; the end of every turn refills GUARD.regen.
+ * Parrying everything wears it down even when every parry is PERFECT, so a
+ * player who never drops a ring still has to dodge now and then to rest it.
+ * Empty, the guard breaks: the next hit can't be parried, dodged or jumped and
+ * lands at GUARD.broken, and the bar comes back at GUARD.back. Switching out
+ * rests it: like stat changes, guard (and a foe's stun) go with a Pokémon that
+ * leaves the field, so it comes back fresh. Some moves touch it too: one of
+ * yours that raises your DEF (Iron Defense, Bulk Up) wins back GUARD.mend and
+ * mends a break, Rest refills it, and a foe's that lowers your DEF (Tail Whip,
+ * Screech) wears off GUARD.chip a stage.
+ *
+ * HEAVY blows: a red ring. One that lands does HEAVY.hit; a dodge takes none
+ * of it, and a PERFECT dodge (HEAVY.perfectMs) fills the attacker's stun bar.
+ * Parrying one is worse than not pressing at all: it lands in full and breaks
+ * your guard on the spot. Which attacks: a
+ * charged move as it's released (Hyper Beam), a rampage's last hit, and now
+ * and then (HEAVY.chance, a leader's HEAVY.hard) any other strong single blow.
+ *
+ * STUN: every foe has a stun bar (under its HP). Your PERFECT and GREAT
+ * strikes, super-effective hits, PERFECT parries and jumps, and dodged heavy
+ * blows fill it; it drains STUN.decay a turn. Full (STUN.max, a leader's
+ * STUN.hard), it's stunned: it can't parry, your hits do STUN.mult, and it
+ * loses its next turn. Stunned in the middle of its own attack, it loses the
+ * rest of that attack instead, and the stun lasts until its next turn. A
+ * stunned wild Pokémon is easier to catch (STUN.catch, like a status).
+ *
+ * None of it in the Watch demos, which play a set script. The simulator
+ * (sim.mjs) plays by these same rules.
+ */
+const GUARD = { max: 100, parry: 25, perfect: 15, jump: 15, perfectJump: 10, dodge: 10, regen: 10, broken: 1.25, back: 50, mend: 50, chip: 15 }
+const HEAVY = { power: 80, chance: 0.2, hard: 0.35, perfectMs: 60, hit: 1.5 }
+const STUN = { max: 100, hard: 140, perfect: 14, great: 6, superEff: 6, parry: 18, jump: 10, dodge: 12, perfectDodge: 30, decay: 10, mult: 1.5, catch: 1.5 }
+/** The first heavy blow, guard break and stun of a visit get a line of explanation; after that, just the pop. */
+const COMBAT_HINTS = new Set()
+/** A foe's stun bar: a leader's (and Alex's, Herb's and Paul's) takes more to fill. */
+const stunMax = (T) => T?.stunMax ?? (T?.hard ? STUN.hard : STUN.max)
+/** Whether a foe's attack comes as a heavy blow (a red ring; see HEAVY). A rampage's last hit is heavy by its own rule. */
+function heavyRoll(mv, T, r, released = false) {
+  if (!mv || mv.kind === 'low' || mv.fast || (mv.hits ?? 1) > 1 || mv.rampage) return false
+  return released || ((mv.power ?? 0) >= HEAVY.power && r() < (T?.hard ? HEAVY.hard : HEAVY.chance))
+}
+/** What a defended hit does to your guard: spent (positive), won back (negative), or broken outright (Infinity). */
+function guardCost({ r, perfect }, heavy = false) {
+  if (heavy) return r === 'parry' ? Infinity : r === 'dodge' ? -GUARD.dodge : 0
+  return r === 'parry' ? (perfect ? GUARD.perfect : GUARD.parry) : r === 'jump' ? (perfect ? GUARD.perfectJump : GUARD.jump) : r === 'dodge' ? -GUARD.dodge : 0
+}
+/** How much a defended hit fills the attacker's stun bar. */
+function stunFromDefend({ r, perfect }, heavy = false) {
+  if (heavy) return r === 'dodge' ? (perfect ? STUN.perfectDodge : STUN.dodge) : 0
+  return r === 'parry' && perfect ? STUN.parry : r === 'jump' && perfect ? STUN.jump : 0
+}
+/** Moves that rattle more than they hurt: each landed hit fills the stun bar this much more (a foe's move list holds copies, so by name). */
+const STUN_MOVES = { 'BRICK BREAK': 20 }
+/** How much one of your strikes that lands fills its target's stun bar. */
+const stunFromStrike = (label, eff, name) => (label === 'PERFECT' ? STUN.perfect : label === 'GREAT' ? STUN.great : 0) + (eff > 1 ? STUN.superEff : 0) + (STUN_MOVES[name] ?? 0)
 /**
  * How a foe paces its attacks, so you have to watch the ring rather than tap
  * from rhythm: each hit's ring closes at a speed picked from `speed`, after a
@@ -2958,9 +3031,12 @@ const CONF_DEFEND = 0.6
 const BALL_CATCH = { ball: 1, great: 1.5, ultra: 2 }
 const isBall = (k) => k in BALL_CATCH
 const STATUS_CATCH = { slp: 2.5, frz: 2.5, par: 1.5, brn: 1.5, psn: 1.5, tox: 1.5 }
-/** The chance each of a ball's four shakes holds (all four is a catch): HP, status, ball, throw, and the balls a roaming legendary has already dodged. */
-function shakeOdds(foe, ball, throwMult) {
-  const a = ((3 * foe.max - 2 * foe.hp) * foe.capture * (BALL_CATCH[ball] ?? 1) * throwMult * (STATUS_CATCH[foe.status] ?? 1) * legendWear(foe)) / (3 * foe.max)
+/**
+ * The chance each of a ball's four shakes holds (all four is a catch): HP, status, ball, throw, the balls a roaming
+ * legendary has already dodged, and whether it's stunned (STUN.catch, on top of any status).
+ */
+function shakeOdds(foe, ball, throwMult, stunned = false) {
+  const a = ((3 * foe.max - 2 * foe.hp) * foe.capture * (BALL_CATCH[ball] ?? 1) * throwMult * (STATUS_CATCH[foe.status] ?? 1) * legendWear(foe) * (stunned ? STUN.catch : 1)) / (3 * foe.max)
   return a >= 255 ? 1 : 1 / Math.pow(255 / a, 0.1875)
 }
 /*
@@ -4508,6 +4584,42 @@ const TUTORIAL_TIPS = {
   partner: ["Don't worry about Porygon.", "I've got my own rings to hit."],
 }
 /*
+ * Alex's lesson: guard, heavy blows and stun (GUARD, HEAVY, STUN), the
+ * battle mechanics added after the first tutorial. Once you've finished that
+ * tutorial, Alex waits at the machine on your next tap (lessonDue), once, and
+ * spars with his Porygon: a 1v1 nobody can lose, paused at each step for him
+ * to explain (battleCore's `lesson`): your guard; a guard break; a heavy blow
+ * to dodge, again until you do (up to LESSON.heavyTries); his stun bar to fill
+ * (small for the lesson), until Porygon is stunned. The first time you finish,
+ * he gives you an IRON DEFENSE Move Disc and his notes, a key item that starts
+ * the lesson again from the Bag. Your party comes out of it as it went in.
+ */
+const LESSON = { hit: 0.35, hpMult: 8, stunMax: 40, heavyTries: 3, stunWait: 3, disc: 'IRON DEFENSE' }
+const LESSON_LINES = {
+  intro: ['Hey! Got a minute? Battles out there just got a new twist.', "Let's spar, me and Porygon. Nobody loses this one: I'll walk you through it."],
+  replay: ['Back for a refresher? Sure.', "Same drill: guard, heavy blows, stun. Porygon's ready."],
+  guard: ["See the GD bar under your HP? That's your guard.", 'Every parry or jump spends some, PERFECT ones less. It refills a bit each turn, and a DODGE wins some back.'],
+  brk: ["Now, what if it runs out? Say you've parried one too many...", "There: your guard's broken. Watch what that means."],
+  afterBreak: ["A broken guard can't defend the next hit, and that hit lands harder. Leaders go for it!", 'Then it comes back half full. Switching out, IRON DEFENSE or REST bring it back too.'],
+  heavy: ["Next, a heavy blow: a red double ring, and you'll hear it wind up.", "Don't parry it: DODGE with B! A dodge takes none of it, and a PERFECT dodge rattles me."],
+  heavyParried: ['Ouch! Parrying a heavy blow breaks your guard.', "Again: when it's red, DODGE with B."],
+  heavyMissed: ["That one got through. When it's red, DODGE with B.", 'Here it comes again.'],
+  heavyOk: ["That's it! Dodged clean."],
+  heavyGiveUp: ["You'll get the feel for it. Red ring: B. Let's move on."],
+  stun: ["Last one: the ST bar under Porygon's HP. That's its stun.", 'PERFECT and GREAT hits, super-effective ones, PERFECT parries and dodged heavy blows all fill it. Fill it up!'],
+  stunNudge: ["Here, I'll leave Porygon open. One more good hit should do it."],
+  stunnedSkip: ['Stunned! Porygon loses its turn: a free one for you.', "A stunned foe can't parry either, and every hit on it does ×1.5."],
+  stunnedTheirs: ['Stunned mid-attack! The rest of its attack is gone.', "Until its next turn it can't parry, and your hits do ×1.5. Hit it now!"],
+  done: ["That's everything: guard, heavy blows and stun.", 'Leaders use all of it, so you use it too.'],
+  gift: ['Here, take this MOVE DISC: IRON DEFENSE. It wins back guard and mends a break.', "And keep my notes. They're in your Bag whenever you want another round."],
+  bye: ['Good refresher. Go get them.'],
+}
+/** Alex as a sparring partner: his first look, no parries, Full Restores, Full Heals or tells, slower rings, a small stun bar. */
+function lessonTrainer() {
+  return { short: 'ALEX', full: 'TRAINER ALEX', role: 'SPARRING', vs: ALEX.vs, face: ALEX.face, body: ALEX.body, down: ALEX.body, faceDown: ALEX.face,
+    hard: true, lesson: true, parry: 0, restores: 0, fullHeals: 0, tellRate: 0, ringFast: 1.15, stunMax: LESSON.stunMax, movesFor: (f) => RIVAL_MOVES[f.name] }
+}
+/*
  * Battle supplies the machine can stock beside the packs, as an admin sets
  * them up: whether each is sold at all, its price in tokens, and its
  * appearance rate, the chance (%) it's on the shelf when the machine is
@@ -4577,6 +4689,7 @@ const ITEMS = {
   summon: { name: 'GYM SUMMON', sub: 'summons your next Gym Leader', cls: 't-summon' },
   elite: { name: 'ELITE FOUR TICKET', sub: 'all five League battles', cls: 't-summon' },
   expshare: { name: 'EXP. SHARE', sub: 'your whole party shares EXP', cls: 't-key', key: true },
+  notes: { name: "ALEX'S NOTES", sub: 'spar with Alex again: guard, heavy blows, stun', cls: 't-key', lesson: true },
   antidote: { name: 'ANTIDOTE', sub: 'cures poison', cls: 't-cure', cure: ['psn', 'tox'] },
   parlyz:   { name: 'PARALYZE HEAL', sub: 'cures paralysis', cls: 't-cure', cure: ['par'] },
   burnheal: { name: 'BURN HEAL', sub: 'cures a burn', cls: 't-cure', cure: ['brn'] },
@@ -4800,20 +4913,37 @@ const CRUMBS = (() => {
  * Move usage, for balancing: during a battle, how often you use each of your moves, how many of its hits land PERFECT
  * or MISS; at the end, one summary goes to the server with the battle's kind and whether you won (battle_record_moves,
  * v99). Yours only, never a partner's or a foe's. App only.
+ *
+ * And your defence (battle_record_defence, v127): every ring thrown at one of yours, and how it went (a heavy blow's
+ * apart: dodged, parried by mistake, or missed), how often your guard broke and how often you stunned a foe. So
+ * rings = parries + jumps + dodges + misses + heavy_dodged + heavy_parried; `perfect` is the PERFECT parries and jumps.
  */
 const MOVE_LOG = (() => {
-  let m = new Map()
+  let m = new Map(), d = null
+  const fresh = () => ({ rings: 0, perfect: 0, parries: 0, jumps: 0, dodges: 0, misses: 0, heavy: 0, heavy_dodged: 0, heavy_parried: 0, guard_breaks: 0, stuns: 0 })
+  d = fresh()
   const e = (n) => { let x = m.get(n); if (!x) m.set(n, (x = { n: 0, h: 0, p: 0, x: 0 })); return x }
   return {
-    reset() { m = new Map() },
+    reset() { m = new Map(); d = fresh() },
     peek: () => Object.fromEntries(m),
+    peekDefence: () => ({ ...d }),
     use(n) { if (n) e(n).n++ },
     hit(n, label) { if (!n) return; const x = e(n); x.h++; if (label === 'PERFECT') x.p++; else if (label === 'MISS') x.x++ },
+    /** One ring on one of yours, as defendResult judged it (`heavy`: a red ring). */
+    ring({ r, perfect }, heavy = false) {
+      d.rings++
+      if (heavy) { d.heavy++; if (r === 'dodge') d.heavy_dodged++; else if (r === 'parry') d.heavy_parried++; else d.misses++; return }
+      if (r === 'parry') d.parries++; else if (r === 'jump') d.jumps++; else if (r === 'dodge') d.dodges++; else d.misses++
+      if (perfect && (r === 'parry' || r === 'jump')) d.perfect++
+    },
+    guardBreak() { d.guard_breaks++ },
+    stun() { d.stuns++ },
     send(kind, result) {
-      const moves = [...m].slice(0, 40).map(([move, v]) => ({ move, uses: v.n, hits: v.h, perfect: v.p, misses: v.x })); m = new Map()
-      if (!APP.on || !moves.length || MODE !== 'play') return
+      const moves = [...m].slice(0, 40).map(([move, v]) => ({ move, uses: v.n, hits: v.h, perfect: v.p, misses: v.x })), def = d; m = new Map(); d = fresh()
+      if (!APP.on || MODE !== 'play') return
       const won = ['won', 'fainted', 'caught'].includes(result)
-      Promise.resolve(vvm()?.recordMoves?.(kind, won, moves)).catch(() => {})
+      if (moves.length) Promise.resolve(vvm()?.recordMoves?.(kind, won, moves)).catch(() => {})
+      if (def.rings) Promise.resolve(vvm()?.recordDefence?.(kind, won, def)).catch(() => {})
     },
   }
 })()
@@ -5450,7 +5580,7 @@ function pairMilestone(ref) {
  * a leader's usual pace). A pair's own `lift` adds to `up` for all three:
  * some teams are stronger than others. Tuned in sim.mjs (PAIR_AIM).
  */
-const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.3, restores: 1, ringFast: 0.88 }
+const PAIR_TUNE = { up: [0.06, 0.06, 0.1], parry: 0.25, restores: 1, ringFast: 0.95 }
 /** A member as they battle in pair `P`: a leader's smarts and then some (see PAIR_TUNE). */
 function pairSide(T, P = {}) {
   return { ...T, hard: true, strong: true, smart: true, pair: true, restores: PAIR_TUNE.restores, parry: Math.max(T.parry ?? PARRY.gym, PAIR_TUNE.parry), duoFast: PAIR_TUNE.ringFast, lift: P.lift ?? 0, top: !!P.top }
@@ -5509,10 +5639,12 @@ function estHit(att, def, mv) {
  * (SPREAD: Surf, Discharge...) counts what it does to both of yours, less
  * twice what it does to its own partner: Surf beside a Water type, never
  * beside a Fire type.
- * A Hyper Beam's charging turn halves its worth. Usually the best; now and
- * then the next best. Returns { mv, target } (one of `foes`), or null.
+ * A Hyper Beam's charging turn halves its worth. One of `exposed` (a Set: a
+ * Pokémon of yours whose guard is broken, GUARD) is worth more to aim at.
+ * Usually the best; now and then the next best. Returns { mv, target } (one of
+ * `foes`), or null.
  */
-function duoSmartPick(me, moves, foes, partner, r = Math.random) {
+function duoSmartPick(me, moves, foes, partner, r = Math.random, exposed = null) {
   const opts = []
   const share = (d, m) => Math.min(1, d / Math.max(1, m.hp))
   for (const mv of moves) {
@@ -5522,7 +5654,7 @@ function duoSmartPick(me, moves, foes, partner, r = Math.random) {
       let v = foes.reduce((n, f) => n + share(estHit(me, f, mv) * 0.75, f) + (estHit(me, f, mv) * 0.75 >= f.hp ? 0.5 : 0), 0)
       if (partner && partner.hp > 0) v -= 2 * share(estHit(me, partner, mv) * 0.75, partner)
       opts.push({ mv, target: foes[0], v: v * slow })
-    } else for (const f of foes) { const d = estHit(me, f, mv); opts.push({ mv, target: f, v: (share(d, f) + (d >= f.hp ? 0.5 : 0)) * slow }) }
+    } else for (const f of foes) { const d = estHit(me, f, mv); opts.push({ mv, target: f, v: (share(d, f) + (d >= f.hp ? 0.5 : 0) + (exposed?.has(f) ? 0.4 : 0)) * slow }) }
   }
   opts.sort((a, b) => b.v - a.v)
   return opts[r() < 0.8 || opts.length < 2 ? 0 : 1] ?? null
@@ -5637,6 +5769,9 @@ async function run(id) {
   const STORY_GAP = 8
   let storyGap = { taps: 0, who: null }   // taps left before another of them, and who battled last
   const gapClear = (who) => storyGap.taps <= 0 || storyGap.who === who
+  // Alex's lesson (LESSON): once, on the next tap after the first tutorial. __noLesson: testing only (the harness keeps it off).
+  let lessonDone = false
+  const lessonDue = () => !demo && tutorialDone && !lessonDone && !window.__noLesson && modeOn('trainers') && party.some((m) => m.hp > 0)
   const rivalDue = () => rivalStep < RIVAL_BATTLES.length && rivalWait <= 0 && gapClear('ALEX') && RIVAL_BATTLES[rivalStep].due(rivalProgress(badges, champion, redBeaten))
   // Herb's and Paul's glitcher battles (STORY), each kept like Alex's: the next battle, taps until a rematch, and whether you lost the last.
   const story = { HERB: { step: 0, wait: 0, lost: false }, PAUL: { step: 0, wait: 0, lost: false } }
@@ -5711,8 +5846,8 @@ async function run(id) {
   const pendingEvos = new Set()   // Pokémon that levelled into an evolution this battle
   function panel(name) { for (const p of ['pPick', 'pNext', 'pMain', 'pFight', 'pBag', 'pParty', 'pDefend', 'pStrike', 'pEvo', 'pPad']) $(p).style.display = p === name ? 'block' : 'none' }
   /** The defend buttons greyed out while the Pokémon being hit can't defend (asleep, frozen or paralyzed): presses do nothing then. */
-  function lockDefend(mon) {
-    const on = !!mon && cantDefend(mon)
+  function lockDefend(mon, broken = false) {
+    const on = !!mon && (cantDefend(mon) || broken)
     $('pDefend').classList.toggle('locked', on)
     $('pDefend').querySelectorAll('.btn').forEach((b) => { b.setAttribute('aria-disabled', String(on)); if (on) b.classList.remove('armed') })
     return on
@@ -5872,7 +6007,7 @@ async function run(id) {
     thunder_stone: 'thunderstone', water_stone: 'waterstone', fire_stone: 'firestone', leaf_stone: 'leafstone', ice_stone: 'icestone', moon_stone: 'moonstone',
     sun_stone: 'sunstone', dusk_stone: 'duskstone', shiny_stone: 'shinystone', linking_cord: 'linkcable', dragon_scale: 'dragonscale' }
   /** Can this Bag item be sold back to the VVM (v103)? Anything but Gym Summons, League, rematch and double battle tickets and key items. */
-  const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && ITEMS[k].summon == null && !ITEMS[k].rematch && !ITEMS[k].pair && !['summon', 'elite', 'disc'].includes(k)
+  const sellsBack = (k) => !!ITEMS[k] && !ITEMS[k].key && !ITEMS[k].lesson && ITEMS[k].summon == null && !ITEMS[k].rematch && !ITEMS[k].pair && !['summon', 'elite', 'disc'].includes(k)
   async function syncMachine() {
     const api = vvm(); if (!api) return
     const m = await api.machine().catch(() => null); if (!m || !live()) return
@@ -6457,6 +6592,8 @@ async function run(id) {
     const tabs = `<div class="bagtabs" role="tablist">${BAG_TABS.map(([t, label]) => { const n = all.filter(([k, it]) => pocketOf(k, it) === t).reduce((a, [k]) => a + bag[k], 0)
       return `<button role="tab" aria-selected="${t === bagTab}" class="${t === bagTab ? 'on' : ''}" data-tab="${t}">${label}${n ? `<i>${n}</i>` : ''}</button>` }).join('')}</div>`
     return tabs + (held.length ? '' : `<p class="note">${all.length ? POCKET_EMPTY[bagTab] : 'Your Bag is empty.'}</p>`) + held.map(([k, it]) => {
+      if (it.lesson) { const ok = modeOn('trainers')
+        return `<button class="irow" data-lesson="1"${ok ? '' : ' disabled'}><img class="ic face" src="${ART[ALEX.face]}" alt=""><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · ${ok ? 'spar with Alex again: guard, heavy blows, stun · tap' : 'trainer battles are off'}</span></span></button>` }
       if (it.key) return `<button class="irow key" data-share="1" aria-pressed="${shareOn}"><span class="ic ${k}"></span><span class="mid"><b>${it.name}</b><span class="sub">KEY ITEM · ${shareOn ? 'Pokémon that sit out a battle get half its EXP' : 'off: only the Pokémon that battle get EXP'} · tap to switch</span></span><span class="onoff ${shareOn ? 'on' : ''}">${shareOn ? 'ON' : 'OFF'}</span></button>`
       if (LEAGUES[it.summon]) {
         const id = it.summon, st = leagueStep(id), L = LEAGUES[id].members[st], ok = leagueNow() === id
@@ -6737,6 +6874,11 @@ async function run(id) {
       if (a.tab != null) { bagTab = a.tab; sfx('move') }
       if (a.sellpage != null) { view = { page: 'sell' }; sellList = null; sfx('select'); draw(); loadSellable(); return }
       if (a.sell != null || a.sellall != null) { const k = a.sell ?? a.sellall; sellItem(k, a.sell != null ? 1 : sellCan(sellList, k)); return }
+      if (a.lesson != null) {
+        if (!party.some((m) => m.hp > 0)) { toast = 'Heal your party first.'; toastBad = true; draw(); return }
+        if (!modeOn('trainers')) { toast = 'Trainer battles are switched off (on the machine screen).'; toastBad = true; draw(); return }
+        pendingLesson = true; sfx('select'); sheetCloser?.(); return
+      }
       if (a.share != null) { shareOn = !shareOn; sfx('select'); toast = `EXP. SHARE switched ${shareOn ? 'on' : 'off'}.`; saveGame() }
       if (a.use != null) toast = useItem(a.use, view.mon)
       if (a.item != null) { const s = ITEMS[a.item].summon; view = { page: LEAGUES[s] ? 'elite' : s != null ? 'summon' : 'target', item: a.item }; sfx('select') }
@@ -6874,7 +7016,7 @@ async function run(id) {
     }
     toast = ''; draw(); fitSheet(); $('sheet').classList.add('open')
     anim($('sheet').firstElementChild, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220 })
-    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'rematch', 'pair', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release', 'sellpage', 'sell', 'sellall']
+    const KEYS_ = ['heal', 'stat', 'back', 'up', 'down', 'use', 'item', 'target', 'mon', 'slot', 'learn', 'challenge', 'elite', 'deposit', 'withdraw', 'swapat', 'tab', 'share', 'lesson', 'rematch', 'pair', 'boxgo', 'boxto', 'boxsort', 'moveto', 'release', 'sellpage', 'sell', 'sellall']
     const read = (el) => { for (const k of KEYS_) if (el.hasAttribute('data-' + k)) { const v = el.getAttribute('data-' + k); return { [k]: v === '' ? true : isNaN(+v) ? v : +v } } return null }
     $('sheetBody').onclick = (e) => {
       if (MODE !== 'play') return
@@ -7535,8 +7677,41 @@ async function run(id) {
       const m = s.mon
       return `<div class="row"><span>${m.name}${s.owner?.ally ? `<em class="own">${s.owner.short}</em>` : ''}</span><span class="lv">Lv${m.level}</span></div>` +
         `<div class="hpl"><b>HP</b><div class="hpb"><i style="width:${m.hp / m.stats.hp * 100}%;background:${hpColor(m.hp / m.stats.hp * 100)}"></i></div></div>` +
-        (s.side === 'p' ? `<div class="dhn">${m.hp}/${m.stats.hp}</div><div class="exp"><i style="width:${(m.exp ?? 0) / expToNext(m.level) * 100}%"></i></div>` : '') + `<div class="tags"></div>`
+        (s.side === 'p' ? `<div class="dhn">${m.hp}/${m.stats.hp}</div><div class="exp"><i style="width:${(m.exp ?? 0) / expToNext(m.level) * 100}%"></i></div>` : '') +
+        (s.side === 'p' && !s.owner?.ally ? '<div class="gd2"><i style="width:100%"></i></div>' : s.side === 'e' ? '<div class="sd2"><i></i></div>' : '') + `<div class="tags"></div>`
     }
+    /* Guard (your two) and stun (theirs), as in 1v1: see GUARD and STUN. Never in the demos, nor for a partner's Pokémon. */
+    function paintBar(s) {
+      if (!s?.hud) return
+      const t = S(s.mon), g = s.hud.querySelector('.gd2'), f = s.hud.querySelector('.sd2')
+      if (g) { g.firstElementChild.style.width = (t.broken ? 0 : (t.guard ?? GUARD.max) / GUARD.max * 100) + '%'; g.classList.toggle('broken', !!t.broken); g.classList.toggle('low', !t.broken && (t.guard ?? GUARD.max) <= GUARD.parry) }
+      if (f) { f.firstElementChild.style.width = Math.min(100, (t.stun ?? 0) / stunMax(s.owner) * 100) + '%'; f.classList.toggle('stunned', !!t.stunned) }
+    }
+    /** After one of yours defended a hit: its guard spent or won back; empty, it breaks. Infinity breaks it outright. */
+    function spendGuardDuo(T, cost) {
+      if (demo || !cost) return
+      const t = S(T.mon)
+      t.guard = cost === Infinity ? 0 : Math.max(0, Math.min(GUARD.max, (t.guard ?? GUARD.max) - cost))
+      if (t.guard > 0) return paintBar(T)
+      t.broken = true; MOVE_LOG.guardBreak()
+      sfx('flinch'); pop('GUARD BREAK!', T.c.x, T.c.y - 96, 'red'); shake(6, 300); paintBar(T)
+    }
+    /** As 1v1's mendGuard, for one of yours. */
+    function mendGuardDuo(T, n) {
+      if (demo || T.side !== 'p' || T.ally) return
+      const t = S(T.mon); t.guard = Math.min(GUARD.max, (t.broken ? 0 : t.guard ?? GUARD.max) + n); t.broken = false
+      pop('GUARD ▲', T.c.x, T.c.y - 96, 'blue small'); paintBar(T)
+    }
+    /** Fill a foe's stun bar; full, it's stunned. `theirs`: during its own attack. True if it was stunned now. */
+    function addStunDuo(F, n, theirs) {
+      const t = S(F.mon), max = stunMax(F.owner)
+      if (demo || !n || t.stunned || F.mon.hp <= 0) return false
+      t.stun = Math.min(max, (t.stun ?? 0) + n)
+      if (t.stun < max) { paintBar(F); return false }
+      t.stunned = { skip: !theirs }; MOVE_LOG.stun(); sfx('counter'); pop('STUNNED!', F.c.x, F.c.y - 90, 'gold'); sparks(F.c.x, F.c.y - 24, '#fde047', 14)
+      paintBar(F); return true
+    }
+    async function hint(k, l1, l2) { if (demo || COMBAT_HINTS.has(k)) return; COMBAT_HINTS.add(k); await say(l1, l2, 900) }
     function tags(s) {
       const t = S(s.mon), out = [...statTags(t)]
       if (sides[s.side].tailwind) out.push('TAILWIND')
@@ -7547,6 +7722,7 @@ async function run(id) {
       if (t.boost > 1) out.push('HELPED')
       out.push(...stageTags(t), ...volTags(t))
       s.hud.querySelector('.tags').innerHTML = statusChip(s.mon) + out.map((x) => `<span>${x}</span>`).join('')
+      paintBar(s)
     }
     const retag = () => [...sides.p.slots, ...sides.e.slots].forEach((s) => s.mon.hp > 0 && tags(s))
     async function hpTo(s, to) {
@@ -7833,7 +8009,7 @@ async function run(id) {
         // A pair member's Pokémon picks the attack and the target that do the most (duoSmartPick).
         if (!scripted && s.owner?.smart) {
           const up = alive('p'), ms = pairMoves(s.owner, s.mon, !!s.mon.pairAce).filter((m) => S(s.mon).disabled?.name !== m.name)
-          const p = duoSmartPick(s.mon, ms, up.map((x) => x.mon), allyOf(s)?.mon, rand)
+          const p = duoSmartPick(s.mon, ms, up.map((x) => x.mon), allyOf(s)?.mon, rand, s.owner?.hard && !demo ? new Set(up.filter((x) => !x.ally && S(x.mon).broken).map((x) => x.mon)) : null)
           if (p) return { actor: s, move: { ...p.mv, kind: p.mv.kind ?? 'strike', foe: true }, target: up.find((x) => x.mon === p.target) ?? up[0] }
         }
         s.turn = (s.turn ?? 0)
@@ -7876,12 +8052,13 @@ async function run(id) {
       }
       if (whiffOnMiss && acc.label === 'MISS') { pop('MISSED', T.c.x, T.c.y - 70, 'red small'); sfx('dodge'); return null }
       // A leader's Pokémon can parry it (not a PERFECT): a fifth of the damage and nothing else, or, a PERFECT parry, none at all and a counter after (leaderParries).
-      const parried = !demo && T.side !== 'p' && leaderParries(T.owner, T.mon, acc.label, !!S(T.mon).conf, chance)
-      pop(parried === 'perfect' ? `${T.owner.short}'S PERFECT PARRY!` : parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+      const stunned = T.side === 'e' && !!S(T.mon).stunned   // stunned (STUN): it can't parry, and the hit does more
+      const parried = !demo && T.side !== 'p' && !stunned && leaderParries(T.owner, T.mon, acc.label, !!S(T.mon).conf, chance)
+      pop(parried === 'perfect' ? `${T.owner.short}'S PERFECT PARRY!` : parried ? `${T.owner.short} PARRIED!` : `${acc.label} ×${(acc.mult * (stunned ? STUN.mult : 1)).toFixed(1)}`, T.c.x - 24, T.c.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
       sfx(parried ? 'parry' : mv.snd); await strikeFx(mv, actor.c, T.c, actor.el, approach < 820)
       if (parried) { anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(T.c.x - 20, T.c.y - 20, parried === 'perfect' ? '#fde047' : undefined, parried === 'perfect' ? 16 : 10) }
       if (parried === 'perfect') { parriers?.add(T); return null }   // not a scratch on it: the counter comes once the attack's done
-      const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult * (parried ? DEFEND_TAKEN.parry : 1))
+      const { dmg, eff } = dmgOf(actor.mon, T.mon, mv, acc.mult * mult * (parried ? DEFEND_TAKEN.parry : 1) * (stunned ? STUN.mult : 1))
       const from = T.mon.hp
       sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); if (eff > 1 || acc.crit) shake(5, 280)
       impactFx(T.c, mv.type, eff > 1 || acc.crit); hitReact(T.el, actor.c, T.c, mv.type, eff > 1 || acc.crit)
@@ -7891,6 +8068,7 @@ async function run(id) {
       if (mv.drain) await sapSlot(actor, Math.round((from - T.mon.hp) * mv.drain))
       if (mv.recoil && actor.mon.hp > 1) { await hpTo(actor, Math.max(1, actor.mon.hp - Math.max(1, Math.round((from - T.mon.hp) * mv.recoil)))); await say(actor.mon.name, 'is damaged by recoil!', 250) }
       if (parried) return { eff, crit: false, label: acc.label, parried }
+      if (!actor.ally && T.side === 'e' && T.mon.hp > 0) addStunDuo(T, stunFromStrike(acc.label, eff, mv.name), false)
       if (T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
       if (T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
       if (T.mon.hp > 0 && FLINCH[mv.name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[mv.name]) S(T.mon).flinch = true
@@ -7955,6 +8133,8 @@ async function run(id) {
       if (landed.some((r) => r.crit)) await say('A critical hit!')
       if (!mv.spread && landed.length && landed.at(-1).eff > 1) await say("It's super effective!")
       if (!mv.spread && landed.length && landed.at(-1).eff < 1) await say("It's not very effective...")
+      const dazed = alive('e').find((f) => S(f.mon).stunned)
+      if (dazed && !actor.ally) await hint('stun', `${dazed.mon.name} is stunned!`, "It loses its turn, can't parry, and your hits do ×1.5.")
       // Each that PERFECT parried a hit of it counters (LEADER_COUNTER), never for the knockout.
       for (const P of parriers) {
         if (P.gone || P.mon.hp <= 0 || actor.mon.hp <= 1) continue
@@ -7974,7 +8154,7 @@ async function run(id) {
      * hit but earns no PP. Returns 'parry', 'dodge', 'jump' or 'miss'.
      */
     let defendShownAt = 0   // when the last attack's announcement was moved on (see DEFEND_SETTLE_MS)
-    async function defendHit(T, actor, mv, h, step, mult, ownPartner = false) {
+    async function defendHit(T, actor, mv, h, step, mult, ownPartner = false, heavy = false) {
       const dr = defendRing(ringNet(S(actor.mon).acc, S(T.mon).eva)); if (S(T.mon).conf) dr.wide *= CONF_DEFEND
       // Every ring closes at its own speed, after a wind-up of its own (see attackPace).
       const pace = attackPace(ownPartner ? null : actor.owner, leadLevel())
@@ -7983,10 +8163,12 @@ async function run(id) {
       const approach = Math.round((mv.fast ? 640 : h === 0 ? 820 : 560) * dr.speed * vary * (ownPartner ? 1 : actor.owner?.duoFast ?? 1))
       let first = null
       const auto = T.ally   // a partner's Pokémon: they defend it, and your presses don't count here
+      const broke = !demo && !auto && !ownPartner && !!S(T.mon).broken   // a broken guard (GUARD): this one can't be defended
       // Armed through the wind-up, so tapping early still counts as your press (and misses), after a moment's grace once the text is gone.
       const armed = Math.max(performance.now(), defendShownAt + DEFEND_SETTLE_MS)
       const off = auto ? () => {} : listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
-      if (auto) panel(null); else { panel('pDefend'); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed')); if (lockDefend(T.mon) && h === 0) pop(`${STATUS_NAME[T.mon.status]}: CAN'T DEFEND`, T.c.x, T.c.y - 90, 'small') }
+      if (auto) panel(null); else { panel('pDefend'); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed')); if (lockDefend(T.mon, broke) && (h === 0 || broke)) pop(broke ? "GUARD BROKEN: CAN'T DEFEND" : `${STATUS_NAME[T.mon.status]}: CAN'T DEFEND`, T.c.x, T.c.y - 90, 'small') }
+      if (heavy) { pop('HEAVY! DODGE IT', T.c.x, T.c.y + 44, 'red small'); sfx('heavy') }   // below it: above, it would cover a foe's HP box
       if (windup) await W(windup)
       const t0 = performance.now(), hitAt = t0 + approach
       if (demo && !auto) {
@@ -7995,6 +8177,7 @@ async function run(id) {
         setTimeout(() => { if (!live()) return; const b = { parry: 'a', dodge: 'b', jump: 'up', late: 'a' }[p]; hot($('pDefend').querySelector(`[data-btn="${b}"]`)); press(b) }, at)
       }
       const rg = mv.kind === 'low' ? groundRing(T.c.x, DUO_AT.p[T.i].y - 4, approach) : ring(T.c.x, T.c.y, approach, '')
+      if (heavy) rg.el.classList.add('heavy')
       const dx = T.c.x - actor.c.x, dy = T.c.y - actor.c.y
       if (mv.kind === 'low') {
         const w = document.createElement('div'); w.className = 'groundwave'; w.style.left = (actor.c.x - 30) + 'px'; w.style.top = (actor.c.y + 30) + 'px'; fx.appendChild(w)
@@ -8006,15 +8189,18 @@ async function run(id) {
       await W(approach); rg.clear()
       if (!first) await W(240)
       off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed')); panel(null)
-      if (cantDefend(T.mon)) first = null   // asleep, frozen or paralyzed: no parry, dodge or jump (the buttons were greyed out)
+      if (window.__autoParry && !demo && !auto && !ownPartner) first = { btn: heavy ? 'b' : mv.kind === 'low' ? 'up' : 'a', t: hitAt }   // testing only, as in 1v1
+      if (cantDefend(T.mon) || broke) first = null   // asleep, frozen, paralyzed or guard broken: no parry, dodge or jump (the buttons were greyed out)
       const dt = first ? first.t - hitAt : Infinity
-      // A partner defends their own: usually good, now and then PERFECT.
-      const res = auto && cantDefend(T.mon) ? { r: 'miss' } : auto ? (flavor() < (mv.kind === 'low' ? 0.8 : 0.65) * (S(T.mon).conf ? CONF_DEFEND : 1) ? { r: mv.kind === 'low' ? 'jump' : 'parry', perfect: flavor() < 0.3 } : { r: 'miss' })
-        : defendResult(first, dt, mv.kind === 'low', dr.wide)
-      const { r, perfect } = res, taken = takenOf(res)
+      // A partner defends their own: usually good, now and then PERFECT (a heavy blow: dodged, usually).
+      const res = auto && cantDefend(T.mon) ? { r: 'miss' } : auto ? (heavy ? (flavor() < 0.65 ? { r: 'dodge' } : { r: 'miss' }) : flavor() < (mv.kind === 'low' ? 0.8 : 0.65) * (S(T.mon).conf ? CONF_DEFEND : 1) ? { r: mv.kind === 'low' ? 'jump' : 'parry', perfect: flavor() < 0.3 } : { r: 'miss' })
+        : defendResult(first, dt, mv.kind === 'low', dr.wide, heavy)
+      const { r, perfect } = res, taken = takenOf(res, heavy) * (broke ? GUARD.broken : 1)
+      if (!demo && !auto && !ownPartner) MOVE_LOG.ring(res, heavy)   // yours, for balancing (v127)
       if (mv.fx === 'quake' && !ownPartner) { sfx('quake'); shake(8, 420) }
-      if (r === 'parry') { sfx('parry'); pop(perfect ? 'PERFECT!' : 'PARRY', T.c.x, T.c.y - 64, perfect ? 'gold' : 'gold small'); if (perfect) sparks(T.c.x + 20, T.c.y - 20) }
-      else if (r === 'dodge') { sfx('dodge'); pop('DODGE', T.c.x, T.c.y - 64, 'blue'); anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(-26px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 340 }) }
+      if (r === 'parry' && heavy) spendGuardDuo(T, Infinity)   // a heavy blow parried: the guard breaks on the spot
+      else if (r === 'parry') { sfx('parry'); pop(perfect ? 'PERFECT!' : 'PARRY', T.c.x, T.c.y - 64, perfect ? 'gold' : 'gold small'); if (perfect) sparks(T.c.x + 20, T.c.y - 20) }
+      else if (r === 'dodge') { sfx('dodge'); pop(heavy ? (perfect ? 'PERFECT DODGE!' : 'DODGED!') : 'DODGE', T.c.x, T.c.y - 64, heavy && perfect ? 'gold' : 'blue'); anim(T.el, [{ transform: 'translateX(0)' }, { transform: 'translateX(-26px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 340 }) }
       else if (r === 'jump') { sfx('jump'); pop(perfect ? 'PERFECT JUMP!' : 'JUMP!', T.c.x, T.c.y - 76, 'green'); anim(T.el, [{ transform: 'translateY(0)' }, { transform: 'translateY(-50px)', offset: .45 }, { transform: 'translateY(0)' }], { duration: 520 }) }
       // A clean hit does it all; a dodge or a good-but-not-PERFECT parry or jump lets some through (DEFEND_TAKEN).
       if (taken > 0) {
@@ -8031,6 +8217,11 @@ async function run(id) {
         if (hit && T.mon.hp > 0 && T.mon.status === 'frz' && mv.type === 'fire') { T.mon.status = null; tags(T); await say(T.mon.name, STATUS_TEXT.thaw, 250) }
         if (hit && T.mon.hp > 0) await afflict(T, statusFromHit(T.mon, mv, rand))
         if (hit && T.mon.hp > 0 && FLINCH[mv.name] && chance() < FLINCH[mv.name]) S(T.mon).flinch = true
+      }
+      if (!auto && !ownPartner && !demo) {
+        if (broke) { S(T.mon).broken = false; S(T.mon).guard = GUARD.back; paintBar(T) }   // the broken guard took its hit: back, half full
+        else if (!(r === 'parry' && heavy)) spendGuardDuo(T, guardCost(res, heavy))
+        addStunDuo(actor, stunFromDefend(res, heavy), true)
       }
       await W(mv.hits > 1 ? 70 : 160)
       return res
@@ -8050,6 +8241,8 @@ async function run(id) {
         anim(actor.el, [{ filter: 'brightness(1)' }, { filter: 'brightness(1.8) drop-shadow(0 0 10px #fde047)' }, { filter: 'brightness(1)' }], { duration: 700, iterations: 2 }); return
       }
       const released = actor.charged === mv; actor.charged = null
+      // A heavy blow (HEAVY): a red ring to dodge. Not a spread move, nor in the demos or the tutorial.
+      const heavy = !demo && !tips && !spread && heavyRoll(mv, actor.owner, rand, released)
       S(actor.mon).lastMove = mv.name; for (const x of targets) S(x.mon).lastFoe = mv.name
       // A rampage (Outrage): 3 to 5 hits in a fast row on one target, then it's confused from the effort.
       const rampage = mv.rampage && !demo ? 3 + Math.floor(Math.random() * 3) : 0
@@ -8058,8 +8251,10 @@ async function run(id) {
       panel(null)
       await announce(`${actor.owner ? `${actor.owner.short}'s ` : ''}${actor.mon.name} used`, `${mv.name}!${spread ? ' (hits all around it)' : ''}`, READ_MS)
       defendShownAt = performance.now()
+      if ((heavy || (rampage && !tips)) && targets.some((x) => !x.ally)) await hint('heavy', 'A red ring is a heavy blow.', "Don't parry it: DODGE with B!")
       let rings = 0, evaded = 0
       for (const T of targets) {
+        if (S(actor.mon).stunned) break   // stunned on an earlier target: the rest of the attack is lost
         let allParried = true, countered = 0
         if (S(T.mon).protect) {
           // Yours: hold B through the wind-up and let go as the ring closes. A partner's and the demo's always hold.
@@ -8069,10 +8264,12 @@ async function run(id) {
         for (let h = 0; h < hitsOf; h++) {
           if (T.mon.hp <= 0) break
           if (h === 0) await tip(T.ally ? 'partner' : mv.kind === 'low' ? 'jump' : 'defend')
-          const { r, perfect } = await defendHit(T, actor, mvHit, h, step, spread ? 0.75 : 1)
-          if (!T.ally) { rings++; if (r === 'parry' || r === 'jump') evaded++ }   // PP is yours: only your rings count
+          const hv = heavy || (!demo && !tips && rampage > 0 && h === hitsOf - 1)   // a rampage's last hit comes heavy
+          const { r, perfect } = await defendHit(T, actor, mvHit, h, step, spread ? 0.75 : 1, false, hv)
+          if (!T.ally) { rings++; if ((r === 'parry' && !hv) || r === 'jump' || (hv && r === 'dodge')) evaded++ }   // PP is yours: only your rings count
           if (r !== 'parry' || !perfect) allParried = false
-          if (r === 'parry' && S(T.mon).counter === mv.cat) countered += dmgOf(actor.mon, T.mon, mv, spread ? 0.75 : 1).dmg * 2   // Counter / Mirror Coat
+          if (r === 'parry' && !hv && S(T.mon).counter === mv.cat) countered += dmgOf(actor.mon, T.mon, mv, spread ? 0.75 : 1).dmg * 2   // Counter / Mirror Coat
+          if (S(actor.mon).stunned) { if (h < hitsOf - 1 || targets.length > 1) await say(actor.mon.name, 'is stunned! Its attack stops.', 250); break }
         }
         if (countered && actor.mon.hp > 0) {
           sfx('counter'); pop(`${S(T.mon).counter === 'phys' ? 'COUNTER' : 'MIRROR COAT'} ×2`, T.c.x + 40, T.c.y - 90, 'orange'); await W(120)
@@ -8094,6 +8291,8 @@ async function run(id) {
       // One PP per attack, only when every ring of it was parried or jumped.
       if (rings && evaded === rings) { setDPP(dpp + 1, true); pop('+1 PP', 236, 136, 'blue small'); await tip('pp') }
       else if (evaded) pop(`${evaded}/${rings} — no PP`, 236, 136, 'small')
+      if (alive('p').some((x) => !x.ally && S(x.mon).broken)) await hint('guard', 'Your guard broke!', "The next hit can't be defended. Dodging and waiting rebuild it.")
+      if (S(actor.mon).stunned && actor.mon.hp > 0) await hint('stun', `${actor.mon.name} is stunned!`, "It can't parry, and your hits do ×1.5.")
       // Their spread moves hit their own partner too.
       const partner = spread ? allyOf(actor) : null
       if (partner && actor.mon.hp > 0) {
@@ -8141,6 +8340,7 @@ async function run(id) {
         case 'rest': {
           if (actor.mon.hp >= actor.mon.stats.hp) return false
           sfx('heal'); healFx(actor); await hpTo(actor, actor.mon.stats.hp); actor.mon.status = 'slp'; actor.mon.sleep = 2; actor.mon.restful = true; tags(actor)
+          mendGuardDuo(actor, GUARD.max)   // yours: its guard (GUARD) all back
           await say(`${actor.mon.name} slept`, 'and became healthy!', 300); return true
         }
         case 'wish': {
@@ -8258,6 +8458,10 @@ async function run(id) {
           if (t[k] > from) buffFx(tgt); sfx(t[k] > from ? 'levelup' : 'flinch')
           await say(`${tgt.mon.name}'s ${STAGE_WORD[k]}`, t[k] === from ? `won't go any ${by > 0 ? 'higher' : 'lower'}!` : `${t[k] > from ? 'rose' : 'fell'}${Math.abs(t[k] - from) > 1 ? ' sharply' : ''}!`, 250)
         }
+        // Your guard (GUARD), as in 1v1: a DEF boost of yours wins some back; a foe's DEF drop on yours wears some off.
+        const def = (mv.stages.def ?? 0) * (strong && !mine ? 2 : 1)
+        if (mine && tgt === actor && def > 0) mendGuardDuo(actor, GUARD.mend)
+        else if (!mine && tgt.side === 'p' && !tgt.ally && def < 0 && !demo && !S(tgt.mon).broken) { pop('GUARD ▼', tgt.c.x, tgt.c.y - 96, 'red small'); spendGuardDuo(tgt, GUARD.chip * -def) }
       } else if (mv.effect === 'protect') {
         const t = S(actor.mon)
         if (weak || !protectWorks(t, chance)) { t.protectRun = 0; await say('But it failed!', '', 250); return }
@@ -8417,6 +8621,11 @@ async function run(id) {
       while (queue.length) {
         const act = queue.shift()
         if (act.actor.mon.hp <= 0 || act.actor.gone) continue   // fainted, or switched out (Teleport) before its turn
+        // A stunned foe (STUN) loses this action; or, stunned during its last attack, the stun just ends.
+        if (act.actor.side === 'e' && S(act.actor.mon).stunned) {
+          const { skip } = S(act.actor.mon).stunned; S(act.actor.mon).stunned = null; S(act.actor.mon).stun = 0; paintBar(act.actor)
+          if (skip) { sfx('flinch'); await say(act.actor.mon.name, "is stunned and can't move!", 300); continue }
+        }
         if (step?.capAt?.[act.move.name]) cap(...step.capAt[act.move.name])
         if (act.move.kind === 'blunder') await blunderLine(act.actor.owner, act.actor.mon)
         else if (act.move.kind === 'item') await useItemDuo(act)
@@ -8431,6 +8640,11 @@ async function run(id) {
       }
       for (const s of [...alive('p'), ...alive('e')]) {
         const t = S(s.mon), d = statusTick(s.mon)
+        if (!demo) {   // guard comes back, stun drains (GUARD, STUN)
+          if (s.side === 'p' && !s.ally && !t.broken) t.guard = Math.min(GUARD.max, (t.guard ?? GUARD.max) + GUARD.regen)
+          if (s.side === 'e' && !t.stunned) t.stun = Math.max(0, (t.stun ?? 0) - STUN.decay)
+          paintBar(s)
+        }
         if (d) { sfx('hitWeak'); await hpTo(s, s.mon.hp - d); await say(s.mon.name, `is hurt by ${s.mon.status === 'brn' ? 'its burn' : 'poison'}!`, 250) }
         if (s.mon.hp > 0 && t.seeded) {
           const sap = Math.min(s.mon.hp, Math.max(1, Math.floor(s.mon.stats.hp / 8))), to = t.seeded
@@ -8667,6 +8881,7 @@ async function run(id) {
     })
   }
   let pendingRematch = null   // a ticket used in the Bag, to fight once the sheet closes
+  let pendingLesson = false   // Alex's notes, used in the Bag: the lesson once the sheet closes
   /** The rematch itself (`duo`: true for a 2v2, false for a 1v1; random if left out). */
   async function rematchBattle(id, duo = rand() < 0.5) {
     const r = rematchOf(id); if (!r) return
@@ -9245,9 +9460,11 @@ async function run(id) {
     if ((enc === 'wild' && !modeOn('wild')) || ((enc === 'scalper' || enc === 'duo') && !modeOn('trainers'))) { enc = null; pity = false }
     // A rival battle that's due takes this tap: Alex is waiting at the machine (with trainer battles on, and a Pokémon that can fight).
     if (force.enc === 'rival' || (!demo && !('enc' in force) && rivalDue() && modeOn('trainers') && party.some((m) => m.hp > 0))) { enc = 'rival'; pity = false }
+    // Before any of it, Alex's lesson, once (lessonDue).
+    if (force.enc === 'lesson' || (!('enc' in force) && lessonDue())) { enc = 'lesson'; pity = false }
     // If not, a glitcher battle that's due: Herb or Paul caught at the machine.
     let glitcher = force.enc === 'story' ? force.who ?? storyDue() : null
-    if (!glitcher && enc !== 'rival' && !demo && !('enc' in force) && modeOn('trainers') && party.some((m) => m.hp > 0)) glitcher = storyDue()
+    if (!glitcher && enc !== 'rival' && enc !== 'lesson' && !demo && !('enc' in force) && modeOn('trainers') && party.some((m) => m.hp > 0)) glitcher = storyDue()
     if (glitcher) { enc = 'story'; pity = false }
     // Either way, the other story characters keep their distance for a while.
     if (!demo && (enc === 'rival' || glitcher)) storyGap = { taps: STORY_GAP + Math.floor(flavor() * 5), who: enc === 'rival' ? 'ALEX' : glitcher }
@@ -9275,6 +9492,7 @@ async function run(id) {
     if (enc === 'wild') return wildEncounter(force.plan, state, force.legend)
     if (enc === 'scalper') return scalperEncounter(force.plan, state)
     if (enc === 'rival') return rivalEncounter(state)
+    if (enc === 'lesson') return lessonEncounter(state)
     if (enc === 'story') return storyEncounter(glitcher, state)
     if (enc === 'duo') return duoEncounter(force.plan, flavor() < 0.5 ? 'tag' : 'solo', state)
   }
@@ -9810,9 +10028,9 @@ async function run(id) {
     CRUMBS.phase('battle set up')
     Sound.prefetch(['victory', 'win']); Sound.preloadCries([o.foe?.id, ...party.filter((m) => m.hp > 0).slice(0, 2).map((m) => m.id), ...(o.roster ?? []).map((m) => m.id)])
     MOVE_LOG.reset(); let res = null
-    try { res = await battleCore(o); return res } finally { restoreForms(); MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
+    try { res = await battleCore(o); return res } finally { restoreForms(); if (o.lesson) MOVE_LOG.reset(); else MOVE_LOG.send(o.kind === 'trainer' ? (o.trainer?.hard ? 'leader' : 'trainer') : o.kind, res?.result); Sound.musicReport() }
   }
-  async function battleCore({ kind, foe, trainer, roster = [], plan, planD }) {
+  async function battleCore({ kind, foe, trainer, roster = [], plan, planD, lesson = false }) {
     let me = party.find((m) => m.hp > 0)
     const foeTeam = kind === 'trainer' ? [foe, ...roster] : null   // a wild Pokémon has no team to show
     watchBalls($('eBalls'), $('pBalls'), () => ({ enemy: foeTeam, enemyOut: [foe], mine: party, mineOut: [me] }), () => getComputedStyle($('battleL')).display !== 'none')
@@ -9829,8 +10047,90 @@ async function run(id) {
       const field = (m) => { const c = scr[m === me ? 'p' : 'e']; return [c.reflect && 'REFLECT', c.light && 'L.SCREEN', ST(m).protect && 'PROTECT', m === me && weather && WEATHER_TEXT[weather.kind][2]] }
       const line = (m) => { const t = ST(m); return statusChip(m) + [...statTags(t), ...stageTags(t), ...volTags(t), t.taunt && 'TAUNT', ...field(m)].filter(Boolean).map((x) => `<span>${x}</span>`).join('') }
       $('ptags').innerHTML = line(me); $('etags').innerHTML = line(foe)
+      paintBars()
     }
     const who = (m) => `${m === foe && kind === 'wild' ? 'The wild ' : ''}${m.name}`
+    /* Guard (yours) and stun (theirs), for this battle: see GUARD and STUN. Never in the demos. */
+    function paintBars() {
+      const g = ST(me), f = ST(foe)
+      $('pguard').style.width = (g.broken ? 0 : (g.guard ?? GUARD.max) / GUARD.max * 100) + '%'
+      $('pguard').parentElement.classList.toggle('broken', !!g.broken); $('pguard').parentElement.classList.toggle('low', !g.broken && (g.guard ?? GUARD.max) <= GUARD.parry)
+      $('estun').style.width = Math.min(100, (f.stun ?? 0) / stunMax(trainer) * 100) + '%'
+      $('estun').parentElement.classList.toggle('stunned', !!f.stunned)
+    }
+    /** After a defended hit: your guard spent or won back. Empty, it breaks (the next hit can't be defended); Infinity breaks it outright. */
+    function spendGuard(cost) {
+      if (demo || !cost) return
+      const g = ST(me)
+      g.guard = cost === Infinity ? 0 : Math.max(0, Math.min(GUARD.max, (g.guard ?? GUARD.max) - cost))
+      if (g.guard > 0) return paintBars()
+      g.broken = true; MOVE_LOG.guardBreak()
+      sfx('flinch'); pop('GUARD BREAK!', C.p.x, C.p.y - 104, 'red'); shake(7, 320); flash('#ef4444', .2, 140); paintBars()
+    }
+    /** Guard won back by a move (Iron Defense, Bulk Up: GUARD.mend; Rest: all of it), mending a break. */
+    function mendGuard(n) {
+      if (demo) return
+      const g = ST(me); g.guard = Math.min(GUARD.max, (g.broken ? 0 : g.guard ?? GUARD.max) + n); g.broken = false
+      pop('GUARD ▲', C.p.x, C.p.y - 96, 'blue small'); paintBars()
+    }
+    /** Fill the foe's stun bar; full, it's stunned. `theirs`: during its own attack. True if it was stunned now. */
+    function addStun(n, theirs) {
+      const f = ST(foe), max = stunMax(trainer)
+      if (demo || !n || f.stunned || foe.hp <= 0) return false
+      f.stun = Math.min(L && !L.stunOk ? max - 1 : max, (f.stun ?? 0) + n)   // the lesson: no stun before Alex explains it
+      if (f.stun < max) { paintBars(); return false }
+      if (L) L.stunSeen = theirs ? 'theirs' : 'skip'
+      f.stunned = { skip: !theirs }; MOVE_LOG.stun(); sfx('counter'); pop('STUNNED!', C.e.x, C.e.y - 96, 'gold'); sparks(C.e.x, C.e.y - 30, '#fde047', 16); flash('#fde047', .25, 140)
+      anim($('enemy'), [{ filter: 'brightness(1)' }, { filter: 'brightness(1.7) saturate(.4)' }, { filter: 'brightness(1)' }], { duration: 360, iterations: 2 })
+      paintBars(); return true
+    }
+    /** A line of explanation, the first time something happens in a visit (in Alex's lesson, he explains instead). */
+    async function hint(k, l1, l2) { if (demo || lesson || COMBAT_HINTS.has(k)) return; COMBAT_HINTS.add(k); await say(l1, l2, 900) }
+    /*
+     * Alex's lesson (LESSON): at the start of each of your turns, the next step,
+     * from what happened since (L). True once it's over.
+     */
+    const L = lesson ? { step: 'guard', heavyNext: false, heavyTries: 0, lastHeavy: null, stunOk: false, stunSeen: null, stunWait: 0 } : null
+    async function coach(lines) {   // Alex steps in where Porygon stands, as a trainer does before their last Pokémon
+      panel(null); const E = $('enemy')
+      await anim(E, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }).finished
+      await trainerOn(trainer); await talk(trainer, lines); await trainerOff()
+      await anim(E, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 }).finished
+      E.getAnimations().forEach((a) => a.cancel())
+    }
+    async function lessonTurn() {
+      const go = async (step, lines) => { L.step = step; if (lines) await coach(lines) }
+      switch (L.step) {
+        case 'guard': await go('break', LESSON_LINES.guard); return false   // this turn, an ordinary attack to parry
+        case 'break': {
+          await coach(LESSON_LINES.brk)
+          const g = ST(me); g.guard = 0; g.broken = true; sfx('flinch'); pop('GUARD BREAK!', C.p.x, C.p.y - 104, 'red'); shake(7, 320); paintBars()
+          L.step = 'afterBreak'; return false   // and Alex makes the most of it
+        }
+        case 'afterBreak': await coach(LESSON_LINES.afterBreak); await go('heavy', LESSON_LINES.heavy); L.heavyNext = true; return false
+        case 'heavy': {
+          const r = L.lastHeavy; L.lastHeavy = null
+          if (r === 'dodge' || ++L.heavyTries >= LESSON.heavyTries) {
+            await coach(r === 'dodge' ? LESSON_LINES.heavyOk : LESSON_LINES.heavyGiveUp)
+            L.heavyNext = false; L.stunOk = true; await go('stun', LESSON_LINES.stun); return false
+          }
+          await coach(r === 'parry' ? LESSON_LINES.heavyParried : LESSON_LINES.heavyMissed); return false
+        }
+        case 'stun': {
+          if (L.stunSeen) { await go('done', L.stunSeen === 'skip' ? LESSON_LINES.stunnedSkip : LESSON_LINES.stunnedTheirs); return false }   // a turn to use it
+          if (++L.stunWait >= LESSON.stunWait) { await coach(LESSON_LINES.stunNudge); ST(foe).stun = stunMax(trainer) - 1; paintBars() }
+          return false
+        }
+        case 'done': await coach(LESSON_LINES.done); return true
+      }
+      return false
+    }
+    /** The lesson can't be lost, or won early: both sides keep at least 1 HP. */
+    function lessonFloor() {
+      if (!lesson) return
+      if (me.hp <= 0) { me.hp = 1; setHP('p', me.hp, me.stats.hp) }
+      if (foe.hp <= 0) { foe.hp = 1; setHP('e', foe.hp, foe.max) }
+    }
     /** Inflict a status (from a hit or a move); false if it can't take it. */
     async function afflict(m, st) {
       if (!st || !canTake(m, st)) return false
@@ -9905,6 +10205,10 @@ async function run(id) {
         if (miss && target !== user) return false
         if (target !== user && ST(target).protect) { await say(who(target), 'protected itself!', 300); return true }
         for (const [k, by] of Object.entries(mv.stages)) await stage(target, k, by * n, target === foe)
+        // Your guard (GUARD): a DEF boost of yours wins some back; a foe's DEF drop on you wears some off.
+        const def = (mv.stages.def ?? 0) * n
+        if (target === me && def > 0) mendGuard(GUARD.mend)
+        else if (target === me && def < 0 && !demo && !ST(me).broken) { pop('GUARD ▼', C.p.x, C.p.y - 96, 'red small'); spendGuard(GUARD.chip * -def) }
         return true
       }
       if (mv.effect === 'protect') {
@@ -9992,6 +10296,7 @@ async function run(id) {
         case 'rest': {
           if (user.hp >= user.stats.hp) return false
           sfx('heal'); await setHPOf(user, user.stats.hp); user.status = 'slp'; user.sleep = 2; user.restful = true; showTags()
+          if (user === me) mendGuard(GUARD.max)   // and its guard (GUARD) all back
           await say(`${who(user)} slept`, 'and became healthy!', 400); return true
         }
         case 'wish': if (wish) return false; wish = { turns: 2, amt: Math.floor(user.stats.hp / 2), mine: user === me }; sfx('perfect'); await say(`${who(user)} made a wish!`, '', 300); return true
@@ -10224,15 +10529,16 @@ async function run(id) {
           // every ring deals the move's full damage.
           if (hits > 1 && acc.label === 'MISS') { pop('MISSED', C.e.x, C.e.y - 70, 'red small'); sfx('dodge'); continue }
           // A leader can parry it (not a PERFECT): a fifth of the damage and nothing else, or, a PERFECT parry, none at all and a counter after (leaderParries).
-          const parried = !demo && leaderParries(trainer, foe, acc.label, !!ST(foe).conf, chance)
-          pop(parried === 'perfect' ? `${trainer.short}'S PERFECT PARRY!` : parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${acc.mult.toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
+          const stunned = !!ST(foe).stunned   // stunned (STUN): it can't parry, and the hit does more
+          const parried = !demo && !stunned && leaderParries(trainer, foe, acc.label, !!ST(foe).conf, chance)
+          pop(parried === 'perfect' ? `${trainer.short}'S PERFECT PARRY!` : parried ? `${trainer.short} PARRIED!` : `${acc.label} ×${(acc.mult * (stunned ? STUN.mult : 1)).toFixed(1)}`, C.e.x - 24, C.e.y - 72, parried ? 'gold small' : ACC_CLS[acc.label])
           sfx(parried ? 'parry' : mv.snd)
           await strikeFx(mv, C.p, C.e, $('player'), h > 0)
           if (parried) { anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(14px)', offset: .3 }, { transform: 'translateX(0)' }], { duration: 300 }); sparks(C.e.x - 20, C.e.y - 20, parried === 'perfect' ? '#fde047' : undefined, parried === 'perfect' ? 16 : 10) }
           if (parried === 'perfect') { perfectParried = true; if (mv.furyCutter) t.fury = -1; continue }   // not a scratch on it, and the run starts over
-          const r = damage(me, foe, mv, parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult)
+          const r = damage(me, foe, mv, (parried ? acc.mult * DEFEND_TAKEN.parry : acc.mult) * (stunned ? STUN.mult : 1))
           if (mv.furyCutter && acc.label === 'MISS') t.fury = -1   // a miss starts the run over
-          const from = foe.hp; foe.hp = Math.max((demo && kind === 'wild') || mv.falseSwipe ? 1 : 0, foe.hp - r.dmg)   // False Swipe never knocks out
+          const from = foe.hp; foe.hp = Math.max((demo && kind === 'wild') || mv.falseSwipe || lesson ? 1 : 0, foe.hp - r.dmg)   // False Swipe never knocks out, nor does sparring
           sfx(r.eff > 1 ? 'hitSuper' : r.eff < 1 ? 'hitWeak' : 'hit')
           if (r.eff > 1 || acc.crit) shake(6, 320)
           impactFx(C.e, mv.type, r.eff > 1 || acc.crit); hitReact($('enemy'), C.p, C.e, mv.type, r.eff > 1 || acc.crit)
@@ -10245,6 +10551,7 @@ async function run(id) {
           if (acc.crit) addBond(me, 2)
           landed++; crit ||= acc.crit; eff = r.eff; if (acc.label !== 'MISS') clean = true
           if (parried) continue
+          if (foe.hp > 0) addStun(stunFromStrike(acc.label, r.eff, name), false)
           if (foe.hp > 0 && foe.status === 'frz' && mv.type === 'fire') { foe.status = null; showTags(); await say(who(foe), STATUS_TEXT.thaw, 300) }
           if (foe.hp > 0) await afflict(foe, statusFromHit(foe, { ...mv, name }, rand))
           if (foe.hp > 0 && FLINCH[name] && (acc.label === 'PERFECT' || acc.label === 'GREAT') && chance() < FLINCH[name]) ST(foe).flinch = true
@@ -10259,6 +10566,7 @@ async function run(id) {
       if (crit) await say('A critical hit!')
       if (landed && eff > 1) await say("It's super effective!")
       if (landed && eff < 1) await say("It's not very effective...")
+      if (ST(foe).stunned && foe.hp > 0) await hint('stun', `${foe.name} is stunned!`, kind === 'wild' ? "It loses its turn, your hits do ×1.5, and it's easier to catch." : "It loses its turn, can't parry, and your hits do ×1.5.")
       // A hit of it PERFECT parried: the leader's Pokémon counters (LEADER_COUNTER), never for the knockout.
       if (perfectParried && foe.hp > 0 && me.hp > 1) {
         sfx('counter'); pop(`${trainer.short}'S COUNTER!`, C.p.x, C.p.y - 96, 'orange'); await W(120)
@@ -10347,7 +10655,7 @@ async function run(id) {
       await anim(ball, [{ transform: `translate(${dx}px,${dy}px)` }, { transform: `translate(${dx}px,${dy + 38}px)`, offset: .6 }, { transform: `translate(${dx}px,${dy + 30}px)`, offset: .8 }, { transform: `translate(${dx}px,${dy + 38}px)` }], { duration: 420, easing: 'ease-in' }).finished
       let shakes = forcedShakes ?? window.__forceShakes   // __forceShakes: testing only
       if (shakes == null) {
-        const b = shakeOdds(foe, k, throwMult)
+        const b = shakeOdds(foe, k, throwMult, !!ST(foe).stunned)
         shakes = 0; while (shakes < 4 && Math.random() < b) shakes++
       }
       if (foe.roamer) foe.balls = (foe.balls ?? 0) + 1   // the next ball at it, anyone's, has better odds
@@ -10499,7 +10807,15 @@ async function run(id) {
     const LEADER_STATUS = { koga: 'POISON POWDER', janine: 'POISON POWDER', erika: 'POISON POWDER', bugsy: 'POISON POWDER',
       karen: 'WILL-O-WISP', morty: 'WILL-O-WISP', blaine: 'WILL-O-WISP', lt_surge: 'THUNDER WAVE', sabrina: 'THUNDER WAVE', will: 'THUNDER WAVE', lance: 'THUNDER WAVE' }
     async function foeTurn() {
-      if (kind === 'trainer' && !demoNoBlunder && (await blunder(trainer, foe))) return
+      // Stunned (STUN): its turn is lost; or, stunned during its last attack (which it lost the rest of), the stun just ends.
+      if (ST(foe).stunned) {
+        const { skip } = ST(foe).stunned; ST(foe).stunned = null; ST(foe).stun = 0; paintBars()
+        if (skip) {
+          sfx('flinch'); anim($('enemy'), [{ transform: 'translateX(0)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(0)' }], { duration: 260, iterations: 2 })
+          await say(who(foe), "is stunned and can't move!", 400); return   // not a turn it took: like sleep, it doesn't count towards a roaming legendary's LEGEND_TURNS
+        }
+      }
+      if (kind === 'trainer' && !demoNoBlunder && !lesson && (await blunder(trainer, foe))) return
       // A Full Heal, used instead of moving (so even asleep or frozen), unless a Full Restore is about to cover it.
       if (fullHeals > 0 && !(restores > 0 && foe.hp < foe.max * 0.35) && foeWantsFullHeal(foe, trainer, rand)) {
         fullHeals--; const was = foe.status
@@ -10545,14 +10861,17 @@ async function run(id) {
         await say(`${foe.name}'s HP was restored!`); return
       }
       // Leaders choose: usually the move that hits you hardest, sometimes the next best.
+      // Your guard broken (GUARD): a leader sees the opening and puts its hardest hit through it, no status move this turn.
+      const exposed = !demo && !!trainer?.hard && !!ST(me).broken
       const pickHard = () => {
         const score = (m) => (m.power ?? 0) * (m.hits ?? 1) * soften(gameMult(m.type, me.types)) * (foe.types.includes(m.type) ? 1.5 : 1)
         const ranked = foeMoves.filter((m) => !m.splash).slice().sort((a, b) => score(b) - score(a))
-        return ranked[rand() < 0.7 ? 0 : Math.min(1, ranked.length - 1)]
+        return ranked[exposed || rand() < 0.7 ? 0 : Math.min(1, ranked.length - 1)]
       }
+      if (exposed && !foe.charged) await say(`${trainer.short} saw an opening!`, '', 250)
       // Leaders with a signature status move use it on purpose, once a battle, early, on a Pokémon that can take it.
       const sig = LEADER_STATUS[trainer?.key]
-      if (sig && !sigUsed && !ST(foe).taunt && foe.turn < 2 && canTake(me, SUPPORT[sig].status) && rand() < 0.6) {
+      if (sig && !exposed && !sigUsed && !ST(foe).taunt && foe.turn < 2 && canTake(me, SUPPORT[sig].status) && rand() < 0.6) {
         sigUsed = true
         await announce(`${trainer.short}'s ${foe.name} used`, `${sig}!`, READ_MS)
         if (ST(me).protect) await say(who(me), 'protected itself!', 300)
@@ -10562,7 +10881,7 @@ async function run(id) {
         return
       }
       // Now and then (more often for leaders), once per Pokémon: its type's accuracy or evasion move.
-      const statusTurn = !foe.roamer && !foe.usedStatus && !ST(foe).taunt && (window.__forceStatusMove || rand() < (trainer?.hard ? 0.25 : 0.1))   // __forceStatusMove: testing only
+      const statusTurn = !foe.roamer && !exposed && !lesson && !foe.usedStatus && !ST(foe).taunt && (window.__forceStatusMove || rand() < (trainer?.hard ? 0.25 : 0.1))   // __forceStatusMove: testing only
       // Only a move that would do something (moveWorks); with none, it attacks instead and may try again later.
       const sn = !statusTurn ? null : demo ? statusOf(foe) : foeStatusMove(foe, rand, !!trainer?.hard, (n) => moveWorks(n, foe, me, ST, { weather: weather?.kind, ...scr.e }))
       if (sn) {
@@ -10580,6 +10899,7 @@ async function run(id) {
       }
       let mv = foe.charged ?? (trainer?.hard || trainer?.smart ? pickHard() : foe.roamer ? (foe.turn++, foeMoves[Math.floor(rand() * foeMoves.length)]) : foeMoves[foe.turn++ % foeMoves.length])
       if (ST(foe).disabled?.name === mv.name) mv = foeMoves.find((m) => m.name !== mv.name) ?? mv   // Disable: it reaches for something else
+      if (L?.heavyNext) mv = foeMoves.find((m) => m.kind !== 'low' && !m.fast && (m.hits ?? 1) === 1 && !m.rampage && !m.charge) ?? mv   // the lesson's heavy blow
       // A charged move (Hyper Beam): a turn spent gathering power, then a fast ring, then a turn to recharge.
       if (mv.charge && !demo && foe.charged !== mv) {
         foe.charged = mv; await announce(`${who(foe)} is gathering`, 'power!', 300); sfx('levelup')
@@ -10609,17 +10929,22 @@ async function run(id) {
       }
       // A tell, on some attacks: a feint, a second ring, or low-then-high. Leaders most, scalpers and veterans now and then.
       const pace = attackPace(kind === 'trainer' ? trainer : null, me.level)
-      const tell = trainer?.hard ? (rand() < (trainer.tellRate ?? 0.4) ? leaderTell(foe) : null) : !demo && Math.random() < pace.tell ? leaderTell(foe) : null
+      // A heavy blow (HEAVY): a red ring, to be dodged. Never with a tell, nor in the demos.
+      const heavy = !demo && (L ? L.heavyNext && mv.kind !== 'low' : heavyRoll(mv, trainer, rand, released))
+      const tell = heavy ? null : trainer?.hard ? (rand() < (trainer.tellRate ?? 0.4) ? leaderTell(foe) : null) : !demo && Math.random() < pace.tell ? leaderTell(foe) : null
       // A rampage (Outrage): 3 to 5 hits in a fast row, then it's confused from the effort.
       const rampage = mv.rampage && !demo ? 3 + Math.floor(Math.random() * 3) : 0
       const hits = rampage || (tell === 'double' ? (mv.hits ?? 1) + 1 : tell === 'lowHigh' ? 2 : mv.hits)
       const kindOf = (h) => (tell === 'lowHigh' ? (h === 0 ? 'low' : 'strike') : mv.kind)
       if (tell) { pop(TELL_LABEL[tell], C.e.x - 10, C.e.y - 86, 'orange'); sfx('blocked'); await W(350) }
+      if (heavy || rampage) await hint('heavy', 'A red ring is a heavy blow.', "Don't parry it: DODGE with B!")
       // Now the buttons. Presses in their first moments (a quick double tap on the text) don't count as an early miss.
       panel('pDefend'); const shownAt = performance.now()
-      let allParried = true, evaded = 0, countered = 0
+      let allParried = true, evaded = 0, countered = 0, ringsFaced = 0
       for (let h = 0; h < hits; h++) {
         const kind_ = kindOf(h), feint = tell === 'feint' && h === 0 ? 450 : 0   // a feint holds the ring still this long
+        const hv = heavy || (!demo && rampage > 0 && h === hits - 1)   // a rampage's last hit comes heavy
+        const broke = !demo && !!ST(me).broken   // your guard is broken: this one can't be defended
         // Leaders' attacks close faster: less time to react.
         const dr = defendRing(ringNet(ST(foe).acc, ST(me).eva)); if (ST(me).conf) dr.wide *= CONF_DEFEND
         // Every ring closes at its own speed, after a wind-up of its own: no two attacks share a rhythm.
@@ -10632,7 +10957,8 @@ async function run(id) {
         let first = null
         const off = listen((btn, t) => { if (!first && t >= armed && ['a', 'b', 'up'].includes(btn)) first = { btn, t } })
         document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.add('armed'))
-        if (lockDefend(me) && h === 0) pop(`${STATUS_NAME[me.status]}: CAN'T DEFEND`, C.p.x, C.p.y - 110, 'small')   // greyed out, and said so before the ring
+        if (lockDefend(me, broke) && (h === 0 || broke)) pop(broke ? "GUARD BROKEN: CAN'T DEFEND" : `${STATUS_NAME[me.status]}: CAN'T DEFEND`, C.p.x, C.p.y - 110, 'small')   // greyed out, and said so before the ring
+        if (hv) { pop('HEAVY! DODGE IT', C.p.x, C.p.y + 52, 'red small'); sfx('heavy') }   // below it: above, it would cover the foe's HP box
         if (windup) await W(windup)
         const t0 = performance.now(), hitAt = t0 + approach + feint
         if (demo) {
@@ -10641,6 +10967,7 @@ async function run(id) {
           setTimeout(() => { if (!live()) return; const b = { parry: 'a', dodge: 'b', jump: 'up', late: 'a' }[p]; hot($('pDefend').querySelector(`[data-btn="${b}"]`)); press(b) }, at)
         }
         const rg = kind_ === 'low' ? groundRing(FOOT.p.x, FOOT.p.y - 4, approach) : ring(C.p.x, C.p.y, approach, '')
+        if (hv) rg.el.classList.add('heavy')
         if (feint) setTimeout(() => {   // the feint: the ring stops halfway and flickers, then carries on
           if (!live()) return
           rg.el.getAnimations().forEach((x) => x.pause()); rg.el.classList.add('feint')
@@ -10657,23 +10984,27 @@ async function run(id) {
         await W(approach + feint); rg.clear()
         if (!first) await W(kind_ === 'low' ? 260 : 230)
         off(); document.querySelectorAll('#pDefend .btn').forEach((b) => b.classList.remove('armed'))
-        if (window.__autoParry && !demo) first = { btn: 'a', t: hitAt }   // testing only: a PERFECT parry on every ring
-        if (cantDefend(me)) first = null   // asleep, frozen or paralyzed: no parry, dodge or jump (the buttons were greyed out)
+        if (window.__autoParry && !demo) first = { btn: hv ? 'b' : kind_ === 'low' ? 'up' : 'a', t: hitAt }   // testing only: a PERFECT defence on every ring (a dodge for a heavy one)
+        if (cantDefend(me) || broke) first = null   // asleep, frozen, paralyzed or guard broken: no parry, dodge or jump (the buttons were greyed out)
         const dt = first ? first.t - hitAt : Infinity
-        const res = defendResult(first, dt, kind_ === 'low', dr.wide), { r, perfect } = res, taken = takenOf(res)
+        const res = defendResult(first, dt, kind_ === 'low', dr.wide, hv), { r, perfect } = res, taken = takenOf(res, hv) * (broke ? GUARD.broken : 1)
+        if (!demo) MOVE_LOG.ring(res, hv)   // for balancing (v127)
+        if (L && hv) L.lastHeavy = r   // the lesson's heavy blow: dodged, parried, or missed
+        ringsFaced++
         if (mv.fx === 'quake') { sfx('quake'); shake(10, 520) }
         if (mv.snd === 'coin') sfx('coin')
         if (r !== 'parry' || !perfect) allParried = false   // the counter takes PERFECT parries
-        if (r === 'parry' && ST(me).counter === mv.cat) countered += damage(foe, me, mv, 1).dmg * 2   // Counter / Mirror Coat
-        if (r === 'parry') { addBond(me, perfect ? 2 : 1); sfx('parry'); pop(perfect ? 'PERFECT!' : 'PARRY', C.p.x + h * 14, C.p.y - 64 - h * 18, perfect ? 'gold' : 'gold small'); if (perfect) { sparks(C.p.x + 30, C.p.y - 26); flash('#fff', .35, 90) } evaded++ }
-        else if (r === 'dodge') { sfx('dodge'); pop('DODGE', C.p.x, C.p.y - 64, 'blue'); anim($('player'), [{ transform: 'translateX(0)' }, { transform: 'translateX(-34px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 360 }) }
+        if (r === 'parry' && !hv && ST(me).counter === mv.cat) countered += damage(foe, me, mv, 1).dmg * 2   // Counter / Mirror Coat
+        if (r === 'parry' && hv) spendGuard(Infinity)   // a heavy blow parried: your guard breaks on the spot
+        else if (r === 'parry') { addBond(me, perfect ? 2 : 1); sfx('parry'); pop(perfect ? 'PERFECT!' : 'PARRY', C.p.x + h * 14, C.p.y - 64 - h * 18, perfect ? 'gold' : 'gold small'); if (perfect) { sparks(C.p.x + 30, C.p.y - 26); flash('#fff', .35, 90) } evaded++ }
+        else if (r === 'dodge') { sfx('dodge'); pop(hv ? (perfect ? 'PERFECT DODGE!' : 'DODGED!') : 'DODGE', C.p.x, C.p.y - 64, hv && perfect ? 'gold' : 'blue'); anim($('player'), [{ transform: 'translateX(0)' }, { transform: 'translateX(-34px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 360 }); if (hv) evaded++ }
         else if (r === 'jump') { sfx('jump'); pop(perfect ? 'PERFECT JUMP!' : 'JUMP!', C.p.x, C.p.y - 80, 'green'); anim($('player'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-60px)', offset: .45 }, { transform: 'translateY(0)' }], { duration: 540 }); evaded++ }
         // A clean hit does it all; a dodge or a good-but-not-PERFECT parry or jump lets some through (DEFEND_TAKEN).
         if (taken > 0) {
           const hit = r === 'miss'
           if (hit && mv.snd && mv.snd !== 'coin' && mv.snd !== 'shadow') sfx(mv.snd)
-          const { dmg, eff } = damage(foe, me, mv, taken)
-          const from = me.hp; me.hp = Math.max(0, me.hp - dmg)
+          const { dmg, eff } = damage(foe, me, mv, taken * (lesson ? LESSON.hit : 1))
+          const from = me.hp; me.hp = Math.max(lesson ? 1 : 0, me.hp - dmg)   // sparring: it never knocks you out
           sfx(eff > 1 ? 'hitSuper' : eff < 1 ? 'hitWeak' : 'hit'); flash('#ef4444', hit ? .25 : .12, 160); buzz(hit ? (eff > 1 ? 60 : 30) : 15)
           impactFx(C.p, mv.type, hit && eff > 1); if (hit) hitReact($('player'), C.e, C.p, mv.type, eff > 1)
           pop(`-${dmg}`, C.p.x + 40, C.p.y - 40, hit ? 'red' : 'red small')
@@ -10682,16 +11013,22 @@ async function run(id) {
           renderTools()
           if (me.hp <= 0) { panel(null); return }
           if (hit && me.status === 'frz' && mv.type === 'fire') { me.status = null; showTags(); await say(who(me), STATUS_TEXT.thaw, 300) }
-          if (hit) await afflict(me, statusFromHit(me, mv, rand))
+          if (hit && !lesson) await afflict(me, statusFromHit(me, mv, rand))
         }
+        if (broke) { ST(me).broken = false; ST(me).guard = GUARD.back; paintBars() }   // the broken guard took its hit: it's back, half full
+        else if (!(r === 'parry' && hv)) spendGuard(guardCost(res, hv))
+        const stunned = addStun(stunFromDefend(res, hv), true)
         await W(hits > 1 ? 80 : 220)
+        if (stunned) { if (h < hits - 1) await say(who(foe), 'is stunned! Its attack stops.', 300); break }   // the rest of its attack is lost
       }
       panel(null)
       // One PP per attack, and only for a clean sweep: parry (or jump) 2 of 3 hits and it's nothing.
-      if (evaded === hits) { setPP(pp + 1, true); pop('+1 PP', C.p.x - 30, C.p.y - 96, 'blue small') }
-      else if (evaded) pop(`${evaded}/${hits} — no PP`, C.p.x - 30, C.p.y - 96, 'small')
+      if (evaded === ringsFaced) { setPP(pp + 1, true); pop('+1 PP', C.p.x - 30, C.p.y - 96, 'blue small') }
+      else if (evaded) pop(`${evaded}/${ringsFaced} — no PP`, C.p.x - 30, C.p.y - 96, 'small')
+      if (ST(me).broken) await hint('guard', 'Your guard broke!', "The next hit can't be defended. Dodging and waiting rebuild it.")
+      if (ST(foe).stunned) await hint('stun', `${foe.name} is stunned!`, kind === 'wild' ? "Your hits do ×1.5, and it's easier to catch." : "It can't parry, and your hits do ×1.5.")
       // A foe's Mud-Slap that got through lowers your accuracy too (it only ever lowered theirs).
-      if (accDownOf(mv) && evaded < hits && me.hp > 0) await stage(me, 'acc', -accDownOf(mv), false)
+      if (accDownOf(mv) && evaded < ringsFaced && me.hp > 0) await stage(me, 'acc', -accDownOf(mv), false)
       if (released) ST(foe).recharge = true
       if (rampage && foe.hp > 0 && !ST(foe).conf) { ST(foe).conf = 2 + Math.floor(rand() * 2); showTags(); await say(who(foe), 'became confused from fatigue!', 300) }
       if (countered && foe.hp > 0) {
@@ -10727,6 +11064,7 @@ async function run(id) {
 
     /* the turn loop */
     for (;;) {
+      if (L && (await lessonTurn())) return { result: 'lesson' }
       // If the script runs short (rolls differ), keep attacking rather than stall.
       const affordable = () => movesOf(me).filter((n) => !SUPPORT[n] && moveCost(n) <= pp).sort((a, b) => (MOVEDEX[b].power * (MOVEDEX[b].hits ?? 1)) - (MOVEDEX[a].power * (MOVEDEX[a].hits ?? 1)))[0] ?? movesOf(me)[0]
       const step = demo ? (plan.shift() ?? { menu: 'fight', move: affordable(), planned: 'perfect' }) : null
@@ -10754,6 +11092,7 @@ async function run(id) {
         else if (SUPPORT[name]) await useSupport(name, demo ? step.planned : null); else await useMove(name, demo ? step.planned : null)
         used = true
         if (escaped) return { result: 'ran' }
+        lessonFloor()
         if (foe.hp <= 0) { const r = await foeDown(); if (r) return r; continue }
       }
       if (top === 'bag') {
@@ -10807,6 +11146,8 @@ async function run(id) {
       if (me.hp > 0) await foeTurn()   // (it may have hurt itself in confusion and fainted)
       if (fled) return { result: 'fled' }
       await endTurn(me, foe); await endTurn(foe, me); await endField()
+      if (!demo) { const g = ST(me), f = ST(foe); if (!g.broken) g.guard = Math.min(GUARD.max, (g.guard ?? GUARD.max) + GUARD.regen); if (!f.stunned && !L) f.stun = Math.max(0, (f.stun ?? 0) - STUN.decay); paintBars() }   // the lesson's stun doesn't drain
+      lessonFloor()
       if (foe.hp <= 0) { const r = await foeDown(); if (r) return r }
       if (me.hp <= 0) {
         sfx('faint')
@@ -11012,6 +11353,48 @@ async function run(id) {
     await anim(h, [{ opacity: 1 }, { opacity: 0 }], { duration: 700 }).finished
     h.remove()
     await say('The machine hums on.', 'Battles and packs are still here.', 900)
+  }
+  /**
+   * Alex's lesson (LESSON): his VS splash and words, then the sparring match
+   * (battleCore's `lesson`). Your party comes out of it as it went in. The
+   * first time, his gift: the IRON DEFENSE Move Disc and his notes (the key
+   * item that starts it again, `replay`).
+   */
+  async function lessonEncounter(state = 'in', replay = false) {
+    const T = lessonTrainer(), look = RIVAL_LOOKS[1]
+    toolsEnabled(false)
+    Sound.music('rivalTalk')
+    await wipeTrainer(async () => {
+      setScene([look.scene]); showLayer('battle')
+      const vs = $('vs'); vs.classList.add('gym'); vs.style.setProperty('--gym', look.color)
+      $('vsImg').src = ART[T.vs]; $('vsName').textContent = T.full; vs.querySelector('.name span').textContent = 'SPARRING · GUARD, HEAVY BLOWS, STUN'; vs.style.display = 'block'
+      vsIn(vs)
+    })
+    await W(1300)
+    await talk(T, replay || lessonDone ? LESSON_LINES.replay : LESSON_LINES.intro)
+    vsHide()
+    Sound.music(look.theme)
+    // Sparring: everyone back as they were afterwards, and the one you send out fresh for it.
+    const kept = party.map((m) => ({ m, hp: m.hp, status: m.status, sleep: m.sleep, toxN: m.toxN }))
+    const lead = party.find((m) => m.hp > 0) ?? party[0]; lead.hp = lead.stats.hp; lead.status = null   // (even one that had fainted: it's put back after)
+    const P = individual(speciesByName('PORYGON'), Math.max(5, lead.level), rand)
+    P.stats.hp *= LESSON.hpMult; P.hp = P.stats.hp
+    await battle({ kind: 'trainer', foe: P, roster: [], trainer: T, lesson: true })
+    for (const k of kept) Object.assign(k.m, { hp: k.hp, status: k.status, sleep: k.sleep, toxN: k.toxN })
+    // Porygon goes back in its ball (it never faints), so Alex has the stage to himself.
+    await anim($('enemy'), [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.1)' }], { duration: 320 }).finished
+    $('enemy').style.visibility = 'hidden'; $('ehud').style.visibility = 'hidden'
+    await trainerOn(T)
+    if (!lessonDone) {
+      await talk(T, LESSON_LINES.gift); await trainerOff()
+      discItem(LESSON.disc); bag[discKey(LESSON.disc)] = (bag[discKey(LESSON.disc)] ?? 0) + 1; bag.notes = 1
+      lessonDone = true; renderTools(); sfx('levelup')
+      await say('ALEX gave you a MOVE DISC:', `${LESSON.disc}!`, 800)
+      await say("And ALEX'S NOTES,", 'a key item, for another round.', 700)
+    } else { await talk(T, LESSON_LINES.bye); await trainerOff() }
+    // The other story characters keep their distance a while, as after a rival battle.
+    storyGap = { taps: STORY_GAP + Math.floor(flavor() * 5), who: 'ALEX' }
+    Sound.stopMusic(); saveGame(); await backToMachine(state)
   }
   async function rivalEncounter(state = 'in') {
     const n = Math.min(rivalStep, RIVAL_BATTLES.length - 1), R = rivalTrainer(n), look = RIVAL_LOOKS[R.phase]
@@ -11335,7 +11718,7 @@ async function run(id) {
   /** Other trainers use the same machine every few seconds, once you're past the tutorial. */
   const othersLoop = () => {
     if (vvm()) return   // in the app the other trainers are real (see syncMachine)
-    const tick = () => { if (!live()) return; if (tutorialDone) otherTaps(OTHERS[Math.floor(Math.random() * OTHERS.length)]); setTimeout(tick, 5000 + Math.random() * 5000) }
+    const tick = () => { if (!live()) return; if (tutorialDone && !window.__noOthers) otherTaps(OTHERS[Math.floor(Math.random() * OTHERS.length)]); setTimeout(tick, 5000 + Math.random() * 5000) }   // __noOthers: testing only
     setTimeout(tick, 3000)
   }
   /*
@@ -11361,7 +11744,7 @@ async function run(id) {
   function saveGame(why = 'auto') {
     if (demo || !tutorialDone) return false
     // Saved as they really are: leaving mid-battle mustn't keep a Transform or Conversion for good.
-    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue }
+    const data = { v: 1, at: Date.now(), rev: saveRev, party: party.map(unformed), box, boxAt, boxSort, bag, wallet, badges, champion, eliteStep, kantoStep, redBeaten, fame, emblemSent, dailyWon, shareOn, rival: { step: rivalStep, wait: rivalWait, lost: rivalLost }, lessonDone, story, storyGap, heals, gifted, giftIds, roam: ROAM, weekShift, reports, discDue }
     const kept = writeLocal(data)
     if (vvm() && cloudReady) pushSave(data)
     else if (!kept) return false
@@ -11436,6 +11819,7 @@ async function run(id) {
     discDue.splice(0, discDue.length, ...(Array.isArray(s.discDue) ? s.discDue.filter((n) => DISC_POOL.includes(n)) : []))
     champion = !!s.champion; eliteStep = s.eliteStep ?? 0; kantoStep = s.kantoStep ?? 0; redBeaten = !!s.redBeaten; fame = s.fame ?? null; emblemSent = !!s.emblemSent; dailyWon = s.dailyWon ?? null; shareOn = s.shareOn ?? true; heals = s.heals ?? (s.healedOn ? { day: s.healedOn, used: 1 } : { day: null, used: 0 }); gifted = s.gifted ?? true; giftIds = s.giftIds ?? []
     ;({ step: rivalStep = 0, wait: rivalWait = 0, lost: rivalLost = false } = s.rival ?? {})
+    lessonDone = !!s.lessonDone   // a save from before the lesson: it's due on the next tap
     for (const who of Object.keys(story)) Object.assign(story[who], { step: 0, wait: 0, lost: false }, s.story?.[who])
     storyGap = { taps: 0, who: null, ...s.storyGap }
     // Only today's roamers: a save from when Raikou, Entei and Suicune roamed starts the birds fresh.
@@ -11505,6 +11889,7 @@ async function run(id) {
   setInterval(() => { if (live() && tutorialDone && Math.random() < 0.25) reportTimer(OTHERS[Math.floor(Math.random() * OTHERS.length)], MACHINES[Math.floor(Math.random() * MACHINES.length)].code) }, 9000)
   window.__vvm = { gainExp, trackHold, chargeTap, pickStone, twinTap, vanishTap, swipeSeq, DUO_AT, aim: (o = {}) => { wobble = !!o.wobble; veil = o.veil | 0; blind = o.blind | 0 }, ROAM, place, machine, otherTaps, rollEncounter, poolFor, seedOf, reportTimer, MACHINES, thisWeek, nextRotation, deckFor, dailyChallenge, dailyEncounter, get dailyWon() { return dailyWon }, SCALPERS, rematchTeam, finalForm, rematchBattle, rematchFoes, payRematch, pairBattle, pairFoes, pairItem, payDouble, useItem, setChampion: (v) => { champion = v }, bumpWeek: () => { weekShift++; renderPool() }, party, bag, get wallet() { return wallet }, renderTools, emptyRun, PITY_AFTER, rollTap,
     box, trainerTheme, rollShelf, givePack, gymDisc, syncMachine, collectItems, backToMachine, get realShelf() { return realShelf }, evolveNow: (m) => { pendingEvos.add(m); return runEvolutions() }, deckFor, trainerCap, wildLevel,
+    lessonDue, lessonBattle: (replay = true) => lessonEncounter('in', replay), get lessonDone() { return lessonDone }, setLesson: (done) => { lessonDone = !!done },
     badges, rivalDue, rivalTeam, get rival() { return { step: rivalStep, wait: rivalWait, lost: rivalLost } }, setRival: (step, wait = 0) => { rivalStep = step; rivalWait = wait },
     storyDue, story, get storyGap() { return storyGap }, setStory: (who, step, wait = 0) => Object.assign(story[who], { step, wait, lost: false }),
     get heals() { return heals }, get findChance() { return findChance },
@@ -11557,6 +11942,7 @@ async function run(id) {
       // A summon chosen in the Bag: the Gym Leader appears once the sheet is closed.
       if (pendingSummon != null) { const n = pendingSummon; pendingSummon = null; await (LEAGUES[n] ? leagueBattle(n) : gymBattle(n)) }
       if (pendingRematch != null) { const id = pendingRematch; pendingRematch = null; await rematchBattle(id) }
+      if (pendingLesson) { pendingLesson = false; await lessonEncounter('in', true) }
       if (pendingPair != null) { const id = pendingPair; pendingPair = null; await pairBattle(id) }
       // An evolution item used in the Bag: the evolution plays on the battle screen, then back to the machine.
       if (pendingEvoItem) {

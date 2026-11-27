@@ -69,17 +69,19 @@ test('a shiny wild Pokémon: its own sprite, a sparkle and its own announcement'
 test('a wild Ditto transforms on its first turn, into your Pokémon', { skip: quick }, async () => {
   const g = await openGame()
   try {
-    const { page, bot, log } = g
+    const { page, bot } = g
     await bot.finishTutorial()
     await page.evaluate(() => {
       const m = individual(speciesByName('CHARMANDER'), 20, Math.random); m.hp = m.stats.hp; learnAtLevel(m)
       m.stats.atk = m.stats.spa = 1   // weak hits, so the Ditto always lives to take its first turn
       window.__vvm.party.splice(0, 9, m); window.__forceWild = 'DITTO'
+      // Every line the message box shows, as it shows it (the bot's log samples could miss a quick one).
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
     })
-    const from = log.length
     assert.ok(await bot.encounter('wild'), 'a wild battle started')
-    // The log can catch a line mid-typewriter; keep each line once it's whole (the next one doesn't just continue it).
-    const seen = log.slice(from), lines = seen.filter((l, i) => !(seen[i + 1] ?? '').startsWith(l)), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
+    // Each line once it's whole (the next one doesn't just continue it).
+    const seen = await page.evaluate(() => window.__said.slice()), lines = seen.filter((l, i) => !(seen[i + 1] ?? '').startsWith(l)), firstFoe = lines.find((l) => /The wild DITTO used/.test(l))
     assert.match(firstFoe ?? '', /TRANSFORM/, 'the first thing the wild Ditto does is Transform')
     assert.ok(lines.some((l) => /DITTO transformed/.test(l) && /CHARMANDER/.test(l)), 'it transformed into your Charmander')
     assert.ok(!lines.some((l) => /The wild DITTO used/.test(l) && /TACKLE/.test(l)), 'and then fought with fire moves, not Tackle')
@@ -126,6 +128,7 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
         const m = individual(speciesByName('MACHOP'), 20, Math.random); learnAtLevel(m)
         Object.assign(m.stats, { hp: 2000, atk: Math.ceil(m.stats.atk / 3), spa: Math.ceil(m.stats.spa / 3) }); m.hp = m.stats.hp; m.status = st   // weak hits, so the foe lives to attack
         window.__vvm.party.splice(0, 9, m); window.__forceWild = 'RATTATA'; window.__autoParry = true
+        GUARD.regen = GUARD.max   // the guard never runs out here (a broken one greys the buttons too): this is about the status
         // How the defend buttons looked whenever they were up: greyed out (locked) or not.
         window.__defendLooks = new Set(); clearInterval(window.__defendWatch)
         window.__defendWatch = setInterval(() => { const p = document.getElementById('pDefend'); if (p.style.display === 'block') window.__defendLooks.add(p.classList.contains('locked') ? 'locked' : 'live') }, 20)
@@ -136,7 +139,7 @@ test('a paralyzed Pokémon can\'t parry, dodge or jump: a perfect parry still ta
       return { attacked, hp: await page.evaluate(() => window.__vvm.party[0].hp), looks: await page.evaluate(() => [...window.__defendLooks].sort()) }
     }
     const healthy = await fight(null)
-    if (healthy.attacked) { assert.equal(healthy.hp, 2000, 'healthy: every PERFECT parry takes no damage'); assert.deepEqual(healthy.looks, ['live'], 'healthy: the defend buttons are live') }
+    if (healthy.attacked) { assert.ok(healthy.hp > 1900, `healthy: every PERFECT parry lets only a sliver through (${healthy.hp}/2000)`); assert.deepEqual(healthy.looks, ['live'], 'healthy: the defend buttons are live') }
     let para = { attacked: false }
     for (let i = 0; i < 4 && !para.attacked; i++) para = await fight('par')   // until the Rattata lands an attack (not just Tail Whip)
     assert.ok(para.attacked, 'the Rattata attacked the paralyzed Pokémon')
@@ -192,6 +195,45 @@ test('False Swipe: a Move Disc nearly every Pokémon learns, and it never knocks
       for (let i = 0; i < 600 && (await bot.inBattle()); i++) await bot.step()
       bot.want = ['FALSE SWIPE']
     }
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test("Alex's lesson: on the first tap after the tutorial, a sparring match through guard, a guard break, a heavy blow and a stun; an IRON DEFENSE disc and his notes, which start it again from the Bag", { skip: quick }, async () => {
+  const g = await openGame({ lesson: true })
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    const before = await page.evaluate(() => {
+      window.__autoParry = true   // testing: a PERFECT parry or jump every time, and a dodge for a heavy blow
+      // Every line as it shows, Alex's (#say) and the battle's (#msg), and every pop.
+      window.__said = []; window.__pops = []
+      for (const id of ['msg', 'say']) { const el = document.getElementById(id); new MutationObserver(() => { const t = el.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(el, { childList: true, subtree: true, characterData: true }) }
+      new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('pop')) window.__pops.push(n.textContent) }).observe(document.body, { childList: true, subtree: true })
+      const m = window.__vvm.party[0]; m.hp = Math.ceil(m.stats.hp / 2)   // half HP going in: it should come out the same
+      return { due: window.__vvm.lessonDue(), hp: m.hp, name: m.name }
+    })
+    assert.equal(before.due, true, 'due once the tutorial is done')
+    assert.ok(await bot.encounter('', 700), 'the next tap: Alex, at the machine')
+    const r = await page.evaluate(() => ({ said: window.__said.filter((t, k, all) => !(all[k + 1] ?? '').startsWith(t)), pops: [...window.__pops], hp: window.__vvm.party[0].hp,
+      disc: window.__vvm.bag['disc:IRON DEFENSE'] ?? 0, notes: window.__vvm.bag.notes ?? 0, done: window.__vvm.lessonDone, due: window.__vvm.lessonDue(),
+      saved: JSON.parse(localStorage.getItem('vvm-save') ?? '{}').lessonDone }))
+    const has = (re) => r.said.some((l) => re.test(l))
+    for (const [re, what] of [[/That's your guard/, 'the guard'], [/your guard's broken/, 'a guard break'], [/saw an opening!/, 'Alex going for it'], [/heavy blow/, 'the heavy blow'],
+      [/Dodged clean/, 'dodged'], [/That's its stun/, 'the stun bar'], [/Stunned/, 'Porygon stunned'], [/That's everything/, 'the end']]) assert.ok(has(re), `the lesson: ${what} (${r.said.slice(-6).join(' | ')})`)
+    for (const p of ['GUARD BREAK!', 'HEAVY! DODGE IT', 'STUNNED!']) assert.ok(r.pops.includes(p), `and the pop: ${p}`)
+    assert.equal(r.hp, before.hp, `${before.name} came out of it as it went in`)
+    assert.deepEqual({ disc: r.disc, notes: r.notes, done: r.done, due: r.due, saved: r.saved }, { disc: 1, notes: 1, done: true, due: false, saved: true }, 'the gift, once, and saved')
+    // Again, from the Bag: his notes. No second disc.
+    for (let i = 0; i < 200 && !(await bot.atHome()); i++) await bot.step()
+    await page.click('#tBag'); await page.click('[data-tab="other"]')
+    await page.waitForSelector('[data-lesson]'); await page.click('[data-lesson]')
+    await page.evaluate(() => { window.__said.length = 0 })
+    let fought = false
+    for (let i = 0; i < 700; i++) { await bot.step(); fought ||= await bot.inBattle(); if (fought && !(await bot.inBattle()) && (await bot.atHome())) break }
+    const again = await page.evaluate(() => ({ said: [...window.__said], disc: window.__vvm.bag['disc:IRON DEFENSE'] ?? 0, notes: window.__vvm.bag.notes ?? 0 }))
+    assert.ok(fought && again.said.some((l) => /refresher/.test(l)), 'the notes start the lesson again')
+    assert.deepEqual({ disc: again.disc, notes: again.notes }, { disc: 1, notes: 1 }, 'no second disc, and the notes are kept')
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

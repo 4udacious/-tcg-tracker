@@ -68,24 +68,28 @@ test('the Kanto League in play: the ticket from the Bag, Lorelei\'s battle to he
 test('EXP: a Pokémon switched out after facing the foe still gets three quarters of it, more than the EXP. SHARE\'s half', { skip: quick }, async () => {
   const g = await openGame()
   try {
-    const { page, bot, log } = g
+    const { page, bot } = g
     await bot.finishTutorial()
     // The starter leads; a strong second Pokémon comes in on the first turn and finishes the wild one. No EXP. SHARE.
     await page.evaluate(() => {
       const v = window.__vvm, m = individual(speciesByName('MACHAMP'), 40, Math.random)
       learnAtLevel(m); m.hp = m.stats.hp; v.party.splice(1, 9, m); delete v.bag.expshare
       for (const p of v.party) p.hp = p.stats.hp
+      // Every line the message box shows, as it shows it: the two EXP lines come quickly, and the bot's log samples
+      // could miss one.
+      window.__said = []; const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
     })
     const [lead, second] = await page.evaluate(() => window.__vvm.party.map((m) => m.name))
     const shown = (sel) => page.evaluate((sel) => { const b = document.querySelector(sel); return !!(b && b.offsetParent && b.closest('.panel')?.style.display !== 'none') }, sel)
-    let from = 0
-    const gained = (name) => { const l = log.slice(from).find((x) => x.startsWith(`${name} gained`) && /EXP\. Points!/.test(x)); return l ? +l.match(/(\d+) EXP\. Points!/)[1] : null }
+    let lines = []
+    const gained = (name) => { const l = lines.find((x) => x.startsWith(`${name} gained`) && /EXP\. Points!/.test(x)); return l ? +l.match(/(\d+) EXP\. Points!/)[1] : null }
     // A wild one can also leave without fainting (it flees, say): then there's no EXP to check, and it's tried again.
     for (let attempt = 0; attempt < 3 && !gained(second); attempt++) {
       await page.evaluate(() => { for (const p of window.__vvm.party) p.hp = p.stats.hp })
       for (let i = 0; i < 300 && !(await bot.atHome()); i++) await bot.step()
       await page.selectOption('#nextTap', 'wild'); await page.evaluate(() => document.activeElement?.blur())
-      from = log.length   // this battle's lines only (the tutorial's EXP is earlier)
+      await page.evaluate(() => { window.__said.length = 0 })   // this battle's lines only (the tutorial's EXP is earlier)
       let fought = false
       for (let t = 0; t < 5 && !fought; t++) {
         await page.evaluate(() => document.getElementById('home').click())
@@ -99,6 +103,7 @@ test('EXP: a Pokémon switched out after facing the foe still gets three quarter
       for (let i = 0; i < 20 && !(await shown('#pParty [data-act="p1"]')); i++) await page.waitForTimeout(150)
       await page.dispatchEvent('#pParty [data-act="p1"]', 'pointerdown')
       for (let i = 0; i < 400; i++) { await bot.step(); if (!(await bot.inBattle()) && (await bot.atHome())) break }
+      lines = await page.evaluate(() => window.__said.slice())
     }
     const full = gained(second), part = gained(lead)
     assert.ok(full > 0, `${second}, out when the foe fell, got its EXP (${full})`)
@@ -168,6 +173,68 @@ test('2v2: when one trainer of a tag team runs out, their partner sends in anoth
     assert.ok(seen, 'a tag battle where one trainer ran out while the other still had Pokémon')
     assert.ok(seen.some((l) => /sends in another!/.test(l)), `the partner fills the slot: ${seen.join(' | ')}`)
     assert.ok(seen.some((l) => /sent out|Go!/.test(l)), `and a Pokémon comes out: ${seen.join(' | ')}`)
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
+test('guard, heavy blows and stun, played: a red ring dodged fills the stun bar until the foe is stunned (1v1); a guard spent to nothing breaks (2v2), and a leader goes for it (1v1)', { skip: quick }, async () => {
+  const g = await openGame()
+  try {
+    const { page, bot } = g
+    await bot.finishTutorial()
+    await page.evaluate(() => {
+      const v = window.__vvm, mk = (n) => { const m = individual(speciesByName(n), 60, Math.random); learnAtLevel(m); Object.assign(m.stats, { hp: 6000 }); m.hp = 6000; return m }
+      v.party.splice(0, 9, mk('MACHAMP'), mk('ARCANINE')); for (let i = 0; i < 8; i++) if (!v.badges.includes(i)) v.badges.push(i)
+      window.__autoParry = true   // testing: a PERFECT parry, jump or (a red ring) dodge every time
+      // The sounds asked for (a heavy blow has its own wind-up).
+      window.__sfx = []; const play = Sound.sfx; Sound.sfx = (n, ...a) => { window.__sfx.push(n); return play.call(Sound, n, ...a) }
+      window.__rules = { HEAVY: { ...HEAVY }, STUN: { ...STUN }, GUARD: { ...GUARD } }
+      // Every pop and line as it shows (they pass quicker than the bot's samples), and the guard and stun bars' widths.
+      window.__pops = []; window.__said = []; window.__bars = { guard: [], stun: [] }
+      new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('pop')) window.__pops.push(n.textContent) }).observe(document.body, { childList: true, subtree: true })
+      const msg = document.getElementById('msg')
+      new MutationObserver(() => { const t = msg.textContent; if (t && t !== window.__said.at(-1)) window.__said.push(t) }).observe(msg, { childList: true, subtree: true, characterData: true })
+      setInterval(() => { for (const [k, sel] of [['guard', '#pguard, .gd2 i'], ['stun', '#estun, .sd2 i']]) for (const el of document.querySelectorAll(sel)) if (el.offsetParent) window.__bars[k].push(parseFloat(el.style.width) || 0) }, 40)
+    })
+    // A rematch with the rules bent so each thing happens soon; once it has, the party hits hard enough to finish.
+    const fight = async (id, duo, bend, seen) => {
+      await page.evaluate(([id, duo, bend]) => {
+        const rules = { HEAVY, STUN, GUARD }
+        for (const k in rules) Object.assign(rules[k], window.__rules[k], bend[k])
+        for (const m of window.__vvm.party) { m.stats = statsAt(m, m.level); Object.assign(m.stats, { hp: 6000 }); m.hp = 6000; m.status = null }
+        window.__pops.length = 0; window.__said.length = 0; window.__bars.guard.length = 0; window.__bars.stun.length = 0; window.__sfx.length = 0
+        window.__rm = false; window.__vvm.rematchBattle(id, duo).then(() => { window.__rm = true })
+      }, [id, duo, bend])
+      let done = false
+      for (let i = 0; i < 1200 && !(await page.evaluate(() => window.__rm)); i++) {
+        await bot.step()
+        if (!done && (await page.evaluate(seen))) { done = true; await page.evaluate(() => { for (const m of window.__vvm.party) m.stats.atk = m.stats.spa = 9000 }) }
+      }
+      return page.evaluate(() => ({ pops: [...window.__pops], said: [...window.__said], guard: [...window.__bars.guard], stun: [...window.__bars.stun], done: window.__rm, heavySfx: window.__sfx.filter((n) => n === 'heavy').length }))
+    }
+    // 1v1: every strong single blow heavy, and a small stun bar.
+    const one = await fight('gym_5', false, { HEAVY: { chance: 1, hard: 1, power: 0 }, STUN: { hard: 25, max: 25 } },
+      () => window.__pops.includes('STUNNED!') && window.__pops.includes('PERFECT DODGE!'))
+    assert.ok(one.done, '1v1: the rematch finished')
+    assert.ok(one.pops.includes('HEAVY! DODGE IT'), `1v1: a red ring, called out (${one.pops.slice(0, 30).join(' | ')})`)
+    assert.ok(one.heavySfx > 0, '1v1: with its own wind-up sound')
+    assert.ok(one.pops.includes('PERFECT DODGE!'), '1v1: dodged, PERFECT')
+    assert.ok(one.pops.includes('STUNNED!'), '1v1: the foe stunned')
+    assert.ok(one.said.some((l) => /is stunned/.test(l)), `1v1: and told so (${one.said.filter((l) => /stun/i.test(l)).join(' | ')})`)
+    assert.ok(one.stun.some((w) => w >= 100), '1v1: the stun bar filled')
+    // 2v2: no heavy blows, and one PERFECT parry spends the whole guard.
+    const two = await fight('gym_2', true, { HEAVY: { chance: 0, hard: 0 }, GUARD: { perfect: 150 } },
+      () => window.__pops.some((p) => /GUARD BROKEN/.test(p)))
+    assert.ok(two.done, '2v2: the rematch finished')
+    assert.ok(two.pops.includes('GUARD BREAK!'), `2v2: the guard broke (${two.pops.slice(0, 30).join(' | ')})`)
+    assert.ok(two.pops.some((p) => /GUARD BROKEN: CAN'T DEFEND/.test(p)), '2v2: and the next hit couldn\'t be defended')
+    assert.ok(two.guard.some((w) => w === 0) && two.guard.some((w) => w >= 50), '2v2: the guard bar emptied, then came back')
+    assert.ok(two.stun.some((w) => w > 0), '2v2: your strikes filled a foe\'s stun bar')
+    // 1v1 again, a guard spent at once: the leader sees the opening and puts its hardest hit through it.
+    const three = await fight('gym_5', false, { HEAVY: { chance: 0, hard: 0 }, GUARD: { perfect: 150 } },
+      () => window.__said.some((l) => /saw an opening!/.test(l)))
+    assert.ok(three.done, '1v1 (broken guard): the rematch finished')
+    assert.ok(three.said.some((l) => /saw an opening!/.test(l)), `1v1: the leader went for the broken guard (${three.said.filter((l) => /GUARD|opening/i.test(l)).slice(0, 4).join(' | ')})`)
     assert.deepEqual(g.errors, [])
   } finally { await g.close() }
 })

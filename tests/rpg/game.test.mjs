@@ -333,6 +333,77 @@ test('battle rules', async () => {
   } finally { await g.close() }
 })
 
+test('guard, heavy blows and stun: the rules (GUARD, HEAVY, STUN)', async () => {
+  const g = await openGame()
+  try {
+    await g.page.waitForTimeout(800)
+    const r = await g.page.evaluate(() => {
+      const heavy = (btn, dt) => { const x = defendResult(btn && { btn }, dt, false, 1, true); return `${x.r}${x.perfect ? '*' : ''}${x.broke ? '!' : ''}` }
+      const strong = { power: 90, type: 'normal' }, yes = () => 0, no = () => 0.99
+      return {
+        heavy: [heavy('b', 40), heavy('b', 150), heavy('b', 200), heavy('a', 20), heavy('a', 200), heavy(null, 0)],
+        taken: { perfect: takenOf({ r: 'parry', perfect: true }), parry: takenOf({ r: 'parry' }), dodged: takenOf({ r: 'dodge', perfect: true }, true),
+          parriedHeavy: takenOf({ r: 'parry' }, true), missedHeavy: takenOf({ r: 'miss' }, true), miss: takenOf({ r: 'miss' }) },
+        guard: { perfect: guardCost({ r: 'parry', perfect: true }), parry: guardCost({ r: 'parry' }), jump: guardCost({ r: 'jump' }), dodge: guardCost({ r: 'dodge' }),
+          miss: guardCost({ r: 'miss' }), heavyParry: guardCost({ r: 'parry' }, true), heavyDodge: guardCost({ r: 'dodge' }, true) },
+        stun: { perfectParry: stunFromDefend({ r: 'parry', perfect: true }), parry: stunFromDefend({ r: 'parry' }), dodged: stunFromDefend({ r: 'dodge' }, true),
+          perfectDodge: stunFromDefend({ r: 'dodge', perfect: true }, true), parriedHeavy: stunFromDefend({ r: 'parry' }, true),
+          strikes: ['PERFECT', 'GREAT', 'GOOD', 'MISS'].map((l) => stunFromStrike(l, 1)), superEff: stunFromStrike('GOOD', 2) },
+        rolls: { strong: heavyRoll(strong, null, yes), unlucky: heavyRoll(strong, null, no), weak: heavyRoll({ power: 40 }, null, yes),
+          low: heavyRoll({ ...strong, kind: 'low' }, null, yes), fast: heavyRoll({ ...strong, fast: true }, null, yes), multi: heavyRoll({ ...strong, hits: 2 }, null, yes),
+          rampage: heavyRoll({ ...strong, rampage: true }, null, yes), released: heavyRoll({ power: 150, charge: true }, null, no, true) },
+        GUARD, HEAVY, STUN, max: [stunMax(null), stunMax(GYMS[0])],
+        lesson: (() => { const T = lessonTrainer(); return { parry: T.parry, restores: T.restores, fullHeals: T.fullHeals, tellRate: T.tellRate, stun: stunMax(T), lesson: T.lesson,
+          moves: T.movesFor({ name: 'PORYGON' })?.length ?? 0, notes: !!ITEMS.notes?.lesson, lines: Object.values(LESSON_LINES).every((ls) => ls.length && ls.every((l) => typeof l === 'string' && l.length < 110)) } })(),
+        brick: [stunFromStrike('GOOD', 1, 'BRICK BREAK'), stunFromStrike('GOOD', 1, 'KARATE CHOP'), stunFromStrike('PERFECT', 1, 'BRICK BREAK')],
+        // A pair's picker (2v2): two foes alike, the second's guard broken.
+        exposedPick: (() => {
+          const mk = () => { const m = individual(speciesByName('MACHOP'), 30, () => 0.5); m.hp = m.stats.hp; return m }
+          const a = individual(speciesByName('MACHAMP'), 30, () => 0.5), x = mk(), y = mk(), mv = [{ name: 'KARATE CHOP', ...MOVEDEX['KARATE CHOP'] }]
+          return [duoSmartPick(a, mv, [x, y], null, () => 0, new Set([y]))?.target === y, duoSmartPick(a, mv, [x, y], null, () => 0, new Set([x]))?.target === x]
+        })(),
+        // The defence log (v127): each ring counted once, a heavy one's apart.
+        log: (() => {
+          MOVE_LOG.reset()
+          for (const [res, heavy] of [[{ r: 'parry', perfect: true }], [{ r: 'parry' }], [{ r: 'jump', perfect: true }], [{ r: 'dodge' }], [{ r: 'miss' }],
+            [{ r: 'dodge', perfect: true }, true], [{ r: 'parry', broke: true }, true], [{ r: 'miss' }, true]]) MOVE_LOG.ring(res, heavy)
+          MOVE_LOG.guardBreak(); MOVE_LOG.stun(); MOVE_LOG.stun()
+          const d = MOVE_LOG.peekDefence(); MOVE_LOG.reset(); return d
+        })(),
+      }
+    })
+    assert.deepEqual(r.heavy, ['dodge*', 'dodge', 'miss', 'parry!', 'miss', 'miss'], 'a heavy blow: dodged (PERFECT up close), or parried and your guard breaks')
+    const t = r.taken
+    assert.ok(t.perfect > 0 && t.perfect < t.parry, 'a PERFECT parry lets a sliver through, less than a plain one')
+    assert.equal(t.dodged, 0, 'a dodged heavy blow does nothing')
+    assert.ok(t.missedHeavy > t.miss && t.parriedHeavy === t.missedHeavy, 'one that lands hits harder than a normal hit, parried or not')
+    const gd = r.guard
+    assert.ok(gd.perfect > 0 && gd.perfect < gd.parry && gd.jump > 0 && gd.dodge < 0 && gd.miss === 0, `parries and jumps spend guard, a PERFECT one less; a dodge wins some back (${JSON.stringify(gd)})`)
+    assert.ok(gd.heavyParry === Infinity && gd.heavyDodge < 0, 'parrying a heavy blow breaks your guard outright')
+    assert.ok(r.GUARD.regen < gd.perfect, 'a PERFECT parry every turn still wears the guard down: you have to dodge now and then')
+    assert.ok(r.GUARD.broken > 1 && r.GUARD.back > 0 && r.GUARD.back < r.GUARD.max, 'a broken guard: the next hit lands harder, then the bar comes back part full')
+    const st = r.stun
+    assert.ok(st.perfectParry > 0 && st.parry === 0, 'a PERFECT parry fills the attacker\'s stun bar; a plain one doesn\'t')
+    assert.ok(st.perfectDodge > st.dodged && st.dodged > 0 && st.parriedHeavy === 0, 'a dodged heavy blow fills it, a PERFECT dodge most')
+    assert.ok(st.strikes[0] > st.strikes[1] && st.strikes[1] > 0 && st.strikes[2] === 0 && st.strikes[3] === 0 && st.superEff > 0, `your PERFECT and GREAT strikes fill it, and super-effective ones (${st.strikes})`)
+    assert.ok(r.max[1] > r.max[0], 'a leader\'s stun bar takes more to fill')
+    assert.ok(r.STUN.mult > 1 && r.STUN.decay > 0, 'stunned, it takes more; the bar drains a little each turn')
+    assert.deepEqual(r.rolls, { strong: true, unlucky: false, weak: false, low: false, fast: false, multi: false, rampage: false, released: true },
+      'heavy: a strong single blow now and then, a charged one always; never a low, quick or multi-hit one (a rampage\'s last hit is, by its own rule)')
+    assert.ok(r.HEAVY.hard > r.HEAVY.chance, 'leaders throw them more often')
+    const ls = r.lesson
+    assert.deepEqual({ parry: ls.parry, restores: ls.restores, fullHeals: ls.fullHeals, tellRate: ls.tellRate, lesson: ls.lesson, notes: ls.notes, lines: ls.lines },
+      { parry: 0, restores: 0, fullHeals: 0, tellRate: 0, lesson: true, notes: true, lines: true }, "Alex's lesson: no parries, Full Restores, Full Heals or tells; his notes a key item; every line fits")
+    assert.ok(ls.stun < r.STUN.max && ls.moves > 0, `a small stun bar for the lesson (${ls.stun}), Porygon with its moves`)
+    assert.ok(r.brick[0] > 0 && r.brick[1] === 0 && r.brick[2] > r.brick[0], `Brick Break rattles: it fills the stun bar even on a GOOD hit (${r.brick})`)
+    assert.ok(r.GUARD.mend > 0 && r.GUARD.chip > 0, 'DEF moves mend the guard; a foe\'s DEF drops chip it')
+    assert.deepEqual(r.exposedPick, [true, true], 'a pair goes for the Pokémon whose guard is broken')
+    assert.deepEqual(r.log, { rings: 8, perfect: 2, parries: 2, jumps: 1, dodges: 1, misses: 2, heavy: 3, heavy_dodged: 1, heavy_parried: 1, guard_breaks: 1, stuns: 2 },
+      'the defence log counts every ring once: PERFECT ones among the parries and jumps, heavy ones apart')
+    assert.deepEqual(g.errors, [])
+  } finally { await g.close() }
+})
+
 test('rewards: evolution hold-to-stop, gym discs, packs, a disc on the shelf', async () => {
   const g = await openGame()
   try {
@@ -1785,7 +1856,7 @@ test('a roaming legendary gets easier to catch with every ball thrown at it, a q
   } finally { await g.close() }
 })
 
-test('a wild Pokémon is easier to catch at low HP and with a status: asleep or frozen ×2.5, paralyzed, burned or poisoned ×1.5', async () => {
+test('a wild Pokémon is easier to catch at low HP and with a status: asleep or frozen ×2.5, paralyzed, burned or poisoned ×1.5; stunned, ×1.5 more', async () => {
   const g = await openGame()
   try {
     await g.page.waitForTimeout(800)
@@ -1797,6 +1868,7 @@ test('a wild Pokémon is easier to catch at low HP and with a status: asleep or 
         full, low,
         status: ['slp', 'frz', 'par', 'brn', 'psn', 'tox'].map((s) => catchP(mon(100, s)) / full),
         lowSlp: catchP(mon(10, 'slp')), capped: shakeOdds({ max: 100, hp: 1, capture: 255, status: 'slp' }, 'great', 1.8),
+        stunned: shakeOdds(mon(100), 'ball', 1, true) ** 4 / full, stunnedSlp: shakeOdds(mon(100, 'slp'), 'ball', 1, true) ** 4 / full,
       }
     })
     assert.ok(r.low > r.full * 2, `low HP helps (${r.full.toFixed(3)} → ${r.low.toFixed(3)})`)
@@ -1805,6 +1877,8 @@ test('a wild Pokémon is easier to catch at low HP and with a status: asleep or 
     assert.ok([brn, psn, tox].every((x) => Math.abs(x - par) < 1e-9) && par > 1, 'paralysis, burn and poison help, and equally')
     assert.ok(r.lowSlp > r.low && r.lowSlp > r.status[0] * r.full, 'low HP and sleep stack')
     assert.equal(r.capped, 1, 'never above certain')
+    assert.ok(Math.abs(r.stunned - par) < 1e-9, `stunned (STUN): as much help as paralysis (${r.stunned.toFixed(3)})`)
+    assert.ok(r.stunnedSlp > slp, 'and on top of a status')
   } finally { await g.close() }
 })
 
@@ -2213,7 +2287,8 @@ test('double battles: a pair picks attacks to finish what the partner started, a
     const { page } = g
     await page.click('#mPlay'); await page.waitForTimeout(500)
     const r = await page.evaluate(() => {
-      const mk = (n, lv = 60) => { const m = individual(speciesByName(n), lv, Math.random); m.hp = m.stats.hp; return m }
+      // Middling IVs and nature for all (random ones failed this now and then, an unlucky Gyarados against lucky Arcanine).
+      const mk = (n, lv = 60) => { const m = individual(speciesByName(n), lv, () => 0.5); m.hp = m.stats.hp; return m }
       const surf = { ...MOVEDEX.SURF, name: 'SURF', kind: 'strike' }, tackle = { ...MOVEDEX.TACKLE, name: 'TACKLE', kind: 'strike' }
       const user = mk('GYARADOS'), a = mk('ARCANINE'), b = mk('ARCANINE')
       // Surf hits both of yours (SPREAD): worth it beside a Water type, not beside a Fire type it would hurt.

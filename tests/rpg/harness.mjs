@@ -25,7 +25,7 @@ function serve() {
 }
 
 /** Opens the game (`touch`: as a phone, with a touchscreen; `userAgent`: as that browser). Returns the page, the page errors seen so far, a log of what the screen said, and the bot. */
-export async function openGame({ mode, touch = false, userAgent } = {}) {
+export async function openGame({ mode, touch = false, userAgent, lesson = false } = {}) {
   const srv = await serve()
   // Audio may play without a click, so the music tests hear real time pass.
   const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: ['--autoplay-policy=no-user-gesture-required'] })
@@ -34,6 +34,8 @@ export async function openGame({ mode, touch = false, userAgent } = {}) {
   page.on('pageerror', (e) => errors.push(e.message))
   const missing = []
   page.on('response', (r) => { if (r.status() >= 400) missing.push(r.url()) })
+  // Alex's lesson (guard, heavy blows, stun) would take the first tap after the tutorial in every test: off unless asked for.
+  if (!lesson) await page.addInitScript(() => { window.__noLesson = true })
   await page.goto(`http://127.0.0.1:${srv.address().port}/rpg/index.html${mode ? `?mode=${mode}` : ''}`)
   const log = []
   let last = ''

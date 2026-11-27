@@ -233,6 +233,13 @@ export function makeVvmApi(userId: string) {
       await db.rpc('battle_record_moves', { p_kind: kind, p_won: won, p_moves: moves })
     },
     /**
+     * A battle's defence, for balancing guard, heavy blows and stun (v127): your rings and how they went, guard breaks
+     * and stuns. Before v127 the call just fails.
+     */
+    async recordDefence(kind: string, won: boolean, def: Record<string, number>) {
+      await db.rpc('battle_record_defence', { p_kind: kind, p_won: won, p_def: def })
+    },
+    /**
      * A won rematch's tokens (v93): the server's amount for one of the rematch
      * tickets you've taken into the game, outside the daily cap. 'no_ticket'
      * when none is owed (the game then pays through awardTokens).
