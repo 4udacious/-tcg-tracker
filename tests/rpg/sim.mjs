@@ -19,7 +19,9 @@
 // Left out, so read the numbers as a guide: statuses and stat moves (yours and
 // theirs; a rampage's confusion is in), your own switching to a better
 // matchup mid-battle (the leaders' is in), Move Discs, Revives. A leader's
-// parries by your timing, and the counter after a PERFECT one, are in.
+// parries by your timing, and the counter after a PERFECT one, are in. So are
+// guard, heavy blows and stun (GUARD, HEAVY, STUN): your guard spent and won
+// back, red rings dodged (or parried from habit), and the foes' stun bars.
 //
 // A double battle is a 2v2 (duoBattle below): your first two against one of
 // each pair's, with the shared PP pool, spread moves, their partner-aware
@@ -37,6 +39,9 @@ const N = +(process.env.SIM_N ?? 2000), ONLY = process.env.SIM_ONLY ?? ''
  * of a tap on your own rings, `defend` on theirs (on an 860 ms ring; faster
  * rings spread it more), `fooled` the chance a tell (feint, second ring,
  * low-high) makes them press at the wrong time. Potions: used under 35% HP.
+ * `heavyParry`: the chance they parry a red ring (a heavy blow) from habit
+ * instead of dodging it. `rest`: at that much guard or less, they dodge normal
+ * rings too, to win some back (0: never).
  */
 /**
  * Fights with an aim of their own (the rest, the leaders who parry: about 2 in 3, each League's last about 1 in 3): Alex's first battle is the friendly one,
@@ -48,9 +53,9 @@ export const AIMS = { 'ALEX 1': 0.9, 'ALEX 7': 0.15, 'HERB 1': 0.9, 'PAUL 1': 0.
 export const PAIR_AIM = { pair: 0.33, top: 0.25 }
 
 export const SKILLS = {
-  casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1 },
-  average: { strike: 100, defend: 80, fooled: 0.35, potions: 2 },
-  skilled: { strike: 60, defend: 50, fooled: 0.15, potions: 3 },
+  casual: { strike: 150, defend: 120, fooled: 0.55, potions: 1, heavyParry: 0.4, rest: 0 },
+  average: { strike: 100, defend: 80, fooled: 0.35, potions: 2, heavyParry: 0.2, rest: 25 },
+  skilled: { strike: 60, defend: 50, fooled: 0.15, potions: 3, heavyParry: 0.08, rest: 35 },
 }
 
 export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 0.25 }, PAIR_LV = 0 }) {
@@ -59,6 +64,36 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
   // Your ring, as the game grades it (accuracy()).
   const grade = (dt) => (dt <= 40 ? { mult: 1.6, miss: false } : dt <= 320 ? { mult: 1.45 - (dt - 40) / 280 * 0.65, miss: false } : { mult: 0.7, miss: true })
   const label = (dt) => (dt <= 40 ? 'PERFECT' : dt <= 120 ? 'GREAT' : dt <= 220 ? 'GOOD' : dt <= 320 ? 'OK' : 'MISS')
+  /*
+   * Guard, heavy blows and stun (GUARD, HEAVY, STUN in the game). One ring on one of yours, by the game's own rules
+   * (defendResult, takenOf, guardCost, stunFromDefend): what got through, whether it counts for PP, and how much it fills
+   * the attacker's stun bar. `g` is that Pokémon's guard, { guard, broken }. You dodge a red ring, unless you parry it
+   * from habit (`heavyParry`); and a normal one too once your guard's down to `rest`, to win some back.
+   */
+  let hurt = 0   // what your side lost to their attacks this battle, in your Pokémon's full HP bars
+  const hit = (m, dmg) => { const from = m.hp; m.hp = Math.max(0, m.hp - dmg); hurt += (from - m.hp) / m.stats.hp }
+  const guardOf = (map, m) => map.get(m) ?? (map.set(m, { guard: GUARD.max, broken: false }), map.get(m))
+  const defend = (g, { low, heavy, approach, fooled }, skill) => {
+    const dt = fooled ? 400 : Math.abs(gauss() * skill.defend * Math.sqrt(860 / approach))
+    if (g.broken) { g.broken = false; g.guard = GUARD.back; return { taken: takenOf({ r: 'miss' }, heavy) * GUARD.broken, evaded: false, stun: 0 } }
+    const btn = low ? 'up' : heavy ? (R() < skill.heavyParry ? 'a' : 'b') : g.guard <= skill.rest ? 'b' : 'a'
+    const res = defendResult({ btn }, dt, low, 1, heavy), cost = guardCost(res, heavy)
+    if (cost) { g.guard = cost === Infinity ? 0 : Math.max(0, Math.min(GUARD.max, g.guard - cost)); if (g.guard <= 0) g.broken = true }
+    return { taken: takenOf(res, heavy), evaded: heavy ? res.r === 'dodge' : res.r === 'parry' || res.r === 'jump', stun: stunFromDefend(res, heavy) }
+  }
+  // A foe's stun bar: full, it's stunned (`skip`: it loses its next turn; otherwise it lost the rest of its attack).
+  const stunOf = (map, m) => map.get(m) ?? (map.set(m, { stun: 0, stunned: null }), map.get(m))
+  const fill = (map, m, T, n, theirs) => {
+    const t = stunOf(map, m), max = stunMax(T)
+    if (!n || t.stunned || m.hp <= 0) return false
+    t.stun = Math.min(max, t.stun + n); if (t.stun < max) return false
+    t.stunned = { skip: !theirs }; return true
+  }
+  // The end of a turn: guard comes back, stun drains.
+  const tick = (guards, stuns) => {
+    for (const g of guards.values()) if (!g.broken) g.guard = Math.min(GUARD.max, g.guard + GUARD.regen)
+    for (const t of stuns.values()) if (!t.stunned) t.stun = Math.max(0, t.stun - STUN.decay)
+  }
   const damage = (att, def, mv, mult) => {
     const spec = mv.cat === 'spec', A = spec ? att.stats.spa : att.stats.atk, D = spec ? def.stats.spd : def.stats.def
     const base = Math.floor(Math.floor(Math.floor(2 * att.level / 5 + 2) * (mv.power ?? 60) * A / D) / 50) + 2
@@ -89,10 +124,12 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
     // As the game keeps them: the one out, and the rest in order, the ace last.
     const roster = foes.slice(1)
     let me = party[0], foe = foes[0], fm = movesFor(foe, !roster.length), charged = null, conf = 0
+    const guards = new Map(), stuns = new Map()
     const next = (m) => { foe = m; fm = movesFor(foe, !roster.length); charged = null; conf = 0 }
     const switchIn = () => { me = party.filter((m) => m.hp > 0).sort((a, b) => bestHit(b, foe) - bestHit(a, foe))[0] }
     const bestHit = (m, f) => Math.max(...m.sim.map((mv) => (mv.power ?? 60) * (mv.hits ?? 1) * soften(gameMult(mv.type, f.types)) * (m.types.includes(mv.type) ? 1.5 : 1)))
     for (let turn = 0; turn < 300; turn++) {
+      if (turn) tick(guards, stuns)
       // You: a Potion when low, otherwise the hardest-hitting move you have the PP for.
       if (me.hp < me.stats.hp * 0.35 && potions > 0) { potions--; me.hp = Math.min(me.stats.hp, me.hp + Math.ceil(me.stats.hp * ITEMS.potion.heal)) }
       else {
@@ -105,10 +142,12 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
           if ((mv.hits ?? 1) > 1 && g.miss) continue
           clean ||= !g.miss
           // A leader parries now and then, the more the worse your timing (the game's own rule): a fifth of the
-          // damage, or, a PERFECT parry, none at all and a counter after.
-          const parried = leaderParries(T, foe, label(dt), conf > 0, R)
+          // damage, or, a PERFECT parry, none at all and a counter after. Stunned, it can't, and takes STUN.mult.
+          const stunned = !!stunOf(stuns, foe).stunned
+          const parried = !stunned && leaderParries(T, foe, label(dt), conf > 0, R)
           if (parried === 'perfect') { countered = true; continue }
-          foe.hp = Math.max(0, foe.hp - damage(me, foe, mv, g.mult * (parried ? DEFEND_TAKEN.parry : 1)))
+          foe.hp = Math.max(0, foe.hp - damage(me, foe, mv, g.mult * (parried ? DEFEND_TAKEN.parry : 1) * (stunned ? STUN.mult : 1)))
+          if (!parried) fill(stuns, foe, T, stunFromStrike(label(dt), gameMult(mv.type, foe.types)), false)
         }
         if (countered && foe.hp > 0) me.hp = Math.max(1, me.hp - Math.max(1, Math.round(damage(foe, me, MOVEDEX.TACKLE, 1) * LEADER_COUNTER)))
         if ((mv.cost ?? 0) === 0 && clean) pp = Math.min(5, pp + 1)
@@ -118,6 +157,9 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
         next(roster.shift())
         continue
       }
+      // Stunned: its turn lost (stunned by your strike), or the stun just ends (stunned during its last attack).
+      const st = stunOf(stuns, foe)
+      if (st.stunned) { const { skip } = st.stunned; st.stunned = null; st.stun = 0; if (skip) continue }
       // Confused (after a rampage): a third of the time it hurts itself instead.
       if (conf && --conf && R() < 1 / 3) { foe.hp = Math.max(0, foe.hp - confusionDmg(foe)); if (foe.hp <= 0) { if (!roster.length) return true; next(roster.shift()) } continue }
       // The toughest leaders pull a Pokémon out of a bad matchup: the game's own rule (switchPick).
@@ -133,22 +175,23 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
       const mv = charged ?? ranked[R() < 0.7 ? 0 : Math.min(1, ranked.length - 1)]
       if (mv.charge && charged !== mv) { charged = mv; continue }
       const released = charged === mv; charged = null
-      const tell = R() < (T.tellRate ?? 0.4) ? ['feint', 'double', 'lowHigh'][Math.floor(R() * 3)] : null
+      const heavy = heavyRoll(mv, T, R, released)
+      const tell = !heavy && R() < (T.tellRate ?? 0.4) ? ['feint', 'double', 'lowHigh'][Math.floor(R() * 3)] : null
       const rampage = mv.rampage ? 3 + Math.floor(R() * 3) : 0
       const hits = rampage || (tell === 'double' ? (mv.hits ?? 1) + 1 : tell === 'lowHigh' ? 2 : mv.hits ?? 1)
-      let evaded = 0
+      let evaded = 0, faced = 0
       for (let h = 0; h < hits; h++) {
         const low = tell === 'lowHigh' ? h === 0 : mv.kind === 'low'
         const base = released ? 560 : rampage && h ? 400 : mv.fast ? 640 : h === 0 ? 860 : 560
         const approach = base * (T.ringFast ?? 0.8) * (0.75 + R() * 0.4)
         const fooled = tell && (tell === 'double' ? h === hits - 1 : h === 0) && R() < skill.fooled
-        const dt = fooled ? 400 : Math.abs(gauss() * skill.defend * Math.sqrt(860 / approach))
-        const res = low ? (dt <= 190 ? (dt <= 35 ? 0 : 0.2) : 1) : dt <= 90 ? (dt <= 35 ? 0 : 0.2) : 1
-        if (res < 1) evaded++
-        if (res > 0) me.hp = Math.max(0, me.hp - damage(foe, me, mv, res))
+        const d = defend(guardOf(guards, me), { low, heavy: heavy || (rampage > 0 && h === hits - 1), approach, fooled }, skill)
+        faced++; if (d.evaded) evaded++
+        if (d.taken > 0) hit(me, damage(foe, me, mv, d.taken))
         if (me.hp <= 0) break
+        if (fill(stuns, foe, T, d.stun, true)) break   // stunned: the rest of its attack is lost
       }
-      if (evaded === hits) pp = Math.min(5, pp + 1)
+      if (evaded === faced) pp = Math.min(5, pp + 1)
       if (rampage && !conf) conf = 2 + Math.floor(R() * 2)
       if (me.hp <= 0) { if (!party.some((m) => m.hp > 0)) return false; switchIn(); pp = 3 }
     }
@@ -156,10 +199,8 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
   }
 
   /* ── a double battle: your first two against one of each pair's three ── */
-  const ring = (low, approach, skill) => {
-    const dt = Math.abs(gauss() * skill.defend * Math.sqrt(860 / approach))
-    return low ? (dt <= 190 ? (dt <= 35 ? 0 : 0.2) : 1) : dt <= 90 ? (dt <= 35 ? 0 : 0.2) : 1
-  }
+  // Your own Earthquake rolling into your partner, who can jump it (no guard or stun in it).
+  const jumpTaken = (approach, skill) => takenOf(defendResult({ btn: 'up' }, Math.abs(gauss() * skill.defend * Math.sqrt(860 / approach)), true, 1))
   function duoBattle(skill, crew, party) {
     const lv = Math.max(...party.map((m) => m.level))
     const teams = crew.map((T) => { const t = pairTeam(T, lv, R); t.at(-1).pairAce = true; return t })
@@ -167,6 +208,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
     const restores = crew.map((T) => T.restores ?? 0)
     const mine = party.slice(0, 2), up = (side) => side.filter((x) => x && x.hp > 0)
     let pp = 2, potions = skill.potions
+    const guards = new Map(), stuns = new Map()
     const foesUp = () => field.filter((f) => f.m.hp > 0)
     const refill = () => {
       // A foe out: the next of the same trainer's, or, with none left, their partner's.
@@ -176,6 +218,7 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
     }
     const share = (d, m) => Math.min(1, d / Math.max(1, m.hp))
     for (let turn = 0; turn < 200; turn++) {
+      if (turn) tick(guards, stuns)
       const acts = []
       let spend = pp
       for (const me of up(mine)) {
@@ -218,31 +261,36 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
             const dt = Math.abs(gauss() * skill.strike), g = grade(dt)
             if ((a.mv.hits ?? 1) > 1 && g.miss) continue
             clean ||= !g.miss
-            const parried = leaderParries(f.T, f.m, label(dt), false, R)
+            const stunned = !!stunOf(stuns, f.m).stunned
+            const parried = !stunned && leaderParries(f.T, f.m, label(dt), false, R)
             if (parried === 'perfect') { parriers.add(f.m); continue }
-            f.m.hp = Math.max(0, f.m.hp - damage(a.who, f.m, a.mv, g.mult * mult * (parried ? DEFEND_TAKEN.parry : 1)))
+            f.m.hp = Math.max(0, f.m.hp - damage(a.who, f.m, a.mv, g.mult * mult * (parried ? DEFEND_TAKEN.parry : 1) * (stunned ? STUN.mult : 1)))
+            if (!parried) fill(stuns, f.m, f.T, stunFromStrike(label(dt), gameMult(a.mv.type, f.m.types)), false)
           }
           // Each that PERFECT parried counters, never for the knockout.
           for (const m of parriers) if (m.hp > 0) a.who.hp = Math.max(1, a.who.hp - Math.max(1, Math.round(damage(m, a.who, MOVEDEX.TACKLE, 1) * LEADER_COUNTER)))
           // Earthquake and the like roll on into your partner, who can jump it.
           const partner = a.mv.spread === 'all' ? up(mine).find((x) => x !== a.who) : null
-          if (partner) partner.hp = Math.max(0, partner.hp - damage(a.who, partner, a.mv, 0.75 * ring(true, 820, skill)))
+          if (partner) partner.hp = Math.max(0, partner.hp - damage(a.who, partner, a.mv, 0.75 * jumpTaken(820, skill)))
           if ((a.mv.cost ?? 0) === 0 && clean) pp = Math.min(5, pp + 1)
           pp = Math.max(0, pp - (a.mv.cost ?? 0))
         } else {
-          const mv = a.mv
+          const mv = a.mv, st = stunOf(stuns, a.who)
+          if (st.stunned) { const { skip } = st.stunned; st.stunned = null; st.stun = 0; if (skip) continue }
           if (mv.charge && !a.released) { a.slot.charged = mv; continue }
           a.slot.charged = null
           const yours = up(mine); if (!yours.length) break
           const spread = SPREAD.has(mv.name)
           const targets = spread ? yours : [a.target && a.target.hp > 0 && yours.includes(a.target) ? a.target : yours[Math.floor(R() * yours.length)]]
           const hits = mv.rampage ? 3 + Math.floor(R() * 3) : mv.hits ?? 1
+          const heavy = !spread && heavyRoll(mv, a.slot.T, R, !!a.released)
           let rings = 0, evaded = 0
-          for (const t of targets) for (let h = 0; h < hits && t.hp > 0; h++) {
+          hitting: for (const t of targets) for (let h = 0; h < hits && t.hp > 0; h++) {
             const approach = (a.released || mv.fast ? 640 : h === 0 ? 820 : 560) * (0.75 + R() * 0.4) * (a.slot.T.duoFast ?? 1)
-            const res = ring(mv.kind === 'low', approach, skill)
-            rings++; if (res < 1) evaded++
-            if (res > 0) t.hp = Math.max(0, t.hp - damage(a.who, t, mv, res * (spread ? 0.75 : 1)))
+            const d = defend(guardOf(guards, t), { low: mv.kind === 'low', heavy: heavy || (!!mv.rampage && h === hits - 1), approach, fooled: false }, skill)
+            rings++; if (d.evaded) evaded++
+            if (d.taken > 0) hit(t, damage(a.who, t, mv, d.taken * (spread ? 0.75 : 1)))
+            if (fill(stuns, a.who, a.slot.T, d.stun, true)) break hitting   // stunned: the rest of its attack is lost
           }
           if (rings && evaded === rings) pp = Math.min(5, pp + 1)
           const partner = spread ? field.find((g) => g.m !== a.who && g.m.hp > 0)?.m : null
@@ -292,9 +340,9 @@ export function simulate({ N, SKILLS, ONLY, AIMS, PAIR_AIM = { pair: 0.33, top: 
     const lv = c.duo ? c.lv : arrive(c), size = c.duo ? 6 : sizeAt(lv)
     const out = { name: c.name, group: c.group, arrive: lv, ace: c.duo ? pairLevel(c.crew[0], lv, 2) : c.T.min, aim: c.aim ?? AIMS[c.name] ?? (c.last ? 0.35 : 0.65) }
     for (const [k, skill] of Object.entries(SKILLS)) {
-      let w = 0
-      for (let b = 0; b < N; b++) w += (c.duo ? duoBattle(skill, c.crew, partyFor(size, lv)) : battle(skill, c.T, c.team, partyFor(size, lv))) ? 1 : 0
-      out[k] = w / N
+      let w = 0, lost = 0
+      for (let b = 0; b < N; b++) { hurt = 0; w += (c.duo ? duoBattle(skill, c.crew, partyFor(size, lv)) : battle(skill, c.T, c.team, partyFor(size, lv))) ? 1 : 0; lost += hurt }
+      out[k] = w / N; out[k + 'Hurt'] = lost / N
     }
     rows.push(out)
   })
@@ -311,10 +359,10 @@ try {
   const flag = (r) => { const d = r.average - r.aim; return Math.abs(d) <= 0.1 ? '' : d > 0 ? '  easier than the aim' : '  harder than the aim' }
   let group = ''
   console.log(`\n${N} battles a matchup, in ${Math.round((Date.now() - t0) / 1000)} s. Win rates for a player arriving with their best at Lv (a leader's ace − 3; a story battle's − 5).\n`)
-  console.log(`${'Challenge'.padEnd(12)} ${'Lv'.padStart(3)} ${'Ace'.padStart(4)}  casual average skilled   aim`)
+  console.log(`${'Challenge'.padEnd(12)} ${'Lv'.padStart(3)} ${'Ace'.padStart(4)}  casual average skilled   aim   HP bars lost (skilled)`)
   for (const r of rows) {
     if (r.group !== group) { group = r.group; console.log(`\n${group}`) }
-    console.log(`${r.name.padEnd(12)} ${String(r.arrive).padStart(3)} ${String(r.ace).padStart(4)}  ${pct(r.casual)}  ${pct(r.average)}   ${pct(r.skilled)}  ${pct(r.aim)}${flag(r)}`)
+    console.log(`${r.name.padEnd(12)} ${String(r.arrive).padStart(3)} ${String(r.ace).padStart(4)}  ${pct(r.casual)}  ${pct(r.average)}   ${pct(r.skilled)}  ${pct(r.aim)}   ${r.skilledHurt.toFixed(1).padStart(4)}${flag(r)}`)
   }
   if (g.errors.length) console.log('\nPage errors:', g.errors)
 } finally { await g.close() }
