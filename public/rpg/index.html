@@ -119,6 +119,18 @@ body { background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, -
 .exp { height: 3px; background: #11151f; border-radius: 2px; margin-top: 2px; overflow: hidden; }
 .exp i { display: block; height: 100%; width: 35%; background: #60a5fa; }
 .pips { display: flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; color: #cbd5e1; margin-top: 3px; }
+/* Guard (yours) and stun (theirs): slim bars under HP. Parries spend guard, empty it breaks; full stun stuns. */
+.hpl.gdl, .hpl.sdl { margin-top: 2px; }
+.gdl b, .sdl b { font-size: 7px; line-height: 8px; padding: 0 2px; color: #7dd3fc; }
+.sdl b { color: #fdba74; }
+.hpb.gdb, .hpb.sdb { height: 4px; }
+.gdb i { background: #38bdf8; transition: width .25s ease-out; }
+.gdb.low i { background: #f59e0b; }
+.gdb.broken { border-color: #ef4444; animation: guardBroken .5s steps(2) infinite; }
+@keyframes guardBroken { 50% { background: #7f1d1d; } }
+.sdb i { width: 0; background: #f97316; transition: width .25s ease-out; }
+.sdb.stunned i { background: #fde047; box-shadow: 0 0 6px #fde047; animation: stunGlow .5s ease-in-out infinite alternate; }
+@keyframes stunGlow { to { background: #fef9c3; } }
 .pips i { width: 8px; height: 8px; border-radius: 2px; background: #11151f; border: 1px solid #64748b; }
 .pips.pp i.on { background: #60a5fa; border-color: #93c5fd; }
 .pips.fl i { transform: rotate(45deg); width: 7px; height: 7px; margin: 0 1px; }
@@ -547,7 +559,15 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 #pFight.six .btn.sup::after { bottom: auto; top: 3px; font-size: 7px; padding: 0 3px; }
 
 /* ── EXP: in the 2v2 player HUDs, and on the stat page ── */
-.hud.dh .exp { position: absolute; left: 12px; right: 8px; bottom: 2px; height: 3px; margin: 0; }
+.hud.dh .exp { position: absolute; left: 12px; right: 8px; bottom: 0; height: 3px; margin: 0; }
+/* 2v2: guard (yours) and stun (theirs) as hairlines along the bottom of each box. */
+/* Guard (yours) and stun (theirs): a hairline right under the HP bar, as long as it (the name row is a little shorter to make room). */
+.hud.dh .row { line-height: 14px; }
+.hud.dh .gd2, .hud.dh .sd2 { position: absolute; left: 34px; top: 29px; height: 2px; border-radius: 2px; background: #334155; overflow: hidden; }
+.hud.dh .gd2 { right: 52px; } .hud.dh .sd2 { right: 10px; height: 3px; }
+.hud.dh .gd2 i, .hud.dh .sd2 i { display: block; height: 100%; transition: width .25s ease-out; }
+.hud.dh .gd2 i { background: #38bdf8; } .hud.dh .gd2.low i { background: #f59e0b; } .hud.dh .gd2.broken { box-shadow: 0 0 0 1px #ef4444; animation: guardBroken .5s steps(2) infinite; }
+.hud.dh .sd2 i { width: 0; background: #f97316; } .hud.dh .sd2.stunned i { background: #fde047; box-shadow: 0 0 6px #fde047; animation: stunGlow .5s ease-in-out infinite alternate; }
 .hud.dh .exp i { width: 0; }
 .hud.dh .tags { top: -8px; bottom: auto; }   /* pills sitting on the top edge, clear of the HP bar */
 .svexp { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 12px; }
@@ -556,7 +576,7 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 .svexp i { display: block; height: 100%; background: #3b82f6; }
 .svexp b { font: 600 11px ui-monospace, monospace; } .svexp small { color: var(--muted); font-size: 11px; }
 /* 1v1 EXP bar: it was a 3px dark line squeezed under the PP pips; now a clear blue bar with room of its own. */
-.phud { top: 154px; height: 74px; }
+.phud { top: 144px; height: 84px; }   /* 84: room for the guard bar under HP */
 .phud .exp { height: 5px; margin-top: 4px; background: #0b1020; border: 1px solid #1e3a8a; border-radius: 3px; }
 .phud .exp i { background: linear-gradient(#93c5fd, #2563eb); }
 
@@ -815,9 +835,9 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 /* ── team rows: a Poké Ball per Pokémon ── */
 .ts .balls { position: absolute; z-index: 3; display: flex; gap: 3px; padding: 3px 6px; border-radius: 8px; background: rgba(17,21,31,.78); }
 .ts .balls[hidden] { display: none; }
-.ts .balls.ebs { left: 8px; top: 57px; }
-/* The enemy HP box, without the old flinch meter (removed): name and HP only. */
-.ehud { height: 40px; }
+.ts .balls.ebs { left: 8px; top: 69px; }   /* under the enemy HP box (58 tall, with its stun bar) */
+/* The enemy HP box: name, HP, and the stun bar under it. */
+.ehud { height: 58px; }
 .ts .balls.pbs { right: 2px; top: 137px; }
 .ts .balls.ebs.duo { left: 8px; top: 86px; }
 .ts .balls.pbs.duo { right: 2px; left: auto; top: 123px; }
@@ -999,6 +1019,11 @@ em.up { font-style: normal; color: #dc2626; } em.dn { font-style: normal; color:
 
 /* A leader's feint: the ring stops and flickers before it closes. */
 .ring.feint { animation: feintFlicker .12s steps(2) infinite; border-color: #fb923c !important; }
+/* A heavy blow (HEAVY): a thick red ring. Dodge it, don't parry. */
+.ring.heavy { border: 5px solid #ef4444 !important; box-shadow: 0 0 0 2px rgba(15,23,42,.8), 0 0 14px rgba(239,68,68,.95), inset 0 0 10px rgba(252,165,165,.7) !important; }
+/* Not only red: a heavy ring is a double ring, its inner one throbbing, so it reads by shape too (colour-blind players). */
+.ring.heavy::after { content: ''; position: absolute; inset: 4px; border: 3px solid #fecaca; border-radius: 50%; box-shadow: 0 0 0 1px rgba(15,23,42,.7); animation: heavyThrob .16s ease-in-out infinite alternate; }
+@keyframes heavyThrob { from { opacity: 1; } to { opacity: .35; } }
 @keyframes feintFlicker { 50% { opacity: .25; } }
 
 /* Evolution items in the Bag, and the Bond meter on the stat page. */
@@ -1187,6 +1212,7 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
               <div class="hud ehud" id="ehud">
                 <div class="row"><span id="ename">EEVEE</span><span class="lv">Lv<span id="elv">4</span></span></div>
                 <div class="hpl"><b>HP</b><div class="hpb"><i id="ehp"></i></div></div>
+                <div class="hpl sdl" title="Stun: full, it's stunned"><b>ST</b><div class="hpb sdb"><i id="estun"></i></div></div>
                 <div class="tags" id="etags"></div>
               </div>
               <!-- Each side's team, one Poké Ball per Pokémon. -->
@@ -1195,6 +1221,7 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
               <div class="hud phud" id="phud">
                 <div class="row"><span id="pname">FUECOCO</span><span class="lv">Lv<span id="plv">5</span></span></div>
                 <div class="hpl"><b>HP</b><div class="hpb"><i id="php"></i></div></div>
+                <div class="hpl gdl" title="Guard: parries spend it; empty, it breaks"><b>GD</b><div class="hpb gdb"><i id="pguard"></i></div></div>
                 <div class="hpn" id="pnum">21/21</div>
                 <div class="pips pp" id="ppips">PP <i></i><i></i><i></i><i></i><i></i></div>
                 <div class="exp"><i id="pexp"></i></div>
@@ -1234,7 +1261,7 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
               <div class="panel" id="pParty"></div>
               <div class="panel" id="pDefend">
                 <button class="btn bParry" data-btn="a">PARRY<small>tight timing · +1 PP</small><span class="key">A</span></button>
-                <button class="btn bDodge" data-btn="b">DODGE<small>easier</small><span class="key">B</span></button>
+                <button class="btn bDodge" data-btn="b">DODGE<small>red rings · rests guard</small><span class="key">B</span></button>
                 <button class="btn bJump" data-btn="up">▲ JUMP <span style="font-size:11px;opacity:.85">— ground attacks</span></button>
               </div>
               <div class="panel" id="pEvo">
@@ -1294,6 +1321,6 @@ body.app .bezel { padding: 4px; border-radius: 14px; }
   </div>
 </div>
 
-<script src="/rpg/game.js?v=61f8b19b9c"></script>
+<script src="/rpg/game.js?v=d9f97b246e"></script>
 </body>
 </html>

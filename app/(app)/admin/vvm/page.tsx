@@ -11,6 +11,7 @@ import GameCornerSettingsClient, { type GameCornerSettings } from './GameCornerS
 import GiftPokemonClient, { type GiftMember, type GiftRow } from './GiftPokemonClient'
 import CrashReportsClient, { type CrashRow } from './CrashReportsClient'
 import MoveUsage, { type MoveRow } from './MoveUsage'
+import DefenceUsage, { type DefenceRow } from './DefenceUsage'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,7 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   if (me?.role !== 'admin') redirect('/admin')
 
-  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes, moves, corner] = await Promise.all([
+  const [{ data: packs }, { data: info }, { data: supplies }, { data: settings }, { data: boxes }, { data: members }, gifts, crashes, moves, corner, defence] = await Promise.all([
     supabase
       .from('vending_packs')
       .select('set_code, set_name, image_url, sort_order, is_active')
@@ -71,6 +72,8 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
     tab === 'moves' ? supabase.rpc('move_usage_summary', { p_days: 30 }) : Promise.resolve({ data: null, error: null }),
     // The Game Corner's settings (v115), only on its tab; an error (before v115) hides it.
     tab === 'corner' ? supabase.from('game_corner_settings').select('*').single() : Promise.resolve({ data: null, error: null }),
+    // Defence over the last 30 days (v127), on the Moves tab too; an error (before v127) hides it.
+    tab === 'moves' ? supabase.rpc('defence_usage_summary', { p_days: 30 }) : Promise.resolve({ data: null, error: null }),
   ])
 
   type PackRow = { set_code: string | null; set_name: string; image_url: string; sort_order: number }
@@ -166,6 +169,7 @@ export default async function AdminVvmPage({ searchParams }: { searchParams: Pro
         />
       )}
       {tab === 'crashes' && !crashes.error && <CrashReportsClient reports={crashRows} />}
+      {tab === 'moves' && !defence.error && <DefenceUsage rows={(defence.data as DefenceRow[] | null) ?? []} />}
       {tab === 'moves' && (moves.error
         ? <p className="text-xs text-muted">Move usage isn&apos;t set up yet (v99).</p>
         : <MoveUsage rows={(moves.data as MoveRow[] | null) ?? []} />)}
